@@ -17,6 +17,37 @@ Dateiebene möglich.
 | Tests | Keine Testkonfiguration oder Tests vorhanden |
 | Offene Schnittstellen | Noch nicht ermittelbar; Quellprojekte fehlen |
 
+## OpenAI-Gateway (Cloudflare Workers)
+
+`workers/openai-gateway` enthält einen serverseitigen Gateway-Vertrag für
+NIKNOLIG, Elektro-Engel und NIKNOLIG Defense. Die drei Systemkennungen verwenden
+getrennte Cloudflare-Access-Audiences und getrennte Systemanweisungen. Der
+Gateway akzeptiert ausschließlich `system` und `input`; er speichert keine
+Konversationen, sendet `store: false` an OpenAI und gibt keine Upstream-Fehler
+oder API-Schlüssel zurück. Ein explizites `shareWith`-Feld wird abgelehnt. Ein
+systemübergreifender Datenaustausch ist derzeit nicht implementiert, da keine
+Projektquellen oder Schnittstellen vorhanden sind.
+
+Eingaben sind auf 4.000 Zeichen, OpenAI-Ausgaben auf 300 Tokens und Aufrufer auf
+10 Anfragen pro Minute begrenzt. Netzwerk-, Upstream- und Konfigurationsfehler
+liefern einen allgemeinen Offline-Fallback. Das Rate-Limit und die Tokenlimits
+begrenzen einzelne Aufrufe, sind aber kein monatliches Ausgabenbudget; dafür
+muss zusätzlich ein Ausgabenlimit im OpenAI-Projekt konfiguriert werden.
+
+Für einen später ausdrücklich freigegebenen Betrieb sind eine Cloudflare-Access-
+Anwendung je System mit eigener Audience, die passende Audience-Konfiguration,
+eine Rate-Limit-Namespace-ID und das geschützte Worker-Secret `OPENAI_API_KEY`
+erforderlich. Den Schlüssel ausschließlich über `wrangler secret put
+OPENAI_API_KEY` im Cloudflare-Konto hinterlegen. Nicht im Repository, Frontend,
+Workflow oder in Logs speichern. Es wurde kein Secret angelegt oder ausgelesen,
+und es erfolgte kein Deployment. Das Vorhandensein des Secrets konnte mit den
+verfügbaren Repository-/Actions-Schnittstellen nicht geprüft werden.
+
+Die vorhandenen Repositorys enthalten keine Frontends, Backends oder
+Workers-Integrationen der drei Systeme; deshalb kann dieser Gateway-Vertrag noch
+von keinem Produktivsystem aufgerufen werden. Tests lokal ausführen:
+`node --test workers/openai-gateway/src/index.test.mjs`.
+
 ## Sicherer Integrationszugriff
 
 Vor einem Klon oder Vergleich müssen betroffene Zugangsdaten erneuert werden,
