@@ -26,7 +26,7 @@ Quellcode, Dokumentation, Logs oder Commits.
 Nach der Erneuerung folgende Repository-Secrets einrichten:
 
 - `WORKERS_REPOSITORY_URL`: HTTPS-Clone-Adresse von `niknolig-workers`.
-- `WORKERS_READ_TOKEN`: separat erstelltes, nur leseberechtigtes Token für
+- `WORKERS_REPO_READ_PAT`: separat gespeichertes, nur leseberechtigtes Token für
   dieses Repository (Inhalte lesen; kein Schreib-, Merge- oder Deploy-Zugriff).
 
 [Repository-Secrets öffnen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/secrets/actions/new).

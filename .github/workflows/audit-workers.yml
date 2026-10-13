@@ -18,11 +18,11 @@ jobs:
         shell: bash
         env:
           WORKERS_REPOSITORY_URL: ${{ secrets.WORKERS_REPOSITORY_URL }}
-          WORKERS_READ_TOKEN: ${{ secrets.WORKERS_READ_TOKEN }}
+          WORKERS_REPO_READ_PAT: ${{ secrets.WORKERS_REPO_READ_PAT }}
         run: |
           set -euo pipefail
-          if [[ -z "$WORKERS_REPOSITORY_URL" || -z "$WORKERS_READ_TOKEN" ]]; then
-            echo "::error::Required repository secrets are missing. Configure WORKERS_REPOSITORY_URL and WORKERS_READ_TOKEN."
+          if [[ -z "$WORKERS_REPOSITORY_URL" || -z "$WORKERS_REPO_READ_PAT" ]]; then
+            echo "::error::Required repository secrets are missing. Configure WORKERS_REPOSITORY_URL and WORKERS_REPO_READ_PAT."
             exit 1
           fi
 
@@ -51,7 +51,7 @@ jobs:
           #!/bin/sh
           case "$1" in
             *Username*) printf '%s\n' 'x-access-token' ;;
-            *Password*) printf '%s\n' "$WORKERS_READ_TOKEN" ;;
+            *Password*) printf '%s\n' "$WORKERS_REPO_READ_PAT" ;;
             *) exit 1 ;;
           esac
           ASKPASS
@@ -119,7 +119,7 @@ jobs:
                               "[REDACTED]",
                               heading,
                           )
-                          for secret_name in ("WORKERS_REPOSITORY_URL", "WORKERS_READ_TOKEN"):
+                          for secret_name in ("WORKERS_REPOSITORY_URL", "WORKERS_REPO_READ_PAT"):
                               secret_value = os.environ.get(secret_name, "")
                               if secret_value:
                                   heading = heading.replace(secret_value, "[REDACTED]")
