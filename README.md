@@ -37,11 +37,13 @@ muss zusätzlich ein Ausgabenlimit im OpenAI-Projekt konfiguriert werden.
 Für einen später ausdrücklich freigegebenen Betrieb sind eine Cloudflare-Access-
 Anwendung je System mit eigener Audience, die passende Audience-Konfiguration,
 eine Rate-Limit-Namespace-ID und das geschützte Worker-Secret `OPENAI_API_KEY`
-erforderlich. Den Schlüssel ausschließlich über `wrangler secret put
-OPENAI_API_KEY` im Cloudflare-Konto hinterlegen. Nicht im Repository, Frontend,
-Workflow oder in Logs speichern. Es wurde kein Secret angelegt oder ausgelesen,
-und es erfolgte kein Deployment. Das Vorhandensein des Secrets konnte mit den
-verfügbaren Repository-/Actions-Schnittstellen nicht geprüft werden.
+erforderlich. Die Access-Audiences und Team-Domain in `wrangler.toml` konfigurieren.
+Den Schlüssel ausschließlich mit `wrangler secret put OPENAI_API_KEY` im
+Cloudflare-Konto hinterlegen ([Worker-Secrets-Dokumentation](https://developers.cloudflare.com/workers/configuration/secrets/)).
+Nicht im Repository, Frontend, Workflow oder in Logs speichern. Es wurde kein
+Secret angelegt oder ausgelesen, und es erfolgte kein Deployment. Das Vorhandensein
+des Secrets konnte mit den verfügbaren Repository-/Actions-Schnittstellen nicht
+geprüft werden.
 
 Die vorhandenen Repositorys enthalten keine Frontends, Backends oder
 Workers-Integrationen der drei Systeme; deshalb kann dieser Gateway-Vertrag noch

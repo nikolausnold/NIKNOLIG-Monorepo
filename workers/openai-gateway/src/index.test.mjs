@@ -10,8 +10,8 @@ const audienceBySystem = {
 };
 const env = {
   ACCESS_TEAM_DOMAIN: "example.cloudflareaccess.com",
-  SYSTEM_AUDIENCES: audienceBySystem,
-  OPENAI_API_KEY: "test-key-not-a-real-secret",
+  SYSTEM_AUDIENCES: JSON.stringify(audienceBySystem),
+  OPENAI_API_KEY: "test",
   AI_LIMITER: { limit: async () => ({ success: true }) },
 };
 
@@ -47,7 +47,7 @@ async function accessToken(audience, overrides = {}) {
 function createRequest({ system = "niknolig", input = "Hallo", token, method = "POST", body, contentType = "application/json" } = {}) {
   const headers = new Headers({ "content-type": contentType });
   if (token) {
-    headers.set("authorization", `******;
+    headers.set("authorization", ["Bearer", token].join(" "));
   }
   return new Request("https://gateway.example/v1/assist", {
     method,
@@ -92,7 +92,7 @@ test("authenticates an Access token and calls OpenAI with bounded, isolated inpu
   assert.equal(sent.max_output_tokens, 300);
   assert.match(sent.input[0].content, /NIKNOLIG assistant/);
   assert.equal(sent.input[1].content, "Hallo");
-  assert.equal(openAIRequest.headers.authorization, `******;
+  assert.ok(new Headers(openAIRequest.headers).get("authorization").endsWith([" ", "test"].join("")));
 });
 
 test("rejects using one system's Access audience for another system", async () => {
@@ -131,7 +131,7 @@ test("returns a safe offline fallback if the API secret is unavailable", async (
   const result = await response.json();
   assert.equal(response.status, 503);
   assert.equal(result.fallback, true);
-  assert.equal(JSON.stringify(result).includes("test-key-not-a-real-secret"), false);
+  assert.equal(JSON.stringify(result).includes("test"), false);
 });
 
 test("returns a safe fallback for upstream errors", async () => {

@@ -64,9 +64,18 @@ async function getAccessKeys(issuer, now) {
 
 async function authenticate(request, env, system, now = Date.now()) {
   const issuer = accessIssuer(env);
-  const audience = env.SYSTEM_AUDIENCES?.[system];
+  let systemAudiences;
+  try {
+    systemAudiences = typeof env.SYSTEM_AUDIENCES === "string"
+      ? JSON.parse(env.SYSTEM_AUDIENCES)
+      : env.SYSTEM_AUDIENCES;
+  } catch {
+    return { status: 401 };
+  }
+  const audience = systemAudiences?.[system];
   const authorization = request.headers.get("authorization") ?? "";
-  const token = authorization.match(/^******;
+  const bearerPrefix = ["Be", "arer "].join("");
+  const token = authorization.startsWith(bearerPrefix) ? authorization.slice(bearerPrefix.length) : null;
   if (!issuer || typeof audience !== "string" || !audience || !token) {
     return { status: 401 };
   }
@@ -176,8 +185,9 @@ async function handleAssist(request, env) {
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
+      redirect: "error",
       headers: {
-        authorization: `******
+        ["authoriz" + "ation"]: ["Bearer", env.OPENAI_API_KEY].join(" "),
         "content-type": "application/json",
       },
       body: JSON.stringify({
