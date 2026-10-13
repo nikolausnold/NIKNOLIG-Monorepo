@@ -1,0 +1,167 @@
+name: Read-only Workers repository audit
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: workers-read-only-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Clone and inspect Workers repository without exposing credentials
+        shell: bash
+        env:
+          WORKERS_REPOSITORY_URL: ${{ secrets.WORKERS_REPOSITORY_URL }}
+          WORKERS_REPO_READ_PAT: ${{ secrets.WORKERS_REPO_READ_PAT }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$WORKERS_REPOSITORY_URL" || -z "$WORKERS_REPO_READ_PAT" ]]; then
+            echo "::error::Required repository secrets are missing. Configure WORKERS_REPOSITORY_URL and WORKERS_REPO_READ_PAT."
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlparse
+
+          url = urlparse(os.environ["WORKERS_REPOSITORY_URL"])
+          if (
+              url.scheme != "https"
+              or url.hostname != "github.com"
+              or url.username
+              or url.password
+              or url.query
+              or url.fragment
+              or not url.path.strip("/")
+          ):
+              raise SystemExit("WORKERS_REPOSITORY_URL must be a credential-free HTTPS GitHub clone URL.")
+          PY
+
+          askpass="$RUNNER_TEMP/workers-askpass"
+          destination="$RUNNER_TEMP/workers-repository"
+          clone_log="$RUNNER_TEMP/workers-clone.log"
+          umask 077
+          cat > "$askpass" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' 'x-access-token' ;;
+            *Password*) printf '%s\n' "$WORKERS_REPO_READ_PAT" ;;
+            *) exit 1 ;;
+          esac
+          ASKPASS
+          chmod 700 "$askpass"
+          trap 'rm -rf "$destination" "$askpass" "$clone_log"' EXIT
+
+          if ! GIT_ASKPASS="$askpass" \
+            GIT_TERMINAL_PROMPT=0 \
+            GIT_CONFIG_NOSYSTEM=1 \
+            GIT_CONFIG_GLOBAL=/dev/null \
+            git -c credential.helper= \
+              -c core.hooksPath=/dev/null \
+              clone --depth=1 --no-tags --template=/dev/null \
+              -- "$WORKERS_REPOSITORY_URL" "$destination" \
+              >"$clone_log" 2>&1; then
+            echo "::error::Read-only clone failed; diagnostic output was suppressed to protect repository metadata."
+            exit 1
+          fi
+
+          python3 - "$destination" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          summary = Path(sys.argv[2])
+          ignored = {".git", "node_modules", "vendor", "dist", "build"}
+          files = []
+          for current, dirs, names in os.walk(root):
+              dirs[:] = sorted(name for name in dirs if name not in ignored)
+              files.extend(Path(current, name).relative_to(root).as_posix() for name in names)
+          files.sort()
+
+          credential_patterns = (
+              re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b"),
+              re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+              re.compile(r"""(?i)\b(?:token|password|secret|api[_-]?key)\s*[:=]\s*['"][^'"]{8,}['"]"""),
+          )
+          credential_like = False
+          for relative in files:
+              path = root / relative
+              if path.is_symlink() or path.stat().st_size > 1_000_000:
+                  continue
+              try:
+                  content = path.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              if any(pattern.search(content) for pattern in credential_patterns):
+                  credential_like = True
+                  break
+
+          readmes = [name for name in files if Path(name).name.lower().startswith("readme")]
+          headings = []
+          for name in readmes:
+              if (root / name).is_symlink():
+                  continue
+              try:
+                  for line in (root / name).read_text(encoding="utf-8").splitlines():
+                      if line.lstrip().startswith("#"):
+                          heading = re.sub(r"\s+", " ", line.strip())[:120]
+                          heading = re.sub(r"https?://\S+", "[URL]", heading)
+                          heading = re.sub(
+                              r"(?i)\b(?:token|password|secret|api[_-]?key)\b\s*[:=]\s*\S+",
+                              "[REDACTED]",
+                              heading,
+                          )
+                          for secret_name in ("WORKERS_REPOSITORY_URL", "WORKERS_REPO_READ_PAT"):
+                              secret_value = os.environ.get(secret_name, "")
+                              if secret_value:
+                                  heading = heading.replace(secret_value, "[REDACTED]")
+                          heading = re.sub(
+                              r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})\b",
+                              "[REDACTED]",
+                              heading,
+                          )
+                          heading = heading.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                          heading = heading.replace("`", "\\`")
+                          headings.append((name, heading))
+              except (UnicodeDecodeError, OSError):
+                  continue
+
+          workflows = [
+              name for name in files
+              if name.startswith(".github/workflows/") and Path(name).suffix.lower() in {".yml", ".yaml"}
+          ]
+          top_level = sorted({name.split("/", 1)[0] for name in files})
+          lines = [
+              "# Read-only Workers repository audit",
+              "",
+              f"- Files inspected: {len(files)}",
+              f"- Top-level entries: {', '.join(top_level) if top_level else '(none)'}",
+              f"- README files: {len(readmes)}",
+              f"- Workflow files: {len(workflows)}",
+              f"- Credential-like patterns: {'detected; review privately' if credential_like else 'none detected by basic pattern scan'}",
+              "",
+              "## README headings",
+          ]
+          lines.extend(f"- `{name}`: {heading}" for name, heading in headings[:50])
+          if not headings:
+              lines.append("- No Markdown headings found.")
+          lines.extend(["", "## Existing workflows"])
+          lines.extend(f"- `{name}`" for name in workflows)
+          if not workflows:
+              lines.append("- None found.")
+          lines.extend([
+              "",
+              "No source content, clone diagnostics, or credential values are included in this report. "
+              "The repository was cloned read-only; its workflows and scripts were not executed.",
+          ])
+          with summary.open("a", encoding="utf-8") as output:
+              output.write("\n".join(lines) + "\n")
+          PY
