@@ -4,14 +4,15 @@ Zentrale Integrationsplattform für NIKNOLIG, Elektro-Engel und NIKNOLIG Defense
 
 ## Aktueller Stand
 
-Diese Arbeitskopie enthält derzeit nur diese README. Es sind keine Projektquellen,
-Abhängigkeiten, Tests oder Integrationsschnittstellen vorhanden. Daher wurde noch
-kein Projekt aus einem anderen Repository übernommen und es ist keine
-Überschneidungsprüfung auf Dateiebene möglich.
+Diese Arbeitskopie enthält derzeit diese README und einen manuellen
+Read-only-Audit-Workflow. Es sind keine Projektquellen, Abhängigkeiten, Tests
+oder Integrationsschnittstellen vorhanden. Daher wurde noch kein Projekt aus
+einem anderen Repository übernommen und es ist keine Überschneidungsprüfung auf
+Dateiebene möglich.
 
 | Bereich | Verifizierter Stand |
 | --- | --- |
-| Repository-Struktur | Nur `README.md` |
+| Repository-Struktur | `README.md`, `.github/workflows/audit-workers.yml` |
 | Abhängigkeiten | Keine Manifestdateien vorhanden |
 | Tests | Keine Testkonfiguration oder Tests vorhanden |
 | Offene Schnittstellen | Noch nicht ermittelbar; Quellprojekte fehlen |
