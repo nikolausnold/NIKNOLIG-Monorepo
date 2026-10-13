@@ -32,7 +32,8 @@ Nach der Erneuerung folgende Repository-Secrets einrichten:
 [Repository-Secrets öffnen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/secrets/actions/new).
 Secret-Werte nicht in Chat, Issues, Pull Requests, Logs oder Dateien einfügen.
 Der Workflow `Read-only Workers repository audit` prüft beim manuellen Start,
-ob beide Secrets verfügbar sind, und verwendet sie nur für den lesenden Klon.
+ob beide Secrets verfügbar sind, entfernt optionale Zugangsdaten aus der
+Clone-Adresse und verwendet ausschließlich das separate PAT für den lesenden Klon.
 
 Die aktuelle Agentensitzung kann Repository-Secrets weder auflisten noch deren
 Verfügbarkeit in GitHub Actions verifizieren. Secret-Werte werden nicht
