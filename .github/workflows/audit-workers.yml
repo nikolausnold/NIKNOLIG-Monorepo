@@ -94,7 +94,7 @@ jobs:
           credential_like = False
           for relative in files:
               path = root / relative
-              if path.stat().st_size > 1_000_000:
+              if path.is_symlink() or path.stat().st_size > 1_000_000:
                   continue
               try:
                   content = path.read_text(encoding="utf-8")
@@ -107,11 +107,29 @@ jobs:
           readmes = [name for name in files if Path(name).name.lower().startswith("readme")]
           headings = []
           for name in readmes:
+              if (root / name).is_symlink():
+                  continue
               try:
                   for line in (root / name).read_text(encoding="utf-8").splitlines():
                       if line.lstrip().startswith("#"):
                           heading = re.sub(r"\s+", " ", line.strip())[:120]
+                          heading = re.sub(r"https?://\S+", "[URL]", heading)
+                          heading = re.sub(
+                              r"(?i)\b(?:token|password|secret|api[_-]?key)\b\s*[:=]\s*\S+",
+                              "[REDACTED]",
+                              heading,
+                          )
+                          for secret_name in ("WORKERS_REPOSITORY_URL", "WORKERS_READ_TOKEN"):
+                              secret_value = os.environ.get(secret_name, "")
+                              if secret_value:
+                                  heading = heading.replace(secret_value, "[REDACTED]")
+                          heading = re.sub(
+                              r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})\b",
+                              "[REDACTED]",
+                              heading,
+                          )
                           heading = heading.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                          heading = heading.replace("`", "\\`")
                           headings.append((name, heading))
               except (UnicodeDecodeError, OSError):
                   continue
