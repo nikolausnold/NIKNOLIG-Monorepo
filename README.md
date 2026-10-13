@@ -29,6 +29,8 @@ Nach der Erneuerung folgende Repository-Secrets einrichten:
 - `WORKERS_REPO_READ_PAT`: separat gespeichertes, nur leseberechtigtes Token für
   dieses Repository (Inhalte lesen; kein Schreib-, Merge- oder Deploy-Zugriff).
 
+Der Workflow entfernt Zugangsdaten, die versehentlich in der Clone-Adresse
+enthalten sind, und authentifiziert ausschließlich mit dem separaten PAT.
 [Repository-Secrets öffnen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/secrets/actions/new).
 Secret-Werte nicht in Chat, Issues, Pull Requests, Logs oder Dateien einfügen.
 Der Workflow `Read-only Workers repository audit` prüft beim manuellen Start,

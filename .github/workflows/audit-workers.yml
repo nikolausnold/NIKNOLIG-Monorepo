@@ -26,22 +26,24 @@ jobs:
             exit 1
           fi
 
+          clone_url="$(
           python3 - <<'PY'
           import os
-          from urllib.parse import urlparse
+          from urllib.parse import urlparse, urlunparse
 
           url = urlparse(os.environ["WORKERS_REPOSITORY_URL"])
           if (
               url.scheme != "https"
               or url.hostname != "github.com"
-              or url.username
-              or url.password
               or url.query
               or url.fragment
               or not url.path.strip("/")
           ):
-              raise SystemExit("WORKERS_REPOSITORY_URL must be a credential-free HTTPS GitHub clone URL.")
+              raise SystemExit("WORKERS_REPOSITORY_URL must be an HTTPS GitHub clone URL.")
+
+          print(urlunparse(("https", "github.com", url.path, "", "", "")))
           PY
+          )"
 
           askpass="$RUNNER_TEMP/workers-askpass"
           destination="$RUNNER_TEMP/workers-repository"
@@ -65,7 +67,7 @@ jobs:
             git -c credential.helper= \
               -c core.hooksPath=/dev/null \
               clone --depth=1 --no-tags --template=/dev/null \
-              -- "$WORKERS_REPOSITORY_URL" "$destination" \
+              -- "$clone_url" "$destination" \
               >"$clone_log" 2>&1; then
             echo "::error::Read-only clone failed; diagnostic output was suppressed to protect repository metadata."
             exit 1
