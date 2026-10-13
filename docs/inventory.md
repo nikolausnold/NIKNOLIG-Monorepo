@@ -5,9 +5,8 @@ Stand: 2026-10-13
 ## Repository-Zustand
 
 - Repository: [nikolausnold/NIKNOLIG-Monorepo](https://github.com/nikolausnold/NIKNOLIG-Monorepo), als privat aufgeführt.
-- Aktueller Branch: `copilot/build-integration-platform`, Commit
-  `3e5d501dee705c16c386b79aa6d01968078640b4`; der Arbeitsbaum war bei der
-  Bestandsaufnahme sauber.
+- Branch bei dieser Bestandsaufnahme: `copilot/build-integration-platform`,
+  Commit `4c148b8ff99c4c7acee66c7c71c03b09385848f9`; der Arbeitsbaum war sauber.
 - Der verfügbare Remote-Branch `main` zeigte auf den Initial-Commit
   `a5bc8ea6df06e955a955629fd11da8681c1f7f1a`. Es wurde kein Merge oder
   Branch-Schutz umgangen.
@@ -24,12 +23,13 @@ Stand: 2026-10-13
   - `packages/shared-models/README.md`
   - `packages/security/README.md`
   - `tests/README.md`
-- Die Modul-README-Dateien sind leere Platzhalterbeschreibungen, kein
+- Die Modul-README-Dateien sind Dokumentations-Platzhalter, kein
   Anwendungscode. Es gibt keine Build-/Paketmanager-Konfiguration oder Tests.
   Daher existiert kein verfügbarer Build- oder Testlauf.
 - Die GitHub-Kollaboratorenabfrage für dieses Monorepo lieferte
   `nikolausnold` mit Rolle `admin`. Das belegt nicht die Zugriffsrechte auf
-  unbekannte Quellrepositorys oder alle Organisationsrichtlinien.
+  die angegebenen, derzeit nicht lesbaren Quellrepositorys oder alle
+  Organisationsrichtlinien.
 
 ## Quellrepositorys und Zugänglichkeit
 
