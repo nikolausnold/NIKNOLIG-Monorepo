@@ -1,6 +1,8 @@
-# Elektro-Engel – Platzhalter
+# Elektro-Engel innerhalb von NIKNOLIG – Platzhalter
 
-Eigenständige Modulgrenze für elektrische Geräte, Sensoren und unterstützende
-Automatisierung. Dieses Verzeichnis enthält keine Geräteintegration oder
-Automatisierungslogik. Quellcode darf erst nach Verifikation des Quellprojekts
-und seiner Abhängigkeiten importiert werden.
+Elektro-Engel ist laut Projektgrundlage kein separates Repository oder
+eigenständiges Modul, sondern eine Funktion innerhalb der zivilen
+NIKNOLIG-Plattform. Dieses README ist nur eine Dokumentationsmarke; der
+Platzhalterordner begründet keine eigenständige Build-, Laufzeit- oder
+Sicherheitsgrenze. Funktionen und Einbaupunkt werden erst nach Prüfung des
+NIKNOLIG-Quellcodes festgelegt.

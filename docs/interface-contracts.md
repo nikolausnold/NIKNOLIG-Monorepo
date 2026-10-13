@@ -37,13 +37,16 @@ Vor der ersten produktiven Schnittstelle sind mindestens festzulegen:
 Konkrete Protokolle, Formate, Schlüsselverwaltung und Fehler-Envelopes sind
 offen, bis Technologie und Vertrauensmodell der Quellprojekte geprüft wurden.
 
-## Elektro-Engel
+## Elektro-Engel innerhalb von NIKNOLIG
 
-Gerätebefehle, Sensorwerte und Automatisierungsaktionen müssen jeweils
+Elektro-Engel ist laut Projektgrundlage eine Funktion innerhalb der zivilen
+NIKNOLIG-Plattform und kein separates Repository oder Modul. Gerätebefehle,
+Sensorwerte und Automatisierungsaktionen müssen bei der späteren Umsetzung
 typisiert, validiert und autorisiert werden. Eine Schnittstelle darf keine
 beliebigen Gerätebefehle allein aufgrund eines empfangenen Nachrichteninhalts
 ausführen. Geräteverfügbarkeit und lokale Benutzerfreigaben sind als mögliche
-Fehler- und Berechtigungsbedingungen zu behandeln.
+Fehler- und Berechtigungsbedingungen zu behandeln. Konkrete Funktionen und
+Integrationspunkte sind erst nach Prüfung des NIKNOLIG-Quellcodes festzulegen.
 
 ## Defense-Integration
 

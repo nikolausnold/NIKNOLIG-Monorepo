@@ -1,6 +1,8 @@
 # NIKNOLIG Monorepo
 
-Zentrale Integrationsplattform für NIKNOLIG, Elektro-Engel und NIKNOLIG Defense.
+Zentrale Integrationsplattform für NIKNOLIG und die getrennt bleibende
+NIKNOLIG-Defense-Integration. Elektro-Engel ist als Funktion innerhalb der
+zivilen NIKNOLIG-Plattform vorgesehen, nicht als separates Quellrepository.
 
 ## Status
 
@@ -10,19 +12,20 @@ keine implementierten Module oder API-Server, keine Build-Konfiguration und
 keine Tests. Bestehende BLE-, Connection-Manager- oder SecurityChain-
 Implementierungen konnten daher nicht geprüft oder verändert werden.
 
-Eine Bestandsaufnahme mit den bekannten Repository- und Branchinformationen
-steht in [docs/inventory.md](docs/inventory.md). Die vorgeschlagenen Modulgrenzen
-stehen in [docs/architecture.md](docs/architecture.md); die Schnittstellenregeln
-stehen in [docs/interface-contracts.md](docs/interface-contracts.md). Die
-Platzhalter unter `apps/`, `modules/`, `packages/` und `tests/` dokumentieren
-nur vorgesehene Grenzen; sie enthalten keine ausführbaren Funktionen.
+Eine Bestandsaufnahme mit den angegebenen Quellrepositorys und den tatsächlich
+festgestellten Zugriffshindernissen steht in [docs/inventory.md](docs/inventory.md).
+Die vorgeschlagenen Modulgrenzen stehen in [docs/architecture.md](docs/architecture.md);
+die Schnittstellenregeln stehen in [docs/interface-contracts.md](docs/interface-contracts.md).
+Die Platzhalter dokumentieren nur vorgesehene Grenzen; sie enthalten keine
+ausführbaren Funktionen.
 
 ## Architekturüberblick
 
 - **NIKNOLIG Core / Android-App:** Hauptplattform; bestehende Android- und BLE-
   Funktionen sind bei einer späteren Integration zu erhalten.
-- **Elektro-Engel:** Eigenständiges Assistenzmodul für elektrische Geräte,
-  Sensoren und unterstützende Automatisierung.
+- **Elektro-Engel:** Zivile NIKNOLIG-Funktion für elektrische Geräte, Sensoren
+  und unterstützende Automatisierung; keine separate Plattform oder
+  Vertrauensdomäne.
 - **NIKNOLIG Defense:** Logisch und sicherheitstechnisch getrenntes Schutzsystem.
   Kommunikation erfolgt ausschließlich über ausdrücklich freigegebene Adapter.
 - **Gemeinsame Verträge und Modelle:** Versionierte, technologie-neutrale
@@ -45,8 +48,8 @@ implementierte Funktionalität.
 
 ## Weiterarbeit
 
-Vor der Implementierung müssen die Quellrepositorys und die gewünschte
-Technologie-/Build-Basis benannt und zugänglich gemacht werden. Danach können
-Bestandscode und Berechtigungen verifiziert, Modulverträge konkretisiert und
-passende Tests eingerichtet werden. Bis dahin werden keine Quellcodes oder
-laufenden Funktionen erfunden.
+Die angegebenen Quellrepositorys und Branches sind in
+[docs/inventory.md](docs/inventory.md) dokumentiert. Die Quellcodezugriffe
+lieferten derzeit HTTP 404; vor Quellcodeprüfung, Import oder Festlegung der
+Build-Basis muss der lesende Zugriff auf beide Repositories funktionieren.
+Bis dahin werden keine Quellcodes oder laufenden Funktionen behauptet.

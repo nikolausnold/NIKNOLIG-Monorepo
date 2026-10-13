@@ -9,10 +9,11 @@ bewusst nur Platzhalter. Sie ersetzen oder überdecken keinen Quellcode.
 
 ```text
 apps/
-  niknolig-android/       # Android-Einstiegspunkt und Plattformintegration
+  niknolig-android/       # vorgesehener App-Einstiegspunkt; genaue Plattform offen
+    features/
+      elektro-engel/      # logische NIKNOLIG-Funktion, kein eigenständiges Projekt
 modules/
-  niknolig-core/          # plattformunabhängige Hauptplattform-Funktionen
-  elektro-engel/          # isoliertes Assistenzmodul
+  niknolig-core/          # logische Core-Grenze; Zuschnitt nach Quellcodeprüfung
   defense-integration/    # eng begrenzter Adapter in Richtung Defense
 packages/
   api-contracts/          # versionierte Austauschverträge
@@ -27,14 +28,20 @@ von den zu verifizierenden Quellprojekten ab.
 
 ## Verantwortlichkeiten und Grenzen
 
-- **NIKNOLIG** besitzt die Haupt-App und ihre Plattformintegrationen. Android-
-  und BLE-Verhalten sowie vorhandene Connection-Manager- und SecurityChain-
-  Mechanismen müssen vor Änderungen am jeweiligen Quellcode erfasst werden.
-- **Elektro-Engel** kapselt Geräte-, Sensor- und Assistenzlogik. Es erhält keine
-  direkten impliziten Zugriffe auf Defense oder Core-interne Daten.
+- **NIKNOLIG** ist die zivile Hauptplattform. Der Eigentümer nennt
+  `https://github.com/nikolausnold/NIKNOLIG`, Branch `main`; beides konnte in
+  dieser Umgebung nicht gelesen/verifiziert werden. Android-, BLE-,
+  Connection-Manager- und SecurityChain-Verhalten müssen vor Änderungen im
+  Quellcode erfasst werden.
+- **Elektro-Engel** ist gemäß Projektgrundlage eine Funktion innerhalb von
+  NIKNOLIG, kein separates Repository, eigenständiges Deployment oder zusätzliche
+  Vertrauensdomäne. Umfang, Einbaupunkt und Geräteschnittstellen dürfen erst
+  anhand des NIKNOLIG-Quellcodes festgelegt werden.
 - **Defense** bleibt eine eigenständige Sicherheitsdomäne. Nur ein explizit
   konfigurierter Adapter darf freigegebene Daten über den dokumentierten Vertrag
-  austauschen; gemeinsame Verträge heben diese Grenze nicht auf.
+  austauschen; gemeinsame Verträge heben diese Grenze nicht auf. Der angegebene
+  Quellstand ist `https://github.com/nikolausnold/NIKNOLIG-Defense`, Branch
+  `main`; auch dieses Repository war nicht lesbar/verifizierbar.
 - **Gemeinsame Modelle und API-Verträge** enthalten nur benötigte, versionierte
   Daten. Sie sind kein Ort für Geschäftslogik, Zugangsdaten oder
   sicherheitsrelevante Entscheidungshoheit.
@@ -62,11 +69,13 @@ validieren. Derzeit existiert keine Lokalisierungsimplementierung.
 
 ## Integrationsablauf
 
-1. Quellrepository, Revision, Buildsystem und vorhandene Tests verifizieren.
-2. Vorhandene Funktionen und Sicherheitsgrenzen dokumentieren, bevor Dateien
+1. Lesenden Zugriff auf beide angegebenen Quellrepositorys verifizieren.
+2. Revision, Buildsystem, vorhandene Tests und tatsächliche Modulstruktur prüfen.
+3. Vorhandene Funktionen und Sicherheitsgrenzen dokumentieren, bevor Dateien
    übernommen oder ersetzt werden.
-3. Moduladapter und versionierte Verträge definieren; jede Datenfreigabe
-   ausdrücklich autorisieren.
-4. Integration zunächst lokal und mit Testdaten verifizieren.
-5. Release, Merge, Deployment oder externe Aktionen erst nach erforderlicher
+4. Elektro-Engel innerhalb der zivilen NIKNOLIG-Plattform einordnen und den
+   Defense-Adapter getrennt definieren; versionierte Verträge und jede
+   Datenfreigabe ausdrücklich autorisieren.
+5. Integration zunächst lokal und mit Testdaten verifizieren.
+6. Release, Merge, Deployment oder externe Aktionen erst nach erforderlicher
    menschlicher Freigabe durchführen.

@@ -31,32 +31,34 @@ Stand: 2026-10-13
   `nikolausnold` mit Rolle `admin`. Das belegt nicht die Zugriffsrechte auf
   unbekannte Quellrepositorys oder alle Organisationsrichtlinien.
 
-## Projekte und Zugänglichkeit
+## Quellrepositorys und Zugänglichkeit
 
-Die GitHub-Suche nach Repositories des angegebenen Eigentümers lieferte ein
-Ergebnis: `nikolausnold/NIKNOLIG-Monorepo`. Separate Quellrepositorys für die
-folgenden Projekte konnten über die verfügbaren Such- und Repository-Zugriffe
-nicht verifiziert werden:
+Die folgenden URLs und Branches wurden vom Repository-Eigentümer als
+Projektgrundlage angegeben. Sie sind exakt wiedergegeben, aber ihre Existenz
+und ihr Inhalt konnten mit den verfügbaren GitHub-Zugriffen nicht bestätigt
+werden. Abfragen der GitHub-API für Repository-Metadaten, Branches und Inhalte
+lieferten für beide jeweils `404 Not Found`. Das unterscheidet nicht zuverlässig
+zwischen fehlendem Repository und für diese Ausführungsumgebung nicht
+freigegebenem privatem Repository. Ein Quellcodeimport fand nicht statt.
 
-| Projekt | Repository-URL | Ergebnis |
-| --- | --- | --- |
-| NIKNOLIG / Android-App | Nicht bekannt; URL wurde nicht bereitgestellt oder gefunden | Quellprojekt nicht verifiziert |
-| Elektro-Engel | Nicht bekannt; URL wurde nicht bereitgestellt oder gefunden | Quellprojekt nicht verifiziert |
-| NIKNOLIG Defense | Nicht bekannt; URL wurde nicht bereitgestellt oder gefunden | Quellprojekt nicht verifiziert |
+| Projekt | Angegebene Quellrepository-URL | Branch | Zugriffsergebnis | Noch erforderlich |
+| --- | --- | --- | --- | --- |
+| NIKNOLIG (zivile Plattform; enthält Elektro-Engel) | [github.com/nikolausnold/NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG) | `main` (vom Eigentümer angegeben; nicht verifiziert) | API-Abfragen für Repo, Branches und Inhalt: 404; Webabruf ebenfalls 404 | Lesender Zugriff auf `Metadata` und `Contents` sowie Revision `main` |
+| NIKNOLIG Defense | [github.com/nikolausnold/NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense) | `main` (vom Eigentümer angegeben; nicht verifiziert) | API-Abfragen für Repo, Branches und Inhalt: 404; Webabruf ebenfalls 404 | Lesender Zugriff auf `Metadata` und `Contents` sowie Revision `main` |
+| Elektro-Engel | Kein eigenes Repository | — | Laut Projektgrundlage Bestandteil der zivilen NIKNOLIG-Plattform | Prüfung des NIKNOLIG-Quellcodes erforderlich; nicht separat importieren |
 
-Es werden bewusst keine URL-Namen geraten. Nicht gelistete, anders benannte,
-private oder in einer anderen Organisation liegende Repositorys können in den
-verfügbaren Suchergebnissen fehlen. Daher ist auch nicht feststellbar, ob die
-Projekte existieren. Es wurde kein fremder Quellcode übernommen.
+Die angegebenen Projektwebsites
+[NIKNOLIG](https://nikolausnold.github.io/NIKNOLIG/) und
+[NIKNOLIG Defense](https://nikolausnold.github.io/NIKNOLIG-Defense/) waren
+wegen fehlgeschlagener DNS-Auflösung aus dieser Umgebung nicht abrufbar. Das
+ist kein Nachweis, dass die Websites nicht erreichbar sind.
 
-Für eine verifizierte Prüfung werden pro tatsächlich vorhandenem Quellprojekt
-die exakte Repository-URL (oder `OWNER/REPO`), die gewünschte Revision und
-mindestens lesender Repository-Zugriff für den prüfenden GitHub-Account benötigt.
-Least-privilege genügt: Repository-Rolle `Read` beziehungsweise die nötigen
-`Metadata: read`- und `Contents: read`-Rechte. Schreibzugriff auf Quellprojekte
-ist für Prüfung/Import nicht erforderlich. Änderungen am Monorepo benötigen
-separat erlaubten Schreibzugriff auf das Ziel; Branch-Schutz und Freigaben
-bleiben maßgeblich.
+Für beide Quellrepositorys ist konkret der lesende GitHub-Zugriff für den
+prüfenden Account erforderlich (mindestens `Metadata: read` und `Contents: read`
+oder Repository-Rolle `Read`). Schreibrechte auf den Quellprojekten sind nicht
+erforderlich. Bitte die Berechtigung für die beiden oben verlinkten
+Repositorys prüfen/freigeben, falls sie privat sind oder der GitHub-Zugriff
+dieser Umgebung nicht autorisiert wurde. Es wird keine weitere URL benötigt.
 
 ## Bekannte Einschränkungen
 
