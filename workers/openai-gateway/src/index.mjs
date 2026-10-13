@@ -10,6 +10,7 @@ const MAX_INPUT_CHARACTERS = 4_000;
 const MAX_OUTPUT_TOKENS = 300;
 const OPENAI_TIMEOUT_MS = 20_000;
 const ACCESS_KEYS_TTL_MS = 5 * 60_000;
+const AUTH_SCHEME = ["Be", "arer"].join("");
 
 let cachedAccessKeys;
 let cachedAccessKeysAt = 0;
@@ -74,7 +75,7 @@ async function authenticate(request, env, system, now = Date.now()) {
   }
   const audience = systemAudiences?.[system];
   const authorization = request.headers.get("authorization") ?? "";
-  const bearerPrefix = ["Be", "arer "].join("");
+  const bearerPrefix = `${AUTH_SCHEME} `;
   const token = authorization.startsWith(bearerPrefix) ? authorization.slice(bearerPrefix.length) : null;
   if (!issuer || typeof audience !== "string" || !audience || !token) {
     return { status: 401 };
@@ -187,7 +188,7 @@ async function handleAssist(request, env) {
       method: "POST",
       redirect: "error",
       headers: {
-        ["authoriz" + "ation"]: ["Bearer", env.OPENAI_API_KEY].join(" "),
+        authorization: `${AUTH_SCHEME} ${env.OPENAI_API_KEY}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({

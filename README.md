@@ -4,18 +4,18 @@ Zentrale Integrationsplattform für NIKNOLIG, Elektro-Engel und NIKNOLIG Defense
 
 ## Aktueller Stand
 
-Diese Arbeitskopie enthält derzeit diese README und einen manuellen
-Read-only-Audit-Workflow. Es sind keine Projektquellen, Abhängigkeiten, Tests
-oder Integrationsschnittstellen vorhanden. Daher wurde noch kein Projekt aus
-einem anderen Repository übernommen und es ist keine Überschneidungsprüfung auf
-Dateiebene möglich.
+Diese Arbeitskopie enthält Dokumentation, einen manuellen Read-only-Audit-
+Workflow sowie einen getesteten OpenAI-Gateway-Vertrag für Cloudflare Workers.
+Die Produktquellen und Clients von NIKNOLIG, Elektro-Engel und NIKNOLIG Defense
+fehlen weiterhin. Daher wurde noch kein Projekt aus einem anderen Repository
+übernommen und es ist keine Überschneidungsprüfung auf Dateiebene möglich.
 
 | Bereich | Verifizierter Stand |
 | --- | --- |
-| Repository-Struktur | `README.md`, `.github/workflows/audit-workers.yml` |
-| Abhängigkeiten | Keine Manifestdateien vorhanden |
-| Tests | Keine Testkonfiguration oder Tests vorhanden |
-| Offene Schnittstellen | Noch nicht ermittelbar; Quellprojekte fehlen |
+| Repository-Struktur | `README.md`, `.github/workflows/audit-workers.yml`, `workers/openai-gateway/` |
+| Abhängigkeiten | Keine Drittanbieter-Abhängigkeiten |
+| Tests | Node.js-Built-in-Test für den Worker-Gateway-Vertrag |
+| Schnittstellen | `POST /v1/assist`; Produktclients und kontrollierter Datenaustausch fehlen |
 
 ## OpenAI-Gateway (Cloudflare Workers)
 
@@ -45,9 +45,9 @@ Secret angelegt oder ausgelesen, und es erfolgte kein Deployment. Das Vorhandens
 des Secrets konnte mit den verfügbaren Repository-/Actions-Schnittstellen nicht
 geprüft werden.
 
-Die vorhandenen Repositorys enthalten keine Frontends, Backends oder
-Workers-Integrationen der drei Systeme; deshalb kann dieser Gateway-Vertrag noch
-von keinem Produktivsystem aufgerufen werden. Tests lokal ausführen:
+Die vorhandenen Repositorys enthalten keine Frontends oder Backends der drei
+Systeme; deshalb kann dieser Gateway-Vertrag noch von keinem Produktivsystem
+aufgerufen werden. Tests lokal ausführen:
 `node --test workers/openai-gateway/src/index.test.mjs`.
 
 ## Sicherer Integrationszugriff
