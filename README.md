@@ -4,16 +4,18 @@ Zentrale Integrationsplattform für NIKNOLIG, Elektro-Engel und NIKNOLIG Defense
 
 ## Status
 
-Dieses Repository ist derzeit ein Dokumentations- und Architekturgrundgerüst. Es
-enthält noch keinen importierten Anwendungscode, keine Module, keine API-Server,
-keine Build-Konfiguration und keine Tests. Bestehende BLE-, Connection-Manager-
-oder SecurityChain-Implementierungen konnten daher nicht geprüft oder verändert
-werden.
+Dieses Repository enthält ein Dokumentations- und Architekturgrundgerüst mit
+leeren Modul-Platzhaltern. Es enthält noch keinen importierten Anwendungscode,
+keine implementierten Module oder API-Server, keine Build-Konfiguration und
+keine Tests. Bestehende BLE-, Connection-Manager- oder SecurityChain-
+Implementierungen konnten daher nicht geprüft oder verändert werden.
 
 Eine Bestandsaufnahme mit den bekannten Repository- und Branchinformationen
 steht in [docs/inventory.md](docs/inventory.md). Die vorgeschlagenen Modulgrenzen
 stehen in [docs/architecture.md](docs/architecture.md); die Schnittstellenregeln
-stehen in [docs/interface-contracts.md](docs/interface-contracts.md).
+stehen in [docs/interface-contracts.md](docs/interface-contracts.md). Die
+Platzhalter unter `apps/`, `modules/`, `packages/` und `tests/` dokumentieren
+nur vorgesehene Grenzen; sie enthalten keine ausführbaren Funktionen.
 
 ## Architekturüberblick
 

@@ -2,6 +2,8 @@
 
 Diese Übersicht beschreibt Modulgrenzen für künftige Implementierungen. Sie
 bestätigt nicht, dass die unten aufgeführten Komponenten bereits vorhanden sind.
+Die im Repository angelegten `README.md`-Dateien unter diesen Pfaden sind
+bewusst nur Platzhalter. Sie ersetzen oder überdecken keinen Quellcode.
 
 ## Vorgeschlagene Struktur
 
