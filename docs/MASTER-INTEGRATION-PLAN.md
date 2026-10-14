@@ -1,9 +1,10 @@
 # NIKNOLIG Master-Integration – Inventur und Vorschlag
 
 **Status:** Android-Module im Monorepo umgesetzt. Elektro-Engel ist eine
-Systemfunktion des NIKNOLIG-Systems; belegt ist bislang nur die lokale
-Lernprofil-Vorschau in beiden getrennten Apps. Eine produktive Integration,
-Cloudflare-Verbindung und Deployment sind nicht nachgewiesen oder freigegeben.
+Systemfunktion des NIKNOLIG-Systems. Die NIKNOLIG-App bietet eine lokale
+Assistenzoberfläche ohne KI-/Backend- oder Geräteintegration. Eine produktive
+Integration, Cloudflare-Verbindung und Deployment sind nicht nachgewiesen oder
+freigegeben.
 
 **Inventurstand:** 2026-10-14
 
@@ -109,9 +110,11 @@ Workflow-Verzeichnisse listeten sie nicht und die abgefragten Runs lieferten
 keine Ergebnisse. Das bleibt eine nicht aufgelöste Inkonsistenz.
 
 Elektro-Engel ist eine Systemfunktion des NIKNOLIG-Systems und kein eigenes
-Projekt, Repository oder eine separate App. In beiden Android-Vorschauen gibt
-es ein lokales Lernprofil; eine gemeinsame Runtime oder ein systemübergreifender
-Datenaustausch ist nicht belegt. Ebenso verlinkt die NIKNOLIG-Website
+Projekt, Repository oder eine separate App. Die NIKNOLIG-App hat eine lokale
+Anfrageoberfläche und ein Lernprofil; Anfrageverarbeitung durch KI/Backend,
+Geräteerkennung und Steuerung sind nicht implementiert. Es gibt keine
+gemeinsame Runtime oder einen systemübergreifenden Datenaustausch mit Defense.
+Ebenso verlinkt die NIKNOLIG-Website
 ein Defense-Ziel mit dem Repository-Pfad `nikolausnold/-NIKNOLIG-Defense`
 (führender Bindestrich); das tatsächlich geprüfte Repository heißt
 `nikolausnold/NIKNOLIG-Defense` ohne diesen Bindestrich. Der Link muss vor
@@ -145,7 +148,7 @@ keine implementierte Architektur:
 | `nikolausnold/NIKNOLIG` | Hauptsystem und behauptete bestehende Cloudflare-Quelle | `main` ist lesbar; Android-Gerüst und GitHub-Pages-Website nachgewiesen. Cloudflare-Verbindung nicht bestätigt. |
 | `nikolausnold/NIKNOLIG-Defense` | Getrenntes Sicherheitssystem und behauptete bestehende Cloudflare-Quelle | `main` ist lesbar; Android-Gerüst und GitHub-Pages-Website nachgewiesen. Cloudflare-Verbindung nicht bestätigt. |
 | `nikolausnold/NIKNOLIG-Monorepo` | Integrations-, Dokumentations- und Prüfungsbasis; laut Auftrag keine Cloudflare-Worker-Quelle | Im geprüften Branch README, Audit-Workflow und dieser Plan; keine Anwendungsintegration. |
-| Elektro-Engel | Systemfunktion des NIKNOLIG-Systems; keine eigene App oder Repository | Lokales Lernprofil in beiden App-Vorschauen; keine gemeinsame Runtime, API oder produktive Integration nachgewiesen. |
+| Elektro-Engel | Systemfunktion des NIKNOLIG-Systems; keine eigene App oder Repository | Lokale Assistenzoberfläche und Lernprofil in NIKNOLIG; keine KI-/Backend-, Geräte- oder Defense-Integration nachgewiesen. |
 
 ## 4. Cloudflare-Zuordnung
 
