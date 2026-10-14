@@ -60,6 +60,62 @@ Diese Prüfpunkte sind keine Implementierungszusage oder Notfallgarantie. Es
 werden keine neuen Repositories, Secrets oder Produktionszugriffe vorausgesetzt;
 Änderungen an Funktionen bleiben auf ausdrücklich freigegebenen Umfang begrenzt.
 
+### Hilferuferkennung bei Maschinenlärm – GEPLANT, NICHT PRODUKTIV FREIGEGEBEN
+
+**Vorhandener Stand:** Die beiden Android-Manifeste deklarieren keine
+Mikrofonberechtigung. Im geprüften App-Code sind keine Audioaufnahme,
+Audioanalyse, Hilferuferkennung, Notfallalarmierung oder konfigurierbare
+Kontaktbenachrichtigung belegt. Vorhanden sind die begrenzte lokale
+Lernprofil-Vorschau und eine Support-E-Mail-Aktion; das ist kein Notfallablauf.
+Satelliten-/Starlink-Unterstützung oder dafür geeignete Gerätesensoren sind
+ebenfalls nicht nachgewiesen.
+
+**Geplante Sicherheitsanforderung:** Eine mögliche Erkennung von Hilferufen
+unter starkem Maschinenlärm, insbesondere bei laufenden Kettensägen, darf erst
+nach Implementierung, kontrollierter Prüfung und ausdrücklicher Freigabe als
+Funktion angeboten werden. Sie darf nicht als garantiert zuverlässig beworben
+werden. Fehlalarme und überhörte Rufe sind beide ernsthafte Risiken;
+Erkennungsleistung muss für unterschiedliche Stimmen, Sprechweisen, Entfernungen,
+Mikrofonpositionen, Geräte und Lärmpegel geprüft werden. Maschinenlärm kann
+Sprache überdecken; ausbleibende Erkennung darf daher nicht als Beleg gelten,
+dass keine Gefahr besteht.
+
+Eine mögliche, noch nicht implementierte Alarmkette ist in Stufen zu prüfen:
+
+1. **Lokale Erkennung:** nur nach transparenter Information und erforderlicher
+   Mikrofonberechtigung; Verhalten bei verweigerter, entzogener oder nicht
+   verfügbarer Berechtigung klar anzeigen.
+2. **Deutliche Rückmeldung:** ein möglicher Treffer muss verständlich angezeigt
+   werden; Bestätigung, Abbruch und Verhalten bei ausbleibender Reaktion sind
+   noch festzulegen. Rückmeldung darf nicht als bestätigte Hilfeleistung
+   missverstanden werden.
+3. **Kontaktbenachrichtigung:** nur an ausdrücklich ausgewählte und
+   konfigurierte Kontakte sowie nach Festlegung von Einwilligung,
+   Benachrichtigungsinhalt und sicherem Abbruch-/Fehlalarm-Verhalten. Eine
+   solche Funktion ist derzeit nicht belegt.
+4. **Kommunikationsweg:** Internet, Mobilfunk, WLAN oder andere Wege nur
+   verwenden, wenn konkrete App, Gerät, Netz und Dienst sie unterstützen und
+   Verfügbarkeit tatsächlich besteht. Verbindungsverlust und fehlende
+   Zustellbestätigung müssen sichtbar behandelt werden; Zustellung darf nicht
+   versprochen werden. Satellit/Starlink und weitere Sensoren bleiben
+   ausgeschlossen, bis konkrete Geräte- und Dienstunterstützung nachgewiesen
+   ist.
+
+**Datenschutz und Freigabe:** Mikrofonzugriff muss transparent, zweckgebunden
+und berechtigungsbasiert erfolgen; heimliche Daueraufzeichnung ist
+ausgeschlossen. Vor einer Freigabe sind Audioverarbeitung (lokal oder extern),
+Übertragungen, etwaige Speicherung, Löschung und Aufbewahrungsdauer eindeutig
+zu dokumentieren. Diese Punkte sind derzeit ungeklärt. Tests müssen mit
+realistischen, kontrollierten Maschinenlärm-Aufnahmen und unterschiedlichen
+Stimmen sowie Entfernungen erfolgen. Keine Tests mit laufenden gefährlichen
+Maschinen oder Personen in riskanten Situationen. Testprotokolle müssen
+Fehlalarme und überhörte Rufe festhalten; bestandene Tests sind bislang nicht
+nachgewiesen.
+
+Die geplante Funktion ist keine Voraussetzung für den aktuellen Release und
+blockiert ihn nicht. Ohne Implementierung und die genannten Nachweise bleibt
+sie ausdrücklich nicht produktiv freigegeben.
+
 ## 2. Geschäftsmodell und Preisstrategie
 
 | Angebot | Vorgabe / belegter Stand | Offene Umsetzung |
