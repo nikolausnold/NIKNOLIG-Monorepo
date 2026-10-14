@@ -30,6 +30,36 @@ erst nach fachlicher und sicherheitlicher Freigabe konkreter Datenflüsse,
 Berechtigungen und Verantwortlichkeiten vorgesehen. Ob und wie Elektro-Engel
 später über die Vorschau hinaus angeboten wird, ist offen.
 
+**Elektro-Engel – Schutzpriorität (Anforderungen, keine belegten Funktionen):**
+Der aktuelle Monorepo-Stand belegt nur eine begrenzte lokale Lernprofil-Vorschau;
+die App-Manifeste enthalten keine Kamera-, Mikrofon-, Netzwerk- oder
+Sensorberechtigungen. Foto-/Audioanalyse, Sensorauswertung, Notfallerkennung,
+Verbindungen und Bedrohungserkennung sind daher nicht als vorhanden zu verstehen.
+Vor einer Umsetzung gelten folgende Prüfpunkte:
+
+- Foto-, Audio- oder Sensoranalyse nur mit klar begründeten und ausdrücklich
+  angeforderten Berechtigungen, festgelegtem Zweck, nachvollziehbaren Grenzen
+  und dokumentiertem Verhalten bei verweigerter oder fehlender Berechtigung.
+- Internet, Mobilfunk, WLAN und mögliche Satelliten-/Starlink-Dienste nur
+  berücksichtigen, wenn konkrete Geräte, Netze und Dienste diese tatsächlich
+  unterstützen und deren Verfügbarkeit geprüft ist. Eine Verbindung oder
+  Notfallübermittlung darf nicht vorausgesetzt werden.
+- Bedrohungserkennung einschließlich etwaiger Darknet-Bezüge ausschließlich
+  defensiv: Erkennung, Warnung und sichere Informationsverarbeitung. Keine
+  illegalen Zugriffe, Überwachung fremder Geräte oder Umgehung von
+  Schutzmaßnahmen.
+- Verständliche und ausfallsichere Notfallabläufe sowie Datenminimierung haben
+  Vorrang vor zusätzlichen Funktionen. Fehlalarme, fehlende Verbindung und
+  nicht verfügbare Sensoren müssen berücksichtigt werden; konkrete Fallbacks,
+  Eskalationswege und Grenzen sind noch festzulegen.
+- Vorhandene Vorschau, geplante Funktionen und externe Abhängigkeiten getrennt
+  dokumentieren. Gerätefähigkeiten, Berechtigungen, Netzabdeckung und
+  Drittanbieter-Dienste sind Voraussetzungen, keine garantierten Produkteigenschaften.
+
+Diese Prüfpunkte sind keine Implementierungszusage oder Notfallgarantie. Es
+werden keine neuen Repositories, Secrets oder Produktionszugriffe vorausgesetzt;
+Änderungen an Funktionen bleiben auf ausdrücklich freigegebenen Umfang begrenzt.
+
 ## 2. Geschäftsmodell und Preisstrategie
 
 | Angebot | Vorgabe / belegter Stand | Offene Umsetzung |
