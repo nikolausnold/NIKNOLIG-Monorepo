@@ -48,6 +48,23 @@ prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
 Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
 Android-Testtask behauptet.
 
+Für signierte Release-APK-Builds kann der Workflow manuell auf `main` mit
+`release_candidate` aktiviert werden. Er benötigt getrennte, sicher gespeicherte
+GitHub-Actions-Secrets für beide App-Keystores:
+
+- NIKNOLIG: `NIKNOLIG_RELEASE_KEYSTORE_BASE64`,
+  `NIKNOLIG_RELEASE_STORE_PASSWORD`, `NIKNOLIG_RELEASE_KEY_ALIAS` und
+  `NIKNOLIG_RELEASE_KEY_PASSWORD`
+- NIKNOLIG Defense: `NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64`,
+  `NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD`, `NIKNOLIG_DEFENSE_RELEASE_KEY_ALIAS`
+  und `NIKNOLIG_DEFENSE_RELEASE_KEY_PASSWORD`
+
+Die Keystores werden nur während des CI-Laufs in einem zugriffsbeschränkten
+temporären Verzeichnis abgelegt. Ohne diese Secrets bricht der Release-Workflow
+vor dem Build ab; Secrets oder Keystores gehören nicht ins Repository. Die
+signierten Artefakte werden geprüft und für 30 Tage als Workflow-Artefakte
+gespeichert; der Workflow veröffentlicht oder deployed sie nicht.
+
 ## Read-only Audit
 
 Der manuelle Workflow
