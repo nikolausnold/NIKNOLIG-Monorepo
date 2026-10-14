@@ -1,0 +1,48 @@
+name: Android apps build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assemble-debug:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Assemble both debug APKs
+        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon
+      - name: Verify package identities and APK signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify_apk() {
+            local module="$1"
+            local expected_id="$2"
+            local apk
+            apk="$(find "apps/$module/build/outputs/apk/debug" -maxdepth 1 -name '*.apk' -print -quit)"
+            if [[ ! -s "$apk" ]]; then
+              echo "::error::No debug APK found for $module"
+              exit 1
+            fi
+            local actual_id
+            actual_id="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" |
+              sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+            if [[ "$actual_id" != "$expected_id" ]]; then
+              echo "::error::Expected $expected_id but found $actual_id in $apk"
+              exit 1
+            fi
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$apk"
+          }
+
+          verify_apk niknolig com.niknolig.app
+          verify_apk niknolig-defense com.niknolig.defense

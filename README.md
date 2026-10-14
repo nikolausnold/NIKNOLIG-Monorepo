@@ -1,52 +1,61 @@
 # NIKNOLIG-Monorepo
 
-Zentrale Integrationsplattform für NIKNOLIG, Elektro-Engel und NIKNOLIG Defense.
+Monorepo für zwei getrennte Android-Apps: NIKNOLIG und NIKNOLIG Defense. Die
+Apps bleiben eigenständige Installationen und Sicherheitsdomänen. Die Websites
+und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
 
-## Aktueller Stand
+## Android-Module
 
-Dieses Repository enthält diese README, einen manuellen Read-only-Audit-Workflow
-und den [Master-Integrationsplan](docs/MASTER-INTEGRATION-PLAN.md). Es sind
-keine Anwendungsquellen oder Projekt-Integrationsschnittstellen vorhanden.
-Die separaten Quell-Repositories sind inzwischen lesbar, wurden aber nicht in
-dieses Monorepo übernommen; eine Integration ist nicht belegt.
+| Modul | Android `applicationId` | Quellstand |
+| --- | --- | --- |
+| `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG/tree/3c4d6618a61604f6433639151e741371491a5f0d), Commit `3c4d6618a61604f6433639151e741371491a5f0d` |
+| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
 
-| Bereich | Verifizierter Stand |
-| --- | --- |
-| Repository-Struktur | `README.md`, `.github/workflows/audit-workers.yml`, `docs/MASTER-INTEGRATION-PLAN.md` |
-| Funktionen | Nur der unten beschriebene Repository-Audit; keine Anwendungsfunktionen |
-| Schnittstellen | `workflow_dispatch` zum manuellen Start; keine Anwendungs-API |
-| Abhängigkeiten | Workflow nutzt `actions/checkout@v4` und Python-Standardbibliothek; keine Projekt-Manifeste |
-| Tests | Keine Testkonfiguration oder Tests vorhanden |
+Die App-Verzeichnisse beider Quell-Commits haben denselben Git-Tree-Stand.
+Darum enthalten die Module derzeit dieselben Vorschau-Funktionen. Für die
+Defense-App wurden Android-Namespace, Kotlin-Paket, `applicationId` und
+Anzeigename getrennt; eine darüber hinausgehende Defense-Funktion ist im
+Quellstand nicht belegt. Änderungen an den Quell-Repositories wurden nicht
+vorgenommen.
 
-## Integrationsinventur
+## Sicherheits- und Integrationsgrenzen
 
-| Komponente | Dateien und Funktionen im Monorepo | Schnittstellen / Abhängigkeiten | Fehlende Voraussetzungen und Risiken |
-| --- | --- | --- | --- |
-| NIKNOLIG | Keine Komponentendateien im Monorepo; getrennte Quelle enthält ein Android-Entwicklungsgerüst und statische Website | Keine Integration oder Projekt-API im Monorepo nachgewiesen | App-Vorschau und GitHub-Pages-Deployment sind keine bestätigte produktive Systemintegration |
-| Elektro-Engel | Keine Komponentendateien im Monorepo; in NIKNOLIG als Assistenz-/Lernziel beschrieben | Keine separate API oder Runtime nachgewiesen | Funktionsumfang und Einbaupunkt bleiben an den nachgewiesenen App-Stand gebunden |
-| NIKNOLIG Defense | Keine Komponentendateien im Monorepo; getrennte Quelle enthält Android-Gerüst und statische Website | Keine Austausch-API oder Integration im Monorepo nachgewiesen | Sicherheitsgrenzen, Datenaustausch und Cloudflare-Verbindung sind nicht verifiziert |
+- Kein App-Modul hängt vom jeweils anderen ab; es gibt keine gemeinsame
+  Laufzeitbibliothek und keine App-zu-App-Schnittstelle.
+- Die eindeutigen `applicationId`s erlauben die parallele Installation und
+  separate Android-App-Daten. Es werden keine Berechtigungen hinzugefügt.
+- Die vorhandene Vorschau verwendet keine Netzwerk- oder Bluetooth-Berechtigung.
+  Das Launcher-Activity ist exportiert; das Lernprofil-Activity bleibt nicht
+  exportiert. Backups sind in beiden Manifesten deaktiviert.
+- Websites, GitHub-Pages-Workflows und Cloudflare-Einstellungen wurden nicht
+  verschoben oder verändert. Dieses Monorepo führt kein Website- oder
+  Cloudflare-Deployment aus.
 
-Die verfügbaren Dateien belegen keine Implementierungen in diesem Monorepo.
-Die getrennten Quellstände und die nachgewiesenen Workflow-/Build-Ergebnisse
-sind im [Master-Integrationsplan](docs/MASTER-INTEGRATION-PLAN.md)
-dokumentiert. Cloudflare-Verbindungen und produktive Integrationen bleiben
-ungeprüft.
+## Build und Prüfung
+
+Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 8.13 (über den
+mitgelieferten Wrapper).
+
+Beide APKs unabhängig im selben Build aufbauen:
+
+```sh
+./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug
+```
+
+Der Workflow
+[`Android apps build`](.github/workflows/android-build.yml) baut beide Apps,
+prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
+Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
+Android-Testtask behauptet.
 
 ## Read-only Audit
 
-Der Workflow `Read-only Workers repository audit` prüft beim manuellen Start
-ausschließlich die Dateien dieses Monorepos. Er erstellt einen Überblick über
-Dateien, README-Überschriften und Workflows sowie einen einfachen Scan nach
-credential-ähnlichen Mustern. Werte, Quellinhalte und Clone-Diagnosen werden
-nicht ausgegeben. Der Workflow benötigt keine Repository-Secrets, klont kein
-externes Repository und führt keine Projekt-Workflows oder Skripte aus.
-Der Muster-Scan ist eine begrenzte Prüfung und kein Nachweis, dass keine
-Geheimnisse vorhanden sind.
+Der manuelle Workflow
+[`Read-only Workers repository audit`](.github/workflows/audit-workers.yml)
+prüft ausschließlich Dateien dieses Monorepos. Er führt keine Projekt-Workflows
+oder Skripte aus und ist weder ein Anwendungstest noch ein Nachweis für eine
+Cloudflare-Verbindung. Sein begrenzter Credential-Musterscan beweist nicht, dass
+keine Geheimnisse vorhanden sind.
 
-## Integrationsvorgehen
-
-Den Audit-Workflow manuell starten und den Bericht über die vorhandenen
-Repository-Dateien, README-Überschriften und Workflows prüfen. Der Audit
-untersucht nur dieses Monorepo; er ersetzt nicht die Prüfung der getrennten
-Quell-Repositories. Es erfolgt weder ein automatischer Merge noch ein
-Deployment.
+Weitere Inventur- und Cloudflare-Nachweise stehen im
+[Master-Integrationsplan](docs/MASTER-INTEGRATION-PLAN.md).
