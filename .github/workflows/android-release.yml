@@ -84,7 +84,7 @@ jobs:
           NIKNOLIG_RELEASE_KEY_ALIAS: niknolig-release
           NIKNOLIG_RELEASE_KEY_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_KEY_PASSWORD }}
           NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD: ${{ secrets.NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD }}
-          NIKNOLIG_DEFENSE_RELEASE_KEY_ALIAS: niknolig-defense-release
+          NIKNOLIG_DEFENSE_RELEASE_KEY_ALIAS: niknolig-defense
           NIKNOLIG_DEFENSE_RELEASE_KEY_PASSWORD: ${{ secrets.NIKNOLIG_DEFENSE_RELEASE_KEY_PASSWORD }}
         run: ./gradlew :niknolig:assembleRelease :niknolig-defense:assembleRelease --no-daemon
 
