@@ -1,0 +1,141 @@
+name: Preparing release APKs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+jobs:
+  assemble-release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: android-release
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Validate and stage release keystores
+        shell: bash
+        env:
+          NIKNOLIG_RELEASE_KEYSTORE_BASE64: ${{ secrets.NIKNOLIG_RELEASE_KEYSTORE_BASE64 }}
+          NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64: ${{ secrets.NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64 }}
+          NIKNOLIG_RELEASE_STORE_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_STORE_PASSWORD }}
+          NIKNOLIG_RELEASE_KEY_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_KEY_PASSWORD }}
+          NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD: ${{ secrets.NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD }}
+          NIKNOLIG_DEFENSE_RELEASE_KEY_PASSWORD: ${{ secrets.NIKNOLIG_DEFENSE_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          set +x
+          require_value() {
+            if [[ -z "$2" ]]; then
+              echo "::error::Required Actions secret is missing: $1"
+              exit 1
+            fi
+          }
+          require_keystore() {
+            local name="$1"
+            local value="$2"
+            if [[ ! "$value" =~ ^[A-Za-z0-9+/]+={0,2}$ ]] || (( ${#value} % 4 != 0 )); then
+              echo "::error::Actions secret $name must be a single-line, padded standard Base64 value"
+              exit 1
+            fi
+          }
+
+          require_value NIKNOLIG_RELEASE_KEYSTORE_BASE64 "$NIKNOLIG_RELEASE_KEYSTORE_BASE64"
+          require_value NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64 "$NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64"
+          require_value NIKNOLIG_RELEASE_STORE_PASSWORD "$NIKNOLIG_RELEASE_STORE_PASSWORD"
+          require_value NIKNOLIG_RELEASE_KEY_PASSWORD "$NIKNOLIG_RELEASE_KEY_PASSWORD"
+          require_value NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD "$NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD"
+          require_value NIKNOLIG_DEFENSE_RELEASE_KEY_PASSWORD "$NIKNOLIG_DEFENSE_RELEASE_KEY_PASSWORD"
+          require_keystore NIKNOLIG_RELEASE_KEYSTORE_BASE64 "$NIKNOLIG_RELEASE_KEYSTORE_BASE64"
+          require_keystore NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64 "$NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64"
+
+          keystore_dir="$RUNNER_TEMP/android-release"
+          install -d -m 700 "$keystore_dir"
+          printf '%s' "$NIKNOLIG_RELEASE_KEYSTORE_BASE64" |
+            base64 --decode > "$keystore_dir/niknolig-release.jks"
+          printf '%s' "$NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64" |
+            base64 --decode > "$keystore_dir/niknolig-defense-release.jks"
+          test -s "$keystore_dir/niknolig-release.jks"
+          test -s "$keystore_dir/niknolig-defense-release.jks"
+          chmod 600 "$keystore_dir/"*.jks
+          printf 'NIKNOLIG_RELEASE_STORE_FILE=%s\n' "$keystore_dir/niknolig-release.jks" >> "$GITHUB_ENV"
+          printf 'NIKNOLIG_DEFENSE_RELEASE_STORE_FILE=%s\n' "$keystore_dir/niknolig-defense-release.jks" >> "$GITHUB_ENV"
+
+      - name: Assemble both signed release APKs
+        shell: bash
+        env:
+          NIKNOLIG_RELEASE_STORE_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_STORE_PASSWORD }}
+          NIKNOLIG_RELEASE_KEY_ALIAS: niknolig-release
+          NIKNOLIG_RELEASE_KEY_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_KEY_PASSWORD }}
+          NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD: ${{ secrets.NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD }}
+          NIKNOLIG_DEFENSE_RELEASE_KEY_ALIAS: niknolig-defense-release
+          NIKNOLIG_DEFENSE_RELEASE_KEY_PASSWORD: ${{ secrets.NIKNOLIG_DEFENSE_RELEASE_KEY_PASSWORD }}
+        run: ./gradlew :niknolig:assembleRelease :niknolig-defense:assembleRelease --no-daemon
+
+      - name: Verify package identities and APK signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify_apk() {
+            local module="$1"
+            local expected_id="$2"
+            local -a apks
+            mapfile -t apks < <(find "apps/$module/build/outputs/apk/release" -maxdepth 1 -type f -name '*.apk' -print)
+            if [[ "${#apks[@]}" -ne 1 || ! -s "${apks[0]:-}" ]]; then
+              echo "::error::Expected exactly one release APK for $module"
+              exit 1
+            fi
+            local actual_id
+            actual_id="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "${apks[0]}" |
+              sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+            if [[ "$actual_id" != "$expected_id" ]]; then
+              echo "::error::Expected package $expected_id for $module but found $actual_id"
+              exit 1
+            fi
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "${apks[0]}"
+          }
+
+          verify_apk niknolig com.niknolig.app
+          verify_apk niknolig-defense com.niknolig.defense
+
+      - name: Upload NIKNOLIG release APK
+        if: ${{ github.event.repository.private == true }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: niknolig-release-apk
+          path: apps/niknolig/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload NIKNOLIG Defense release APK
+        if: ${{ github.event.repository.private == true }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: niknolig-defense-release-apk
+          path: apps/niknolig-defense/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Remove temporary release keystores
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          keystore_dir="$RUNNER_TEMP/android-release"
+          rm -f "$keystore_dir/niknolig-release.jks" "$keystore_dir/niknolig-defense-release.jks"
+          rmdir "$keystore_dir" 2>/dev/null || true
