@@ -60,6 +60,18 @@ zugehörigen Systems zulassen. Secret-Werte werden nicht ausgelesen oder
 ausgegeben. Die Verfügbarkeit des Cloudflare-Secrets ließ sich in dieser
 Umgebung nicht prüfen; ein Deployment fand nicht statt.
 
+Das vorhandene GitHub-Secret `OPENAI_API_KEY` wird von GitHub Actions nicht
+automatisch an einen Worker übertragen. Der Read-only-Audit-Workflow verwendet
+es bewusst nicht: Er benötigt ausschließlich `WORKERS_REPOSITORY_URL` und
+`WORKERS_REPO_READ_PAT`, klont nur das Quellrepository und führt keinen
+Cloudflare-Aufruf aus. Für den Worker-Laufzeitbetrieb muss derselbe Schlüssel
+einmal als Cloudflare-Worker-Secret `OPENAI_API_KEY` hinterlegt werden. Eine
+spätere, ausdrücklich freigegebene Deployment-Pipeline könnte das vorhandene
+GitHub-Secret als Quelle dafür verwenden; dafür wären zusätzlich ein eng
+begrenztes Cloudflare-Deployment-Token und ein eigener, geprüfter Deploy-Job
+erforderlich. Eine solche Pipeline wird hier nicht angelegt und es erfolgt
+keine Übertragung.
+
 Die vorhandenen Repositorys enthalten keine Frontends oder Backends der drei
 Systeme; deshalb kann dieser Gateway-Vertrag noch von keinem Produktivsystem
 aufgerufen werden. Tests lokal ausführen:
