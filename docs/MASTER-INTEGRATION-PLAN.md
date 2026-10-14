@@ -6,7 +6,7 @@
 
 **Geprüfter Arbeitsbranch:** `copilot/maintain-existing-work`
 
-**Geprüfter Commit:** `6e8b307542bd4e296f38a4c1b9a193f96960a79d`
+**Geprüfter Commit:** `4e61582442b8fbf0516305e4a40367c8f6574484`
 
 Dieser Entwurf trennt Repository-Fakten von Angaben und Zielvorstellungen. Nicht
 lesbare Quellen oder nicht zugängliche Cloudflare-Einstellungen werden nicht
@@ -117,12 +117,34 @@ keine implementierte Architektur:
 
 ## 4. Cloudflare-Zuordnung
 
-Es gibt in dieser Umgebung keinen lesenden Cloudflare-Kontozugriff auf Projekt-,
-Build- oder Deployment-Einstellungen. Die GitHub-Quellen belegen jeweils
-GitHub-Pages-Workflows, nicht eine Cloudflare-Verbindung. Es wurde keine
-Wrangler-Konfiguration in den Monorepo-Root-Dateien oder gelisteten Workflows
-gefunden. Die geprüften Quell-Root- und Workflow-Inventare weisen GitHub Pages,
-nicht einen Cloudflare-Worker-Build aus.
+### Bereits vorhandene, konkrete Nachweise
+
+Die Quell-Repositories sind über die vorhandene GitHub-Verbindung lesbar; ihre
+`main`-Revisionen sind oben festgehalten. Die nachfolgenden Actions-Nachweise
+betreffen **GitHub Actions/GitHub Pages**, nicht Cloudflare:
+
+| Quelle | Nachweis | Was er belegt |
+| --- | --- | --- |
+| NIKNOLIG | [Erfolgreicher Android-Build](https://github.com/nikolausnold/NIKNOLIG/actions/runs/38383624857) auf `main` bei `3c4d6618a61604f6433639151e741371491a5f0d` | Android-Build-Workflow auf dieser Revision. Kein Store- oder Cloudflare-Release. |
+| NIKNOLIG | [Deploy website #4](https://github.com/nikolausnold/NIKNOLIG/actions/runs/38316422738), erfolgreich auf Commit `81e30ffbc279b370974bccf995105b68b040a59c` | GitHub-Pages-Deployment der Website auf einem älteren Commit als das aktuelle `main`. |
+| NIKNOLIG | [GitHub Pre-release `13.10.2026`](https://github.com/nikolausnold/NIKNOLIG/releases) | Ein als Pre-release markiertes GitHub-Release existiert; kein Cloudflare- oder Android-Produktionsnachweis. |
+| NIKNOLIG Defense | [Erfolgreicher Android-Build](https://github.com/nikolausnold/NIKNOLIG-Defense/actions/runs/38328310272) auf `main` bei `5f0f385089bc27347eacd282c13a546eb4511da2` | Android-Build-Workflow auf dieser Revision. Kein Store- oder Cloudflare-Release. |
+| NIKNOLIG Defense | [Deploy website #3](https://github.com/nikolausnold/NIKNOLIG-Defense/actions/runs/38328310314), erfolgreich auf `main` bei `5f0f385089bc27347eacd282c13a546eb4511da2` | GitHub-Pages-Deployment der Website auf dieser Revision. |
+| Monorepo | [Read-only Audit #10](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38524704790), erfolgreich auf `main` bei `2caa4098abf8a6464c21720383b7f47289b5be98` | Nur den manuellen Monorepo-Inventurworkflow; keine Anwendung, Cloudflare-Verbindung oder Deployment. |
+
+Der Auftraggeber teilte mit, die GitHub-App „Cloudflare Workers und Seiten“ sei
+für alle Repositorys mit Lese-/Schreibzugriff installiert. Das ist eine
+Nutzerangabe, kein aus den vorliegenden GitHub-Workflows ablesbarer Nachweis
+einer Cloudflare-Konto-Verbindung. Eine GitHub-App-Installation oder
+GitHub-Pages-Deployment belegt für sich weder ein Cloudflare-Projekt noch
+dessen Git-Verknüpfung.
+
+Im Monorepo sind nur `README.md`, dieser Plan und
+`.github/workflows/audit-workers.yml` vorhanden; insbesondere fehlen
+Wrangler-/Cloudflare-Konfiguration, Anwendungscode und ein Cloudflare-
+Deploymentworkflow. Die Quell-Root- und Workflow-Inventare belegen die
+GitHub-Pages-Workflows; die hier vorliegenden Nachweise belegen keine
+Cloudflare-Worker-/Pages-Verbindung.
 
 | System | GitHub-Nachweis | Cloudflare-Nachweis |
 | --- | --- | --- |
@@ -130,11 +152,22 @@ nicht einen Cloudflare-Worker-Build aus.
 | NIKNOLIG Defense | `main` lesbar; Workflow `deploy-website.yml` veröffentlicht das Website-Artefakt mit GitHub Pages. | Keine Verbindung, Produktionsbranch, Build-Befehl oder Deploy-Status bei Cloudflare verifiziert. Erfolgreicher Pages-Lauf #3 liegt auf aktuellem `main`. |
 | Monorepo | Vom Auftrag als nicht freigegebene Worker-Quelle ausgeschlossen; vorhanden ist ein manueller Read-only-Repository-Audit. | Keine Wrangler-Konfiguration oder Cloudflare-Verbindung in den geprüften Repository-Dateien. |
 
-Die GitHub-Pages-Workflow-Erfolge belegen nur GitHub Pages. Um eine behauptete
-Cloudflare-Verbindung zu bestätigen, fehlen weiterhin Cloudflare-Projektart,
-verbundenes Repository, Produktionsbranch, Build-/Deploy-Kommandos,
-Root-Verzeichnis sowie Status und Revision des letzten Cloudflare-Deployments.
-IDs, Domains, Variablen oder Secrets wurden nicht erhoben.
+### Konkrete Cloudflare-Nachweislücken
+
+Für **jede** behauptete Cloudflare-Anwendung fehlt ein lesbarer, aktueller
+Cloudflare-Projektnachweis, der diese Punkte ausweist:
+
+1. Cloudflare-Produktart und Projekt-/Worker-Name.
+2. Tatsächlich verbundenes GitHub-Repository und Produktionsbranch.
+3. Build-Befehl, Deploy-Befehl und eingestelltes Root-Verzeichnis.
+4. Ergebnis, Zeitpunkt und Quell-Commit des letzten Cloudflare-Deployments.
+
+In dieser Umgebung steht keine Cloudflare-Dashboard-/API-Ansicht oder
+Cloudflare-spezifische Verbindung zur Verfügung; auch ein
+Cloudflare-Deploymentprotokoll liegt nicht vor. Aus den GitHub-Pages-Läufen
+können diese Felder nicht abgeleitet werden. Es werden dafür keine Tokens,
+Secrets, IDs oder Domains benötigt; ein redigierter read-only
+Einstellungsnachweis und der Deploymentstatus genügen.
 
 ## 5. Abhängigkeiten und API-Verträge
 
@@ -211,12 +244,15 @@ Integrationsweg vorauszusetzen.
 
 ## 8. Offene Fragen und Blocker
 
-Der Lesezugriff auf beide GitHub-Quell-Repositories funktioniert derzeit für
-`main`; ein fehlender GitHub-Contents-Zugriff ist aktuell nicht der Blocker.
+Der Lesezugriff auf beide GitHub-Quell-Repositories funktioniert für `main`;
+fehlender GitHub-Contents-Zugriff ist nach den oben dokumentierten
+Inhaltsabfragen und Actions-Nachweisen nicht der Blocker. Die berichtete
+GitHub-App-Installation ist nicht gleichbedeutend mit verifiziertem
+Cloudflare-Kontozugriff.
 
-1. Wie lauten die tatsächliche Cloudflare-Projektart und -Verbindung je Quelle?
-   Ein read-only Cloudflare-Zugriff oder redigierter Einstellungs-/Deployment-
-   Nachweis liegt nicht vor.
+1. Für NIKNOLIG und Defense jeweils fehlen die vier oben aufgeführten
+   Cloudflare-Projektdaten (Produktart/Name, Repository/Produktionsbranch,
+   Build-/Deploy-Befehl/Root sowie letzter Deploy-Status mit Quell-Commit).
 2. Welche Repository-/App-Identität ist beabsichtigt? Beide Android-App-
    Konfigurationen verwenden `com.niknolig.app`; eine getrennte Installation
    der zwei APKs wäre damit nicht belegt.
@@ -236,8 +272,9 @@ Der Lesezugriff auf beide GitHub-Quell-Repositories funktioniert derzeit für
    Verfahren gelten über die vorhandenen Debug-Builds und GitHub-Pages-
    Deployments hinaus?
 
-**Nächster sicherer Schritt:** Read-only Cloudflare-Projekt-/Deployment-
-Nachweise für beide Quellen bereitstellen. Bis zu deren Prüfung sind
-Cloudflare-Verbindung und -Produktionsstatus ungeklärt; außerdem müssen
-App-ID-Kollision und Defense-Link-Ziel geklärt sein, bevor die getrennten
-Anwendungen als integrierter Release bewertet werden.
+**Nächster sicherer Schritt:** Für beide bereits bestehenden Cloudflare-
+Projekte einen redigierten read-only Einstellungsnachweis mit genau den vier
+aufgeführten Feldern und den letzten Deploy-Status/Commit bereitstellen. Die
+GitHub-Quellen und GitHub-Pages-/Android-Workflow-Nachweise sind vorhanden;
+die Cloudflare-Zuordnung bleibt ungeklärt. App-ID-Absicht und Defense-Link-Ziel
+bleiben zusätzliche, nicht in diesem Monorepo lösbare Release-Fragen.
