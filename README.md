@@ -11,12 +11,22 @@ und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
 | `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG/tree/3c4d6618a61604f6433639151e741371491a5f0d), Commit `3c4d6618a61604f6433639151e741371491a5f0d` |
 | `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
 
-Die App-Verzeichnisse beider Quell-Commits haben denselben Git-Tree-Stand.
-Darum enthalten die Module derzeit dieselben Vorschau-Funktionen. Für die
-Defense-App wurden Android-Namespace, Kotlin-Paket, `applicationId` und
-Anzeigename getrennt; eine darüber hinausgehende Defense-Funktion ist im
-Quellstand nicht belegt. Änderungen an den Quell-Repositories wurden nicht
-vorgenommen.
+Die App-Verzeichnisse beider Quell-Commits hatten denselben Git-Tree-Stand.
+Darum starteten die Module mit denselben Vorschau-Funktionen. Die
+NIKNOLIG-App enthält zusätzlich eine lokale Elektro-Engel-Oberfläche ohne
+KI-/Backend-Anbindung oder Gerätezugriff. Die Defense-App bleibt separat; für
+sie ist darüber hinaus keine Defense-spezifische Funktion belegt. Änderungen
+an den Quell-Repositories wurden nicht vorgenommen.
+
+## Elektro-Engel als Systemfunktion
+
+Elektro-Engel ist eine Funktion des NIKNOLIG-Systems, kein eigenes Projekt,
+Repository oder eine separate App. NIKNOLIG und NIKNOLIG Defense bleiben
+getrennte Apps mit eigenen Identitäten und Installationen. Die NIKNOLIG-App
+enthält eine lokale Assistenzvorschau und ein lokales Lernprofil. Anfragen
+werden nicht übertragen oder automatisch beantwortet; Geräteerkennung,
+Verbindungen und Steuerbefehle sind nicht verfügbar. Es gibt keine gemeinsame
+Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
 ## Sicherheits- und Integrationsgrenzen
 

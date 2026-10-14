@@ -55,8 +55,10 @@ tatsächlichen Angebote zu prüfen.
 - [ ] Sicherstellen, dass notwendige Notfallfunktionen nicht von einem vorab
  erbrachten Härtefallnachweis abhängen; konkret betroffene Funktionen
  festlegen.
-- [ ] Elektro-Engel-Angebot und Preis festlegen; bis dahin keine eigenständige
-  kostenpflichtige Leistung behaupten.
+- [ ] Den tatsächlichen Leistungsumfang von Elektro-Engel als
+  NIKNOLIG-Systemfunktion und seine Einordnung in die getrennten App-Angebote
+  dokumentieren. Keine separate App oder eigenständige kostenpflichtige
+  Elektro-Engel-Leistung behaupten.
 - [ ] Für jeden Store Verkäufer, Vertragspartner, Bestellablauf,
   Vertragsabschluss, Belege, Support, Erstattungen und maßgebliche
   Store-Bedingungen feststellen.
