@@ -17,36 +17,20 @@ Dateiebene möglich.
 | Tests | Keine Testkonfiguration oder Tests vorhanden |
 | Offene Schnittstellen | Noch nicht ermittelbar; Quellprojekte fehlen |
 
-## Sicherer Integrationszugriff
+## Read-only Audit
 
-Vor einem Klon oder Vergleich müssen betroffene Zugangsdaten erneuert werden,
-falls sie offengelegt wurden. Zugangsdaten und Clone-Adressen gehören nicht in
-Quellcode, Dokumentation, Logs oder Commits.
-
-Nach der Erneuerung folgende Repository-Secrets einrichten:
-
-- `WORKERS_REPOSITORY_URL`: HTTPS-Clone-Adresse von `niknolig-workers`.
-- `WORKERS_REPO_READ_PAT`: separat gespeichertes, nur leseberechtigtes Token für
-  dieses Repository (Inhalte lesen; kein Schreib-, Merge- oder Deploy-Zugriff).
-
-[Repository-Secrets öffnen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/secrets/actions/new).
-Secret-Werte nicht in Chat, Issues, Pull Requests, Logs oder Dateien einfügen.
-Der Workflow `Read-only Workers repository audit` prüft beim manuellen Start,
-ob beide Secrets verfügbar sind, und verwendet sie nur für den lesenden Klon.
-
-Die aktuelle Agentensitzung kann Repository-Secrets weder auflisten noch deren
-Verfügbarkeit in GitHub Actions verifizieren. Secret-Werte werden nicht
-ausgelesen. Ohne eingerichtete Secrets kann der manuelle Audit-Workflow nicht
-auf das externe Repository zugreifen.
+Der Workflow `Read-only Workers repository audit` prüft beim manuellen Start
+ausschließlich die Dateien dieses Monorepos. Er erstellt einen Überblick über
+Dateien, README-Überschriften und Workflows sowie einen einfachen Scan nach
+credential-ähnlichen Mustern. Werte, Quellinhalte und Clone-Diagnosen werden
+nicht ausgegeben. Der Workflow benötigt keine Repository-Secrets, klont kein
+externes Repository und führt keine Projekt-Workflows oder Skripte aus.
 
 ## Integrationsvorgehen
 
-Nach Bereitstellung des geschützten Zugriffs zunächst den Audit-Workflow manuell
-starten und dessen Strukturbericht, README-Überschriften und vorhandene
-Workflow-Dateien prüfen. Der Workflow führt keine externen Skripte aus und
-ändert keine Dateien. Danach NIKNOLIG-, Defense- und Workers-Projekte auf
-Dateipfade, Funktionen und Abhängigkeiten vergleichen. Übernahmen erfolgen nur
-für nicht kollidierende Inhalte; Konflikte und offene Schnittstellen werden vor
-Änderungen dokumentiert. Tests werden nur ausgeführt, wenn die übernommenen
-Projekte sie bereitstellen. Es erfolgt weder ein automatischer Merge noch ein
+Den Audit-Workflow manuell starten und den Bericht über die vorhandenen
+Repository-Dateien, README-Überschriften und Workflows prüfen. Da die
+Projektquellen derzeit fehlen, ist ein Vergleich mit NIKNOLIG-, Defense- oder
+Workers-Projekten erst möglich, wenn deren Inhalte tatsächlich in diesem
+Monorepo vorhanden sind. Es erfolgt weder ein automatischer Merge noch ein
 Deployment.
