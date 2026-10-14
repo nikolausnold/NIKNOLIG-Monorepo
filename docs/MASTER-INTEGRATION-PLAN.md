@@ -6,7 +6,7 @@
 
 **Geprüfter Arbeitsbranch:** `copilot/maintain-existing-work`
 
-**Geprüfter Commit:** `4e61582442b8fbf0516305e4a40367c8f6574484`
+**Geprüfter Commit:** `48476be8fbbad2ddff7e9792d68c1ea80c6a8df2`
 
 Dieser Entwurf trennt Repository-Fakten von Angaben und Zielvorstellungen. Nicht
 lesbare Quellen oder nicht zugängliche Cloudflare-Einstellungen werden nicht
@@ -185,8 +185,10 @@ Integrationsweg vorauszusetzen.
 
 ## 6. Sicherheit und Datenschutzrisiken
 
-- Ohne Quellzugriff bleiben tatsächliche Angriffsflächen, Datenarten und
-  Sicherheitskontrollen unbekannt.
+- Die dokumentierte Inventur prüfte begrenzte Dateien und Konfigurationen der
+  Quell-Repositories, aber keine vollständige Sicherheitsprüfung ihres Codes,
+  ihrer Abhängigkeiten, Laufzeit oder Deployments. Diese Angriffsflächen,
+  Datenarten und Kontrollen sind daher nicht abschließend verifiziert.
 - Geheimnisse gehören nicht in Quellcode, Commits, Beispielkonfigurationen,
   Logs oder diesen Plan. Falls später Zugangsdaten nötig werden, sind Ort,
   Eigentümer, Rotation und kleinstmögliche Berechtigungen getrennt freizugeben.
