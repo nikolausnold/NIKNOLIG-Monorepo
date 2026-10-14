@@ -4,15 +4,15 @@ Zentrale Integrationsplattform für NIKNOLIG, Elektro-Engel und NIKNOLIG Defense
 
 ## Aktueller Stand
 
-Dieses Repository enthält derzeit diese README und einen manuellen
-Read-only-Audit-Workflow. Es sind keine Anwendungsquellen oder
-Projekt-Integrationsschnittstellen vorhanden. Daher wurde kein Projekt aus
-einem anderen Repository übernommen und es ist keine Überschneidungsprüfung auf
-Dateiebene möglich.
+Dieses Repository enthält diese README, einen manuellen Read-only-Audit-Workflow
+und den [Master-Integrationsplan](docs/MASTER-INTEGRATION-PLAN.md). Es sind
+keine Anwendungsquellen oder Projekt-Integrationsschnittstellen vorhanden.
+Die separaten Quell-Repositories sind inzwischen lesbar, wurden aber nicht in
+dieses Monorepo übernommen; eine Integration ist nicht belegt.
 
 | Bereich | Verifizierter Stand |
 | --- | --- |
-| Repository-Struktur | `README.md`, `.github/workflows/audit-workers.yml` |
+| Repository-Struktur | `README.md`, `.github/workflows/audit-workers.yml`, `docs/MASTER-INTEGRATION-PLAN.md` |
 | Funktionen | Nur der unten beschriebene Repository-Audit; keine Anwendungsfunktionen |
 | Schnittstellen | `workflow_dispatch` zum manuellen Start; keine Anwendungs-API |
 | Abhängigkeiten | Workflow nutzt `actions/checkout@v4` und Python-Standardbibliothek; keine Projekt-Manifeste |
@@ -22,15 +22,15 @@ Dateiebene möglich.
 
 | Komponente | Dateien und Funktionen im Monorepo | Schnittstellen / Abhängigkeiten | Fehlende Voraussetzungen und Risiken |
 | --- | --- | --- | --- |
-| NIKNOLIG | Nur als Projektname in dieser README erwähnt; keine Komponentendateien oder Anwendungsfunktionen | Keine Projekt-API oder Projekt-Abhängigkeiten nachweisbar | Quellcode und tatsächliche Modulgrenzen müssen geprüft werden; vorhandene Funktionen könnten ohne diese Prüfung übersehen oder beschädigt werden |
-| Elektro-Engel | Nur als Projektname in dieser README erwähnt; keine Komponentendateien oder Anwendungsfunktionen | Keine Projekt-API oder Projekt-Abhängigkeiten nachweisbar | Einordnung und Einbaupunkt sind nicht belegt; keine eigenständige Schnittstelle annehmen |
-| NIKNOLIG Defense | Nur als Projektname in dieser README erwähnt; keine Komponentendateien oder Anwendungsfunktionen | Keine Projekt-API oder Projekt-Abhängigkeiten nachweisbar | Datenaustausch, Autorisierung und Vertrauensgrenze sind nicht spezifiziert; keine Verbindung oder Berechtigung annehmen |
+| NIKNOLIG | Keine Komponentendateien im Monorepo; getrennte Quelle enthält ein Android-Entwicklungsgerüst und statische Website | Keine Integration oder Projekt-API im Monorepo nachgewiesen | App-Vorschau und GitHub-Pages-Deployment sind keine bestätigte produktive Systemintegration |
+| Elektro-Engel | Keine Komponentendateien im Monorepo; in NIKNOLIG als Assistenz-/Lernziel beschrieben | Keine separate API oder Runtime nachgewiesen | Funktionsumfang und Einbaupunkt bleiben an den nachgewiesenen App-Stand gebunden |
+| NIKNOLIG Defense | Keine Komponentendateien im Monorepo; getrennte Quelle enthält Android-Gerüst und statische Website | Keine Austausch-API oder Integration im Monorepo nachgewiesen | Sicherheitsgrenzen, Datenaustausch und Cloudflare-Verbindung sind nicht verifiziert |
 
-Die verfügbaren Dateien belegen weder Implementierungen noch die Abwesenheit
-von Funktionen in den privaten Quellrepositories. Buildsystem, unterstützte
-Plattformen, Datenflüsse, Authentifizierung und Tests der Projekte sind hier
-nicht verifizierbar. Vor einer Integration müssen diese Punkte anhand
-freigegebener Quellstände geklärt werden.
+Die verfügbaren Dateien belegen keine Implementierungen in diesem Monorepo.
+Die getrennten Quellstände und die nachgewiesenen Workflow-/Build-Ergebnisse
+sind im [Master-Integrationsplan](docs/MASTER-INTEGRATION-PLAN.md)
+dokumentiert. Cloudflare-Verbindungen und produktive Integrationen bleiben
+ungeprüft.
 
 ## Read-only Audit
 
@@ -46,8 +46,7 @@ Geheimnisse vorhanden sind.
 ## Integrationsvorgehen
 
 Den Audit-Workflow manuell starten und den Bericht über die vorhandenen
-Repository-Dateien, README-Überschriften und Workflows prüfen. Da die
-Projektquellen derzeit fehlen, ist ein Vergleich mit NIKNOLIG-, Defense- oder
-Workers-Projekten erst möglich, wenn deren Inhalte tatsächlich in diesem
-Monorepo vorhanden sind. Es erfolgt weder ein automatischer Merge noch ein
+Repository-Dateien, README-Überschriften und Workflows prüfen. Der Audit
+untersucht nur dieses Monorepo; er ersetzt nicht die Prüfung der getrennten
+Quell-Repositories. Es erfolgt weder ein automatischer Merge noch ein
 Deployment.

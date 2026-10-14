@@ -6,7 +6,7 @@
 
 **Geprüfter Arbeitsbranch:** `copilot/maintain-existing-work`
 
-**Geprüfter Commit:** `9f6c24ea15d944cf698b5906da20d8a135b60f27`
+**Geprüfter Commit:** `6e8b307542bd4e296f38a4c1b9a193f96960a79d`
 
 Dieser Entwurf trennt Repository-Fakten von Angaben und Zielvorstellungen. Nicht
 lesbare Quellen oder nicht zugängliche Cloudflare-Einstellungen werden nicht
@@ -17,13 +17,14 @@ Produktivzugriff oder Deployment.
 
 ### Im Monorepo nachgewiesen
 
-Zum Inventurzeitpunkt enthält der ausgecheckte Arbeitsbranch genau diese
-getrackten Projektdateien:
+Zum Inventurzeitpunkt enthält der ausgecheckte Arbeitsbranch diese getrackten
+Projektdateien:
 
 | Datei | Nachgewiesener Inhalt |
 | --- | --- |
 | `README.md` | Dokumentiert den begrenzten Repository-Stand und die fehlenden Anwendungskomponenten. |
 | `.github/workflows/audit-workers.yml` | Manueller Read-only-Überblick über dieses Repository; keine Projekt-Workflows oder Skripte werden ausgeführt. |
+| `docs/MASTER-INTEGRATION-PLAN.md` | Dieser Inventur- und Vorschlagsentwurf. |
 
 Es wurden keine Anwendungsquellen, API-Definitionen, Build-/Paketmanifestdateien,
 Tests, Wrangler-Konfigurationen oder Deployment-Skripte gefunden. Im lokalen
@@ -42,23 +43,47 @@ Cloudflare-Verbindung.
 
 ### Quell-Repositories
 
-Lesende GitHub-API-Inhaltsabfragen des Repository-Root mit angefragter Revision
-`refs/heads/main` für beide angegebenen Quellen lieferten `404 Not Found`:
+Die GitHub-Inhaltsabfragen sind jetzt erfolgreich. Die folgenden Revisionsstände
+und begrenzten Inhalte wurden read-only über die GitHub-API geprüft; es wurde
+nichts geklont:
 
-| Quelle | Prüfergebnis | Aussagegrenze |
-| --- | --- | --- |
-| [nikolausnold/NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG) | Inhalt nicht lesbar | `404` unterscheidet nicht zwischen fehlendem Repository und fehlender Sichtbarkeit/Berechtigung. |
-| [nikolausnold/NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense) | Inhalt nicht lesbar | `404` unterscheidet nicht zwischen fehlendem Repository und fehlender Sichtbarkeit/Berechtigung. |
+| Quelle | `main`-Revision | Geprüfte Struktur und Inhalte | Status / Grenzen |
+| --- | --- | --- | --- |
+| [nikolausnold/NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG) | `3c4d6618a61604f6433639151e741371491a5f0d` | README; Android-Gerüst mit Gradle-Wrapper, `app/`, `app/src/main/AndroidManifest.xml`; statische Website mit `index.html` und `styles.css`; Android-Build- und GitHub-Pages-Workflows. | README beschreibt eine frühe Vorschau. BLE, Gerätevertrauen, Sicherheitsfreigaben und produktive Funktionen seien noch nicht implementiert. |
+| [nikolausnold/NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense) | `5f0f385089bc27347eacd282c13a546eb4511da2` | README; Android-Gerüst mit Gradle-Wrapper, `app/`, `app/src/main/AndroidManifest.xml`; eigene statische Website mit `index.html` und `styles.css`; Android-Build- und GitHub-Pages-Workflows. | README/Website beschreiben die App und Defense als in Entwicklung; sie belegen keine produktive Sicherheitsintegration. |
 
-Damit sind Quellcode, Branch-Stand, README, APIs, Konfigurationen, Tests und
-Buildsysteme beider Anwendungen **nicht verifiziert**. Es wurden keine Inhalte
-geklont oder aus den 404-Antworten abgeleitet.
+Beide geprüften App-Gradle-Konfigurationen verwenden `com.niknolig.app` als
+Namespace und `applicationId`. Die READMEs nennen JDK 17, Gradle Wrapper 8.13,
+Android Gradle Plugin 8.11.1 und compile SDK 35. Das ist ein konkreter
+Identitätskonflikt, falls beide APKs gleichzeitig als getrennte Apps installiert
+werden sollen. Eine beabsichtigte gemeinsame oder getrennte Veröffentlichung
+ist nicht belegt.
 
-Elektro-Engel ist in der Aufgabenstellung als bestehendes Projekt/Modul benannt.
-In den tatsächlich vorliegenden Dateien ist jedoch weder eine Implementierung
-noch eine Schnittstelle oder ein eigener Repository-Nachweis vorhanden. Ein
-separates Repository oder einen konkreten Einbaupunkt nimmt dieser Vorschlag
-nicht an.
+Beide Repositories listen `android-build.yml` und `deploy-website.yml` in
+`.github/workflows`. Die Website-Workflows bauen ein GitHub-Pages-Artefakt und
+deployen mit `actions/deploy-pages`; dies ist kein Cloudflare-Deployment.
+GitHub Actions meldet für NIKNOLIG einen erfolgreichen Android-Build auf der
+aktuellen `main`-Revision und für Defense ebenfalls einen erfolgreichen
+Android-Build auf der aktuellen `main`-Revision. Die jüngste erfolgreiche
+NIKNOLIG-GitHub-Pages-Ausführung lief auf `81e30ffbc279b370974bccf995105b68b040a59c`,
+nicht auf dem aktuell ausgewiesenen `main`-Stand. Die jüngste erfolgreiche
+Defense-GitHub-Pages-Ausführung lief auf ihrer aktuellen `main`-Revision.
+
+Für NIKNOLIG ist ein als Pre-release markiertes GitHub-Release
+`13.10.2026` vorhanden; für Defense wurde in der Releases-Abfrage kein Release
+zurückgegeben. Das bestätigt keinen Cloudflare- oder Android-Produktiv-Release.
+API-Tests erscheinen in der Actions-Workflowliste, aber die Datei
+`.github/workflows/api-tests.yml` war über den Dateiabruf nicht verfügbar, die
+Workflow-Verzeichnisse listeten sie nicht und die abgefragten Runs lieferten
+keine Ergebnisse. Das bleibt eine nicht aufgelöste Inkonsistenz.
+
+Elektro-Engel erscheint in der NIKNOLIG-README als Assistenz-/Lernkonzept und
+in der Website als Entwicklungsziel. Die geprüften Hinweise belegen keine
+eigenständige API oder getrennte Runtime. Ebenso verlinkt die NIKNOLIG-Website
+ein Defense-Ziel mit dem Repository-Pfad `nikolausnold/-NIKNOLIG-Defense`
+(führender Bindestrich); das tatsächlich geprüfte Repository heißt
+`nikolausnold/NIKNOLIG-Defense` ohne diesen Bindestrich. Der Link muss vor
+öffentlicher Nutzung geprüft und gegebenenfalls separat korrigiert werden.
 
 ## 2. Zielarchitektur – Vorschlag unter Vorbehalt
 
@@ -85,28 +110,31 @@ keine implementierte Architektur:
 
 | Repository | Vorgesehene Rolle laut Auftrag | Verifizierter Inhalt / Status |
 | --- | --- | --- |
-| `nikolausnold/NIKNOLIG` | Hauptsystem und bestehende Cloudflare-Quelle | Nicht lesbar; Rolle und Cloudflare-Verbindung sind hier nicht technisch bestätigt. |
-| `nikolausnold/NIKNOLIG-Defense` | Getrenntes Sicherheitssystem und bestehende Cloudflare-Quelle | Nicht lesbar; Rolle und Cloudflare-Verbindung sind hier nicht technisch bestätigt. |
-| `nikolausnold/NIKNOLIG-Monorepo` | Integrations-, Dokumentations- und Prüfungsbasis; laut Auftrag keine Cloudflare-Worker-Quelle | Im geprüften Branch README und manueller Repository-Audit; keine Anwendungsintegration. |
-| Elektro-Engel | Bestehendes Projekt/Modul laut Auftrag; Zuordnung offen | In den zugänglichen Dateien nicht implementiert oder anderweitig nachgewiesen; kein separates Repository wird angenommen. |
+| `nikolausnold/NIKNOLIG` | Hauptsystem und behauptete bestehende Cloudflare-Quelle | `main` ist lesbar; Android-Gerüst und GitHub-Pages-Website nachgewiesen. Cloudflare-Verbindung nicht bestätigt. |
+| `nikolausnold/NIKNOLIG-Defense` | Getrenntes Sicherheitssystem und behauptete bestehende Cloudflare-Quelle | `main` ist lesbar; Android-Gerüst und GitHub-Pages-Website nachgewiesen. Cloudflare-Verbindung nicht bestätigt. |
+| `nikolausnold/NIKNOLIG-Monorepo` | Integrations-, Dokumentations- und Prüfungsbasis; laut Auftrag keine Cloudflare-Worker-Quelle | Im geprüften Branch README, Audit-Workflow und dieser Plan; keine Anwendungsintegration. |
+| Elektro-Engel | Assistenz-/Lernfunktion innerhalb NIKNOLIG laut Quellen-README/Website | Als Entwicklungsziel beschrieben; keine eigene Runtime/API in den geprüften Dateien nachgewiesen. |
 
 ## 4. Cloudflare-Zuordnung
 
-Es gab keinen lesenden Zugriff auf ein Cloudflare-Konto oder dessen Projekt-,
-Build- und Deployment-Einstellungen. Daher ist keine Worker- oder Pages-
-Verbindung unabhängig bestätigt.
+Es gibt in dieser Umgebung keinen lesenden Cloudflare-Kontozugriff auf Projekt-,
+Build- oder Deployment-Einstellungen. Die GitHub-Quellen belegen jeweils
+GitHub-Pages-Workflows, nicht eine Cloudflare-Verbindung. Es wurde keine
+Wrangler-Konfiguration in den Monorepo-Root-Dateien oder gelisteten Workflows
+gefunden. Die geprüften Quell-Root- und Workflow-Inventare weisen GitHub Pages,
+nicht einen Cloudflare-Worker-Build aus.
 
-| System | Vorgesehene Zuordnung laut Auftrag | Unabhängig bestätigter Quelllink, Branch, Build, Root oder Deployment |
+| System | GitHub-Nachweis | Cloudflare-Nachweis |
 | --- | --- | --- |
-| NIKNOLIG | Bestehende Cloudflare-Quelle `nikolausnold/NIKNOLIG` | Nein; Repository-Inhalt und Cloudflare-Einstellungen ungeklärt. |
-| NIKNOLIG Defense | Bestehende Cloudflare-Quelle `nikolausnold/NIKNOLIG-Defense` | Nein; Repository-Inhalt und Cloudflare-Einstellungen ungeklärt. |
-| Monorepo | Nicht als Cloudflare-Worker-Quelle freigegeben | Keine Worker-Konfiguration oder Cloudflare-Verbindung in den geprüften Dateien. |
+| NIKNOLIG | `main` lesbar; Workflow `deploy-website.yml` veröffentlicht das Website-Artefakt mit GitHub Pages. | Keine Verbindung, Produktionsbranch, Build-Befehl oder Deploy-Status bei Cloudflare verifiziert. Erfolgreicher Pages-Lauf #4 liegt auf einem älteren Commit als aktuelles `main`. |
+| NIKNOLIG Defense | `main` lesbar; Workflow `deploy-website.yml` veröffentlicht das Website-Artefakt mit GitHub Pages. | Keine Verbindung, Produktionsbranch, Build-Befehl oder Deploy-Status bei Cloudflare verifiziert. Erfolgreicher Pages-Lauf #3 liegt auf aktuellem `main`. |
+| Monorepo | Vom Auftrag als nicht freigegebene Worker-Quelle ausgeschlossen; vorhanden ist ein manueller Read-only-Repository-Audit. | Keine Wrangler-Konfiguration oder Cloudflare-Verbindung in den geprüften Repository-Dateien. |
 
-Für eine Verifikation werden ausschließlich lesbare Nachweise benötigt:
-Cloudflare-Projektart (Workers oder Pages), tatsächlich verbundenes GitHub-
-Repository und Produktionsbranch, Build-/Deploy-Kommandos und Root-Verzeichnis
-sowie Ergebnis und Revision des letzten Deployments. IDs, Domains, Variablen
-oder Secrets sind für diesen Entwurf nicht erhoben und werden nicht ergänzt.
+Die GitHub-Pages-Workflow-Erfolge belegen nur GitHub Pages. Um eine behauptete
+Cloudflare-Verbindung zu bestätigen, fehlen weiterhin Cloudflare-Projektart,
+verbundenes Repository, Produktionsbranch, Build-/Deploy-Kommandos,
+Root-Verzeichnis sowie Status und Revision des letzten Cloudflare-Deployments.
+IDs, Domains, Variablen oder Secrets wurden nicht erhoben.
 
 ## 5. Abhängigkeiten und API-Verträge
 
@@ -145,8 +173,8 @@ Integrationsweg vorauszusetzen.
 
 ## 7. Geordneter Umsetzungsplan mit Prüfkriterien
 
-1. **Zugriff und Provenienz klären.** Lesenden Zugriff auf die beiden
-   Quell-Repositories und Cloudflare-Konfigurationsnachweise herstellen.
+1. **Provenienz klären.** Die bestätigten Quellrevisionen festhalten und
+   Cloudflare-Konfigurationsnachweise read-only prüfen.
    *Prüfkriterium:* Repository-Revisionen und tatsächliche Cloudflare-
    Verbindungen sind unabhängig belegbar; Geheimnisse werden nicht geteilt.
 2. **Quelleninventur durchführen.** README, Struktur, Einstiegspunkte,
@@ -181,28 +209,35 @@ Integrationsweg vorauszusetzen.
    Rollback-Verfahren sind bestätigt. Ein Deployment erfolgt nur nach
    ausdrücklicher menschlicher Freigabe.
 
-## 8. Offene Fragen und fehlende Zugriffsrechte
+## 8. Offene Fragen und Blocker
 
-1. Kann der prüfende GitHub-Zugriff `Metadata: read` und `Contents: read`
-   für [`NIKNOLIG`](https://github.com/nikolausnold/NIKNOLIG) und
-   [`NIKNOLIG-Defense`](https://github.com/nikolausnold/NIKNOLIG-Defense)
-   erhalten? Aktuelle API-Abfragen lieferten bei beiden `404`; das beweist
-   weder Nichtexistenz noch eindeutig eine bestimmte Berechtigungslücke.
-2. Kann die tatsächliche Cloudflare-Verbindung für jedes der beiden Systeme
-   read-only belegt werden, einschließlich Produktart, Quellrepository,
-   Produktionsbranch, Build-/Deploy-Einstellungen, Root und letztem
-   Deployment-Ergebnis?
-3. Welche nachweisbare Komponente in NIKNOLIG enthält Elektro-Engel, und welche
-   Funktionen/Ein- und Ausgaben bestehen tatsächlich?
-4. Welche Informationen dürfen zwischen NIKNOLIG und Defense in welcher
-   Richtung ausgetauscht werden, und wer genehmigt die Freigabe?
-5. Welche Daten müssen offline verfügbar sein; welche Datenschutz-,
+Der Lesezugriff auf beide GitHub-Quell-Repositories funktioniert derzeit für
+`main`; ein fehlender GitHub-Contents-Zugriff ist aktuell nicht der Blocker.
+
+1. Wie lauten die tatsächliche Cloudflare-Projektart und -Verbindung je Quelle?
+   Ein read-only Cloudflare-Zugriff oder redigierter Einstellungs-/Deployment-
+   Nachweis liegt nicht vor.
+2. Welche Repository-/App-Identität ist beabsichtigt? Beide Android-App-
+   Konfigurationen verwenden `com.niknolig.app`; eine getrennte Installation
+   der zwei APKs wäre damit nicht belegt.
+3. Wo liegt die tatsächliche API-Testworkflow-Datei? Die Actions-Liste nennt
+   einen API-Testworkflow, aber der aktuelle Workflow-Verzeichnisabruf und der
+   direkte Dateiabruf bestätigten keine Datei; es wurden keine zugehörigen Runs
+   zurückgegeben.
+4. Ist der Defense-Link in der NIKNOLIG-Website mit dem führenden Bindestrich
+   (`nikolausnold/-NIKNOLIG-Defense`) beabsichtigt? Er stimmt nicht mit dem
+   tatsächlich geprüften Repository-Namen `nikolausnold/NIKNOLIG-Defense`
+   überein.
+5. Welche Austauschdaten und Aktionen dürfen zwischen NIKNOLIG und Defense
+   fließen, in welche Richtung und mit welcher Genehmigung?
+6. Welche Daten müssen offline verfügbar sein; welche Datenschutz-,
    Aufbewahrungs-, Kosten- und Wiederherstellungsanforderungen gelten?
-6. Welche Build-, Test-, Review-, Deployment- und Rollback-Verfahren sind für
-   die bestehenden Quellen bereits verbindlich?
+7. Welche konkreten Release-Anforderungen, Review-Gates und Rollback-
+   Verfahren gelten über die vorhandenen Debug-Builds und GitHub-Pages-
+   Deployments hinaus?
 
-**Nächster sicherer Schritt:** Zunächst lesenden Zugang zu beiden Quell-
-Repositories und geeignete read-only Cloudflare-Nachweise bereitstellen.
-Danach die Inventur anhand konkreter Revisionen vervollständigen. Bis dahin
-bleiben Architekturdetails, Integrationsstatus und Produktionsbereitschaft
-ungeklärt.
+**Nächster sicherer Schritt:** Read-only Cloudflare-Projekt-/Deployment-
+Nachweise für beide Quellen bereitstellen. Bis zu deren Prüfung sind
+Cloudflare-Verbindung und -Produktionsstatus ungeklärt; außerdem müssen
+App-ID-Kollision und Defense-Link-Ziel geklärt sein, bevor die getrennten
+Anwendungen als integrierter Release bewertet werden.
