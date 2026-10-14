@@ -1,7 +1,9 @@
 # NIKNOLIG Master-Integration – Inventur und Vorschlag
 
-**Status:** Android-Module im Monorepo umgesetzt; Cloudflare, produktive
-Integration und Deployment bleiben ungeprüft und nicht freigegeben.
+**Status:** Android-Module im Monorepo umgesetzt. Elektro-Engel ist eine
+Systemfunktion des NIKNOLIG-Systems; belegt ist bislang nur die lokale
+Lernprofil-Vorschau in beiden getrennten Apps. Eine produktive Integration,
+Cloudflare-Verbindung und Deployment sind nicht nachgewiesen oder freigegeben.
 
 **Inventurstand:** 2026-10-14
 
@@ -106,9 +108,10 @@ API-Tests erscheinen in der Actions-Workflowliste, aber die Datei
 Workflow-Verzeichnisse listeten sie nicht und die abgefragten Runs lieferten
 keine Ergebnisse. Das bleibt eine nicht aufgelöste Inkonsistenz.
 
-Elektro-Engel erscheint in der NIKNOLIG-README als Assistenz-/Lernkonzept und
-in der Website als Entwicklungsziel. Die geprüften Hinweise belegen keine
-eigenständige API oder getrennte Runtime. Ebenso verlinkt die NIKNOLIG-Website
+Elektro-Engel ist eine Systemfunktion des NIKNOLIG-Systems und kein eigenes
+Projekt, Repository oder eine separate App. In beiden Android-Vorschauen gibt
+es ein lokales Lernprofil; eine gemeinsame Runtime oder ein systemübergreifender
+Datenaustausch ist nicht belegt. Ebenso verlinkt die NIKNOLIG-Website
 ein Defense-Ziel mit dem Repository-Pfad `nikolausnold/-NIKNOLIG-Defense`
 (führender Bindestrich); das tatsächlich geprüfte Repository heißt
 `nikolausnold/NIKNOLIG-Defense` ohne diesen Bindestrich. Der Link muss vor
@@ -126,9 +129,9 @@ keine implementierte Architektur:
   Austausch erfolgt nur über eine später ausdrücklich freigegebene, eng
   begrenzte Schnittstelle. Gemeinsame Modelle oder Bibliotheken verleihen keine
   Zugriffsrechte.
-- Elektro-Engel wird erst nach Quellprüfung dem tatsächlich vorhandenen Modul
-  zugeordnet. Eine eigenständige Plattform, ein Deployment oder eine
-  Vertrauensdomäne wird nicht unterstellt.
+- Elektro-Engel ist eine Systemfunktion des NIKNOLIG-Systems, keine separate
+  App, Plattform oder Repository. Die vorhandenen lokalen Lernprofil-Vorschauen
+  belegen keine gemeinsame Laufzeit oder produktive Integration mit Defense.
 - Gemeinsame APIs oder Datentypen werden erst spezifiziert, wenn konkrete
   Verbraucher, Datenflüsse, Verantwortliche und Berechtigungen belegt sind.
 - Offlinebetrieb und geringe Betriebskosten sind Anforderungen zur Prüfung;
@@ -142,7 +145,7 @@ keine implementierte Architektur:
 | `nikolausnold/NIKNOLIG` | Hauptsystem und behauptete bestehende Cloudflare-Quelle | `main` ist lesbar; Android-Gerüst und GitHub-Pages-Website nachgewiesen. Cloudflare-Verbindung nicht bestätigt. |
 | `nikolausnold/NIKNOLIG-Defense` | Getrenntes Sicherheitssystem und behauptete bestehende Cloudflare-Quelle | `main` ist lesbar; Android-Gerüst und GitHub-Pages-Website nachgewiesen. Cloudflare-Verbindung nicht bestätigt. |
 | `nikolausnold/NIKNOLIG-Monorepo` | Integrations-, Dokumentations- und Prüfungsbasis; laut Auftrag keine Cloudflare-Worker-Quelle | Im geprüften Branch README, Audit-Workflow und dieser Plan; keine Anwendungsintegration. |
-| Elektro-Engel | Assistenz-/Lernfunktion innerhalb NIKNOLIG laut Quellen-README/Website | Als Entwicklungsziel beschrieben; keine eigene Runtime/API in den geprüften Dateien nachgewiesen. |
+| Elektro-Engel | Systemfunktion des NIKNOLIG-Systems; keine eigene App oder Repository | Lokales Lernprofil in beiden App-Vorschauen; keine gemeinsame Runtime, API oder produktive Integration nachgewiesen. |
 
 ## 4. Cloudflare-Zuordnung
 
@@ -246,9 +249,9 @@ Integrationsweg vorauszusetzen.
    lesend dokumentieren.
    *Prüfkriterium:* Jede Aussage verweist auf vorhandene Dateien/Revisionen;
    unbekannte Punkte bleiben ausdrücklich offen.
-3. **Zielgrenzen und Datenflüsse freigeben.** Elektro-Engels Einordnung,
-   Defense-Trennung und benötigte Austauschfälle mit Verantwortlichen
-   festlegen.
+3. **Zielgrenzen und Datenflüsse freigeben.** Elektro-Engel als
+   Systemfunktion, Defense-Trennung und etwaige benötigte Austauschfälle mit
+   Verantwortlichen festlegen.
    *Prüfkriterium:* Daten, Richtung, Nutzer/Akteur, Berechtigung und
    Fehlerverhalten sind fachlich und sicherheitlich freigegeben.
 4. **Verträge und Kosten-/Offline-Entscheidungen spezifizieren.** Nur

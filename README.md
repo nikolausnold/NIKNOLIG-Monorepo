@@ -18,6 +18,15 @@ Anzeigename getrennt; eine darüber hinausgehende Defense-Funktion ist im
 Quellstand nicht belegt. Änderungen an den Quell-Repositories wurden nicht
 vorgenommen.
 
+## Elektro-Engel als Systemfunktion
+
+Elektro-Engel ist eine Funktion des NIKNOLIG-Systems, kein eigenes Projekt,
+Repository oder eine separate App. NIKNOLIG und NIKNOLIG Defense bleiben
+getrennte Apps mit eigenen Identitäten und Installationen. In beiden aktuellen
+App-Vorschauen gibt es ein lokales Lernprofil für Elektro-Engel; eine gemeinsame
+Laufzeit, ein Datenaustausch zwischen den Apps oder eine produktive
+systemübergreifende Integration ist nicht vorhanden oder spezifiziert.
+
 ## Sicherheits- und Integrationsgrenzen
 
 - Kein App-Modul hängt vom jeweils anderen ab; es gibt keine gemeinsame

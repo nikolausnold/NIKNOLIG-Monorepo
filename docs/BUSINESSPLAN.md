@@ -12,23 +12,26 @@ Release sind im Monorepo nicht belegt.
 
 **Vorgegebene Positionierung:** NIKNOLIG ist die Hauptplattform. NIKNOLIG
 Defense soll als getrenntes Sicherheitssystem beziehungsweise getrennte
-Sicherheitsdomäne geführt werden. Elektro-Engel ist als Assistenz-/Lernkonzept
-innerhalb von NIKNOLIG beschrieben, nicht als nachgewiesene eigenständige
-Plattform oder Runtime.
+Sicherheitsdomäne geführt werden. Elektro-Engel ist eine Systemfunktion des
+NIKNOLIG-Systems, kein eigenständiges Projekt, Repository oder eine separate
+App.
 
 **Belegter Entwicklungsstand:** Das Monorepo enthält zwei getrennte
 Android-Module und App-IDs (`com.niknolig.app` und `com.niknolig.defense`).
 Beide Module enthalten derzeit denselben Vorschau-Funktionsstand. Es gibt keine
 Modulabhängigkeit, gemeinsame Laufzeitbibliothek oder App-zu-App-Schnittstelle.
 Die Vorschau belegt keine produktive Geräte-, Sicherheits- oder
-Cloud-Integration. Elektro-Engel hat eine begrenzte lokale Lernprofil-Vorschau;
-automatisches Modelltraining oder produktiver KI-Betrieb sind nicht belegt.
+Cloud-Integration. Beide App-Vorschauen enthalten ein lokales Lernprofil für
+Elektro-Engel; eine gemeinsame systemübergreifende Laufzeit oder ein
+Datenaustausch ist nicht belegt. Automatisches Modelltraining oder produktiver
+KI-Betrieb sind nicht belegt.
 
 **Geplantes Zusammenspiel:** NIKNOLIG soll Hauptzugang und Plattform sein;
-Defense soll getrennt bleiben. Ein Datenaustausch oder gemeinsame Funktion ist
-erst nach fachlicher und sicherheitlicher Freigabe konkreter Datenflüsse,
-Berechtigungen und Verantwortlichkeiten vorgesehen. Ob und wie Elektro-Engel
-später über die Vorschau hinaus angeboten wird, ist offen.
+Defense bleibt eine getrennte App und Sicherheitsdomäne. Elektro-Engel gehört
+als Systemfunktion zum NIKNOLIG-System; konkrete gemeinsame Abläufe oder ein
+Datenaustausch mit Defense sind im Repository nicht spezifiziert und werden
+nicht unterstellt. Der Funktionsumfang über die lokale Vorschau hinaus ist
+offen.
 
 **Elektro-Engel – Schutzpriorität (Anforderungen, keine belegten Funktionen):**
 Der aktuelle Monorepo-Stand belegt nur eine begrenzte lokale Lernprofil-Vorschau;
@@ -141,7 +144,7 @@ sie ausdrücklich nicht produktiv freigegeben.
 | --- | --- | --- |
 | NIKNOLIG | Verbindliche Produktregel: dauerhaft kostenlos. Das Monorepo enthält eine Android-Vorschau, keinen bestätigten Store-Release. | Store-Verfügbarkeit, Finanzierung, Betrieb und Bedingungen sind nicht festgelegt. Die kostenlose Bereitstellung ist in den jeweiligen Stores umzusetzen. |
 | NIKNOLIG Defense | Verbindliche Produktregel: regulärer Preis einmalig **0,75 €**. Personen, die nachweislich nicht in der Lage sind, sich aus einer Notsituation zu befreien, sollen genau **48 Stunden** kostenlos nutzen können. Der Zeitraum beginnt mit der Aktivierung des Härtefallzugangs und endet exakt 48 Stunden danach; daraus folgt keine unbegrenzte Freischaltung. | Store- und Länderpreise, Steuern, Store-Gebühren, Auszahlung, Rückerstattungen, Lizenzumfang und konkrete Defense-Leistung sind zu klären. Nachweismethode, Missbrauchsbegrenzung, datenschutzrechtliche Umsetzung und technische Erfassung von Start und Ablauf sind noch festzulegen. Notwendige Notfallfunktionen dürfen nicht von einem vorherigen Nachweis abhängen. Kein Kaufangebot oder bestätigter Verkauf ist im Monorepo belegt. |
-| Elektro-Engel | Als Assistenz-/Lernkonzept und begrenzte lokale Vorschau dokumentiert; kein eigener Preis belegt. | Eigenständigkeit, späterer Leistungsumfang, Preis und etwaige regulierte oder fachliche Einsatzbereiche sind offen. Nicht als separates kostenpflichtiges Produkt unterstellen. |
+| Elektro-Engel | Systemfunktion des NIKNOLIG-Systems; derzeit nur als begrenzte lokale Lernprofil-Vorschau in beiden Apps belegt. Kein eigenes Produkt oder Preis belegt. | Späterer Funktionsumfang und etwaige regulierte oder fachliche Einsatzbereiche sind offen. Eine Einordnung in die getrennten App-Angebote ist zu klären; keine separate kostenpflichtige Leistung unterstellen. |
 
 **Vorgeschlagene Erlösansätze, nicht beschlossen:** Die Preisvorgabe für
 Defense ist die einzige benannte Preisidee. Weitere mögliche Einnahmequellen
@@ -221,8 +224,8 @@ prognostiziert.
 | Einordnung | Aussage |
 | --- | --- |
 | **Bereits vorhanden** | Zwei getrennte Android-Vorschau-Apps; aktueller gemeinsamer Vorschau-Funktionsstand; begrenztes lokales Lernprofil; Debug-Build-Prüfung. |
-| **Vorgegeben / geplant** | NIKNOLIG dauerhaft kostenlos; NIKNOLIG Defense regulär einmalig 0,75 €, mit genau 48 Stunden kostenloser Härtefallnutzung; NIKNOLIG als Hauptplattform; Defense als getrennte Sicherheitsdomäne; Elektro-Engel als Assistenzkonzept. |
-| **Noch ungeprüft / offen** | Markt und Zahlungsbereitschaft; konkrete Produkt- und Defense-Leistungen; Nachweisverfahren und Missbrauchsbegrenzung für Härtefälle; datenschutzrechtliche Umsetzung; technische Erfassung von Aktivierung und Ablauf nach genau 48 Stunden; Verhalten nach Ablauf und Store-/Zahlungsablauf; eigenständige oder produktive Elektro-Engel-Leistung; Anbieter- und Rechtsform; Kosten und Erlöse; Backend/Cloudflare; Datenflüsse; Release- und Vermarktungsplan. |
+| **Vorgegeben / geplant** | NIKNOLIG dauerhaft kostenlos; NIKNOLIG Defense regulär einmalig 0,75 €, mit genau 48 Stunden kostenloser Härtefallnutzung; NIKNOLIG als Hauptplattform; Defense als getrennte Sicherheitsdomäne; Elektro-Engel als Systemfunktion des NIKNOLIG-Systems. |
+| **Noch ungeprüft / offen** | Markt und Zahlungsbereitschaft; konkrete Produkt- und Defense-Leistungen; Nachweisverfahren und Missbrauchsbegrenzung für Härtefälle; datenschutzrechtliche Umsetzung; technische Erfassung von Aktivierung und Ablauf nach genau 48 Stunden; Verhalten nach Ablauf und Store-/Zahlungsablauf; produktiver Funktionsumfang und Integration von Elektro-Engel; Anbieter- und Rechtsform; Kosten und Erlöse; Backend/Cloudflare; Datenflüsse; Release- und Vermarktungsplan. |
 
 Vor einem Geschäfts- oder Release-Beschluss sind mindestens Angebot und
 Leistungsumfang je Produkt, Zielgruppe, Kostenmodell, Preisdefinition

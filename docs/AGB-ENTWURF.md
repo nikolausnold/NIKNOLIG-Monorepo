@@ -23,8 +23,10 @@ Vertragsbeziehung je Vertriebskanal festzulegen.
 
 NIKNOLIG und NIKNOLIG Defense sind getrennte App-Angebote. Ihre getrennten
 Android-App-IDs belegen für sich weder eine bestimmte Vertragsstruktur noch
-einen bestimmten Leistungsumfang. Ein Angebot für Elektro-Engel besteht nur,
-wenn und soweit der Anbieter es konkret beschreibt und tatsächlich bereitstellt.
+einen bestimmten Leistungsumfang. Elektro-Engel ist eine Systemfunktion des
+NIKNOLIG-Systems, keine separate App oder ein eigenständiges Projekt. Der
+tatsächliche Umfang dieser Funktion und ihre Verfügbarkeit in den getrennten
+App-Angeboten müssen konkret beschrieben werden.
 
 ## 2. Leistungsbeschreibung und Verantwortungsbereiche
 
@@ -39,11 +41,11 @@ eigenständige KI-Leistung oder Defense-spezifische Funktion. Diese Hinweise
 beschreiben nur den Entwicklungsstand; sie ersetzen keine konkrete
 Produktbeschreibung für ein späteres Angebot.
 
-Für NIKNOLIG, Defense und etwaige Elektro-Engel-Leistungen sind
-Leistungsumfang, verantwortliche Anbieter, Datenflüsse und Support jeweils
-getrennt zu dokumentieren. Eine gemeinsame Darstellung darf keine
-Sicherheitsfunktion oder Verantwortlichkeit suggerieren, die tatsächlich nicht
-angeboten wird.
+Für die getrennten App-Angebote sind Leistungsumfang, verantwortliche Anbieter,
+Datenflüsse und Support jeweils zu dokumentieren. Elektro-Engel ist dabei als
+Systemfunktion einzuordnen; eine gemeinsame Darstellung darf keine
+Sicherheitsfunktion, systemübergreifende Integration oder Verantwortlichkeit
+suggerieren, die tatsächlich nicht angeboten wird.
 
 ## 3. Preis, Zahlung und Vertragsschluss
 
@@ -69,8 +71,10 @@ fachjuristische Prüfung:
   Es ist insbesondere nicht festgelegt, welche Funktionen als notwendige
   Notfallfunktionen gelten. Aus der Härtefallregel folgt keine automatische
   Belastung nach Fristablauf.
-- **Elektro-Engel:** Preis und entgeltlicher Leistungsumfang sind nicht
-  festgelegt.
+- **Elektro-Engel-Systemfunktion:** Ein separates Entgelt oder eigenständiges
+  App-Angebot ist nicht festgelegt. Der konkrete Funktionsumfang und seine
+  Einordnung in die getrennten App-Angebote müssen vor Veröffentlichung
+  beschrieben werden.
 
 Vor einer Bestellung müssen Gesamtpreis einschließlich gegebenenfalls
 anfallender Steuern, Zahlungsbedingungen und wesentliche Vertragsmerkmale
