@@ -34,16 +34,31 @@ liefern einen allgemeinen Offline-Fallback. Das Rate-Limit und die Tokenlimits
 begrenzen einzelne Aufrufe, sind aber kein monatliches Ausgabenbudget; dafür
 muss zusätzlich ein Ausgabenlimit im OpenAI-Projekt konfiguriert werden.
 
-Für einen später ausdrücklich freigegebenen Betrieb sind eine Cloudflare-Access-
-Anwendung je System mit eigener Audience, die passende Audience-Konfiguration,
-eine Rate-Limit-Namespace-ID und das geschützte Worker-Secret `OPENAI_API_KEY`
-erforderlich. Die Access-Audiences und Team-Domain in `wrangler.toml` konfigurieren.
-Den Schlüssel ausschließlich mit `wrangler secret put OPENAI_API_KEY` im
-Cloudflare-Konto hinterlegen ([Worker-Secrets-Dokumentation](https://developers.cloudflare.com/workers/configuration/secrets/)).
-Nicht im Repository, Frontend, Workflow oder in Logs speichern. Es wurde kein
-Secret angelegt oder ausgelesen, und es erfolgte kein Deployment. Das Vorhandensein
-des Secrets konnte mit den verfügbaren Repository-/Actions-Schnittstellen nicht
-geprüft werden.
+Für den Betrieb sind eine Cloudflare-Access-Anwendung pro System, die zugehörigen
+Audiences, eine Rate-Limit-Namespace-ID und das Worker-Secret `OPENAI_API_KEY`
+erforderlich. Die Werte für die Platzhalter in
+`workers/openai-gateway/wrangler.toml` werden nicht im Repository hinterlegt:
+
+- `ACCESS_TEAM_DOMAIN`: ausschließlich der Access-Team-Hostname, ohne
+  `https://` und Pfad. Der bestehende Worker akzeptiert nur Hostnamen unter
+  `cloudflareaccess.com`; den exakten Team-Hostname im Cloudflare Zero Trust
+  Dashboard unter **Settings → General → Team domain** übernehmen.
+- `SYSTEM_AUDIENCES`: JSON-Objekt mit genau den Schlüsseln `niknolig`,
+  `elektro-engel` und `niknolig-defense`. Jeder Wert muss unverändert die
+  Audience-Tag-Zeichenkette (`aud`) der jeweils zugehörigen Cloudflare-Access-
+  Anwendung sein. Die konkreten Tags unter **Access → Applications → jeweilige
+  Anwendung → Overview → Application Audience (AUD) Tag** ablesen; keine Tags
+  aus Systemnamen ableiten. Aktuell ist der konfigurierte Wert `{}` und reicht
+  nicht zur Authentifizierung.
+- `OPENAI_API_KEY`: ausschließlich als geschütztes Worker-Secret, nicht als
+  `vars`-Eintrag, speichern. Den Schlüssel ausschließlich mit
+  `wrangler secret put OPENAI_API_KEY` setzen
+  ([Worker-Secrets-Dokumentation](https://developers.cloudflare.com/workers/configuration/secrets/)).
+
+Die Access-Anwendungen müssen jeweils nur die vorgesehenen Benutzer/Clients des
+zugehörigen Systems zulassen. Secret-Werte werden nicht ausgelesen oder
+ausgegeben. Die Verfügbarkeit des Cloudflare-Secrets ließ sich in dieser
+Umgebung nicht prüfen; ein Deployment fand nicht statt.
 
 Die vorhandenen Repositorys enthalten keine Frontends oder Backends der drei
 Systeme; deshalb kann dieser Gateway-Vertrag noch von keinem Produktivsystem
@@ -76,6 +91,11 @@ Die verfügbaren Audit-Läufe vom 13.10.2026 brachen vor dem Klonen bei der
 Prüfung einer URL mit eingebetteten Zugangsdaten ab. Der Workflow wurde danach
 angepasst; ein erfolgreicher Lauf mit der Korrektur liegt nicht vor. Der Inhalt
 des externen `niknolig-workers`-Repositorys ist deshalb weiterhin ungeprüft.
+Der aktuelle Workflow erlaubt eingebettete URL-Zugangsdaten, entfernt sie vor
+dem Klon und authentifiziert stattdessen ausschließlich mit
+`WORKERS_REPO_READ_PAT`. Query-Parameter und Fragmente werden abgelehnt; Clone-
+Diagnosen bleiben unterdrückt. Ein erneuter Workflow-Dispatch war aus dieser
+Sitzung nicht verfügbar.
 
 ## Integrationsvorgehen
 
