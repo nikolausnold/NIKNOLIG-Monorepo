@@ -146,12 +146,17 @@ sie ausdrücklich nicht produktiv freigegeben.
 | NIKNOLIG Defense | Verbindliche Produktregel: regulärer Preis einmalig **0,75 €**. Personen, die nachweislich nicht in der Lage sind, sich aus einer Notsituation zu befreien, sollen genau **48 Stunden** kostenlos nutzen können. Der Zeitraum beginnt mit der Aktivierung des Härtefallzugangs und endet exakt 48 Stunden danach; daraus folgt keine unbegrenzte Freischaltung. | Store- und Länderpreise, Steuern, Store-Gebühren, Auszahlung, Rückerstattungen, Lizenzumfang und konkrete Defense-Leistung sind zu klären. Nachweismethode, Missbrauchsbegrenzung, datenschutzrechtliche Umsetzung und technische Erfassung von Start und Ablauf sind noch festzulegen. Notwendige Notfallfunktionen dürfen nicht von einem vorherigen Nachweis abhängen. Kein Kaufangebot oder bestätigter Verkauf ist im Monorepo belegt. |
 | Elektro-Engel | Systemfunktion des NIKNOLIG-Systems; derzeit nur als begrenzte lokale Lernprofil-Vorschau in beiden Apps belegt. Kein eigenes Produkt oder Preis belegt. | Späterer Funktionsumfang und etwaige regulierte oder fachliche Einsatzbereiche sind offen. Eine Einordnung in die getrennten App-Angebote ist zu klären; keine separate kostenpflichtige Leistung unterstellen. |
 
-**Vorgeschlagene Erlösansätze, nicht beschlossen:** Die Preisvorgabe für
-Defense ist die einzige benannte Preisidee. Weitere mögliche Einnahmequellen
-wie freiwillige Unterstützung, Fördermittel oder klar abgegrenzte optionale
-Zusatzleistungen wären zunächst zu prüfen und ausdrücklich zu entscheiden.
-Sie sind weder vorhanden noch zugesagt; insbesondere werden keine
-Werbe-, Abo-, Datenverkaufs- oder Partnerschaftserlöse behauptet.
+**Verbindliche Produktpreise:** NIKNOLIG bleibt dauerhaft kostenlos; NIKNOLIG
+Defense kostet regulär einmalig **0,75 €**. Für die Defense-App gilt außerdem
+die oben beschriebene Härtefallregel mit genau **48 Stunden** kostenloser
+Nutzung. Store-, Länder- und Steuerdarstellung sowie die technische Umsetzung
+der Härtefallregel bleiben offen.
+
+**Weitere Erlösansätze, vorgeschlagen und nicht beschlossen:** Mögliche
+Einnahmequellen wie freiwillige Unterstützung, Fördermittel oder klar
+abgegrenzte optionale Zusatzleistungen wären zunächst zu prüfen und ausdrücklich
+zu entscheiden. Sie sind weder vorhanden noch zugesagt; insbesondere werden
+keine Werbe-, Abo-, Datenverkaufs- oder Partnerschaftserlöse behauptet.
 
 ## 3. Zielgruppen
 
