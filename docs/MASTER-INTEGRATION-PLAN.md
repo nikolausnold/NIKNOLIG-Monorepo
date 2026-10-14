@@ -1,8 +1,11 @@
 # NIKNOLIG Master-Integration – Inventur und Vorschlag
 
-**Status:** Entwurf zur Prüfung, keine Implementierungsfreigabe  
-**Inventurstand:** 2026-10-14  
-**Geprüfter Arbeitsbranch:** `copilot/maintain-existing-work`  
+**Status:** Entwurf zur Prüfung, keine Implementierungsfreigabe
+
+**Inventurstand:** 2026-10-14
+
+**Geprüfter Arbeitsbranch:** `copilot/maintain-existing-work`
+
 **Geprüfter Commit:** `9f6c24ea15d944cf698b5906da20d8a135b60f27`
 
 Dieser Entwurf trennt Repository-Fakten von Angaben und Zielvorstellungen. Nicht
