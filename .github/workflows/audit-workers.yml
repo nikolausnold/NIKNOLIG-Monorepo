@@ -3,7 +3,8 @@ name: Read-only Workers repository audit
 on:
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  contents: read
 
 concurrency:
   group: workers-read-only-audit
@@ -14,64 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Clone and inspect Workers repository without exposing credentials
+      - name: Check out this repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Inspect repository without executing project code
         shell: bash
-        env:
-          WORKERS_REPOSITORY_URL: ${{ secrets.WORKERS_REPOSITORY_URL }}
-          WORKERS_REPO_READ_PAT: ${{ secrets.WORKERS_REPO_READ_PAT }}
         run: |
-          set -euo pipefail
-          if [[ -z "$WORKERS_REPOSITORY_URL" || -z "$WORKERS_REPO_READ_PAT" ]]; then
-            echo "::error::Required repository secrets are missing. Configure WORKERS_REPOSITORY_URL and WORKERS_REPO_READ_PAT."
-            exit 1
-          fi
-
-          python3 - <<'PY'
-          import os
-          from urllib.parse import urlparse
-
-          url = urlparse(os.environ["WORKERS_REPOSITORY_URL"])
-          if (
-              url.scheme != "https"
-              or url.hostname != "github.com"
-              or url.username
-              or url.password
-              or url.query
-              or url.fragment
-              or not url.path.strip("/")
-          ):
-              raise SystemExit("WORKERS_REPOSITORY_URL must be a credential-free HTTPS GitHub clone URL.")
-          PY
-
-          askpass="$RUNNER_TEMP/workers-askpass"
-          destination="$RUNNER_TEMP/workers-repository"
-          clone_log="$RUNNER_TEMP/workers-clone.log"
-          umask 077
-          cat > "$askpass" <<'ASKPASS'
-          #!/bin/sh
-          case "$1" in
-            *Username*) printf '%s\n' 'x-access-token' ;;
-            *Password*) printf '%s\n' "$WORKERS_REPO_READ_PAT" ;;
-            *) exit 1 ;;
-          esac
-          ASKPASS
-          chmod 700 "$askpass"
-          trap 'rm -rf "$destination" "$askpass" "$clone_log"' EXIT
-
-          if ! GIT_ASKPASS="$askpass" \
-            GIT_TERMINAL_PROMPT=0 \
-            GIT_CONFIG_NOSYSTEM=1 \
-            GIT_CONFIG_GLOBAL=/dev/null \
-            git -c credential.helper= \
-              -c core.hooksPath=/dev/null \
-              clone --depth=1 --no-tags --template=/dev/null \
-              -- "$WORKERS_REPOSITORY_URL" "$destination" \
-              >"$clone_log" 2>&1; then
-            echo "::error::Read-only clone failed; diagnostic output was suppressed to protect repository metadata."
-            exit 1
-          fi
-
-          python3 - "$destination" "$GITHUB_STEP_SUMMARY" <<'PY'
+          python3 - "$GITHUB_WORKSPACE" "$GITHUB_STEP_SUMMARY" <<'PY'
           import os
           import re
           import sys
@@ -107,10 +59,11 @@ jobs:
           readmes = [name for name in files if Path(name).name.lower().startswith("readme")]
           headings = []
           for name in readmes:
-              if (root / name).is_symlink():
+              path = root / name
+              if path.is_symlink():
                   continue
               try:
-                  for line in (root / name).read_text(encoding="utf-8").splitlines():
+                  for line in path.read_text(encoding="utf-8").splitlines():
                       if line.lstrip().startswith("#"):
                           heading = re.sub(r"\s+", " ", line.strip())[:120]
                           heading = re.sub(r"https?://\S+", "[URL]", heading)
@@ -119,10 +72,6 @@ jobs:
                               "[REDACTED]",
                               heading,
                           )
-                          for secret_name in ("WORKERS_REPOSITORY_URL", "WORKERS_REPO_READ_PAT"):
-                              secret_value = os.environ.get(secret_name, "")
-                              if secret_value:
-                                  heading = heading.replace(secret_value, "[REDACTED]")
                           heading = re.sub(
                               r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})\b",
                               "[REDACTED]",
@@ -140,7 +89,7 @@ jobs:
           ]
           top_level = sorted({name.split("/", 1)[0] for name in files})
           lines = [
-              "# Read-only Workers repository audit",
+              "# Read-only repository audit",
               "",
               f"- Files inspected: {len(files)}",
               f"- Top-level entries: {', '.join(top_level) if top_level else '(none)'}",
@@ -159,8 +108,8 @@ jobs:
               lines.append("- None found.")
           lines.extend([
               "",
-              "No source content, clone diagnostics, or credential values are included in this report. "
-              "The repository was cloned read-only; its workflows and scripts were not executed.",
+              "This report inspects this repository only. It includes no source content or credential values; "
+              "project workflows and scripts are not executed.",
           ])
           with summary.open("a", encoding="utf-8") as output:
               output.write("\n".join(lines) + "\n")
