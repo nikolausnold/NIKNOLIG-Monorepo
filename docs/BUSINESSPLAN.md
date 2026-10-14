@@ -85,15 +85,23 @@ Eine mögliche, noch nicht implementierte Alarmkette ist in Stufen zu prüfen:
 1. **Lokale Erkennung:** nur nach transparenter Information und erforderlicher
    Mikrofonberechtigung; Verhalten bei verweigerter, entzogener oder nicht
    verfügbarer Berechtigung klar anzeigen.
-2. **Deutliche Rückmeldung:** ein möglicher Treffer muss verständlich angezeigt
-   werden; Bestätigung, Abbruch und Verhalten bei ausbleibender Reaktion sind
-   noch festzulegen. Rückmeldung darf nicht als bestätigte Hilfeleistung
-   missverstanden werden.
-3. **Kontaktbenachrichtigung:** nur an ausdrücklich ausgewählte und
-   konfigurierte Kontakte sowie nach Festlegung von Einwilligung,
-   Benachrichtigungsinhalt und sicherem Abbruch-/Fehlalarm-Verhalten. Eine
-   solche Funktion ist derzeit nicht belegt.
-4. **Kommunikationsweg:** Internet, Mobilfunk, WLAN oder andere Wege nur
+2. **Diskrete Interaktion:** keine automatisch laut ausgesprochene
+   Rückfrage wie „Soll ich die Polizei rufen?“, auffälligen Töne oder
+   Sperrbildschirm-Benachrichtigungen. Eine unauffällige Bildschirmabfrage oder
+   stille Eingabemöglichkeit ist nur vorzusehen, wenn die konkrete Plattform sie
+   zuverlässig unterstützt und ihr Verhalten geprüft ist.
+3. **Gefahr und Zwang berücksichtigen:** ein „Nein“ oder ausbleibende Antwort
+   darf nicht als Beweis für Sicherheit gewertet werden; eine Person könnte
+   überwacht, bedroht oder zur Verneinung gezwungen werden. Eine Rückfrage darf
+   notwendige Hilfe bei erkennbarer unmittelbarer Lebensgefahr nicht gefährlich
+   verzögern.
+4. **Sichere Eskalation:** einen konfigurierbaren stillen Hilferuf und eine
+   vorher eingerichtete Kontaktkette als Anforderungen prüfen. Polizei,
+   Feuerwehr oder Rettungsdienst nicht allein aufgrund eines unbestätigten
+   Geräuschs automatisch alarmieren, außer ein ausdrücklich festgelegter und
+   rechtlich geprüfter Notfallablauf rechtfertigt dies. Fehlalarme, Abbruch,
+   fehlende Antwort und Zustellfehler müssen sicher behandelt werden.
+5. **Kommunikationsweg:** Internet, Mobilfunk, WLAN oder andere Wege nur
    verwenden, wenn konkrete App, Gerät, Netz und Dienst sie unterstützen und
    Verfügbarkeit tatsächlich besteht. Verbindungsverlust und fehlende
    Zustellbestätigung müssen sichtbar behandelt werden; Zustellung darf nicht
@@ -105,12 +113,21 @@ Eine mögliche, noch nicht implementierte Alarmkette ist in Stufen zu prüfen:
 und berechtigungsbasiert erfolgen; heimliche Daueraufzeichnung ist
 ausgeschlossen. Vor einer Freigabe sind Audioverarbeitung (lokal oder extern),
 Übertragungen, etwaige Speicherung, Löschung und Aufbewahrungsdauer eindeutig
-zu dokumentieren. Diese Punkte sind derzeit ungeklärt. Tests müssen mit
-realistischen, kontrollierten Maschinenlärm-Aufnahmen und unterschiedlichen
-Stimmen sowie Entfernungen erfolgen. Keine Tests mit laufenden gefährlichen
-Maschinen oder Personen in riskanten Situationen. Testprotokolle müssen
-Fehlalarme und überhörte Rufe festhalten; bestandene Tests sind bislang nicht
-nachgewiesen.
+zu dokumentieren. Standort darf nicht unbefugt weitergegeben werden; Zugriffe,
+Empfänger, Umfang und Dauer jeder Datenweitergabe sind klar zu begrenzen.
+Täterwarnungen oder Hinweise auf eine laufende Schutzfunktion dürfen nicht
+leicht erkennbar sein. Diese Schutzanforderungen dürfen nicht zu heimlicher
+Überwachung umgedeutet werden. Die technische und datenschutzrechtliche
+Umsetzung ist derzeit ungeklärt.
+
+Vor Freigabe sind kontrollierte Tests mit realistischen Maschinenlärm-Aufnahmen
+erforderlich, darunter Szenarien mit einem möglichen Täter in Hörweite,
+erzwungener Verneinung, ausbleibender Antwort, fehlender Verbindung und
+Fehlalarm. Tests müssen sichere Abbruchmöglichkeiten und den Schutz der
+Beteiligten gewährleisten; keine Tests mit laufenden gefährlichen Maschinen
+oder Personen in riskanten Situationen. Testprotokolle müssen Erkennungsfehler,
+Fehlalarme, Diskretion und Verhalten bei Verbindungsverlust dokumentieren.
+Bestandene Tests und eine Sicherheitsprüfung sind bislang nicht nachgewiesen.
 
 Die geplante Funktion ist keine Voraussetzung für den aktuellen Release und
 blockiert ihn nicht. Ohne Implementierung und die genannten Nachweise bleibt
