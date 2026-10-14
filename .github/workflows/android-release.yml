@@ -115,7 +115,6 @@ jobs:
           verify_apk niknolig-defense com.niknolig.defense
 
       - name: Upload NIKNOLIG release APK
-        if: ${{ github.event.repository.private == true }}
         uses: actions/upload-artifact@v7.0.2
         with:
           name: niknolig-release-apk
@@ -124,7 +123,6 @@ jobs:
           retention-days: 1
 
       - name: Upload NIKNOLIG Defense release APK
-        if: ${{ github.event.repository.private == true }}
         uses: actions/upload-artifact@v7.0.2
         with:
           name: niknolig-defense-release-apk
