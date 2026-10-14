@@ -5,10 +5,12 @@ Zentrale Integrationsplattform für NIKNOLIG, Elektro-Engel und NIKNOLIG Defense
 ## Aktueller Stand
 
 Diese Arbeitskopie enthält Dokumentation, einen manuellen Read-only-Audit-
-Workflow sowie einen getesteten OpenAI-Gateway-Vertrag für Cloudflare Workers.
-Die Produktquellen und Clients von NIKNOLIG, Elektro-Engel und NIKNOLIG Defense
-fehlen weiterhin. Daher wurde noch kein Projekt aus einem anderen Repository
-übernommen und es ist keine Überschneidungsprüfung auf Dateiebene möglich.
+Workflow sowie den OpenAI-Gateway für Cloudflare Workers. Der Gateway-Quellcode
+liegt im Monorepo unter `workers/openai-gateway/`. Produktclients und zusätzliche
+Datenquellen der drei Systeme sind hier nicht vorhanden. Die Inhalte der
+separaten Repositorys `NIKNOLIG` und `NIKNOLIG-Defense` konnten in dieser Sitzung
+nicht eingesehen werden; aus ihrem Namen oder der bisherigen Dokumentation lässt
+sich keine zusätzliche Workers-Quelle ableiten.
 
 | Bereich | Verifizierter Stand |
 | --- | --- |
@@ -61,62 +63,28 @@ ausgegeben. Die Verfügbarkeit des Cloudflare-Secrets ließ sich in dieser
 Umgebung nicht prüfen; ein Deployment fand nicht statt.
 
 Das vorhandene GitHub-Secret `OPENAI_API_KEY` wird von GitHub Actions nicht
-automatisch an einen Worker übertragen. Der Read-only-Audit-Workflow verwendet
-es bewusst nicht: Er benötigt ausschließlich `WORKERS_REPOSITORY_URL` und
-`WORKERS_REPO_READ_PAT`, klont nur das Quellrepository und führt keinen
-Cloudflare-Aufruf aus. Für den Worker-Laufzeitbetrieb muss derselbe Schlüssel
-einmal als Cloudflare-Worker-Secret `OPENAI_API_KEY` hinterlegt werden. Eine
-spätere, ausdrücklich freigegebene Deployment-Pipeline könnte das vorhandene
-GitHub-Secret als Quelle dafür verwenden; dafür wären zusätzlich ein eng
-begrenztes Cloudflare-Deployment-Token und ein eigener, geprüfter Deploy-Job
-erforderlich. Eine solche Pipeline wird hier nicht angelegt und es erfolgt
-keine Übertragung.
+automatisch an den Worker übertragen. Der Read-only-Audit verwendet keine
+Secrets und stellt keine Verbindung zu Cloudflare her. Für den Worker-
+Laufzeitbetrieb muss der Schlüssel separat als Cloudflare-Worker-Secret
+`OPENAI_API_KEY` hinterlegt sein; es wurde weder geprüft noch verändert.
 
 Die vorhandenen Repositorys enthalten keine Frontends oder Backends der drei
 Systeme; deshalb kann dieser Gateway-Vertrag noch von keinem Produktivsystem
 aufgerufen werden. Tests lokal ausführen:
 `node --test workers/openai-gateway/src/index.test.mjs`.
 
-## Sicherer Integrationszugriff
+## Read-only Workers-Audit
 
-Vor einem Klon oder Vergleich müssen betroffene Zugangsdaten erneuert werden,
-falls sie offengelegt wurden. Zugangsdaten und Clone-Adressen gehören nicht in
-Quellcode, Dokumentation, Logs oder Commits.
+Der manuell startbare Workflow `Read-only Workers repository audit` prüft die
+bereits im selben Repository liegende Quelle `workers/openai-gateway/`. Er
+benötigt weder eine zweite Workers-Repository-URL noch ein PAT: GitHub Actions
+checkt dieses Repository mit `contents: read` aus und persistiert keine
+Checkout-Zugangsdaten. Der Audit führt keinen Quellcode aus und deployt nichts.
 
-Nach der Erneuerung folgende Repository-Secrets einrichten:
-
-- `WORKERS_REPOSITORY_URL`: HTTPS-Clone-Adresse von `niknolig-workers`.
-- `WORKERS_REPO_READ_PAT`: separat gespeichertes, nur leseberechtigtes Token für
-  dieses Repository (Inhalte lesen; kein Schreib-, Merge- oder Deploy-Zugriff).
-
-[Repository-Secrets öffnen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/secrets/actions/new).
-Secret-Werte nicht in Chat, Issues, Pull Requests, Logs oder Dateien einfügen.
-Der Workflow `Read-only Workers repository audit` prüft beim manuellen Start,
-ob beide Secrets verfügbar sind, entfernt optionale Zugangsdaten aus der
-Clone-Adresse und verwendet ausschließlich das separate PAT für den lesenden Klon.
-
-Die aktuelle Agentensitzung kann Repository-Secrets weder auflisten noch deren
-Verfügbarkeit in GitHub Actions verifizieren. Secret-Werte werden nicht
-ausgelesen. Ohne eingerichtete Secrets kann der manuelle Audit-Workflow nicht
-auf das externe Repository zugreifen.
-Die verfügbaren Audit-Läufe vom 13.10.2026 brachen vor dem Klonen bei der
-Prüfung einer URL mit eingebetteten Zugangsdaten ab. Der Workflow wurde danach
-angepasst; ein erfolgreicher Lauf mit der Korrektur liegt nicht vor. Der Inhalt
-des externen `niknolig-workers`-Repositorys ist deshalb weiterhin ungeprüft.
-Der aktuelle Workflow erlaubt eingebettete URL-Zugangsdaten, entfernt sie vor
-dem Klon und authentifiziert stattdessen ausschließlich mit
-`WORKERS_REPO_READ_PAT`. Query-Parameter und Fragmente werden abgelehnt; Clone-
-Diagnosen bleiben unterdrückt. Ein erneuter Workflow-Dispatch war aus dieser
-Sitzung nicht verfügbar.
-
-## Integrationsvorgehen
-
-Nach Bereitstellung des geschützten Zugriffs zunächst den Audit-Workflow manuell
-starten und dessen Strukturbericht, README-Überschriften und vorhandene
-Workflow-Dateien prüfen. Der Workflow führt keine externen Skripte aus und
-ändert keine Dateien. Danach NIKNOLIG-, Defense- und Workers-Projekte auf
-Dateipfade, Funktionen und Abhängigkeiten vergleichen. Übernahmen erfolgen nur
-für nicht kollidierende Inhalte; Konflikte und offene Schnittstellen werden vor
-Änderungen dokumentiert. Tests werden nur ausgeführt, wenn die übernommenen
-Projekte sie bereitstellen. Es erfolgt weder ein automatischer Merge noch ein
-Deployment.
+Die frühere Dokumentation verwies auf `niknolig-workers`, verlangte dafür
+`WORKERS_REPOSITORY_URL` und `WORKERS_REPO_READ_PAT`, nannte aber keine konkrete
+Repository-URL. In den vorhandenen Repository-Dateien gibt es keinen Beleg, dass
+der Gateway aus einem separaten Repository stammen muss. Die beiden bekannten
+separaten Repositorys waren in dieser Sitzung nicht einsehbar; falls dort
+zusätzliche Datenquellen oder Produktclients liegen, müssen sie separat
+zugänglich gemacht und ihre Schnittstellen geprüft werden.
