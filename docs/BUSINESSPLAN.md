@@ -113,8 +113,10 @@ Eine mögliche, noch nicht implementierte Alarmkette ist in Stufen zu prüfen:
 und berechtigungsbasiert erfolgen; heimliche Daueraufzeichnung ist
 ausgeschlossen. Vor einer Freigabe sind Audioverarbeitung (lokal oder extern),
 Übertragungen, etwaige Speicherung, Löschung und Aufbewahrungsdauer eindeutig
-zu dokumentieren. Standort darf nicht unbefugt weitergegeben werden; Zugriffe,
-Empfänger, Umfang und Dauer jeder Datenweitergabe sind klar zu begrenzen.
+zu dokumentieren. Sensible Daten dürfen nur im unbedingt erforderlichen Umfang
+und so kurz wie nötig gespeichert werden. Standort darf nicht unbefugt
+weitergegeben werden; Zugriffe, Empfänger, Umfang und Dauer jeder
+Datenweitergabe sind klar zu begrenzen.
 Täterwarnungen oder Hinweise auf eine laufende Schutzfunktion dürfen nicht
 leicht erkennbar sein. Diese Schutzanforderungen dürfen nicht zu heimlicher
 Überwachung umgedeutet werden. Die technische und datenschutzrechtliche
