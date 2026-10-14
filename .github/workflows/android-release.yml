@@ -40,6 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           set +x
+          umask 077
           require_value() {
             if [[ -z "$2" ]]; then
               echo "::error::Required Actions secret is missing: $1"
@@ -67,14 +68,14 @@ jobs:
           keystore_dir="$RUNNER_TEMP/android-release"
           install -d -m 700 "$keystore_dir"
           printf '%s' "$NIKNOLIG_RELEASE_KEYSTORE_BASE64" |
-            base64 --decode > "$keystore_dir/niknolig-release.jks"
+            base64 --decode > "$keystore_dir/niknolig-release.p12"
           printf '%s' "$NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64" |
-            base64 --decode > "$keystore_dir/niknolig-defense-release.jks"
-          test -s "$keystore_dir/niknolig-release.jks"
-          test -s "$keystore_dir/niknolig-defense-release.jks"
-          chmod 600 "$keystore_dir/"*.jks
-          printf 'NIKNOLIG_RELEASE_STORE_FILE=%s\n' "$keystore_dir/niknolig-release.jks" >> "$GITHUB_ENV"
-          printf 'NIKNOLIG_DEFENSE_RELEASE_STORE_FILE=%s\n' "$keystore_dir/niknolig-defense-release.jks" >> "$GITHUB_ENV"
+            base64 --decode > "$keystore_dir/niknolig-defense-release.p12"
+          test -s "$keystore_dir/niknolig-release.p12"
+          test -s "$keystore_dir/niknolig-defense-release.p12"
+          chmod 600 "$keystore_dir/"*.p12
+          printf 'NIKNOLIG_RELEASE_STORE_FILE=%s\n' "$keystore_dir/niknolig-release.p12" >> "$GITHUB_ENV"
+          printf 'NIKNOLIG_DEFENSE_RELEASE_STORE_FILE=%s\n' "$keystore_dir/niknolig-defense-release.p12" >> "$GITHUB_ENV"
 
       - name: Assemble both signed release APKs
         shell: bash
@@ -137,5 +138,5 @@ jobs:
         run: |
           set -euo pipefail
           keystore_dir="$RUNNER_TEMP/android-release"
-          rm -f "$keystore_dir/niknolig-release.jks" "$keystore_dir/niknolig-defense-release.jks"
+          rm -f "$keystore_dir/niknolig-release.p12" "$keystore_dir/niknolig-defense-release.p12"
           rmdir "$keystore_dir" 2>/dev/null || true
