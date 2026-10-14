@@ -1,21 +1,48 @@
 # NIKNOLIG Master-Integration – Inventur und Vorschlag
 
-**Status:** Entwurf zur Prüfung, keine Implementierungsfreigabe
+**Status:** Android-Module im Monorepo umgesetzt; Cloudflare, produktive
+Integration und Deployment bleiben ungeprüft und nicht freigegeben.
 
 **Inventurstand:** 2026-10-14
 
-**Geprüfter Arbeitsbranch:** `copilot/maintain-existing-work`
+**Historischer Inventurbranch:** `copilot/maintain-existing-work`
 
-**Geprüfter Commit:** `48476be8fbbad2ddff7e9792d68c1ea80c6a8df2`
+**Historischer Inventurcommit:** `48476be8fbbad2ddff7e9792d68c1ea80c6a8df2`
 
-Dieser Entwurf trennt Repository-Fakten von Angaben und Zielvorstellungen. Nicht
+Dieser Plan trennt Repository-Fakten von Angaben und Zielvorstellungen. Nicht
 lesbare Quellen oder nicht zugängliche Cloudflare-Einstellungen werden nicht
-als bestätigt behandelt. Er genehmigt weder Änderungen noch Veröffentlichung,
-Produktivzugriff oder Deployment.
+als bestätigt behandelt. Die folgende Monorepo-Integration ändert weder die
+Quell-Repositories noch Websites oder Deployments und genehmigt keinen
+Produktivzugriff.
+
+## Aktueller Monorepo-Integrationsstand
+
+Die Android-Projekte sind als unabhängige Gradle-Module `:niknolig` und
+`:niknolig-defense` unter `apps/` eingebunden. Ihre `applicationId`s sind
+`com.niknolig.app` und `com.niknolig.defense`; die Defense-App hat zusätzlich
+einen eigenen Namespace und ein eigenes Kotlin-Paket. Es gibt keine
+Modulabhängigkeit, gemeinsame Laufzeitbibliothek, App-zu-App-Schnittstelle oder
+neue Android-Berechtigung. Die vorhandenen Launcher-/internen Activity-Grenzen
+und deaktivierten Backups bleiben bestehen.
+
+Die `app/`-Git-Trees der geprüften Quell-Commits
+`nikolausnold/NIKNOLIG@3c4d6618a61604f6433639151e741371491a5f0d` und
+`nikolausnold/NIKNOLIG-Defense@5f0f385089bc27347eacd282c13a546eb4511da2`
+haben denselben Tree-Hash (`72ba65da7e3603fabf0938e6a6a254aa09dadb52`).
+Damit ist nur dieselbe Android-Vorschau in zwei getrennten App-Sandboxes
+nachgewiesen, keine Defense-spezifische Runtime oder Sicherheitsfunktion. Die
+Monorepo-Konfiguration trennt App-IDs und Quellpakete; sie erfindet keine
+Defense-Funktionen.
+
+Websites und GitHub-Pages-Workflows verbleiben in den Quell-Repositories. Im
+Monorepo gibt es keinen App-zu-App-Datenaustausch und keine bestätigte
+Cloudflare-Verbindung. Der Android-Build-Workflow prüft beide Debug-Apps und
+deren unterschiedliche Paket-IDs; Testquellen waren im geprüften Stand nicht
+vorhanden.
 
 ## 1. Bestandsinventur
 
-### Im Monorepo nachgewiesen
+### Historischer Inventurstand vor der Android-Integration
 
 Zum Inventurzeitpunkt enthält der ausgecheckte Arbeitsbranch diese getrackten
 Projektdateien:
@@ -26,9 +53,10 @@ Projektdateien:
 | `.github/workflows/audit-workers.yml` | Manueller Read-only-Überblick über dieses Repository; keine Projekt-Workflows oder Skripte werden ausgeführt. |
 | `docs/MASTER-INTEGRATION-PLAN.md` | Dieser Inventur- und Vorschlagsentwurf. |
 
-Es wurden keine Anwendungsquellen, API-Definitionen, Build-/Paketmanifestdateien,
-Tests, Wrangler-Konfigurationen oder Deployment-Skripte gefunden. Im lokalen
-Arbeitsbaum waren keine uncommitteten Änderungen vorhanden. GitHub zeigte
+Zu diesem historischen Stand wurden keine Anwendungsquellen,
+API-Definitionen, Build-/Paketmanifestdateien, Tests, Wrangler-Konfigurationen
+oder Deployment-Skripte gefunden. Im damaligen lokalen Arbeitsbaum waren keine
+uncommitteten Änderungen vorhanden. GitHub zeigte
 `main` auf `2caa4098abf8a6464c21720383b7f47289b5be98`; der geprüfte
 Arbeitsbranch lag auf dem oben genannten späteren Dokumentationscommit.
 
@@ -52,12 +80,13 @@ nichts geklont:
 | [nikolausnold/NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG) | `3c4d6618a61604f6433639151e741371491a5f0d` | README; Android-Gerüst mit Gradle-Wrapper, `app/`, `app/src/main/AndroidManifest.xml`; statische Website mit `index.html` und `styles.css`; Android-Build- und GitHub-Pages-Workflows. | README beschreibt eine frühe Vorschau. BLE, Gerätevertrauen, Sicherheitsfreigaben und produktive Funktionen seien noch nicht implementiert. |
 | [nikolausnold/NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense) | `5f0f385089bc27347eacd282c13a546eb4511da2` | README; Android-Gerüst mit Gradle-Wrapper, `app/`, `app/src/main/AndroidManifest.xml`; eigene statische Website mit `index.html` und `styles.css`; Android-Build- und GitHub-Pages-Workflows. | README/Website beschreiben die App und Defense als in Entwicklung; sie belegen keine produktive Sicherheitsintegration. |
 
-Beide geprüften App-Gradle-Konfigurationen verwenden `com.niknolig.app` als
-Namespace und `applicationId`. Die READMEs nennen JDK 17, Gradle Wrapper 8.13,
-Android Gradle Plugin 8.11.1 und compile SDK 35. Das ist ein konkreter
-Identitätskonflikt, falls beide APKs gleichzeitig als getrennte Apps installiert
-werden sollen. Eine beabsichtigte gemeinsame oder getrennte Veröffentlichung
-ist nicht belegt.
+Beide geprüften Upstream-App-Gradle-Konfigurationen verwenden weiterhin
+`com.niknolig.app` als Namespace und `applicationId`. Das wäre für parallele
+Installationen der unveränderten Upstream-APK-Varianten ein Identitätskonflikt;
+im Monorepo hat Defense deshalb Namespace und `applicationId`
+`com.niknolig.defense`. Die READMEs nennen JDK 17, Gradle Wrapper 8.13,
+Android Gradle Plugin 8.11.1 und compile SDK 35. Der Auftrag bestätigt getrennte
+Apps, nicht einen produktiven Store-Release.
 
 Beide Repositories listen `android-build.yml` und `deploy-website.yml` in
 `.github/workflows`. Die Website-Workflows bauen ein GitHub-Pages-Artefakt und
@@ -139,10 +168,9 @@ einer Cloudflare-Konto-Verbindung. Eine GitHub-App-Installation oder
 GitHub-Pages-Deployment belegt für sich weder ein Cloudflare-Projekt noch
 dessen Git-Verknüpfung.
 
-Im Monorepo sind nur `README.md`, dieser Plan und
-`.github/workflows/audit-workers.yml` vorhanden; insbesondere fehlen
-Wrangler-/Cloudflare-Konfiguration, Anwendungscode und ein Cloudflare-
-Deploymentworkflow. Die Quell-Root- und Workflow-Inventare belegen die
+Im Monorepo sind Android-Quellen und ein Android-Build-Workflow vorhanden.
+Wrangler-/Cloudflare-Konfiguration und ein Cloudflare-Deploymentworkflow fehlen
+weiterhin. Die Quell-Root- und Workflow-Inventare belegen die
 GitHub-Pages-Workflows; die hier vorliegenden Nachweise belegen keine
 Cloudflare-Worker-/Pages-Verbindung.
 
@@ -171,8 +199,9 @@ Einstellungsnachweis und der Deploymentstatus genügen.
 
 ## 5. Abhängigkeiten und API-Verträge
 
-Aktuell sind keine Projekt-Abhängigkeiten oder laufenden APIs im Monorepo
-nachgewiesen. Der Audit nutzt `actions/checkout@v4` mit
+Die Android-Module verwenden die in den Quell-Repositories vorhandenen
+Gradle-/Android-Plugins; laufende APIs oder App-zu-App-Verträge sind im
+Monorepo nicht nachgewiesen. Der Audit nutzt `actions/checkout@v4` mit
 `persist-credentials: false` und Python-Standardbibliothek; dies ist eine
 Audit-Abhängigkeit, keine Anwendungsintegration.
 
@@ -255,22 +284,19 @@ Cloudflare-Kontozugriff.
 1. Für NIKNOLIG und Defense jeweils fehlen die vier oben aufgeführten
    Cloudflare-Projektdaten (Produktart/Name, Repository/Produktionsbranch,
    Build-/Deploy-Befehl/Root sowie letzter Deploy-Status mit Quell-Commit).
-2. Welche Repository-/App-Identität ist beabsichtigt? Beide Android-App-
-   Konfigurationen verwenden `com.niknolig.app`; eine getrennte Installation
-   der zwei APKs wäre damit nicht belegt.
-3. Wo liegt die tatsächliche API-Testworkflow-Datei? Die Actions-Liste nennt
+2. Wo liegt die tatsächliche API-Testworkflow-Datei? Die Actions-Liste nennt
    einen API-Testworkflow, aber der aktuelle Workflow-Verzeichnisabruf und der
    direkte Dateiabruf bestätigten keine Datei; es wurden keine zugehörigen Runs
    zurückgegeben.
-4. Ist der Defense-Link in der NIKNOLIG-Website mit dem führenden Bindestrich
+3. Ist der Defense-Link in der NIKNOLIG-Website mit dem führenden Bindestrich
    (`nikolausnold/-NIKNOLIG-Defense`) beabsichtigt? Er stimmt nicht mit dem
    tatsächlich geprüften Repository-Namen `nikolausnold/NIKNOLIG-Defense`
    überein.
-5. Welche Austauschdaten und Aktionen dürfen zwischen NIKNOLIG und Defense
+4. Welche Austauschdaten und Aktionen dürfen zwischen NIKNOLIG und Defense
    fließen, in welche Richtung und mit welcher Genehmigung?
-6. Welche Daten müssen offline verfügbar sein; welche Datenschutz-,
+5. Welche Daten müssen offline verfügbar sein; welche Datenschutz-,
    Aufbewahrungs-, Kosten- und Wiederherstellungsanforderungen gelten?
-7. Welche konkreten Release-Anforderungen, Review-Gates und Rollback-
+6. Welche konkreten Release-Anforderungen, Review-Gates und Rollback-
    Verfahren gelten über die vorhandenen Debug-Builds und GitHub-Pages-
    Deployments hinaus?
 
@@ -278,5 +304,6 @@ Cloudflare-Kontozugriff.
 Projekte einen redigierten read-only Einstellungsnachweis mit genau den vier
 aufgeführten Feldern und den letzten Deploy-Status/Commit bereitstellen. Die
 GitHub-Quellen und GitHub-Pages-/Android-Workflow-Nachweise sind vorhanden;
-die Cloudflare-Zuordnung bleibt ungeklärt. App-ID-Absicht und Defense-Link-Ziel
-bleiben zusätzliche, nicht in diesem Monorepo lösbare Release-Fragen.
+die Cloudflare-Zuordnung bleibt ungeklärt. Die Monorepo-App-IDs sind getrennt;
+der fehlerhafte Defense-Link und fehlende Defense-spezifische App-Funktion
+bleiben offene Release-Fragen.
