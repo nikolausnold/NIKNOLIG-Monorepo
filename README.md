@@ -72,6 +72,10 @@ Die aktuelle Agentensitzung kann Repository-Secrets weder auflisten noch deren
 Verfügbarkeit in GitHub Actions verifizieren. Secret-Werte werden nicht
 ausgelesen. Ohne eingerichtete Secrets kann der manuelle Audit-Workflow nicht
 auf das externe Repository zugreifen.
+Die verfügbaren Audit-Läufe vom 13.10.2026 brachen vor dem Klonen bei der
+Prüfung einer URL mit eingebetteten Zugangsdaten ab. Der Workflow wurde danach
+angepasst; ein erfolgreicher Lauf mit der Korrektur liegt nicht vor. Der Inhalt
+des externen `niknolig-workers`-Repositorys ist deshalb weiterhin ungeprüft.
 
 ## Integrationsvorgehen
 

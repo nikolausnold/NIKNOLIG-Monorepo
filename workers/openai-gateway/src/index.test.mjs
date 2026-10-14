@@ -95,6 +95,41 @@ test("authenticates an Access token and calls OpenAI with bounded, isolated inpu
   assert.ok(new Headers(openAIRequest.headers).get("authorization").endsWith([" ", "test"].join("")));
 });
 
+test("keeps each product audience and rate-limit key isolated", async () => {
+  const limiterKeys = [];
+  const isolatedEnv = {
+    ...env,
+    AI_LIMITER: {
+      limit: async ({ key }) => {
+        limiterKeys.push(key);
+        return { success: true };
+      },
+    },
+  };
+  const promptBySystem = {
+    niknolig: /NIKNOLIG assistant/,
+    "elektro-engel": /Elektro-Engel assistant/,
+    "niknolig-defense": /NIKNOLIG Defense assistant/,
+  };
+
+  for (const [system, audience] of Object.entries(audienceBySystem)) {
+    const token = await accessToken(audience);
+    const response = await worker.fetch(createRequest({ system, token }), isolatedEnv);
+    const result = await response.json();
+    const requestBody = JSON.parse(openAIRequest.body);
+
+    assert.equal(response.status, 200);
+    assert.equal(result.system, system);
+    assert.match(requestBody.input[0].content, promptBySystem[system]);
+    assert.equal(requestBody.input[1].content, "Hallo");
+  }
+
+  assert.deepEqual(
+    limiterKeys,
+    Object.keys(audienceBySystem).map((system) => `${system}:test-principal`),
+  );
+});
+
 test("rejects using one system's Access audience for another system", async () => {
   const token = await accessToken(audienceBySystem.niknolig);
   const response = await worker.fetch(createRequest({ system: "elektro-engel", token }), env);
