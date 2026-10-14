@@ -46,3 +46,17 @@ jobs:
 
           verify_apk niknolig com.niknolig.app
           verify_apk niknolig-defense com.niknolig.defense
+      - name: Upload NIKNOLIG debug APK
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: niknolig-debug-apk
+          path: apps/niknolig/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload NIKNOLIG Defense debug APK
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: niknolig-defense-debug-apk
+          path: apps/niknolig-defense/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
