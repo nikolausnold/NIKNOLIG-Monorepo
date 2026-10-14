@@ -36,11 +36,25 @@ tatsächlichen Angebote zu prüfen.
 
 ## Preise, Vertrag und Verbraucherrechte
 
-- [ ] NIKNOLIG kostenlos nur dann bewerben, wenn sämtliche verpflichtenden
-  Zahlungen oder Zusatzkosten transparent angegeben sind.
-- [ ] Die geplanten 0,75 € für NIKNOLIG Defense definieren: einmaliger
-  Kaufumfang, Bedeutung „pro Store“, Länderpreise, Steuern, Store-Gebühren,
-  Rückerstattung und Zahlungsabwicklung.
+- [ ] Die Produktvorgabe „NIKNOLIG dauerhaft kostenlos“ in Produkt- und
+  Store-Angaben konsistent umsetzen; etwaige verpflichtende Zahlungen oder
+  Zusatzkosten transparent klären.
+- [ ] Die Produktvorgabe „NIKNOLIG Defense regulär einmalig 0,75 €“ je Store
+  umsetzen und Kaufumfang, Länderpreise, Steuern, Store-Gebühren,
+  Rückerstattung und Zahlungsabwicklung prüfen.
+- [ ] Die Härtefallregel für NIKNOLIG Defense konsistent abbilden: qualifizierte
+  Personen erhalten genau 48 Stunden kostenlose Nutzung; keine unbegrenzte
+  Freischaltung aus der Regel ableiten.
+- [ ] Den Start auf die Aktivierung des Härtefallzugangs und das Ende exakt
+  48 Stunden danach festlegen; beide Zeitpunkte nachvollziehbar erfassen.
+  Verhalten nach Fristende darf keine automatische Belastung unterstellen.
+- [ ] Nachweismethode, zuständige Entscheidung, Missbrauchsbegrenzung und
+ datenschutzrechtliche Umsetzung der Härtefallregel fachlich und
+ fachjuristisch prüfen. Diese Punkte sind noch offen; keine Nachweise oder
+ Verfahren erfinden.
+- [ ] Sicherstellen, dass notwendige Notfallfunktionen nicht von einem vorab
+ erbrachten Härtefallnachweis abhängen; konkret betroffene Funktionen
+ festlegen.
 - [ ] Elektro-Engel-Angebot und Preis festlegen; bis dahin keine eigenständige
   kostenpflichtige Leistung behaupten.
 - [ ] Für jeden Store Verkäufer, Vertragspartner, Bestellablauf,
@@ -119,15 +133,21 @@ tatsächlichen Angebote zu prüfen.
    Anbieterkennungen.
 2. Tatsächlicher Leistungsumfang und verantwortlicher Vertragspartner je
    Produkt und Store.
-3. Verbindliche Preis- und Steuerdarstellung; genaue Bedeutung des
-   Defense-Preises „0,75 € pro Store“.
-4. Elektro-Engels tatsächliche Funktion, Zweckbestimmung und mögliche
+3. Umsetzung und rechtliche Prüfung der verbindlichen Produktpreise:
+   NIKNOLIG dauerhaft kostenlos, NIKNOLIG Defense regulär einmalig 0,75 €;
+   Store-, Länder- und Steuerdarstellung.
+4. Härtefallregel für Defense: Nachweismethode, Entscheidung, technische
+   Erfassung der Aktivierung und des Ablaufs exakt 48 Stunden später, Verhalten
+   nach Fristende, Missbrauchsbegrenzung und datenschutzrechtliche Umsetzung.
+   Notwendige Notfallfunktionen dürfen nicht von einem vorherigen Nachweis
+   abhängen.
+5. Elektro-Engels tatsächliche Funktion, Zweckbestimmung und mögliche
    Sonderpflichten.
-5. Datenschutzrollen, Datenflüsse, Datenschutzerklärungs-URL und
+6. Datenschutzrollen, Datenflüsse, Datenschutzerklärungs-URL und
    Auftragsverarbeiter.
-6. Store, Vertriebsgebiete, Verbraucherinformationen, Widerrufs- und
+7. Store, Vertriebsgebiete, Verbraucherinformationen, Widerrufs- und
    Erstattungsprozesse.
-7. Fachjuristische Freigabe von AGB, Widerruf, Haftung, anwendbarem Recht und
+8. Fachjuristische Freigabe von AGB, Widerruf, Haftung, anwendbarem Recht und
    sämtlichen Produkt-/Marketingaussagen.
 
 **Freigabekriterium:** Veröffentlichung erst nach belegter Klärung der

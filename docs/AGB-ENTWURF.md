@@ -47,15 +47,28 @@ angeboten wird.
 
 ## 3. Preis, Zahlung und Vertragsschluss
 
-Die folgenden Preisangaben sind Vorgaben für die Planung, kein Nachweis eines
-verfügbaren Kaufangebots:
+Die folgenden Preisangaben und die Härtefallregel geben verbindliche
+Produktvorgaben wieder. Sie belegen kein verfügbares Kaufangebot und ersetzen
+weder die konkrete Store-Anzeige noch die vor Veröffentlichung erforderliche
+fachjuristische Prüfung:
 
-- **NIKNOLIG:** kostenlos, soweit die konkrete Store-Angebotsseite nichts
-  Abweichendes und rechtlich Zulässiges ausweist.
-- **NIKNOLIG Defense:** geplanter einmaliger Preis von **0,75 € pro Store**.
-  Was „pro Store“ bedeutet, welche Steuern enthalten sind und ob der Preis in
-  allen Vertriebsländern gleich ist, muss vor Verkauf festgelegt und im Store
-  korrekt angezeigt werden.
+- **NIKNOLIG:** dauerhaft kostenlos.
+- **NIKNOLIG Defense:** regulärer einmaliger Preis von **0,75 €**.
+- **Härtefallregel für NIKNOLIG Defense:** Personen, die nachweislich nicht in
+  der Lage sind, sich aus einer Notsituation zu befreien, sollen genau **48
+  Stunden** kostenlos nutzen können. Der kostenlose Zeitraum beginnt mit der
+  tatsächlichen Aktivierung des Härtefallzugangs und endet 48 Stunden nach
+  diesem Startzeitpunkt. Beginn und Ablauf müssen nachvollziehbar erfasst
+  werden. Die Regel begründet keine unbegrenzte kostenlose Freischaltung. Die
+  notwendigen Notfallfunktionen dürfen nicht davon abhängen, dass vorab ein
+  Nachweis erbracht wird.
+- **Vor Veröffentlichung offen:** konkrete Nachweismethode, zuständige
+  Entscheidung und Aktivierung, Missbrauchsbegrenzung, datenschutzrechtliche
+  Umsetzung und nachvollziehbare Erfassung von Start und Ablauf, Verhalten
+  nach Ende der 48 Stunden sowie Preis-, Steuer- und Länderanzeige je Store.
+  Es ist insbesondere nicht festgelegt, welche Funktionen als notwendige
+  Notfallfunktionen gelten. Aus der Härtefallregel folgt keine automatische
+  Belastung nach Fristablauf.
 - **Elektro-Engel:** Preis und entgeltlicher Leistungsumfang sind nicht
   festgelegt.
 

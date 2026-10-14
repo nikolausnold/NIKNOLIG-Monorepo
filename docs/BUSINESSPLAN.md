@@ -34,8 +34,8 @@ später über die Vorschau hinaus angeboten wird, ist offen.
 
 | Angebot | Vorgabe / belegter Stand | Offene Umsetzung |
 | --- | --- | --- |
-| NIKNOLIG | Vorgesehener Preis: kostenlos. Das Monorepo enthält eine Android-Vorschau, keinen bestätigten Store-Release. | Store-Verfügbarkeit, mögliche optionale Leistungen, Finanzierung, Betrieb und Bedingungen sind nicht festgelegt. |
-| NIKNOLIG Defense | Vorgesehener Preis: einmalig **0,75 € pro Store**. | Bedeutung von „pro Store“, Store-Länderpreise, Steuern, Store-Gebühren, Auszahlung, Rückerstattungen, Lizenzumfang und konkrete Defense-Leistung sind zu klären. Kein Kaufangebot oder bestätigter Verkauf ist im Monorepo belegt. |
+| NIKNOLIG | Verbindliche Produktregel: dauerhaft kostenlos. Das Monorepo enthält eine Android-Vorschau, keinen bestätigten Store-Release. | Store-Verfügbarkeit, Finanzierung, Betrieb und Bedingungen sind nicht festgelegt. Die kostenlose Bereitstellung ist in den jeweiligen Stores umzusetzen. |
+| NIKNOLIG Defense | Verbindliche Produktregel: regulärer Preis einmalig **0,75 €**. Personen, die nachweislich nicht in der Lage sind, sich aus einer Notsituation zu befreien, sollen genau **48 Stunden** kostenlos nutzen können. Der Zeitraum beginnt mit der Aktivierung des Härtefallzugangs und endet exakt 48 Stunden danach; daraus folgt keine unbegrenzte Freischaltung. | Store- und Länderpreise, Steuern, Store-Gebühren, Auszahlung, Rückerstattungen, Lizenzumfang und konkrete Defense-Leistung sind zu klären. Nachweismethode, Missbrauchsbegrenzung, datenschutzrechtliche Umsetzung und technische Erfassung von Start und Ablauf sind noch festzulegen. Notwendige Notfallfunktionen dürfen nicht von einem vorherigen Nachweis abhängen. Kein Kaufangebot oder bestätigter Verkauf ist im Monorepo belegt. |
 | Elektro-Engel | Als Assistenz-/Lernkonzept und begrenzte lokale Vorschau dokumentiert; kein eigener Preis belegt. | Eigenständigkeit, späterer Leistungsumfang, Preis und etwaige regulierte oder fachliche Einsatzbereiche sind offen. Nicht als separates kostenpflichtiges Produkt unterstellen. |
 
 **Vorgeschlagene Erlösansätze, nicht beschlossen:** Die Preisvorgabe für
@@ -116,8 +116,8 @@ prognostiziert.
 | Einordnung | Aussage |
 | --- | --- |
 | **Bereits vorhanden** | Zwei getrennte Android-Vorschau-Apps; aktueller gemeinsamer Vorschau-Funktionsstand; begrenztes lokales Lernprofil; Debug-Build-Prüfung. |
-| **Vorgegeben / geplant** | NIKNOLIG kostenlos; NIKNOLIG Defense einmalig 0,75 € pro Store; NIKNOLIG als Hauptplattform; Defense als getrennte Sicherheitsdomäne; Elektro-Engel als Assistenzkonzept. |
-| **Noch ungeprüft / offen** | Markt und Zahlungsbereitschaft; konkrete Produkt- und Defense-Leistungen; eigenständige oder produktive Elektro-Engel-Leistung; Stores und Preisabwicklung; Anbieter- und Rechtsform; Kosten und Erlöse; Backend/Cloudflare; Datenflüsse; Release- und Vermarktungsplan. |
+| **Vorgegeben / geplant** | NIKNOLIG dauerhaft kostenlos; NIKNOLIG Defense regulär einmalig 0,75 €, mit genau 48 Stunden kostenloser Härtefallnutzung; NIKNOLIG als Hauptplattform; Defense als getrennte Sicherheitsdomäne; Elektro-Engel als Assistenzkonzept. |
+| **Noch ungeprüft / offen** | Markt und Zahlungsbereitschaft; konkrete Produkt- und Defense-Leistungen; Nachweisverfahren und Missbrauchsbegrenzung für Härtefälle; datenschutzrechtliche Umsetzung; technische Erfassung von Aktivierung und Ablauf nach genau 48 Stunden; Verhalten nach Ablauf und Store-/Zahlungsablauf; eigenständige oder produktive Elektro-Engel-Leistung; Anbieter- und Rechtsform; Kosten und Erlöse; Backend/Cloudflare; Datenflüsse; Release- und Vermarktungsplan. |
 
 Vor einem Geschäfts- oder Release-Beschluss sind mindestens Angebot und
 Leistungsumfang je Produkt, Zielgruppe, Kostenmodell, Preisdefinition
