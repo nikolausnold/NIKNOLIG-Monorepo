@@ -28,6 +28,23 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Require independently approved certificate fingerprints
+        shell: bash
+        env:
+          NIKNOLIG_RELEASE_CERT_SHA256: ${{ vars.NIKNOLIG_RELEASE_CERT_SHA256 }}
+          NIKNOLIG_DEFENSE_RELEASE_CERT_SHA256: ${{ vars.NIKNOLIG_DEFENSE_RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          set +x
+          for name in NIKNOLIG_RELEASE_CERT_SHA256 NIKNOLIG_DEFENSE_RELEASE_CERT_SHA256; do
+            fingerprint="$(printf '%s' "${!name}" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            if [[ ! "$fingerprint" =~ ^[[:xdigit:]]{64}$ ]]; then
+              echo "::error::Missing or invalid independently approved SHA-256 reference: $name"
+              exit 1
+            fi
+            printf '%s=%s\n' "$name" "$fingerprint" >> "$GITHUB_ENV"
+          done
+
       - name: Validate and stage release keystores
         shell: bash
         env:
@@ -129,6 +146,7 @@ jobs:
             local store_file="$4"
             local alias="$5"
             local password_env="$6"
+            local trusted_sha256="$7"
             local -a apks
             mapfile -t apks < <(find "apps/$module/build/outputs/apk/release" -maxdepth 1 -type f -name '*.apk' -print)
             if [[ "${#apks[@]}" -ne 1 || ! -s "${apks[0]:-}" ]]; then
@@ -162,13 +180,18 @@ jobs:
               exit 1
             fi
             echo "$label certificate comparison: PASS"
+            if [[ "$keystore_sha256" != "$trusted_sha256" || "$apk_sha256" != "$trusted_sha256" ]]; then
+              echo "::error::$label certificate does not match the independently approved SHA-256 reference"
+              exit 1
+            fi
+            echo "$label independent certificate reference comparison: PASS"
           }
 
           verify_apk niknolig com.niknolig.app NIKNOLIG "$NIKNOLIG_RELEASE_STORE_FILE" \
-            "$NIKNOLIG_RELEASE_KEY_ALIAS" NIKNOLIG_RELEASE_STORE_PASSWORD
+            "$NIKNOLIG_RELEASE_KEY_ALIAS" NIKNOLIG_RELEASE_STORE_PASSWORD "$NIKNOLIG_RELEASE_CERT_SHA256"
           verify_apk niknolig-defense com.niknolig.defense "NIKNOLIG Defense" \
             "$NIKNOLIG_DEFENSE_RELEASE_STORE_FILE" "$NIKNOLIG_DEFENSE_RELEASE_KEY_ALIAS" \
-            NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD
+            NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD "$NIKNOLIG_DEFENSE_RELEASE_CERT_SHA256"
 
       - name: Upload NIKNOLIG release APK
         uses: actions/upload-artifact@v7.0.2
