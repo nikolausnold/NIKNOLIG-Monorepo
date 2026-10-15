@@ -77,6 +77,10 @@ Lokale Prüfung der neuen Dateien:
 - Secret-Scan ohne Befund; read-only Review ohne wesentliche Beanstandungen.
 Diese Prüfungen sind keine ausgeführten App-/Worker-Tests und kein Nachweis
 eines bereits erfolgten Actions-Uploads.
+Die kombinierte Validierung nach dem Commit ergab: CodeQL für Actions mit
+null Alerts. Das integrierte Review-Werkzeug war nicht verfügbar; das oben
+genannte separate read-only Review wurde durchgeführt. Keine dieser Prüfungen
+ersetzt die fehlenden Rev-9-Funktionstests.
 
 4. WIEDERVERWENDETE ACTIONS-NACHWEISE
 
@@ -152,14 +156,16 @@ Kein Build, kein Deployment, keine Live-Tests. Der unveränderte Android-Workflo
 reagiert weiterhin auf jeden Push; dessen automatische Runs werden nicht
 zusätzlich manuell gestartet oder wiederholt.
 
-Ein neuer Download wird erst nach erfolgreichem Upload behauptet.
-Die tatsächliche Run-ID entsteht erst nach dem Push und wird im Abschluss
-gemeldet. Bei action_required ist die Bereitstellung bis zur Freigabe offen.
-Workflowübersicht:
-https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions
-Vorheriger Branch-Lauf #85 steht weiterhin laut jüngster Bestandsaufnahme auf
-action_required; er ist KEIN Nachweis für den neuen Bericht:
-https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38757559761
+Tatsächlicher erster Berichtslauf nach dem Push, Commit
+d55c0f87de3a5f4bfebc08ff2196c795d17ac7d3:
+https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38761403541
+Status: action_required. Jobs: 0. Artefakte: 0, per Actions-Abfrage bestätigt.
+rev9-release-audit ist damit noch NICHT herunterladbar.
+Ein berechtigter Repository-Nutzer muss den Freigabeschritt prüfen. Dieser
+erste Lauf enthält die Fassung vor diesem Statusnachtrag; für spätere
+Berichtscommits ist der neueste passende Workflow-Lauf maßgeblich:
+https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/release-audit-artifacts.yml?query=branch%3Acopilot%2Faudit-release-integration
+Keine Freigabe umgangen, kein manueller Retry oder zusätzlicher Build gestartet.
 
 7. OFFENE BLOCKER
 
@@ -180,7 +186,8 @@ P1 OFFEN für den bisherigen App-Integrationsumfang: Geräteverbindung,
 automatisierte App-Tests, echte Zwei-Geräte-Abnahme und unabhängig freigegebene
 Signaturreferenz fehlen weiterhin. Android-Builds schließen diese Lücken nicht.
 
-P2 OFFEN bis Upload-Nachweis: neuer Bericht als Actions-Download.
+P2 OFFEN: neuer Bericht als Actions-Download; erster Run action_required,
+noch kein Upload-Nachweis.
 Vorhandene Android-Artefakte sind verfügbar, aber keine Rev-9-Worker-Artefakte.
 
 Entscheidung: BLOCKED. Der Auftrag stellt Auditdateien und einen sicheren
