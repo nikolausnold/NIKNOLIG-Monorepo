@@ -58,6 +58,71 @@ prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
 Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
 Android-Testtask behauptet.
 
+## Release-Signaturen und offene Freigabe
+
+Der manuelle Release-Workflow verwendet das Environment `android-release`.
+Er benötigt zusätzlich zu den unveränderten sechs Signing-Secrets zwei
+unabhängig bestätigte SHA-256-Zertifikat-Fingerprints als Actions-Variablen:
+`NIKNOLIG_RELEASE_CERT_SHA256` und `NIKNOLIG_DEFENSE_RELEASE_CERT_SHA256`.
+Fehlende oder ungültige Werte blockieren bereits vor dem Build. Nach dem Build
+müssen freigegebene Referenz, Zertifikat des ausgewählten Keystore-Alias und
+APK-Signer übereinstimmen. Genau eine APK und genau ein Signer pro App,
+Paket-ID-Prüfungen sowie getrennte Uploads bleiben vorgeschrieben.
+
+### Befund vom 15.10.2026: beide Identitätsfreigaben noch offen
+
+Im Repository und in der geprüften Release-Dokumentation ist keine unabhängig
+freigegebene Zertifikatreferenz belegt.
+[PR #13](https://github.com/nikolausnold/NIKNOLIG-Monorepo/pull/13)
+benennt diese Vertrauenslücke ausdrücklich. Der erfolgreiche
+[Release-Lauf 38644626589](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38644626589)
+verwendete bereits beide PKCS12-Secrets und die unten genannten Aliases,
+protokollierte jedoch keine Zertifikat-Fingerprints.
+
+Die vorhandenen APK-Artefakte dieses Laufs wurden ohne Neubuild mit
+`apksigner verify --print-certs` erfolgreich geprüft; ihre Paket-IDs wurden mit
+`aapt` bestätigt. Folgende Werte sind **nur beobachtete APK-Signer-Zertifikate,
+keine unabhängig freigegebenen Vertrauensanker**:
+
+| App | Beobachteter Zertifikat-SHA-256 | Workflow-Zuordnung | Unabhängige Referenz / Status |
+| --- | --- | --- | --- |
+| NIKNOLIG | `59aad308bbba86fade464d15eee30edf4419e77e511dc6e4ee2cd1e01d351e92` | `NIKNOLIG_RELEASE_KEYSTORE_BASE64` → `niknolig-release.p12`, Alias `niknolig`, Paket `com.niknolig.app` | Nicht belegt; Freigabe blockiert |
+| NIKNOLIG Defense | `a87cdd166d98f355735386d4681152b9557f5b103f5590ab09adcc2a0641c2ef` | `NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64` → `niknolig-defense-release.p12`, Alias `niknolig-defense`, Paket `com.niknolig.defense` | Nicht belegt; Freigabe blockiert |
+
+Die tatsächlichen Release-Keystores und Passwörter waren in dieser
+Arbeitsumgebung nicht verfügbar. Eine direkte erneute Messung der beiden
+Keystore-Aliases ist deshalb hier **nicht erfolgt**; die historischen APKs
+beweisen auch nicht den heutigen Inhalt der Secrets. Die Gradle-Konfigurationen
+verwenden jeweils die passenden app-spezifischen Umgebungsvariablen und PKCS12.
+ZIP-/APK-Datei-Hashes aus Upload-Logs sind keine Zertifikat-Fingerprints.
+
+**Verbleibende manuelle Aktionen, jeweils getrennt auszuführen:**
+
+1. Für NIKNOLIG den Zertifikat-SHA-256 des bestehenden Release-Alias `niknolig`
+   über einen unabhängig vertrauenswürdigen Nachweis bestätigen und freigeben.
+   Herkunft des Nachweises, freigebende Person und Datum dokumentieren; bei
+   Abweichung vom beobachteten Wert zunächst die Identität klären.
+   Erst danach `NIKNOLIG_RELEASE_CERT_SHA256` setzen.
+2. Für NIKNOLIG Defense dieselbe unabhängige Bestätigung für den bestehenden
+   Release-Alias `niknolig-defense` einholen und dokumentieren.
+   Erst danach `NIKNOLIG_DEFENSE_RELEASE_CERT_SHA256` setzen.
+
+Die beiden Werte sind jeweils 64 Hexzeichen (Groß-/Kleinschreibung und
+Doppelpunkte werden normalisiert). Sie werden nach Freigabe unter den
+[Environment-Einstellungen für android-release](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/environments)
+als Variablen gepflegt; Environment-Zugriff und Freigaben müssen entsprechend
+geschützt sein. Ein bloßes Kopieren aus diesen APKs oder aus dem gerade
+verwendeten Keystore stellt **keine** unabhängige Freigabe dar. Es gibt keine
+automatische Übernahme und keinen Fallback auf abgeleitete Werte.
+Secrets, Passwörter, Aliases und Paket-IDs werden dafür nicht geändert.
+
+### Separater offener Befund: Android-Security-Scan HTTP 403
+
+Der bekannte HTTP-403-Fehler des Android-Security-Scans ist durch diese
+Zertifikatsprüfung weder behoben noch als behoben nachgewiesen. Er bleibt
+separat offen; erfolgreiche APK-Signaturprüfungen oder Workflow-Syntaxprüfungen
+ersetzen keinen erfolgreichen Android-Security-Scan.
+
 ## Read-only Audit
 
 Der manuelle Workflow
