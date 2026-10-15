@@ -1,0 +1,196 @@
+CLOUDFARE REV 9 – BESTANDSAUFNAHME UND RELEASE-ARTEFAKTE
+Ergebnis: BLOCKED
+Stand: 2026-10-15, Bestandsaufnahme ab 15:30 UTC
+Repository: nikolausnold/NIKNOLIG-Monorepo
+Branch: copilot/audit-release-integration
+Geprüfter Ausgangscommit: 7418a47f1abaf05abecfb3f66ff4adbda941dbf2
+Arbeitsverzeichnis zu Beginn: sauber.
+
+1. BESTAND UND REV-9-ZUORDNUNG
+
+Im aktuellen Checkout sind zwei getrennte Android-Vorschau-Apps vorhanden:
+- /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/niknolig
+  Modul :niknolig, applicationId com.niknolig.app.
+- /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/niknolig-defense
+  Modul :niknolig-defense, applicationId com.niknolig.defense.
+- Elektro-Engel ist eine lokale Funktion in NIKNOLIG, keine dritte App.
+  /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/niknolig/src/main/java/com/niknolig/app/AssistantActivity.kt
+  zeigt Eingaben lediglich lokal an; keine KI-Anfrage oder Geräteverbindung.
+
+Geprüft wurden Dateiinventar, Gradle-Konfigurationen, Manifeste, vorhandene
+Auditberichte und Workflows. Im geprüften Bestand fehlen:
+- als Rev 9 ausgewiesener Worker-Quellcode,
+- JavaScript-/TypeScript-Projektmanifest und Worker-Testkonfiguration,
+- wrangler.toml, wrangler.json oder wrangler.jsonc,
+- OpenAI-Client, API-Verträge und OpenAI-/Worker-Testquellen,
+- Android-Quellen unter src/test oder src/androidTest.
+
+Es wurde kein anderer Branch als vermeintliche Rev-9-Quelle übernommen.
+Die Bezeichnung im Auftrag allein belegt keinen vorhandenen Rev-9-Code.
+Historische Aussagen im Master-Integrationsplan ersetzen keine aktuellen
+Cloudflare-Einstellungen oder Worker-Deploymentnachweise.
+
+2. GETRENNTE WORKER UND DEPLOYMENT-ZUORDNUNG
+
+Für niknolig und niknolig-defense sind weder getrennte Worker-Konfigurationen
+noch Worker-Namen, Entrypoints, Bindings, Umgebungen, Routen oder
+Deployment-Zuordnungen im Checkout nachgewiesen. Ein eigener Worker für
+Elektro-Engel ist ebenfalls nicht nachgewiesen und wird nicht erfunden.
+Die vorhandenen separaten Android-IDs sind keine Worker-Zuordnung.
+
+Vorhandene Workflows:
+- /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/.github/workflows/android-build.yml
+  baut Debug-APKs und prüft Paketidentität/Signatur.
+- /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/.github/workflows/android-release.yml
+  erstellt manuell auf main signierte Android-APKs; kein Cloudflare-Deployment.
+- /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/.github/workflows/audit-workers.yml
+  inventarisiert nur dieses Repository; der Name belegt keinen Worker.
+
+Externe Cloudflare-Kontoeinstellungen wurden nicht ausgelesen oder verändert.
+Eine außerhalb dieses Repositorys konfigurierte Verbindung ist damit weder
+bestätigt noch ausgeschlossen.
+
+3. TESTSTATUS UND VERMEIDUNG ECHTER OPENAI-AUFRUFE
+
+Keine neuen App-, Worker- oder OpenAI-Tests ausgeführt:
+- Worker-/OpenAI-Tests: nicht ausführbar, da Code und Tests fehlen.
+- Android-Unit-/Instrumentationstests: keine Testquellen vorhanden.
+- Zwei-Smartphone-Test: nicht durchgeführt; Verbindung nicht implementiert.
+- Kein erneuter Android-Build: App-/Gradle-/Workflow-Eingaben sind gegenüber
+  dem erfolgreichen Buildcommit 37b2f163312bc9611ed1bf4d2fa2056b4108777d
+  am Ausgangsstand unverändert; nur Auditdokumentation wurde ergänzt.
+
+Es wurden keine echten OpenAI-API-Aufrufe ausgelöst und keine API-Schlüssel
+eingelesen. Der neue Bericht-Workflow führt ausschließlich Checkout und Upload
+expliziter Textdateien aus: keine Projekt-Skripte, Paketinstallation, Testtasks,
+HTTP-Tests oder Bereitstellung von OpenAI-/Cloudflare-Secrets. GitHub-Zugriffe
+für Checkout/Upload sind keine OpenAI-Aufrufe.
+Mangels Rev-9-Testcode ist damit NICHT nachgewiesen, dass eine anderswo
+vorhandene Testsuite gegen Live-Aufrufe abgesichert ist. Vor deren Ausführung
+müssen OpenAI gemockt, echte Schlüssel ausgeschlossen und unerwartete externe
+Test-Netzwerkzugriffe unterbunden sein. Ein Live-Smoke-Test ist nicht freigegeben.
+
+Lokale Prüfung der neuen Dateien:
+- Workflow-YAML mit vorhandenem Parser erfolgreich gelesen.
+- Nur Checkout/Upload, contents: read, persist-credentials: false und Existenz
+  der beiden expliziten Uploaddateien erfolgreich geprüft.
+- Secret-Scan ohne Befund; read-only Review ohne wesentliche Beanstandungen.
+Diese Prüfungen sind keine ausgeführten App-/Worker-Tests und kein Nachweis
+eines bereits erfolgten Actions-Uploads.
+Die kombinierte Validierung nach dem Commit ergab: CodeQL für Actions mit
+null Alerts. Das integrierte Review-Werkzeug war nicht verfügbar; das oben
+genannte separate read-only Review wurde durchgeführt. Keine dieser Prüfungen
+ersetzt die fehlenden Rev-9-Funktionstests.
+
+4. WIEDERVERWENDETE ACTIONS-NACHWEISE
+
+Alle folgenden Runs wurden über GitHub Actions tatsächlich abgefragt:
+
+Debug #86: success, main, 37b2f163312bc9611ed1bf4d2fa2056b4108777d
+https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38758848222
+Jobschritte bestätigen Assemble, Paket-ID-/Signaturprüfung und Uploads.
+Keine ausgeführten Funktions-/Worker-Tests daraus ableitbar.
+Artefakte bei Prüfung nicht abgelaufen:
+- niknolig-debug-apk, Ablauf 2026-10-22 15:17:37 UTC
+  https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38758848222/artifacts/11984921996
+- niknolig-defense-debug-apk, Ablauf 2026-10-22 15:17:38 UTC
+  https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38758848222/artifacts/11985465288
+- release-readiness-report, Ablauf 2026-10-22 15:17:39 UTC
+  https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38758848222/artifacts/11985225694
+  Enthält die alte main-Berichtsfassung, NICHT diesen CHATGPT-BERICHT.txt.
+
+Release #14: success, main, 37b2f163312bc9611ed1bf4d2fa2056b4108777d
+https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886
+Artefakte bei Prüfung nicht abgelaufen:
+- niknolig-release-apk, Ablauf 2026-10-16 15:19:55 UTC
+  https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886/artifacts/11984518236
+- niknolig-defense-release-apk, Ablauf 2026-10-16 15:19:57 UTC
+  https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886/artifacts/11984757701
+Der Workflow vergleicht die APK-Zertifikate mit den Keystores desselben Runs,
+nicht mit einer unabhängig freigegebenen Signaturreferenz.
+
+Repository-Audit #17: success, main, derselbe Commit
+https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38760007960
+Artefaktabfrage: null Artefakte. Der Workflow schreibt eine Job-Zusammenfassung;
+das ist kein herunterladbarer Worker-Testbericht.
+
+Die APKs wurden nicht erneut heruntergeladen, installiert oder binär analysiert.
+Die Verfügbarkeit ist durch Actions-Metadaten belegt, nicht durch Installation.
+Es gibt keine vorhandenen JUnit-, Coverage- oder Worker-Testnachweisdateien,
+die hier seriös zusätzlich hochgeladen werden könnten.
+
+5. ERFORDERLICHE SECRETS – NUR NAMEN UND ZWECK
+
+Für Inventur und neuen Bericht-Upload: keine benutzerdefinierten Secrets nötig.
+Nur automatisch bereitgestellte GitHub-Actions-Berechtigungen; contents: read,
+persist-credentials: false, keine Umgebung mit Release-Secrets.
+
+Für hypothetische Rev-9-Worker: nicht aus Code ableitbar. OPENAI_API_KEY,
+CLOUDFLARE_API_TOKEN oder andere Namen werden NICHT als tatsächlich erforderliche
+Repository-Secrets behauptet. Namen, Ablageort, Rechte und getrennte
+Worker-Zuordnung müssen aus dem fehlenden freigegebenen Code bestimmt werden.
+Für gemockte OpenAI-Tests werden keine echten OpenAI-Secrets benötigt.
+
+Nur der vorhandene Android-Release-Workflow referenziert in android-release:
+- NIKNOLIG_RELEASE_KEYSTORE_BASE64
+- NIKNOLIG_RELEASE_STORE_PASSWORD
+- NIKNOLIG_RELEASE_KEY_PASSWORD
+- NIKNOLIG_DEFENSE_RELEASE_KEYSTORE_BASE64
+- NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD
+- NIKNOLIG_DEFENSE_RELEASE_KEY_PASSWORD
+Keine Werte geprüft, ausgegeben, angelegt oder geändert. Ein erfolgreicher
+historischer Run ist keine Zusicherung über den aktuellen Secret-Bestand.
+
+6. BERICHT ALS ACTIONS-ARTEFAKT
+
+Neu:
+/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/CHATGPT-BERICHT.txt
+/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/.github/workflows/release-audit-artifacts.yml
+
+Workflow: Release audit artifacts
+Geplanter Artefaktname: rev9-release-audit
+Inhalt: CHATGPT-BERICHT.txt und docs/release-readiness.md als früherer Auditkontext.
+Aufbewahrung: 7 Tage. Explizite Dateiauswahl, keine Quellcode-/Secret-Archive.
+Auslösung: Push mit Änderung einer dieser Berichts-/Workflowdateien oder manuell.
+Kein Build, kein Deployment, keine Live-Tests. Der unveränderte Android-Workflow
+reagiert weiterhin auf jeden Push; dessen automatische Runs werden nicht
+zusätzlich manuell gestartet oder wiederholt.
+
+Tatsächlicher erster Berichtslauf nach dem Push, Commit
+d55c0f87de3a5f4bfebc08ff2196c795d17ac7d3:
+https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38761403541
+Status: action_required. Jobs: 0. Artefakte: 0, per Actions-Abfrage bestätigt.
+rev9-release-audit ist damit noch NICHT herunterladbar.
+Ein berechtigter Repository-Nutzer muss den Freigabeschritt prüfen. Dieser
+erste Lauf enthält die Fassung vor diesem Statusnachtrag; für spätere
+Berichtscommits ist der neueste passende Workflow-Lauf maßgeblich:
+https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/release-audit-artifacts.yml?query=branch%3Acopilot%2Faudit-release-integration
+Keine Freigabe umgangen, kein manueller Retry oder zusätzlicher Build gestartet.
+
+7. OFFENE BLOCKER
+
+P0 OFFEN: Rev-9-Worker-Quellstand im aktuellen Checkout fehlt. Benötigt wird
+der konkrete freigegebene Pfad bzw. Quellcommit innerhalb dieses Monorepos.
+Keine automatische Suche/Übernahme aus den separaten App-Repositories.
+
+P0 OFFEN: Getrennte Worker-/Deployment-Zuordnung fehlt; keine Aussage über
+funktionsfähige Cloudflare-Anwendungen möglich. Kein Deployment freigegeben.
+
+P1 OFFEN: Worker-/OpenAI-Testcode und echte Offline-Testnachweise fehlen.
+Mocking-/Netzwerksperren können ohne diesen Code nicht verifiziert werden.
+
+P1 OFFEN: Worker-Secret-Vertrag, Bindings und Sicherheitsgrenzen unbekannt;
+keine Änderungen an Secrets oder Kontoeinstellungen vorgenommen.
+
+P1 OFFEN für den bisherigen App-Integrationsumfang: Geräteverbindung,
+automatisierte App-Tests, echte Zwei-Geräte-Abnahme und unabhängig freigegebene
+Signaturreferenz fehlen weiterhin. Android-Builds schließen diese Lücken nicht.
+
+P2 OFFEN: neuer Bericht als Actions-Download; erster Run action_required,
+noch kein Upload-Nachweis.
+Vorhandene Android-Artefakte sind verfügbar, aber keine Rev-9-Worker-Artefakte.
+
+Entscheidung: BLOCKED. Der Auftrag stellt Auditdateien und einen sicheren
+Uploadpfad bereit; er erfindet oder implementiert keine fehlenden Worker.
+Keine Änderungen an main, separaten App-Repositories, GitHub-/Cloudflare-Secrets
+oder externen Konten; kein Merge und kein Deployment.
