@@ -74,6 +74,17 @@ Gradle- und Workflow-Dateien sind zwischen diesem Commit und dem Prüfstand
 unverändert. Die Release-Pipeline lädt Artefakte hoch, veröffentlicht sie aber
 nicht in einem App-Store.
 
+### Bericht als Actions-Artefakt
+
+Der Android-Build-Workflow enthält jetzt den Upload des Berichts als
+`release-readiness-report`-Artefakt mit sieben Tagen Aufbewahrung. Der durch
+diese Änderung ausgelöste [Actions-Lauf #79](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38754078450)
+steht jedoch auf `action_required`; GitHub meldet null Jobs und null Artefakte.
+Dieser Lauf stellt daher noch keinen Bericht-Download bereit. Ein berechtigter
+Repository-Nutzer muss den erforderlichen Schritt auf der verlinkten
+Actions-Seite ausführen. Der Status wird nicht umgangen. Der Bericht selbst
+liegt bereits unter `docs/release-readiness.md` im Repository.
+
 ## Integrationsprüfung und Zwei-Geräte-Anforderung
 
 Die Android-Manifeste enthalten keine Netzwerk-, Bluetooth- oder
@@ -112,6 +123,11 @@ keine gemeinsame Laufzeitbibliothek oder App-zu-App-Schnittstelle.
    Review-Gates und Rollback sind durch die vorhandenen Artefakt-Builds nicht
    belegt. Kleinster Schritt: diese Kriterien vor einer Store-Veröffentlichung
    festlegen und nachweisen.
+5. **Bericht-Download noch nicht erzeugt.** Actions-Lauf #79 ist
+   `action_required` und hat keine Artefakte. Kleinster Schritt: den erforderlichen
+   Actions-Schritt als berechtigter Repository-Nutzer auf der
+   [Laufseite](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38754078450)
+   ausführen; danach sollte der Workflow den Bericht als Artefakt bereitstellen.
 
 **Freigabeentscheidung:** **BLOCKED** bis mindestens die geforderte
 Zwei-Geräte-Funktion implementiert und auf beiden Smartphones erfolgreich
