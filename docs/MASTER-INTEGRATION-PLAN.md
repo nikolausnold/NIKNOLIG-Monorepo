@@ -345,10 +345,15 @@ Cloudflare-Kontozugriff.
    Keystores. Eine unabhängig freigegebene Zertifikat-Fingerprint-Referenz wird
    im Workflow nicht geprüft. Ein erfolgreicher Lauf belegt daher die interne
    Übereinstimmung, aber nicht die unabhängige Freigabe oder Kontinuität der
-   Signieridentität. Der letzte erfolgreiche Lauf (#11) verwendete Commit
-   `89895e73b656631ace6cdc8bf4374b7e96016295`; er ist kein Nachweis eines
-   Store-Releases. Die Pipeline lädt APK-Artefakte hoch, sie veröffentlicht
-   nicht in einem App-Store.
+   Signieridentität. Der erfolgreiche Release-Lauf [#13](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201)
+   verwendete `main` bei Commit `c8d152f4dff28f452e768b2379ebedf6ae4688e4`.
+   Er lud die Artefakte [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201/artifacts/11974091975)
+   und [NIKNOLIG Defense](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201/artifacts/11974306823)
+   hoch; beide laufen am 16.10.2026 um 12:43 UTC ab. Der erfolgreiche
+   [Debug-Autobuild #73](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38737020384)
+   verwendete denselben Commit. Diese Läufe belegen weder unabhängige
+   Signierfreigabe noch ein Store-Release. Die Pipeline lädt APK-Artefakte hoch,
+   sie veröffentlicht nicht in einem App-Store.
 8. Beide Apps bleiben separate Vorschau-Apps. Für NIKNOLIG Defense ist keine
    unabhängige, Defense-spezifische Sicherheitsfunktion implementiert oder
    verifiziert; die statische Geräte-Statusanzeige ist keine Geräteerkennung.
