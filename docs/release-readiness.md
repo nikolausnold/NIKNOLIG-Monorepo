@@ -114,6 +114,17 @@ Bis dessen erfolgreicher Upload nachgewiesen ist, wird dafür kein neuer
 Download behauptet oder eine Run-ID vorweggenommen. Zusätzliche APK-, PDF-
 oder Infrastruktur-Builds sind für diesen Audit nicht nötig.
 
+Der erste Push dieses Audits (`c047566949e682cac4c92ddce41af5871f6465bf`)
+hat inzwischen den realen [Debug-Lauf #84](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38757410552)
+ausgelöst: `action_required`, null Jobs, null Artefakte laut Actions-Abfrage.
+Die Bereitstellung dieser aktualisierten Audit-Fassung ist damit noch
+**offen**. Ein berechtigter Repository-Nutzer muss den erforderlichen
+Freigabeschritt auf der Laufseite prüfen; bei einem späteren Berichtscommit
+ist stattdessen dessen neuester Lauf auf der
+[Branch-Workflowseite](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/android-build.yml?query=branch%3Acopilot%2Faudit-release-integration)
+maßgeblich. Freigaben werden nicht umgangen; zusätzliche manuelle Builds
+oder Retries werden nicht gestartet.
+
 ## Integrationsprüfung und Zwei-Geräte-Anforderung
 
 ### Tatsächlich konfigurierte Komponenten und Navigation
@@ -204,6 +215,13 @@ automatisierter Vertragstest würde diesen physischen Nachweis nicht ersetzen.
   Der begrenzte Credential-Musterscan des Workers-Audits ist ebenfalls kein
   vollständiger Sicherheitsnachweis. Externe Environment-Reviewerregeln und
   Branchschutz sind aus den Workflow-Dateien allein nicht belegbar.
+- Der geänderte Bericht bestand den separaten Secret-Scan und
+  `git diff --check`. Die kombinierte Validierung wurde aufgerufen:
+  CodeQL wurde wegen reiner Dokumentationsänderungen übersprungen; das
+  integrierte Code-Review-Werkzeug meldete fehlende Verfügbarkeit.
+  Ein zusätzliches read-only Review des Berichtsdiffs fand keine wesentlichen
+  Probleme.
+  Das ist kein erfolgreicher Sicherheits- oder Anwendungstest.
 
 **Freigabeentscheidung:** **BLOCKED** bis mindestens die geforderte
 Zwei-Geräte-Funktion implementiert und auf beiden Smartphones erfolgreich
