@@ -1,0 +1,30 @@
+name: Release audit artifacts
+
+on:
+  push:
+    paths:
+      - CHATGPT-BERICHT.txt
+      - docs/release-readiness.md
+      - .github/workflows/release-audit-artifacts.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upload-report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Upload report and existing audit context
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: rev9-release-audit
+          path: |
+            CHATGPT-BERICHT.txt
+            docs/release-readiness.md
+          if-no-files-found: error
+          retention-days: 7
