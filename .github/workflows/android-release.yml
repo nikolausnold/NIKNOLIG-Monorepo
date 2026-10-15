@@ -90,11 +90,45 @@ jobs:
 
       - name: Verify package identities and APK signatures
         shell: bash
+        env:
+          NIKNOLIG_RELEASE_STORE_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_STORE_PASSWORD }}
+          NIKNOLIG_RELEASE_KEY_ALIAS: niknolig
+          NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD: ${{ secrets.NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD }}
+          NIKNOLIG_DEFENSE_RELEASE_KEY_ALIAS: niknolig-defense
         run: |
           set -euo pipefail
+          set +x
+          normalize_fingerprint() {
+            local fingerprint
+            fingerprint="$(printf '%s' "$1" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+            if [[ ! "$fingerprint" =~ ^[[:xdigit:]]{64}$ ]]; then
+              echo "::error::Invalid SHA-256 certificate fingerprint for $2"
+              exit 1
+            fi
+            printf '%s' "$fingerprint"
+          }
+          keystore_fingerprint() {
+            local label="$1"
+            local store_file="$2"
+            local alias="$3"
+            local password_env="$4"
+            local fingerprint
+            fingerprint="$(keytool -list -v -keystore "$store_file" -storetype PKCS12 \
+              -alias "$alias" -storepass:env "$password_env" |
+              awk '/^[[:space:]]*SHA256: / && !found { sub(/^[[:space:]]*SHA256: /, ""); print; found=1 }')"
+            if [[ -z "$fingerprint" ]]; then
+              echo "::error::Could not read the signing certificate SHA-256 fingerprint for $label keystore"
+              exit 1
+            fi
+            normalize_fingerprint "$fingerprint" "$label keystore"
+          }
           verify_apk() {
             local module="$1"
             local expected_id="$2"
+            local label="$3"
+            local store_file="$4"
+            local alias="$5"
+            local password_env="$6"
             local -a apks
             mapfile -t apks < <(find "apps/$module/build/outputs/apk/release" -maxdepth 1 -type f -name '*.apk' -print)
             if [[ "${#apks[@]}" -ne 1 || ! -s "${apks[0]:-}" ]]; then
@@ -108,11 +142,33 @@ jobs:
               echo "::error::Expected package $expected_id for $module but found $actual_id"
               exit 1
             fi
-            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "${apks[0]}"
+            local keystore_sha256
+            keystore_sha256="$(keystore_fingerprint "$label" "$store_file" "$alias" "$password_env")"
+            local signature_output
+            signature_output="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "${apks[0]}")"
+            local -a apk_fingerprints
+            mapfile -t apk_fingerprints < <(printf '%s\n' "$signature_output" |
+              sed -nE 's/^Signer #[0-9]+ certificate SHA-256 digest: ([[:xdigit:]]{64})$/\1/p')
+            if [[ "${#apk_fingerprints[@]}" -ne 1 ]]; then
+              echo "::error::Expected exactly one APK signer certificate for $label"
+              exit 1
+            fi
+            local apk_sha256
+            apk_sha256="$(normalize_fingerprint "${apk_fingerprints[0]}" "$label APK")"
+            printf '%s keystore certificate SHA-256: %s\n' "$label" "$keystore_sha256"
+            printf '%s APK certificate SHA-256: %s\n' "$label" "$apk_sha256"
+            if [[ "$keystore_sha256" != "$apk_sha256" ]]; then
+              echo "$label certificate comparison: FAIL"
+              exit 1
+            fi
+            echo "$label certificate comparison: PASS"
           }
 
-          verify_apk niknolig com.niknolig.app
-          verify_apk niknolig-defense com.niknolig.defense
+          verify_apk niknolig com.niknolig.app NIKNOLIG "$NIKNOLIG_RELEASE_STORE_FILE" \
+            "$NIKNOLIG_RELEASE_KEY_ALIAS" NIKNOLIG_RELEASE_STORE_PASSWORD
+          verify_apk niknolig-defense com.niknolig.defense "NIKNOLIG Defense" \
+            "$NIKNOLIG_DEFENSE_RELEASE_STORE_FILE" "$NIKNOLIG_DEFENSE_RELEASE_KEY_ALIAS" \
+            NIKNOLIG_DEFENSE_RELEASE_STORE_PASSWORD
 
       - name: Upload NIKNOLIG release APK
         uses: actions/upload-artifact@v7.0.2
