@@ -60,3 +60,10 @@ jobs:
           path: apps/niknolig-defense/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 7
+      - name: Upload release readiness report
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release-readiness-report
+          path: docs/release-readiness.md
+          if-no-files-found: error
+          retention-days: 7
