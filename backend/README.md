@@ -138,6 +138,41 @@ diesem lokalen Compose-Setup als Produktionskonfiguration übernommen werden.
 Keine App-Repositories, URLs, Berechtigungen, Abhängigkeiten oder Workflows
 werden durch dieses Monorepo automatisch geändert.
 
+## Hetzner-Verbindung: offene Voraussetzungen
+
+In diesem Repository gibt es weder eine bestätigte Hetzner-Adresse noch
+DNS-/TLS-Konfiguration, einen produktiv betriebenen API-Endpunkt oder Android-
+API-Clients. Die Health-only-Laufzeit oben ist lokal und kein Serverziel für
+Apps. Deshalb sind weder eine Basis-URL noch Zugangsdaten, Netzwerkrechte oder
+produktive HTTP-Aufrufe hinterlegt. Eine Adresse oder ein Endpunkt wird nicht
+angenommen oder erfunden.
+
+Vor einer Android-Verbindung müssen die Verantwortlichen mindestens liefern und
+freigeben:
+
+1. Die kanonische HTTPS-Basis-URL des Hetzner-Servers, verwaltete DNS-Auflösung,
+   TLS-Zertifikatskette/-Erneuerung und die festgelegten Client-
+   Vertrauensregeln; kein HTTP-Fallback.
+2. Eine bereitgestellte, versionierte Produkt-API mit freigegebenen OpenAPI-
+   Operationen, Datenumfang und Fehlerantworten. Die vorhandenen Health-Routen
+   implementieren keine Produktfunktion.
+3. Die normative SecurityChain-P0-Fassung, Bedrohungsmodell und schriftliche
+   Produkt-/Security-Freigabe, einschließlich App-Bereich, Nutzer-/Installations-
+   Identität, widerrufbarer Token-Ausgabe/-Erneuerung und Schlüsselrichtlinie.
+4. Einen freigegebenen Test-/Staging-Endpunkt und nicht-produktive Testidentitäten
+   für Negativ-, Ablauf-, Widerrufs-, TLS- und Timeouttests; keine produktiven
+   Tokens in Builds oder Tests.
+5. Pro Android-App die genehmigte, zur Build-Variante passende Serveradresse,
+   Token-Bezugs-/Speicherregeln (OS-geschützt und getrennt je App) sowie
+   verbindliche Verbindungs-/Lese-Timeoutwerte und Abbruch-/Fehlerverhalten.
+6. Betriebsverantwortung beim Serverbetreiber: Deployment-/Rollbackverfahren,
+   Monitoring, Zertifikats- und Schlüsselrotation sowie erreichbarer
+   Incident-Kontakt.
+
+Erst danach können die Apps unabhängig und gegen den freigegebenen Vertrag
+integriert und getestet werden. Bis dahin bleibt die Verbindung fail closed;
+es wird kein Serverzugriff vorgetäuscht.
+
 ## Verifikation und nächste Schritte
 
 `python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und

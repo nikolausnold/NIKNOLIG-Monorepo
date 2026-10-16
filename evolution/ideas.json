@@ -79,15 +79,15 @@
       "evidence": [
         {
           "path": ".github/workflows/android-build.yml",
-          "startLine": 42,
-          "endLine": 44,
+          "startLine": 25,
+          "endLine": 27,
           "excerpt": "      - name: Assemble both debug APKs\n        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon\n      - name: Verify package identities and APK signatures",
           "state": "verified"
         },
         {
           "path": "backend/README.md",
-          "startLine": 143,
-          "endLine": 144,
+          "startLine": 178,
+          "endLine": 179,
           "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und\ndie Health-only-Laufzeit.",
           "state": "verified"
         }
