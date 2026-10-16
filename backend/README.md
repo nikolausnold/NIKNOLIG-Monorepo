@@ -1,6 +1,7 @@
 # Gemeinsame Backend-Grundlage
 
-**Status: Health-only-Laufzeit und Verträge, lokal isoliert, nicht produktionsfreigegeben.**
+**Status: Health-only-Laufzeit mit PostgreSQL-Readiness-Probe und Verträgen,
+lokal isoliert, nicht produktionsfreigegeben.**
 
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
 Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt ausschließlich
@@ -15,14 +16,20 @@ Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 - [`openapi.yaml`](openapi.yaml): OpenAPI 3.1-Vertrag für nicht-sensitive
   Liveness-/Readiness-Prüfungen und einheitliche Fehlerantworten. Es sind bewusst
   noch keine operativen Geräte-, Profil- oder Pairing-Endpunkte freigegeben.
-- [`app.py`](app.py): lokale Health-only-HTTP-Laufzeit ohne externe
-  Python-Abhängigkeiten. Sie ist kein produktionsgeeigneter API-Server.
+- [`app.py`](app.py) und [`database.py`](database.py): Health-only-HTTP-
+  Laufzeit. `/health/ready` führt bei vorhandener Konfiguration eine begrenzte
+  PostgreSQL-Verbindungs- und `SELECT 1`-Prüfung aus; ohne Treiber, Konfiguration
+  oder Datenbank meldet es 503. Es gibt weiterhin keine Produkt-API,
+  Authentifizierung oder Autorisierung.
 - [`migrations/001_initial_contract.sql`](migrations/001_initial_contract.sql):
   vorgeschlagenes relationales Modell für App-Bereiche, Installationen,
   Geräteidentitätsstatus und spätere Zwei-App-Link-Beziehungen. Das Anwenden der
   Migration ist bis zur Architektur-/Security-Freigabe gesperrt.
-- [`compose.yaml`](compose.yaml): ausschließlich lokale PostgreSQL-Entwicklung,
-  an Loopback gebunden und ohne API-Service oder öffentlich erreichbaren Port.
+- [`compose.yaml`](compose.yaml) und [`Dockerfile`](Dockerfile): ausschließlich
+  lokale Health-only-API und PostgreSQL. Veröffentliche Ports sind an Loopback
+  gebunden; die Container kommunizieren in einem internen Netzwerk.
+- [`requirements.txt`](requirements.txt): fest gepinnter PostgreSQL-Treiber für
+  den API-Container.
 - [`.env.example`](.env.example): Variablennamen ohne eingetragene Credentials.
 - [`contracts/`](contracts/): versionierte, deklarative Entwürfe für
   Gerätewechsel-Zustimmung, minimierte Audit-Ereignisse, Sensor-Capabilities und
@@ -80,19 +87,20 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    keine Umgebungsvariablen, internen Hosts, Stacktraces oder Datenbankdetails
    offen.
 
-## Lokale Datenbankumgebung
+## Lokale API- und Datenbankumgebung
 
-Docker Compose veröffentlicht PostgreSQL ausschließlich auf
-`127.0.0.1:54329` (konfigurierbar), nutzt ein erforderliches lokales Passwort,
-ein isoliertes internes Compose-Netzwerk und ein lokales benanntes Volume. Es
-gibt keinen API-Container, keine Internetfreigabe und keine produktive
-Konfiguration. `.env` wird lokal aus `.env.example` erstellt und nicht
-eingecheckt. Das Compose-Setup ist nicht für Deployment oder sensible Daten
-bestimmt.
+Docker Compose veröffentlicht API und PostgreSQL ausschließlich an Loopback
+(standardmäßig `127.0.0.1:8000` und `127.0.0.1:54329`). Beide Services verwenden
+ein internes Netzwerk; der API-Container läuft nicht als root, mit read-only
+Root-Dateisystem und ohne Linux-Capabilities. Das API-Readiness-Signal prüft die
+DB-Verbindung, ist jedoch kein Authentifizierungs-, Produkt- oder
+Produktionsbereitschaftsnachweis. `.env` wird lokal aus `.env.example` erstellt
+und nicht eingecheckt. Das Compose-Setup ist nicht für Deployment oder sensible
+Daten bestimmt.
 
 ## Lokaler Health-Server
 
-Mit Python 3 starten:
+Für den isolierten Health-Server ohne Datenbankprüfung:
 
 ```sh
 python3 backend/app.py
@@ -100,13 +108,13 @@ python3 backend/app.py
 
 Die Standardbindung ist `127.0.0.1:8000`. `BACKEND_HOST` und `BACKEND_PORT`
 können als Umgebungsvariablen gesetzt werden. Die Anwendung lädt `.env` nicht
-automatisch. `/health/live` und `/health/ready` liefern die vereinbarten
-Statusantworten; andere GET-Pfade geben eine generische 404-Antwort zurück.
-Es gibt keine Anmeldung, Datenbankverbindung, Gerätefunktion oder Produkt-API.
-Die Standardbibliotheks-HTTP-Laufzeit ist nur für lokale Entwicklung und
-Vertragstests gedacht: nicht öffentlich exponieren oder als produktiven
-Internetserver verwenden. Serverplattform, TLS, Authentifizierung, Betrieb und
-Deployment bleiben separat zu konfigurieren und freizugeben.
+automatisch. `/health/live` prüft nur den Prozess. `/health/ready` liefert 200
+nur wenn die Datenbank erreichbar ist; ohne `psycopg` oder DB-Konfiguration
+liefert es 503. Andere GET-Pfade bleiben 404. Es gibt weiterhin keine Anmeldung,
+Autorisierung, Gerätefunktion oder Produkt-API. Der HTTP-Server ist nur für
+lokale Entwicklung und Vertragstests gedacht: nicht öffentlich exponieren oder
+als produktiven Internetserver verwenden. Serverplattform, TLS, Authentifizierung
+und produktives Deployment bleiben separat zu konfigurieren und freizugeben.
 
 ## SecurityChain-P0 und Freigabe
 
@@ -140,9 +148,10 @@ werden durch dieses Monorepo automatisch geändert.
 
 ## Verifikation und nächste Schritte
 
-`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und
-die Health-only-Laufzeit. Sofern Docker Compose installiert ist, kann die lokale
-Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:
+`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,
+Readiness-Zustände und den Health-only-Server. Sofern Docker Compose installiert
+ist, kann die lokale Compose-Konfiguration mit diesem lokalen Platzhalter
+syntaktisch geprüft werden:
 
 ```sh
 POSTGRES_PASSWORD=local-only-check docker compose \

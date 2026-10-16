@@ -1,10 +1,7 @@
 import unittest
 from unittest.mock import Mock
-
-from database import check_database
 from pathlib import Path
 import sys
-
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
