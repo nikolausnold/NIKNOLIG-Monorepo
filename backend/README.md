@@ -21,6 +21,11 @@ Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
   PostgreSQL-Verbindungs- und `SELECT 1`-Prüfung aus; ohne Treiber, Konfiguration
   oder Datenbank meldet es 503. Es gibt weiterhin keine Produkt-API,
   Authentifizierung oder Autorisierung.
+- [`authorization.py`](authorization.py): fail-closed Prüfung von Produktbereich,
+  Aktion, Ablaufzeit, Issuer/Audience und bereits bestätigtem Gerätezustand.
+  Sie verifiziert weder Tokens noch stellt sie diese aus; ungeprüfte
+  Client-Claims sind kein vertrauenswürdiger Eingabewert und die Policy ist noch
+  an keinen API-Endpunkt angeschlossen.
 - [`migrations/001_initial_contract.sql`](migrations/001_initial_contract.sql):
   vorgeschlagenes relationales Modell für App-Bereiche, Installationen,
   Geräteidentitätsstatus und spätere Zwei-App-Link-Beziehungen. Das Anwenden der
