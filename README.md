@@ -100,9 +100,10 @@ Es wurden keine Konten angelegt; die produktive Rollenvergabe bleibt bis zur
 SecurityChain-P0-Freigabe gesperrt.
 
 Die plattformübergreifende Vertragsarchitektur, Android-/iOS-Grenzen und der
-Integrationsplan für spätere separate iOS-Repositories stehen in
+Integrationsplan für das separate iOS-Monorepo stehen in
 [`docs/mobile-cross-platform-architecture.md`](docs/mobile-cross-platform-architecture.md).
-Es werden keine iOS-Repositories oder produktiven APIs angelegt.
+Das iOS-Monorepo wird im Systemregister nur lesend überwacht; eine operative
+App-/Backend-Verbindung oder produktive API ist damit nicht eingerichtet.
 
 Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
 [`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
@@ -120,9 +121,9 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   und GitHub Actions als Pull Requests vor. Diese durchlaufen den Autobuild;
   es gibt keinen automatischen Merge und keine ungeprüfte Quellcodeübernahme.
 - Das [Systemregister](config/system-repositories.json) erfasst dieses
-  Monorepo, die bekannten NIKNOLIG-/Defense-Quellen und den noch offenen
-  iOS-Anschluss. Auf `main` prüft der Autobuild die registrierten Repositories
-  lesend über die GitHub-API. Der commitbezogene `system-update-report` zeigt
+  Monorepo, die bekannten NIKNOLIG-/Defense-Quellen und das separate
+  NIKNOLIG-iOS-Monorepo. Auf `main` prüft der Autobuild die registrierten
+  Repositories lesend über die GitHub-API. Der commitbezogene `system-update-report` zeigt
   Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
   Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung
   fehlschlagen, statt vollständige Systemkompatibilität vorzutäuschen.
@@ -202,9 +203,10 @@ Aktivierung in einer Woche.** Die tatsächliche Anbindung benötigt anschließen
    Keine Zugangsschlüssel in Git oder Artefakte aufnehmen. Eine künftige
    Veröffentlichung muss den exakt geprüften Commit und seine Bundles verwenden;
    kein automatischer Produktions-Rollout als Folge eines normalen Autobuilds.
-5. iOS bleibt ein separater Anschluss: In
-   [Apple Developer](https://developer.apple.com/account/) und
+5. Das separate iOS-Monorepo enthält die NIKNOLIG- und Defense-iOS-Projekte.
+   Für eine Veröffentlichung werden in [Apple Developer](https://developer.apple.com/account/) und
    [App Store Connect](https://appstoreconnect.apple.com/) werden eigene
    App-Identitäten, Signierung, Datenschutzangaben und TestFlight-Prüfungen
-   benötigt. Da hier kein iOS-App-Projekt existiert, erzeugt dieser Workflow
-   weder ein iOS-Archiv noch einen iOS-Storeupload.
+   benötigt. Dieser Android-Workflow erzeugt weder iOS-Archive noch einen
+   iOS-Storeupload; die Registrierung des Repositories ist keine Build- oder
+   Laufzeitintegration.
