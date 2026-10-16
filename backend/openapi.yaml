@@ -3,16 +3,60 @@ info:
   title: NIKNOLIG Shared Backend Contract
   version: 0.1.0
   description: >-
-    Contract-first proposal. Only health operations are defined; no operational
-    app, device, profile, or pairing API is implemented or approved. Production
-    integration is blocked pending SecurityChain-P0 and product/security review.
+    Contract-first proposal. Health operations and a minimal Supabase JWT-backed
+    session check are implemented locally; no operational app, device, profile,
+    or pairing API is approved. Production integration is blocked pending
+    SecurityChain-P0 and product/security review.
 servers:
   - url: https://backend.invalid
     description: Placeholder only; not a deployed or approved endpoint.
 tags:
   - name: Health
     description: Non-sensitive process and dependency health contract.
+  - name: Authentication
+    description: Locally configurable Supabase JWT session verification.
 paths:
+  /v1/session:
+    get:
+      operationId: getAuthenticatedSession
+      tags: [Authentication]
+      summary: Verify the caller's access token and app-area assignment.
+      security:
+        - AccessToken: []
+      responses:
+        "200":
+          description: The token is valid for this backend app area.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [authenticated, appArea]
+                properties:
+                  authenticated:
+                    type: boolean
+                    const: true
+                  appArea:
+                    type: string
+                    enum: [niknolig, niknolig-defense]
+        "401":
+          description: The token is missing or invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: The token belongs to the other app area.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Auth configuration or its JWKS service is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /health/live:
     get:
       operationId: getLiveness
@@ -59,11 +103,8 @@ components:
     AccessToken:
       type: http
       scheme: bearer
-      bearerFormat: opaque
-      description: >-
-        Reserved contract requirement for future protected operations only.
-        No issuer, token issuance, validation, or protected operation is
-        specified or implemented by this contract.
+      bearerFormat: JWT
+      description: JWT is verified against the configured Supabase JWKS, issuer, and audience.
   schemas:
     HealthStatus:
       type: object

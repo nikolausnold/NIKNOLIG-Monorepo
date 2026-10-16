@@ -35,6 +35,10 @@ services:
       BACKEND_DB_NAME: ${POSTGRES_DB:-niknolig_local}
       BACKEND_DB_USER: ${POSTGRES_USER:-niknolig_local}
       BACKEND_DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
+      BACKEND_APP_AREA: ${BACKEND_APP_AREA:-}
+      AUTH_ISSUER: ${AUTH_ISSUER:-}
+      AUTH_JWKS_URL: ${AUTH_JWKS_URL:-}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE:-authenticated}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     depends_on:
