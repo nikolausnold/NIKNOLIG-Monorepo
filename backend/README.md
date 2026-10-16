@@ -265,6 +265,59 @@ Der Gründer muss Verantwortliche benennen; ohne Besetzung bleibt das Gate zu.
 | F-06 | Hosting-/TLS-/Schlüsselbetrieb, Raten-/Größenlimits, Incident-, Backup-/Restore- und Rollbackverfahren | Betriebsverantwortlicher liefert Staging-, Ausfall-, Restore- und Betriebsnachweise |
 | F-07 | Freigabe einer konkret benannten Implementierung für einen ausdrücklich benannten Einsatzbereich | Alle P0-Nachweise, unabhängiges Review, Datenschutz-/Betriebsabnahme und schriftliche Gründerentscheidung |
 
+#### Entscheidungsvorlage – Abschnitt 3, Basis `7f4be1d`
+
+**Alle folgenden Empfehlungen sind unverbindliche Vorschläge; alle Entscheidungen
+sind OFFEN.** Keine Anbieterwahl, Parameterfestlegung, Ernennung oder
+Sicherheitsfreigabe wird durch dieses Dokument wirksam. Der Gründer muss die
+zugeordneten F-Entscheidungen nach fachlicher Prüfung ausdrücklich bestätigen.
+Die bestehenden P0-Mindestanforderungen und App-Grenzen sind dabei nicht optional.
+
+| Thema / Gründerentscheidung | Optionen und Sicherheitsfolgen | Konkrete Empfehlung zur Freigabevorbereitung |
+| --- | --- | --- |
+| Identitätsanbieter und Anmeldung – **F-02**, Verantwortliche F-01 | Verwalteter OIDC-Anbieter: weniger eigener Patch-/Verfügbarkeitsbetrieb, aber Anbieter-, Datenstandort- und Ausfallabhängigkeit. Selbst betriebener etablierter OIDC-Anbieter: mehr Betriebs-/Recovery-Verantwortung. Eigene Passwortplattform: unnötige zusätzliche Angriffsfläche. | Verwalteten OIDC-Anbieter bevorzugen, sofern Datenschutzprüfung, getrennte Clients/Audiences, Introspektion/Widerruf, phishing-resistente Admin-MFA und Recovery nachweisbar unterstützt werden. Anbietername/Region/Vertrag bleiben auszuwählen; kein Produkt wird hier bestellt. Authorization Code mit PKCE im Systembrowser, keine mobilen Client-Secrets, kein eigener Passwortserver. |
+| Rollen und getrennte Rechte – **F-03**, Umfang F-01 | Getrennte Identitätsmandanten: stärkere administrative Isolation, mehr Betrieb. Gemeinsamer Anbieter mit getrennten Clients und serverseitigen Bereichspolicies: möglich, aber Fehlkonfiguration kann Grenzen öffnen. Gemeinsame Cross-App-Adminrolle: mit P0 unvereinbar. | Zwei getrennte Mandanten und je App Client, Audience, Sitzungs-/Rollen-/Auditkontext bevorzugen. Ressourcen immer serverseitig an `app_area`, Eigentümer und Aktions-Allowlist binden; Founder ohne Inhalts-/Sensor-Sonderrechte. Gründer benennt je App Verantwortliche und unabhängigen Zweitfreigeber und bestätigt jede erlaubte Aktion. |
+| Gerätebindung, Pairing, Gerätewechsel – **F-04**, Rechte F-03 | Bloßer Gerätename/OS-Pairing: kein ausreichender App-Besitznachweis. Installationsschlüssel mit geprüftem Besitzprotokoll: gezielte Bindung, aber Verlust-/Recoveryprozess nötig. Verpflichtendes Hardware-Backing/Attestierung erhöht Nachweisanforderungen und kann Geräte ausschließen. | Pro App-Installation eigener Keystore-Schlüssel; standardisiertes geprüftes Besitzprotokoll statt Eigenkryptografie. Pairing mit frischer einmaliger Challenge und beidseitiger sichtbarer Bestätigung, getrennte Aktionszustimmung. Wechsel als neue Registrierung mit neuem Schlüssel und neuem Consent; alte Bindung nach bestätigtem Wechsel widerrufen, keine kopierten Schlüssel. Bei Verlust kein Altgeräte-Zwang, sondern separat freigegebene Recovery ohne MFA-/Rechteabsenkung. Protokoll/Transport, unterstützte Geräte und Hardwareanforderungen bleiben ausdrücklich zu wählen. |
+| Token-Widerruf und Schlüsselrotation – **F-02/F-04** | Opaque Tokens mit Online-Introspektion: sofortige Statusprüfung, zusätzliche Abhängigkeit. Signierte Tokens allein offline: schnell, erfüllt P0-03 nicht. Signierte Tokens plus autoritativer Online-Widerrufsprüfung: möglich, höhere Komplexität. | Opaque Access-Tokens mit authentifizierter Introspektion und autoritativem app-spezifischem Sitzungs-/Geräte-/Rollenstatus je Operation bevorzugen; kein positiver Cache über Widerruf hinweg. Access-Maximum 5 Minuten, Refresh-Familie maximal 7 Tage und Rotation je Nutzung als Vorschlag; Wiederverwendung sperrt Familie. Reguläre Ausstellerschlüsselrotation mit dokumentiertem endlichem Übergang, Kompromittierung ohne Übergangsvertrauen; Geräteschlüssel getrennt neu binden. Exakte Fristen/Überlappung/Timeouts und Ausfallverhalten vor Freigabe bestätigen. |
+| Consent, Minimierung, Aufbewahrung und Löschung – **F-05**, Datenkatalog F-01 | Lokale Verarbeitung ohne Übertragung: geringere Offenlegung. Zweckgebundene minimierte Zusammenfassungen: zusätzlicher Consent-/Löschbetrieb. Vorratsspeicherung oder pauschaler Consent: mit P0 nicht vereinbar. | Rohsensor-/Assistenzinhalte standardmäßig nicht serverseitig speichern; nur einzeln freigegebene Datenkategorien pro Zweck. Consent an Akteur, beide Installationen/App-Bereiche, Aktion, Textversion und Ablauf binden; Widerruf vor nächster Aktion durchsetzen. Je Datenklasse konkrete Frist, Löschtrigger, Ausnahmen/Rechtsgrundlage und Backup-Ablauf festlegen; keine universelle Frist ohne Datenschutzprüfung. Restore muss Löschungen/Widerrufe vor Zugriffsfreigabe erneut anwenden. |
+| Auditierung, Monitoring, Incident-Reaktion – **F-05/F-06**, Personen F-01 | Nur lokale Logs: schwache Ausfall-/Manipulationserkennung. Zentralisierte minimierte Auditierung: bessere Nachweise, aber zusätzlicher schützenswerter Datenbestand. Vollständige Requestlogs: unzulässiges Token-/Nutzdatenrisiko. | App-getrennte, zugriffsbeschränkte und manipulationsnachweisbare Auditmetadaten ohne Auth-Header/Payloads; Akteurreferenz, Aktion, Ergebnis, Zeit und Korrelations-/Freigabereferenz genügen als Ausgangspunkt. Alarmierung auf Auth-/Replay-Ablehnungen, Privilegänderungen, Widerrufs-/Statusausfälle und Auditlücken; Schwellen, Bereitschaft und Reaktionsziele ausdrücklich festlegen. Incident-Verfahren: betroffenen Bereich isolieren, Schlüssel/Sitzungen widerrufen, redigierte Beweise sichern, Datenschutz-Meldepflichten prüfen, kontrolliert wiederherstellen. |
+| P0-Abnahme und verantwortliche Freigabe – **F-01/F-07**, Beiträge F-02–F-06 | Reiner Build-/Health-Nachweis: kein Sicherheitsnachweis. Unabhängige fallbezogene Abnahme: höherer Nachweisaufwand, prüfbare Grenzen. Gründerentscheidung ohne technische Abnahme: unzureichend. | Alle P0-01–09 mit positiven/negativen Fällen, Commit-/Umgebungszuordnung und benannten Prüfern nachweisen; Security-, Datenschutz- und Betriebsverantwortliche liefern getrennte Befunde. Unabhängiger Reviewer prüft die Gesamtabdeckung; erst danach entscheidet der Gründer schriftlich über exakt diesen Commit/Einsatzbereich. Offene Pflichtfälle blockieren weiterhin. |
+
+**Für eine abschließbare Entscheidung fehlen noch:** konkrete Anbieter-/Regionswahl,
+erlaubte Aktionen/Datenklassen, benannte Verantwortliche/Zweitfreigeber und ein
+vollständiges Parameterblatt. Dieses enthält Access-/Refresh-Fristen,
+Clock-Skew, Challenge-Frische, Pairing-Ablauf, Introspektions-/Requesttimeouts,
+Rotationsintervalle/Überlappung, Daten-/Backupfristen, Größen-/Ratenlimits,
+Alarmschwellen und Incident-Reaktionsziele. Vorschlagswerte sind keine Defaults
+in der Laufzeit; leere Felder bleiben Blocker.
+
+Jede F-Entscheidung benötigt einen versionierten Eintrag mit gewählter Option,
+konkreten Parametern, Begründung/Restrisiken, fachlichen Prüfverweisen, benannten
+Verantwortlichen, Datum und ausdrücklicher Gründerbestätigung. Ablehnung oder
+Vertagung wird ebenfalls dokumentiert; Schweigen gilt nie als Zustimmung.
+
+#### Nach Anforderungsfreigabe noch zu implementieren und zu testen
+
+Der geprüfte Stand enthält nur Health-GET-Routen und ein reserviertes
+Bearer-Schema; die folgenden Produktfunktionen sind **nicht implementiert**.
+Vorhandene SQL-/Consententwürfe sind keine ausführbare Autorisierungsrichtlinie.
+
+| Technischer Abschnitt nach gesonderter Freigabe | Noch fehlende Implementierung | Erforderlicher Nachweis |
+| --- | --- | --- |
+| Authentifizierung und Sitzungen | Anbieteradapter, feste Vertrauenskonfiguration, Tokenprüfung, Introspektion, Refresh-/Widerrufslebenszyklus und stabile 401-/503-Fehler | P0-02/03: gültiger Kontrollfall, fehlende/manipulierte/abgelaufene Tokens, falscher Aussteller/Audience, Refresh-Reuse, Ausfall und konkurrierender Widerruf |
+| Autorisierung und Datenhaltung | Versionierte Produkt-/Adminverträge, Bereichs-/Ressourcen-/Aktionspolicy, freigegebene Persistenz und transaktionale Prüfung vor Mutation | P0-01/04/09: beide Cross-App-Richtungen, fremde IDs, Listen/Stapel, Selbsteskalation, Rollenentzug und unabhängige Zweitfreigabe |
+| Geräte und Consent | Registrierung, Besitzprüfung, Pairingzustände, Rotation, Verlust/Recovery, ablaufende zweckgebundene Zustimmung und Widerruf | P0-05/06/08: fremder Schlüssel, Replay/Timeout, Gerätewechsel, verweigerter/widerrufener Consent, erneute Peerprüfung; zusätzlich physische Zwei-Geräte-Abnahme |
+| Datenschutz und Audit | Minimierte Ereignisse, getrennte Auditzugriffe, Löschjobs, Backup-/Restore-Sperren für gelöschte oder widerrufene Zustände | P0-08/09: keine Secrets/Nutzpayloads im Audit, Fristgrenzen, vollständige Löschung und kein Wiederaufleben alter Rechte nach Restore |
+| Betrieb und Abnahme | Produktionsgeeignete Laufzeit statt Standardbibliotheksserver, TLS-/Betriebskonfiguration, Limits, Monitoring, Incident-/Rollbackverfahren und echte Abhängigkeits-Readiness | P0-03/07: Zertifikats-/Last-/Ausfall-/Restoretests in isolierter Abnahmeumgebung; unabhängiges Review aller P0-Nachweise vor F-07 |
+
+**Freigabestufen:** Zuerst F-01–F-06 einschließlich aller für den jeweiligen
+Abschnitt benötigten Fachentscheidungen schriftlich festhalten; danach nur die
+ausdrücklich beauftragte lokale/isolierte Implementierung und deren Tests.
+Anforderungsfreigabe ist keine Betriebsfreigabe. F-07 folgt erst auf tatsächliche
+Abnahmenachweise für den konkreten Einsatz. Bis dahin bleibt die operative API
+gesperrt und `/health/ready` unverändert 503; dieses Dokument startet weder
+Implementierung noch Migration, Anmeldung oder Deployment.
+
 #### Abbruchregeln und Nachweispaket
 
 Ein fehlendes F-01–F-07, ein fehlgeschlagenes P0-Kriterium, eine unbesetzte
