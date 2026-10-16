@@ -61,53 +61,6 @@ prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
 Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
 Android-Testtask behauptet.
 
-## Automatische Updates und Autobuild
-
-- Bei Push und Pull Request sowie montags um 04:23 UTC und manuell laufen
-  gemeinsame Vertrags-/Tooltests und der Build beider getrennten Android-Apps.
-  Der Zeitplan wird erst nach Übernahme auf den Default-Branch aktiv; GitHub
-  kann geplante Läufe verzögern oder bei inaktiven öffentlichen Repositories
-  deaktivieren.
-- [Dependabot](.github/dependabot.yml) schlägt wöchentlich Updates für Gradle
-  und GitHub Actions als Pull Requests vor. Diese durchlaufen den Autobuild;
-  es gibt keinen automatischen Merge und keine ungeprüfte Quellcodeübernahme.
-- Das [Systemregister](config/system-repositories.json) erfasst dieses
-  Monorepo, die bekannten NIKNOLIG-/Defense-Quellen und den noch offenen
-  iOS-Anschluss. Auf `main` prüft der Autobuild die registrierten Repositories
-  lesend über die GitHub-API. Der commitbezogene `system-update-report` zeigt
-  Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
-  Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung
-  fehlschlagen, statt vollständige Systemkompatibilität vorzutäuschen.
-- Das Artefakt `mobile-contracts-<Commit-SHA>` enthält dieselben OpenAPI- und
-  JSON-Verträge für Android und spätere iOS-Verbraucher sowie das Systemregister.
-  Neue Repositories müssen ausdrücklich im Register aufgenommen werden.
-  Andere Repositories werden weder verändert noch ferngesteuert gebaut;
-  ein erfolgreicher Monorepo-Build bestätigt nicht deren Builds oder Integration.
-- Nach einem erfolgreichen `main`-Autobuild aus Push, Zeitplan oder manuellem
-  Start erzeugt [Preparing release APKs](.github/workflows/android-release.yml)
-  automatisch signierte APKs **genau des geprüften Commits**. PR-Builds und
-  fehlgeschlagene Builds lösen keine Signierung aus. Die vorhandenen Freigaben
-  des Environments `android-release` und seine sechs Signiergeheimnisse bleiben
-  erforderlich; fehlende Geheimnisse stoppen den Release-Build.
-- Release-Builds verwenden für beide Apps `versionCode = 1000 +` fortlaufende
-  Release-Workflow-Laufnummer und `versionName = 0.1.<versionCode>`.
-  Wiederholungen desselben Laufs behalten dieselbe Version; lokale Builds
-  bleiben ohne `NIKNOLIG_VERSION_CODE` bei `0.1.0`/Code `1`.
-  Der Release-Workflow darf nicht mit zurückgesetztem Versionszähler ersetzt
-  werden. Vor einem Store-Anschluss muss der nächste Code über allen bereits
-  verteilten Codes liegen; App-IDs und jeweilige Signierschlüssel bleiben stabil.
-
-**Geräteseitige Updates sind noch nicht aktiviert.** APK-Artefakte sind keine
-Store-Veröffentlichung; Debug-APKs sind kein Updatepfad für signierte Releases.
-Für automatische Android-Updates braucht es einen freigegebenen Play-Store-
-oder verwalteten Verteilungsweg. iOS benötigt eigene App-Repositories, Apple-
-Signierung und einen TestFlight-/App-Store-Verteilungsweg. Ein stiller eigener
-Installer oder die Umgehung von Plattformfreigaben wird nicht eingerichtet.
-SecurityChain-P0 und die produktive Releasesperre bleiben bestehen.
-
-Ergebnisse: [Autobuilds](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/android-build.yml)
-und [signierte Builds](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/android-release.yml).
-
 ## Read-only Audit
 
 Der manuelle Workflow
@@ -155,3 +108,50 @@ Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
 [`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
 nur belegte, kuratierte Vorschläge und nimmt selbst keine Dateiänderungen,
 Builds, Netzwerkzugriffe oder Deployments vor.
+
+## Automatische Updates und Autobuild
+
+- Bei Push und Pull Request sowie montags um 04:23 UTC und manuell laufen
+  gemeinsame Vertrags-/Tooltests und der Build beider getrennten Android-Apps.
+  Der Zeitplan wird erst nach Übernahme auf den Default-Branch aktiv; GitHub
+  kann geplante Läufe verzögern oder bei inaktiven öffentlichen Repositories
+  deaktivieren.
+- [Dependabot](.github/dependabot.yml) schlägt wöchentlich Updates für Gradle
+  und GitHub Actions als Pull Requests vor. Diese durchlaufen den Autobuild;
+  es gibt keinen automatischen Merge und keine ungeprüfte Quellcodeübernahme.
+- Das [Systemregister](config/system-repositories.json) erfasst dieses
+  Monorepo, die bekannten NIKNOLIG-/Defense-Quellen und den noch offenen
+  iOS-Anschluss. Auf `main` prüft der Autobuild die registrierten Repositories
+  lesend über die GitHub-API. Der commitbezogene `system-update-report` zeigt
+  Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
+  Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung
+  fehlschlagen, statt vollständige Systemkompatibilität vorzutäuschen.
+- Das Artefakt `mobile-contracts-<Commit-SHA>` enthält dieselben OpenAPI- und
+  JSON-Verträge für Android und spätere iOS-Verbraucher sowie das Systemregister.
+  Neue Repositories müssen ausdrücklich im Register aufgenommen werden.
+  Andere Repositories werden weder verändert noch ferngesteuert gebaut;
+  ein erfolgreicher Monorepo-Build bestätigt nicht deren Builds oder Integration.
+- Nach einem erfolgreichen `main`-Autobuild aus Push, Zeitplan oder manuellem
+  Start erzeugt [Preparing release APKs](.github/workflows/android-release.yml)
+  automatisch signierte APKs **genau des geprüften Commits**. PR-Builds und
+  fehlgeschlagene Builds lösen keine Signierung aus. Die vorhandenen Freigaben
+  des Environments `android-release` und seine sechs Signiergeheimnisse bleiben
+  erforderlich; fehlende Geheimnisse stoppen den Release-Build.
+- Release-Builds verwenden für beide Apps `versionCode = 1000 +` fortlaufende
+  Release-Workflow-Laufnummer und `versionName = 0.1.<versionCode>`.
+  Wiederholungen desselben Laufs behalten dieselbe Version; lokale Builds
+  bleiben ohne `NIKNOLIG_VERSION_CODE` bei `0.1.0`/Code `1`.
+  Der Release-Workflow darf nicht mit zurückgesetztem Versionszähler ersetzt
+  werden. Vor einem Store-Anschluss muss der nächste Code über allen bereits
+  verteilten Codes liegen; App-IDs und jeweilige Signierschlüssel bleiben stabil.
+
+**Geräteseitige Updates sind noch nicht aktiviert.** APK-Artefakte sind keine
+Store-Veröffentlichung; Debug-APKs sind kein Updatepfad für signierte Releases.
+Für automatische Android-Updates braucht es einen freigegebenen Play-Store-
+oder verwalteten Verteilungsweg. iOS benötigt eigene App-Repositories, Apple-
+Signierung und einen TestFlight-/App-Store-Verteilungsweg. Ein stiller eigener
+Installer oder die Umgehung von Plattformfreigaben wird nicht eingerichtet.
+SecurityChain-P0 und die produktive Releasesperre bleiben bestehen.
+
+Ergebnisse: [Autobuilds](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/android-build.yml)
+und [signierte Builds](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/android-release.yml).

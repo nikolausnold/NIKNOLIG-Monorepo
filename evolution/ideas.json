@@ -35,8 +35,8 @@
       "evidence": [
         {
           "path": "README.md",
-          "startLine": 55,
-          "endLine": 59,
+          "startLine": 60,
+          "endLine": 62,
           "excerpt": "In den importierten\nQuellständen sind keine Android-Testquellen vorhanden; deshalb wird kein\nAndroid-Testtask behauptet.",
           "state": "hypothesis"
         }
@@ -79,8 +79,8 @@
       "evidence": [
         {
           "path": ".github/workflows/android-build.yml",
-          "startLine": 22,
-          "endLine": 24,
+          "startLine": 42,
+          "endLine": 44,
           "excerpt": "      - name: Assemble both debug APKs\n        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon\n      - name: Verify package identities and APK signatures",
           "state": "verified"
         },
