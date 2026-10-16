@@ -74,9 +74,12 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    Profildaten, Tokens, Schlüssel oder vollständigen Request-Payloads in Logs.
    Aufbewahrung, Löschung, Benutzeridentität und konkrete Nutzdaten sind noch
    nicht fachlich freigegeben.
-6. **Healthchecks:** `/health/live` meldet nur Prozessverfügbarkeit;
-   `/health/ready` meldet die Bereitschaft dieser Health-only-Laufzeit. Es gibt
-   noch keine Produktabhängigkeiten, die geprüft werden könnten. Antworten legen
+6. **Healthchecks:** `/health/live` meldet nur Prozessverfügbarkeit (200).
+   `/health/ready` liefert bis zur Implementierung freigegebener Betriebsprüfungen
+   immer 503 mit `SERVICE_UNAVAILABLE` im `ApiError`-Format (fail closed).
+   Weder Datenbankverbindung, Migrationsstand noch Produktabhängigkeiten werden
+   geprüft; ein laufender Health-Prozess ist kein Betriebsbereitschaftsnachweis.
+   Antworten legen
    keine Umgebungsvariablen, internen Hosts, Stacktraces oder Datenbankdetails
    offen.
 
@@ -90,6 +93,12 @@ Konfiguration. `.env` wird lokal aus `.env.example` erstellt und nicht
 eingecheckt. Das Compose-Setup ist nicht für Deployment oder sensible Daten
 bestimmt.
 
+`app.py` verwendet keine PostgreSQL-Variablen und öffnet keine
+Datenbankverbindung. Der Compose-Healthcheck `pg_isready` prüft nur die
+Verbindungsannahme von PostgreSQL, nicht das Anwendungsschema, API-Rechte oder
+P0-Konformität. Compose bindet keine Migration ein und führt sie nicht automatisch
+aus. Ein gesunder PostgreSQL-Container ändert die API-Readiness daher nicht.
+
 ## Lokaler Health-Server
 
 Mit Python 3 starten:
@@ -100,8 +109,10 @@ python3 backend/app.py
 
 Die Standardbindung ist `127.0.0.1:8000`. `BACKEND_HOST` und `BACKEND_PORT`
 können als Umgebungsvariablen gesetzt werden. Die Anwendung lädt `.env` nicht
-automatisch. `/health/live` und `/health/ready` liefern die vereinbarten
-Statusantworten; andere GET-Pfade geben eine generische 404-Antwort zurück.
+automatisch. `/health/live` liefert 200 mit `{"status":"live"}`;
+`/health/ready` liefert immer 503 mit einem generischen Fehlercode,
+einer nicht-sensitiven Nachricht und einer neuen Korrelations-ID.
+Andere GET-Pfade geben eine generische 404-Antwort zurück.
 Es gibt keine Anmeldung, Datenbankverbindung, Gerätefunktion oder Produkt-API.
 Die Standardbibliotheks-HTTP-Laufzeit ist nur für lokale Entwicklung und
 Vertragstests gedacht: nicht öffentlich exponieren oder als produktiven
@@ -119,6 +130,23 @@ Aufbewahrung und Abnahmekriterien schriftlich von den Verantwortlichen
 freigegeben und überprüfbar getestet sind. Die SQL-Modelle und zukünftigen
 Routen in dieser Grundlage sind Vorschläge, keine Freigabe dieser offenen
 Entscheidungen. Bei fehlender Prüfung gilt fail closed.
+
+### Verbleibende Abschlussblocker
+
+- **P0:** Verbindliche Muss-/Abbruchkriterien, Bedrohungsmodell und schriftliche
+  Produkt-/Security-Freigaben samt prüfbaren Abnahmekriterien fehlen.
+- **Authentifizierung:** Identitätsanbieter, Login, Tokenprüfung/-widerruf,
+  Schlüsselrotation und app-bereichsgetrennte Autorisierung sind nicht implementiert.
+- **Deployment/Betrieb:** Produktionsgeeignete Laufzeit, Hosting, TLS,
+  Secret-Verwaltung, Monitoring, Rollback und geprüfte Backup-/Restoreverfahren
+  sind nicht eingerichtet. Es gibt keine Datenbankanbindung oder freigegebene
+  Migrationsausführung; echte Readiness-Prüfungen bleiben offen.
+- **Datenschutz:** Freigegebene Zwecke und Rechtsgrundlagen, Datenumfang,
+  Aufbewahrungs-/Löschregeln sowie Zustimmungs- und Widerrufsdurchsetzung fehlen.
+
+Dieser Abschnitt korrigiert ausschließlich das Readiness-Signal und seinen
+Vertrag. Er aktiviert keine Produkt-API, Datenbankintegration oder Migration und
+ersetzt keine Sicherheits-, Datenschutz- oder Betriebsfreigabe.
 
 ## Integration in den separaten App-Repositories
 

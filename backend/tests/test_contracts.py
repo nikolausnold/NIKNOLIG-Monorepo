@@ -25,6 +25,15 @@ class BackendContractTests(unittest.TestCase):
         self.assertNotIn("/v1/", contract)
         self.assertIn("specified or implemented", contract)
 
+    def test_readiness_contract_does_not_advertise_unverified_success(self):
+        contract = (BACKEND / "openapi.yaml").read_text(encoding="utf-8")
+        readiness = contract.split("  /health/ready:", 1)[1].split("components:", 1)[0]
+        self.assertIn('"503":', readiness)
+        self.assertIn('#/components/schemas/ApiError', readiness)
+        self.assertIn("Always returns 503", readiness)
+        self.assertNotIn('"200":', readiness)
+        self.assertNotIn("status: ready", contract)
+
     def test_migration_separates_app_domains_and_does_not_store_private_keys(self):
         migration = (BACKEND / "migrations/001_initial_contract.sql").read_text(
             encoding="utf-8"

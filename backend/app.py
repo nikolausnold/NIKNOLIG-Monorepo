@@ -13,7 +13,16 @@ class HealthHandler(BaseHTTPRequestHandler):
         if path == "/health/live":
             self._send_json(200, {"status": "live"})
         elif path == "/health/ready":
-            self._send_json(200, {"status": "ready"})
+            self._send_json(
+                503,
+                {
+                    "error": {
+                        "code": "SERVICE_UNAVAILABLE",
+                        "message": "Service is temporarily unavailable.",
+                        "requestId": str(uuid4()),
+                    }
+                },
+            )
         else:
             self._send_json(
                 404,

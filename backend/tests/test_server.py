@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import urlopen
 from unittest.mock import patch
+from uuid import UUID
 
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -31,7 +32,7 @@ class BackendHealthServerTests(unittest.TestCase):
     def test_health_routes_match_the_openapi_status_contract(self):
         for path, expected in (
             ("/health/live", {"status": "live"}),
-            ("/health/ready", {"status": "ready"}),
+            ("/health/live?probe=1", {"status": "live"}),
         ):
             with self.subTest(path=path):
                 with urlopen(self.base_url + path, timeout=2) as response:
@@ -39,6 +40,29 @@ class BackendHealthServerTests(unittest.TestCase):
                     self.assertEqual("application/json; charset=utf-8", response.headers["Content-Type"])
                     self.assertEqual("no-store", response.headers["Cache-Control"])
                     self.assertEqual(expected, json.load(response))
+
+    def test_readiness_fails_closed_with_generic_contract_error(self):
+        request_ids = set()
+        for path in ("/health/ready", "/health/ready?probe=1"):
+            with self.subTest(path=path):
+                with self.assertRaises(HTTPError) as raised:
+                    urlopen(self.base_url + path, timeout=2)
+                with raised.exception as response:
+                    self.assertEqual(503, response.code)
+                    self.assertEqual("application/json; charset=utf-8", response.headers["Content-Type"])
+                    self.assertEqual("no-store", response.headers["Cache-Control"])
+                    self.assertEqual("nosniff", response.headers["X-Content-Type-Options"])
+                    encoded = response.read()
+                    self.assertEqual(len(encoded), int(response.headers["Content-Length"]))
+                    body = json.loads(encoded)
+                self.assertEqual({"error"}, set(body))
+                error = body["error"]
+                self.assertEqual({"code", "message", "requestId"}, set(error))
+                self.assertEqual("SERVICE_UNAVAILABLE", error["code"])
+                self.assertEqual("Service is temporarily unavailable.", error["message"])
+                self.assertEqual(4, UUID(error["requestId"]).version)
+                request_ids.add(error["requestId"])
+        self.assertEqual(2, len(request_ids))
 
     def test_unsupported_path_returns_generic_not_found_error(self):
         with self.assertRaises(HTTPError) as raised:

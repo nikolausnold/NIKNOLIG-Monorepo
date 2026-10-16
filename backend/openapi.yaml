@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: NIKNOLIG Shared Backend Contract
-  version: 0.1.0
+  version: 0.1.1
   description: >-
     Contract-first proposal. Only health operations are defined; no operational
     app, device, profile, or pairing API is implemented or approved. Production
@@ -32,19 +32,15 @@ paths:
     get:
       operationId: getReadiness
       tags: [Health]
-      summary: Report readiness without exposing dependency details.
+      summary: Fail closed until operational readiness checks are implemented.
+      description: >-
+        Always returns 503 in this health-only runtime. No database connection,
+        migration state, or product dependencies are checked. This is not a
+        production readiness or SecurityChain-P0 approval signal.
       security: []
       responses:
-        "200":
-          description: Required dependencies are available.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthStatus"
-              example:
-                status: ready
         "503":
-          description: A required dependency is unavailable.
+          description: Operational readiness is not established.
           content:
             application/json:
               schema:
@@ -72,7 +68,7 @@ components:
       properties:
         status:
           type: string
-          enum: [live, ready]
+          enum: [live]
     ApiError:
       type: object
       additionalProperties: false
