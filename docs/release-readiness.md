@@ -3,6 +3,7 @@
 **Ergebnis: BLOCKED**
 
 **Audit-Baseline:** 2026-10-15, Bestandsaufnahme ab 15:03 UTC
+**Letzte Aktualisierung:** 2026-10-16, 06:25 UTC
 
 **Repository:** `nikolausnold/NIKNOLIG-Monorepo`
 
@@ -53,11 +54,11 @@ SecurityChain-P0-Nachweise noch einen Zwei-Geräte-Test.
 
 ## Zusammenfassung
 
-Beide getrennten Android-Apps lassen sich bauen. Der aktuelle Android-CI-Lauf
-hat beide Debug-APKs gebaut, Paket-IDs kontrolliert, APK-Signaturen geprüft und
-die APKs als Actions-Artefakte hochgeladen. Ein erfolgreicher Release-Lauf hat
-signierte Release-APKs erstellt und die Signaturen mit den in demselben Lauf
-verwendeten Keystores verglichen.
+Vorhandene Actions-Nachweise belegen erfolgreiche Debug- und Release-Builds auf
+den in der Aktualisierung oben genannten Commits. Der Branch-Build #96 wurde
+nicht ausgeführt (`action_required`); der lokale Prüfversuch scheiterte bereits
+bei der Auflösung des Android-Gradle-Plugins. Damit ist kein Build-/Testergebnis
+für den aktuellen Dokumentationscommit behauptet.
 
 Das ist kein Nachweis für die geforderte Verbindung zwischen zwei Smartphones:
 In den vorhandenen Apps sind Geräteerkennung, Pairing, Authentifizierung,
@@ -129,11 +130,13 @@ erforderlich.
 
 | Artefakt | Zugehöriger Lauf | Größe | Ablauf | Download |
 | --- | --- | ---: | --- | --- |
-| `niknolig-debug-apk` | [Debug #83](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188), Commit `37b2f16` | 866.593 Byte | 2026-10-22 15:00:04 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188/artifacts/11982819237) |
-| `niknolig-defense-debug-apk` | [Debug #83](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188), Commit `37b2f16` | 862.673 Byte | 2026-10-22 15:00:06 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188/artifacts/11982434900) |
+| `niknolig-debug-apk` | [Debug #94](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928), Commit `b28a19b` | 866.594 Byte | 2026-10-22 16:56:23 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928/artifacts/11992227705) |
+| `niknolig-defense-debug-apk` | [Debug #94](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928), Commit `b28a19b` | 862.674 Byte | 2026-10-22 16:56:32 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928/artifacts/11991628637) |
 | `niknolig-release-apk` | [Release #13](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201), Commit `c8d152f` | 662.828 Byte | 2026-10-16 12:43:07 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201/artifacts/11974091975) |
 | `niknolig-defense-release-apk` | [Release #13](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201), Commit `c8d152f` | 659.853 Byte | 2026-10-16 12:43:08 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201/artifacts/11974306823) |
-| `release-readiness-report` (vorherige Berichtsfassung) | [Debug #83](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188), Commit `37b2f16` | 3.551 Byte | 2026-10-22 15:00:08 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188/artifacts/11982539853) |
+| `niknolig-release-apk` | [Release #14](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886), Commit `37b2f16` | 662.828 Byte | 2026-10-16 15:19:55 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886/artifacts/11984518236) |
+| `niknolig-defense-release-apk` | [Release #14](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886), Commit `37b2f16` | 659.851 Byte | 2026-10-16 15:19:57 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886/artifacts/11984757701) |
+| `release-readiness-report` (vorherige Berichtsfassung) | [Debug #94](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928), Commit `b28a19b` | 6.543 Byte | 2026-10-22 16:56:34 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928/artifacts/11991593684) |
 
 Die Release-APKs stammen aus dem vorherigen Commit `c8d152f`; die App-,
 Gradle-Dateien und der Release-Workflow sind zwischen diesem Commit und dem
