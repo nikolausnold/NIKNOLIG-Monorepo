@@ -2,21 +2,65 @@
 
 **Ergebnis: BLOCKED**
 
-**Stand:** 2026-10-15, Bestandsaufnahme ab 15:03 UTC
+**Audit-Baseline:** 2026-10-15, Bestandsaufnahme ab 15:03 UTC
+**Letzte Aktualisierung:** 2026-10-16, 06:32 UTC
 
 **Repository:** `nikolausnold/NIKNOLIG-Monorepo`
 
-**Prüfstand:** Commit `37b2f163312bc9611ed1bf4d2fa2056b4108777d` (erfolgreicher `main`-Build)
+**Baseline-Prüfstand:** Commit `37b2f163312bc9611ed1bf4d2fa2056b4108777d` (erfolgreicher `main`-Build)
 
-**Arbeitsbranch:** `copilot/audit-release-integration`
+**Audit-Branch:** `copilot/audit-release-integration`
+
+## Aktualisierung 2026-10-16
+
+Diese Aktualisierung ergänzt den historischen Auditstand; sie ersetzt weder
+SecurityChain-P0-Nachweise noch einen Zwei-Geräte-Test.
+
+- Arbeitsbranch: `copilot/download-apps-without-zip`; letzter geprüfter Stand
+  vor dieser Berichtsergänzung: `79b627a87a2be4e242587ac72337f72982d0daf2`.
+  Der Ausgangsstand `3920e30` war sauber. Seit `main` `b28a19b` enthält der
+  Branch ausschließlich Sicherheitsdesign-/Auditdokumentation, keine App- oder
+  Workflow-Implementierung.
+- Der erfolgreiche Android-Debug-Lauf #94 baute und prüfte beide APKs auf
+  `main` bei `b28a19b`:
+  [Actions-Lauf #94](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928).
+  Er belegt keinen Geräte-Link und führt keine App-Unit-/Instrumentierungstests
+  aus.
+- Der letzte Branch-Push löste Android-Lauf #98 auf dem geprüften Stand aus,
+  Ergebnis `action_required`, **null Jobs und keine fehlgeschlagenen Jobs**:
+  [Actions-Lauf #98](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38861769602).
+  Lauf #96 und #97 endeten gleichfalls mit `action_required`. Somit fand für
+  diese Branch-Pushes kein CI-Build statt; es gibt keine Job-Logs, die einen
+  Codefehler belegen.
+- Ein lokaler Versuch von
+  `./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon`
+  brach vor der Build-/Testausführung ab: Gradle konnte das Android-Gradle-
+  Plugin `com.android.application:8.11.1` aus den konfigurierten Plugin-
+  Repositories nicht auflösen. Das ist ein Abhängigkeitsauflösungsfehler der
+  Umgebung; ein App-Kompilierfehler oder Testergebnis wurde nicht erreicht.
+  Pluginversionen wurden nicht geändert.
+- Letzter erfolgreicher Release-Workflow in den abgefragten Ergebnissen ist
+  Lauf #14 auf `main`, Commit `37b2f163312bc9611ed1bf4d2fa2056b4108777d`:
+  [Release-Lauf #14](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886).
+  Der Lauf erzeugte signierte APK-Artefakte; dies ist kein Store-Release und
+  kein aktueller P0-Integrationsnachweis.
+- Es wurden keine Android-Testquellen im Arbeitsstand gefunden. Automatisierte
+  App-Tests und physische Zwei-Geräte-Abnahme bleiben offen.
+- Der freigegebene Autobuild bezieht sich auf Debug-Builds bei Push/PR. Er
+  autorisiert keine produktive Veröffentlichung und hebt die P0-Sperre nicht
+  auf. Konkrete SecurityChain-P0-Kriterien, Transport und Protokoll sind in
+  den geprüften Dateien weiterhin nicht freigegeben. Transportkandidaten und
+  ihre offenen Prüfungen sind in
+  [`device-link-security-design.md`](device-link-security-design.md)
+  dokumentiert.
 
 ## Zusammenfassung
 
-Beide getrennten Android-Apps lassen sich bauen. Der aktuelle Android-CI-Lauf
-hat beide Debug-APKs gebaut, Paket-IDs kontrolliert, APK-Signaturen geprüft und
-die APKs als Actions-Artefakte hochgeladen. Ein erfolgreicher Release-Lauf hat
-signierte Release-APKs erstellt und die Signaturen mit den in demselben Lauf
-verwendeten Keystores verglichen.
+Vorhandene Actions-Nachweise belegen erfolgreiche Debug- und Release-Builds auf
+den in der Aktualisierung oben genannten Commits. Der Branch-Build #96 wurde
+nicht ausgeführt (`action_required`); der lokale Prüfversuch scheiterte bereits
+bei der Auflösung des Android-Gradle-Plugins. Damit ist kein Build-/Testergebnis
+für den aktuellen Dokumentationscommit behauptet.
 
 Das ist kein Nachweis für die geforderte Verbindung zwischen zwei Smartphones:
 In den vorhandenen Apps sind Geräteerkennung, Pairing, Authentifizierung,
@@ -88,11 +132,13 @@ erforderlich.
 
 | Artefakt | Zugehöriger Lauf | Größe | Ablauf | Download |
 | --- | --- | ---: | --- | --- |
-| `niknolig-debug-apk` | [Debug #83](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188), Commit `37b2f16` | 866.593 Byte | 2026-10-22 15:00:04 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188/artifacts/11982819237) |
-| `niknolig-defense-debug-apk` | [Debug #83](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188), Commit `37b2f16` | 862.673 Byte | 2026-10-22 15:00:06 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188/artifacts/11982434900) |
+| `niknolig-debug-apk` | [Debug #94](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928), Commit `b28a19b` | 866.594 Byte | 2026-10-22 16:56:23 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928/artifacts/11992227705) |
+| `niknolig-defense-debug-apk` | [Debug #94](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928), Commit `b28a19b` | 862.674 Byte | 2026-10-22 16:56:32 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928/artifacts/11991628637) |
 | `niknolig-release-apk` | [Release #13](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201), Commit `c8d152f` | 662.828 Byte | 2026-10-16 12:43:07 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201/artifacts/11974091975) |
 | `niknolig-defense-release-apk` | [Release #13](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201), Commit `c8d152f` | 659.853 Byte | 2026-10-16 12:43:08 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38736559201/artifacts/11974306823) |
-| `release-readiness-report` (vorherige Berichtsfassung) | [Debug #83](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188), Commit `37b2f16` | 3.551 Byte | 2026-10-22 15:00:08 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38756192188/artifacts/11982539853) |
+| `niknolig-release-apk` | [Release #14](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886), Commit `37b2f16` | 662.828 Byte | 2026-10-16 15:19:55 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886/artifacts/11984518236) |
+| `niknolig-defense-release-apk` | [Release #14](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886), Commit `37b2f16` | 659.851 Byte | 2026-10-16 15:19:57 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886/artifacts/11984757701) |
+| `release-readiness-report` (vorherige Berichtsfassung) | [Debug #94](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928), Commit `b28a19b` | 6.543 Byte | 2026-10-22 16:56:34 UTC | [Download](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928/artifacts/11991593684) |
 
 Die Release-APKs stammen aus dem vorherigen Commit `c8d152f`; die App-,
 Gradle-Dateien und der Release-Workflow sind zwischen diesem Commit und dem
