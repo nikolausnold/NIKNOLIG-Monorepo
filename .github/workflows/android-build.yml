@@ -19,6 +19,8 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Run backend contract regression tests
+        run: python3 -m unittest discover -s backend/tests
       - name: Assemble both debug APKs
         run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon
       - name: Verify package identities and APK signatures
