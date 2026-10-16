@@ -252,6 +252,11 @@ bei `uv sync` Testpakete ausschließen, ersetzt aber keine Produktionsabnahme.
 - Der bestehende Android-Workflow installiert jetzt die gelockte Testumgebung
   und führt dieselbe vollständige Backend-Suite aus; keine zusätzliche
   Android-Buildpipeline und kein redundanter lokaler Android-Build.
+- Secret-Scan aller geänderten Dateien ohne Fund. CodeQL für Python und
+  GitHub Actions ausgeführt: **0 Alerts**. Die automatisierte Code-Review
+  war wegen eines nicht verfügbaren Review-Modells technisch nicht nutzbar;
+  eine separate read-only Code-Review des Implementierungsdiffs fand keine
+  wesentlichen Fehler. Das ist keine Produktions-/P0-Abnahme.
 - Die weitere vorhandene Python-Suite unter
   `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/tools/tests`
   ergab 5 erfolgreiche Tests und 4 Fehler durch veraltete README-Zeilenbelege
