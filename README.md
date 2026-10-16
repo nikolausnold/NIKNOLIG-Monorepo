@@ -69,3 +69,12 @@ keine Geheimnisse vorhanden sind.
 
 Weitere Inventur- und Cloudflare-Nachweise stehen im
 [Master-Integrationsplan](docs/MASTER-INTEGRATION-PLAN.md).
+
+## Gemeinsame Backend-Verträge
+
+[`backend/`](backend/README.md) enthält einen lokalen, nicht produktionsfreigegebenen
+Vertragsentwurf mit getrennten App-Bereichen, OpenAPI-Health-/Fehlerverträgen,
+provisorischer Datenbankmigration, loopback-isolierter PostgreSQL-Compose-
+Konfiguration und statischen Vertragstests. Es gibt noch keinen API-Server oder
+eine App-Anbindung. Die operative Geräteintegration bleibt bis zur dokumentierten
+SecurityChain-P0-Freigabe gesperrt.

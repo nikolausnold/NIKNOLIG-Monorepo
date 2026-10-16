@@ -1,0 +1,111 @@
+openapi: 3.1.0
+info:
+  title: NIKNOLIG Shared Backend Contract
+  version: 0.1.0
+  description: >-
+    Contract-first proposal. Only health operations are defined; no operational
+    app, device, profile, or pairing API is implemented or approved. Production
+    integration is blocked pending SecurityChain-P0 and product/security review.
+servers:
+  - url: https://backend.invalid
+    description: Placeholder only; not a deployed or approved endpoint.
+tags:
+  - name: Health
+    description: Non-sensitive process and dependency health contract.
+paths:
+  /health/live:
+    get:
+      operationId: getLiveness
+      tags: [Health]
+      summary: Report process liveness.
+      security: []
+      responses:
+        "200":
+          description: The API process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+              example:
+                status: live
+  /health/ready:
+    get:
+      operationId: getReadiness
+      tags: [Health]
+      summary: Report readiness without exposing dependency details.
+      security: []
+      responses:
+        "200":
+          description: Required dependencies are available.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+              example:
+                status: ready
+        "503":
+          description: A required dependency is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              example:
+                error:
+                  code: SERVICE_UNAVAILABLE
+                  message: Service is temporarily unavailable.
+                  requestId: 00000000-0000-4000-8000-000000000000
+components:
+  securitySchemes:
+    AccessToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: >-
+        Reserved contract requirement for future protected operations only.
+        No issuer, token issuance, validation, or protected operation is
+        specified or implemented by this contract.
+  schemas:
+    HealthStatus:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [live, ready]
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, requestId]
+          properties:
+            code:
+              $ref: "#/components/schemas/ErrorCode"
+            message:
+              type: string
+              maxLength: 200
+            requestId:
+              type: string
+              format: uuid
+    ErrorCode:
+      type: string
+      description: Stable machine-readable codes reserved for API implementations.
+      enum:
+        - AUTHENTICATION_REQUIRED
+        - AUTHENTICATION_INVALID
+        - AUTHORIZATION_DENIED
+        - APP_AREA_MISMATCH
+        - DEVICE_IDENTITY_UNVERIFIED
+        - PAIRING_REQUIRED
+        - PAIRING_EXPIRED
+        - REPLAY_DETECTED
+        - VALIDATION_FAILED
+        - RATE_LIMITED
+        - CONFLICT
+        - NOT_FOUND
+        - SERVICE_UNAVAILABLE
+        - INTERNAL_ERROR
