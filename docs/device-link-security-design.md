@@ -40,6 +40,23 @@ Wiederverbindungsimplementierung nach.
    Architektur-/Security-Freigabe. Keine Änderungen an separaten
    App-Repositories oder Cloud-/Backend-Systemen im Rahmen dieses Plans.
 
+### Transportoptionen – keine Auswahl getroffen
+
+Die Optionen sind Kandidaten für eine spätere Prüfung, keine
+SecurityChain-P0-Freigabe:
+
+| Option | Eignung und offene Sicherheitsfragen |
+| --- | --- |
+| Nearby Connections | Bietet Peer-to-Peer-Discovery und -Datenaustausch über Google Play Services. Googles API-Dokumentation beschreibt eine Authentifizierungsphase mit Bestätigung auf beiden Geräten und verschlüsselte Verbindungen. Zu prüfen bleiben unter anderem Play-Services-Verfügbarkeit, genaue Berechtigungen je Android-Version, Identitätsbindung über Wiederverbindungen, Widerruf und ob der dokumentierte Authentifizierungstoken die freigegebenen SecurityChain-P0-Anforderungen erfüllt. [Übersicht](https://developers.google.com/nearby/connections/overview), [Verbindungen verwalten](https://developers.google.com/nearby/connections/android/manage-connections), [Berechtigungen](https://developers.google.com/nearby/connections/permissions) |
+| Bluetooth LE/GATT | Verwendet Androids Bluetooth- und GATT-APIs. GATT kann verschlüsselte Zugriffe mit MITM-Schutz verlangen; das allein belegt weder stabile App-Geräteidentität noch Aktionen-Autorisierung, Sitzungsfrische oder Widerrufsverhalten. Zu prüfen sind Pairing-Verfahren, unterstützte Geräte und Laufzeitberechtigungen. [BluetoothGattCharacteristic API](https://developer.android.com/reference/android/bluetooth/BluetoothGattCharacteristic), [Android Bluetooth Security](https://source.android.com/docs/core/connect/bluetooth/secure) |
+| Lokales WLAN mit NSD und TLS | NSD dient der Dienstsuche, nicht der Peer-Authentifizierung oder Verschlüsselung. Nach der Discovery wären ein separat spezifizierter TLS-Kanal und eine sichere Zertifikats-/Schlüssel-Vertrauensverteilung nötig. Gemeinsames WLAN, mDNS-Verhalten, Netzwerkwechsel und lokale Netzwerkberechtigungen sind zu prüfen. [Android NSD](https://developer.android.com/develop/connectivity/wifi/use-nsd), [Android TLS](https://developer.android.com/privacy-and-security/security-ssl) |
+
+Für keine Option ist hiermit festgestellt, dass sie die verbindlichen
+SecurityChain-P0-Anforderungen erfüllt. Eine verschlüsselte Verbindung,
+OS-Pairing oder Nutzerbestätigung darf nicht allein als ausreichende
+gegenseitige App-Geräteauthentifizierung gewertet werden. Auswahl, Bedrohungs-
+und Kompatibilitätsprüfung sowie Abnahmekriterien sind offene Freigabepunkte.
+
 ## 3. Vorgesehene Architektur nach Freigabe
 
 - Die App-Module `:niknolig` und `:niknolig-defense` bleiben getrennt. Die

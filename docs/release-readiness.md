@@ -2,13 +2,54 @@
 
 **Ergebnis: BLOCKED**
 
-**Stand:** 2026-10-15, Bestandsaufnahme ab 15:03 UTC
+**Audit-Baseline:** 2026-10-15, Bestandsaufnahme ab 15:03 UTC
 
 **Repository:** `nikolausnold/NIKNOLIG-Monorepo`
 
-**Prüfstand:** Commit `37b2f163312bc9611ed1bf4d2fa2056b4108777d` (erfolgreicher `main`-Build)
+**Baseline-Prüfstand:** Commit `37b2f163312bc9611ed1bf4d2fa2056b4108777d` (erfolgreicher `main`-Build)
 
-**Arbeitsbranch:** `copilot/audit-release-integration`
+**Audit-Branch:** `copilot/audit-release-integration`
+
+## Aktualisierung 2026-10-16
+
+Diese Aktualisierung ergänzt den historischen Auditstand; sie ersetzt weder
+SecurityChain-P0-Nachweise noch einen Zwei-Geräte-Test.
+
+- Aktueller Arbeitsbranch: `copilot/download-apps-without-zip`,
+  HEAD `3920e30d2e2927b74c55942c94f4fc6cb0d7574d`. Der Arbeitsbaum war bei
+  Beginn der Prüfung sauber. Gegenüber `main` `b28a19b` enthält dieser Branch
+  nur den Sicherheitsdesign-Entwurf; keine App- oder Workflow-Implementierung.
+- Der erfolgreiche Android-Debug-Lauf #94 baute und prüfte beide APKs auf
+  `main` bei `b28a19b`:
+  [Actions-Lauf #94](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928).
+  Er belegt keinen Geräte-Link und führt keine App-Unit-/Instrumentierungstests
+  aus.
+- Der aktuelle Branch-Push löste Android-Lauf #96 aus, Ergebnis
+  `action_required`, **null Jobs und keine fehlgeschlagenen Jobs**:
+  [Actions-Lauf #96](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38860217913).
+  Somit fand in diesem Lauf kein CI-Build statt; es liegt kein Job-Log vor, das
+  auf einen Codefehler schließen lässt.
+- Ein lokaler Versuch von
+  `./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon`
+  brach vor der Build-/Testausführung ab: Gradle konnte das Android-Gradle-
+  Plugin `com.android.application:8.11.1` aus den konfigurierten Plugin-
+  Repositories nicht auflösen. Das ist ein Abhängigkeitsauflösungsfehler der
+  Umgebung; ein App-Kompilierfehler oder Testergebnis wurde nicht erreicht.
+  Pluginversionen wurden nicht geändert.
+- Letzter erfolgreicher Release-Workflow in den abgefragten Ergebnissen ist
+  Lauf #14 auf `main`, Commit `37b2f163312bc9611ed1bf4d2fa2056b4108777d`:
+  [Release-Lauf #14](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38759170886).
+  Der Lauf erzeugte signierte APK-Artefakte; dies ist kein Store-Release und
+  kein aktueller P0-Integrationsnachweis.
+- Es wurden keine Android-Testquellen im Arbeitsstand gefunden. Automatisierte
+  App-Tests und physische Zwei-Geräte-Abnahme bleiben offen.
+- Der freigegebene Autobuild bezieht sich auf Debug-Builds bei Push/PR. Er
+  autorisiert keine produktive Veröffentlichung und hebt die P0-Sperre nicht
+  auf. Konkrete SecurityChain-P0-Kriterien, Transport und Protokoll sind in
+  den geprüften Dateien weiterhin nicht freigegeben. Transportkandidaten und
+  ihre offenen Prüfungen sind in
+  [`device-link-security-design.md`](device-link-security-design.md)
+  dokumentiert.
 
 ## Zusammenfassung
 
