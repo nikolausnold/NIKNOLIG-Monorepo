@@ -1,6 +1,6 @@
 <resources>
     <style name="Theme.Niknolig" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:colorAccent">@color/gold</item>
+        <item name="android:colorAccent">@color/brand_accent</item>
         <item name="android:navigationBarColor">@color/dark_background</item>
         <item name="android:statusBarColor">@color/dark_background</item>
         <item name="android:windowActionModeOverlay">true</item>

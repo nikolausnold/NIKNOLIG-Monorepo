@@ -71,7 +71,7 @@
                     android:layout_height="wrap_content"
                     android:accessibilityHeading="true"
                     android:text="@string/system_status_heading"
-                    android:textColor="@color/gold"
+                    android:textColor="@color/brand_accent"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
@@ -113,7 +113,7 @@
                     android:layout_height="wrap_content"
                     android:accessibilityHeading="true"
                     android:text="@string/support_heading"
-                    android:textColor="@color/gold"
+                    android:textColor="@color/brand_accent"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
