@@ -121,8 +121,8 @@ Deployment bleiben separat zu konfigurieren und freizugeben.
 
 ## SecurityChain-P0 und Freigabe
 
-Im geprüften Repository liegt keine normative SecurityChain-P0-Fassung mit
-prüfbaren Muss-/Abbruchkriterien. Daher wird keine P0-Konformität behauptet.
+Der folgende SecurityChain-P0-Entwurf enthält prüfbare Muss-/Abbruchkriterien,
+ist aber nicht als normative Fassung freigegeben. Keine P0-Konformität wird behauptet.
 **Produktive Geräteintegration und die operative API bleiben BLOCKED**, bis
 mindestens die verbindlichen P0-Kriterien, Bedrohungsmodell, Daten-/Aktionsumfang,
 Rollen, Identitäts-/Authentifizierungsverfahren, Transport, Widerruf,
@@ -133,8 +133,8 @@ Entscheidungen. Bei fehlender Prüfung gilt fail closed.
 
 ### Verbleibende Abschlussblocker
 
-- **P0:** Verbindliche Muss-/Abbruchkriterien, Bedrohungsmodell und schriftliche
-  Produkt-/Security-Freigaben samt prüfbaren Abnahmekriterien fehlen.
+- **P0:** Der folgende Kriterien-/Bedrohungsmodellentwurf benötigt schriftliche
+  Produkt-/Security-Freigaben und die noch fehlenden Abnahmenachweise.
 - **Authentifizierung:** Identitätsanbieter, Login, Tokenprüfung/-widerruf,
   Schlüsselrotation und app-bereichsgetrennte Autorisierung sind nicht implementiert.
 - **Deployment/Betrieb:** Produktionsgeeignete Laufzeit, Hosting, TLS,
@@ -144,9 +144,151 @@ Entscheidungen. Bei fehlender Prüfung gilt fail closed.
 - **Datenschutz:** Freigegebene Zwecke und Rechtsgrundlagen, Datenumfang,
   Aufbewahrungs-/Löschregeln sowie Zustimmungs- und Widerrufsdurchsetzung fehlen.
 
-Dieser Abschnitt korrigiert ausschließlich das Readiness-Signal und seinen
-Vertrag. Er aktiviert keine Produkt-API, Datenbankintegration oder Migration und
+Diese Grundlage stellt nur Health-Signale und Anforderungsentwürfe bereit.
+Sie aktiviert keine Produkt-API, Datenbankintegration oder Migration und
 ersetzt keine Sicherheits-, Datenschutz- oder Betriebsfreigabe.
+
+### SecurityChain-P0-Spezifikation – Entwurf SC-P0 v0.1
+
+**Stand: 2026-10-16; Basis: `b7f0260`; Status: DRAFT / NICHT FREIGEGEBEN.**
+Die folgenden „MUSS“-Regeln sind vorgeschlagene Abnahmebedingungen für zukünftige
+Implementierung, keine Aussage über vorhandene Durchsetzung. Änderungen an diesem
+Entwurf benötigen versionierten Review. Konflikte oder fehlende Entscheidungen
+führen zum Stopp, nicht zur Abschwächung bestehender Regeln.
+
+#### Bedrohungsmodell und Vertrauensgrenzen
+
+Schutzgüter: Identitäten, app-spezifische Rollen, Geräte-/öffentliche
+Schlüsselbindungen, Tokens/Sitzungen, Zustimmungen, private Nutzdaten und
+Integrität der Auditnachweise. Private Schlüssel gehören nicht ins Backend.
+Angreifer können Requests, Ressourcen-IDs, Header und App-Angaben frei wählen,
+Tokens entwenden, alte Nachrichten wiederholen oder ein Gerät kompromittieren.
+Auch legitim angemeldete Nutzer, Administratoren und Betreiber gelten nicht
+automatisch als berechtigt, fremde Inhalte oder den anderen App-Bereich zu lesen.
+
+Vertrauensgrenzen sind Gerät → TLS/API, API → Identitäts-/Widerrufsdienst,
+API → Datenhaltung sowie Betrieb → Schlüssel-/Auditverwaltung. Geteiltes Hosting,
+ein gemeinsamer Anbieter, gleicher Kontoinhaber oder ein Geräte-Link überwinden
+keine dieser Grenzen. Eine kompromittierte Gerätesandbox kann lokale Inhalte
+offenlegen; sichere lokale Speicherung, Verlustmeldung und Widerruf begrenzen
+dieses Restrisiko, garantieren aber keinen Schutz eines vollständig kontrollierten
+Endgeräts. Physische Gerätetests und das
+[Geräte-Link-Sicherheitsdesign](../docs/device-link-security-design.md) bleiben nötig.
+
+| Bedrohung | Erforderliche Gegenmaßnahme / P0-Kriterium |
+| --- | --- |
+| Gefälschte Identität, manipulierter/entwendeter Token | Vertrauenswürdige Tokenprüfung, kurze Laufzeit, Widerruf, Gerätebesitznachweis (P0-02/03/05) |
+| NIKNOLIG-Token gegen Defense, gefälschter App-/Rollenheader | Serverseitige Bereichs-/Ressourcenprüfung; keinerlei Headervertrauen (P0-01/04) |
+| Zugriff auf fremde IDs, Listen oder Adminfunktionen | Default deny, Eigentümer-/Aktionsprüfung auch bei Listen und Stapeloperationen (P0-04) |
+| Replay, gestohlenes Gerät, unbestätigter Schlüsselwechsel | Einmalige Challenges, Frische, Bindung, Widerruf und erneute Zustimmung (P0-03/05) |
+| MITM, manipulierte Schlüsselquelle oder Recovery | TLS-Prüfung, fest konfigurierte Vertrauensanker, abgesicherte Rotation/Recovery (P0-02/06/07) |
+| Datenabfluss durch Logs, Betreiber oder Backups | Datenminimierung, getrennte Zugriffe, Löschung und überprüfter Restore (P0-08) |
+| Überlastung oder Ausfall von Auth-/Policy-Diensten | Begrenzte Größen/Zeiten/Raten, keine Fail-open-Caches, ehrliche Readiness (P0-03/07) |
+
+#### Muss- und prüfbare Abnahmekriterien
+
+Für jede Zeile sind positive Kontrollfälle **und** die genannten Negativfälle
+gegen die spätere echte Implementierung nachzuweisen. Derzeit sind diese
+Produkt-/Auth-Abnahmen **OFFEN**, nicht durch Health-Tests bestanden.
+
+| ID | MUSS-Anforderung | Abnahmekriterium / erwartete Ablehnung |
+| --- | --- | --- |
+| P0-01 | Tokenkontext und jede Ressource besitzen genau einen geprüften `app_area`; pro Bereich getrennte Client-/Audience-Konfiguration und Rollenzuweisungen. | In beiden Richtungen Token-/Bereichstausch, gleiche Benutzer-ID, Rollenheader und vorhandener Link gewähren keine Rechte; bei gültiger Identität Bereichsabweichung → 403 `APP_AREA_MISMATCH`, keine Daten/Seiteneffekte. |
+| P0-02 | Fehlende oder ungültige Zugangsnachweise dürfen nie geschützte Operationen erreichen. Tokenherkunft, Aktivstatus, Subjekt, Aussteller, exakte Zielgruppe, Ablauf, Gültigkeitsbeginn und App-Bereich werden serverseitig geprüft. | Fehlend → 401 `AUTHENTICATION_REQUIRED`; leer, fehlerhaft, abgelaufen, zukünftige Gültigkeit, falscher Aussteller/Audience → 401 `AUTHENTICATION_INVALID`. Kein Zugriff und keine interne Fehleroffenlegung; Bearer-Challenge bei 401. |
+| P0-03 | Token-, Sitzungs-, Rollen- und Gerätewiderruf gelten spätestens vor der nächsten geschützten Operation nach bestätigtem Widerruf. Unprüfbarer Status erlaubt keinen Zugriff. | Widerrufenes Token → 401; entzogene Aktion/Rolle → 403; Statusdienst ausgefallen/Timeout → 503 `SERVICE_UNAVAILABLE`, keine Aktion. Kein veralteter positiver Cache darf Widerruf umgehen. |
+| P0-04 | Jede Aktion prüft Akteur, Bereich, Ressource/Eigentümer, konkrete serverseitige Allowlist und erforderliche Zustimmung. Unbekannte Rollen/Aktionen sind verboten. | Fremde Ressourcen-ID, Listen-/Stapelzugriff, Support-Schreibzugriff und Selbsteskalation → 403 `AUTHORIZATION_DENIED` ohne Daten/Mutation. Fehlende Objekte und verbotene Zugriffe dürfen keine fremden Inhalte offenlegen. |
+| P0-05 | Geräteoperationen benötigen registrierte installationsgebundene öffentliche Schlüssel und frische Challenge-Besitzprüfung mit einem etablierten Protokoll. | Gerätename/Installations-ID allein, fremder Schlüssel → 403 `DEVICE_IDENTITY_UNVERIFIED`; verbrauchte Challenge → 403 `REPLAY_DETECTED`; abgelaufenes Pairing → 403 `PAIRING_EXPIRED`. Keine Aktion, Sitzung/Vertrauen im betroffenen Kontext beenden. |
+| P0-06 | Rotation und Recovery benötigen nachvollziehbare Autorisierung, atomaren Vertrauenswechsel und Entzug kompromittierter Schlüssel. Keine Eigenbau-Kryptografie. | Reguläre Rotation akzeptiert nur freigegebene Schlüssel im definierten Überlappungsfenster; danach alter Schlüssel abgelehnt. Bei Kompromittierung sofortiger Entzug auch abhängiger Sitzungen; Recovery ohne unabhängige Bestätigung scheitert. |
+| P0-07 | TLS-Verifikation, sichere Betriebsplattform, begrenzte Requestgrößen/Timeouts/Raten und geprüfte Abhängigkeiten sind vor Exposition verpflichtend. | Falsches/abgelaufenes Zertifikat wird vom Client abgelehnt; Größenüberschreitung → 413, Ratenlimit → 429, keine Mutation; Abhängigkeitsausfall macht Readiness 503. Gegenwärtig bleibt Readiness immer 503. |
+| P0-08 | Nur freigegebene Zwecke/Daten; keine Tokens, privaten Schlüssel, Auth-Header oder Nutzpayloads im Audit. Lösch-/Aufbewahrungsregeln gelten auch für Backups. | Testdatenprüfung von Logs/Artefakten zeigt keine verbotenen Inhalte; nach freigegebener Frist ist Löschung nachweisbar. Restore darf widerrufene Rechte nicht reaktivieren. |
+| P0-09 | Rollenvergabe, Recovery, Schlüssel-/Policyänderungen brauchen frische starke Authentifizierung, dokumentierte unabhängige Zweitfreigabe und minimiertes Audit. | Founder-Selbstzuweisung, fehlende MFA/Zweitfreigabe oder Replay einer Freigabe → keine Änderung; erfolgreicher Kontrollfall und Entzug sind nachvollziehbar. |
+
+#### Authentifizierung und Tokenlebenszyklus – nur Anforderungen
+
+- **Verfahren:** Für mobile Anmeldung ist ein etablierter Standardfluss mit
+  externem Systembrowser und PKCE als zu prüfender Vorschlag vorgesehen, keine
+  selbst gebaute Passwort-/Tokenplattform und kein eingebettetes Client-Secret.
+  Anbieter, Fluss und MFA-/Recovery-Verfahren benötigen Entscheidung F-02.
+- **Tokenprüfung:** Das bestehende `bearerFormat: opaque` ist ein reservierter
+  Vertrag, keine Formatentscheidung. Opaque Tokens benötigen authentifizierte
+  Introspektion bei einer fest konfigurierten Quelle. Falls signierte Tokens
+  genehmigt werden, sind Signatur, feste Algorithmus-Allowlist und vertrauenswürdig
+  konfigurierte Schlüsselquelle zusätzlich zu P0-02 zu prüfen; niemals `none`,
+  aus Tokenfeldern frei gewählte URLs oder ID-Tokens als API-Zugang akzeptieren.
+  Unbekannte Schlüssel/Claims oder mehrdeutige Auth-Header werden abgelehnt.
+- **Laufzeiten:** Konkrete Maximalwerte für Access-/Refresh-Tokens, Clock-Skew,
+  Challenge-Frische und Netztimeouts sind vor Implementierung unter F-02/F-04
+  einzutragen und an ihren Grenzen zu testen. Fehlende Werte blockieren die
+  Freigabe; sie sind keine unbeschränkte Gültigkeit.
+- **Widerruf:** Logout, Geräteverlust, Kontosperre und Rollenentzug invalidieren
+  die zugehörigen app-spezifischen Sitzungen und Refresh-Tokenfamilien.
+  Refresh-Tokens werden bei Nutzung rotiert; Wiederverwendung sperrt die Familie.
+  Offlinevalidierung allein erfüllt P0-03 nicht. Bei konkurrierender Aktion und
+  Widerruf muss vor der Mutation nochmals atomar autorisiert werden.
+- **Gerätebindung:** Sensible Geräteaktionen binden den geprüften Tokenkontext
+  mittels standardisiertem Besitznachweis an Installation, Sitzung, App-Bereich
+  und konkrete Aktion. Gestohlener Bearer-Token allein reicht nicht. Private
+  Geräteschlüssel bleiben im Plattform-Keystore; Neuinstallation/Restore gilt
+  nicht als automatische Wiederherstellung von Vertrauen.
+- **Schlüsselrotation:** Ausstellerschlüssel und Geräteschlüssel haben getrennte
+  Verantwortliche/Lebenszyklen. Neue Schlüssel nur aus genehmigtem Trust Store
+  beziehungsweise nach autorisierter Geräte-Neuregistrierung; Zeitfenster,
+  Schlüssel-IDs, Notfallentzug und Recovery werden nach F-04 getestet.
+
+#### Rollen und Ressourcenberechtigungen
+
+Die [Gründerrollenkonzeption](../docs/founder-roles-and-account-requirements.md)
+bleibt maßgeblich; folgende Matrix ist ein Vorschlag zur Konkretisierung.
+Jede Zuweisung gilt nur für **einen** App-Bereich und freigegebene Ressourcen.
+
+| Rolle / Kontext | Maximal vorzusehende Aktionen | Immer ausgeschlossen ohne gesonderte Freigabe |
+| --- | --- | --- |
+| Nutzer / eigene Installation | Eigene freigegebene Ressourcen lesen, eigene Zustimmung erteilen/widerrufen und eigene Sitzung beenden | Fremde Ressourcen, Rollenvergabe, Zugriff auf anderen App-Bereich |
+| Founder Owner | Produktfreigaben und einzeln geprüfte app-spezifische Rollenvergabe mit Zweitfreigabe | Globaler Superuser, private Nutzinhalte, Umgehen von Zustimmung |
+| App Administrator | Freigegebene Konfiguration/Mitgliedschaften innerhalb der eigenen delegierten Rechte | Selbsteskalation, globale Identitäten, fremde App-Rollen |
+| Security Operator | Minimierte Sicherheitsmetadaten und autorisierter Sitzungs-/Gerätewiderruf | Nutzinhalte oder Sensorzugriff |
+| Support / Auditor | Zeitlich begrenzte redigierte Diagnosemetadaten lesen | Schreiben, Benutzerverwaltung, appübergreifende Suche |
+| Elektro-Engel / Geräte-Link | Keine impliziten Rechte; nur explizit genehmigte Aktion mit gültiger Nutzerzustimmung | Rollen-/App-Bereichsüberbrückung, autonome Ausweitung von Rechten |
+
+#### Verantwortlichkeiten und ausdrückliche Gründerentscheidungen
+
+Alle Zuordnungen sind organisatorische Anforderungen, **keine Ernennung**.
+Der Gründer muss Verantwortliche benennen; ohne Besetzung bleibt das Gate zu.
+
+| Entscheidung | Vom Gründer ausdrücklich schriftlich freizugeben | Benötigte fachliche Prüfung / Nachweis |
+| --- | --- | --- |
+| F-01 | P0-Version, Produktumfang, Daten-/Aktionskatalog und Personen für beide getrennten App-Verantwortungen | Security-Verantwortlicher pflegt Bedrohungsmodell; unabhängiger Reviewer bestätigt Kriterienabdeckung |
+| F-02 | Identitätsanbieter, Login-/Tokenformat, getrennte Clients/Audiences, MFA, Laufzeiten, Timeouts und Widerrufsarchitektur | Auth-Verantwortlicher liefert P0-01/02/03-Nachweise; keine Bindung an Anbieter vor Freigabe |
+| F-03 | Konkrete Rollen-/Ressourcenmatrix, unabhängiger Zweitfreigeber, Einladungs-/Recovery- und Notfallverfahren | Je App eigener Produktverantwortlicher und Security-Review; kein Founder-Bypass |
+| F-04 | Gerätebesitzprotokoll, Attestierungs-/Hardware-Anforderungen, Challengewerte, Rotation/Überlappung und Verlustverfahren | Geräte-/Auth-Verantwortliche liefern Replay-, Rotations- und physische Gerätenachweise |
+| F-05 | Zwecke/Rechtsgrundlagen, Datensparsamkeit, Audit-Zugriffe, konkrete Aufbewahrungs-/Löschfristen | Datenschutzverantwortlicher prüft Texte, Datenflüsse und Löschung einschließlich Backups |
+| F-06 | Hosting-/TLS-/Schlüsselbetrieb, Raten-/Größenlimits, Incident-, Backup-/Restore- und Rollbackverfahren | Betriebsverantwortlicher liefert Staging-, Ausfall-, Restore- und Betriebsnachweise |
+| F-07 | Freigabe einer konkret benannten Implementierung für einen ausdrücklich benannten Einsatzbereich | Alle P0-Nachweise, unabhängiges Review, Datenschutz-/Betriebsabnahme und schriftliche Gründerentscheidung |
+
+#### Abbruchregeln und Nachweispaket
+
+Ein fehlendes F-01–F-07, ein fehlgeschlagenes P0-Kriterium, eine unbesetzte
+Verantwortlichkeit, nicht prüfbare Identität/Policy/Widerruf oder ungeklärte
+Daten-/Schlüsselherkunft blockiert die entsprechende Implementierungs- oder
+Betriebsfreigabe. Während einer späteren Sitzung stoppen Integritäts-, Replay-
+und Autorisierungsfehler den betroffenen Vorgang ohne Fortsetzung/Retry; ein
+Ausfall darf nie auf anonymen Zugriff zurückfallen. Verdacht auf Schlüsselverlust
+erfordert den freigegebenen Incident-/Widerrufsprozess. Keine automatische
+Herabstufung von MFA, TLS, App-Trennung oder Zustimmung.
+
+Das Abnahmepaket MUSS Spezifikationsversion, geprüften Commit, Umgebung,
+benannte Prüfer/Freigeber, jeden Testfall mit erwarteten/tatsächlichen Ergebnissen,
+redigierte Nachweise und alle offenen Befunde enthalten. Offene Pflichtfälle
+bleiben BLOCKED. Gründerfreigabe ersetzt weder unabhängige Sicherheitsprüfung
+noch technische Nachweise; dieser Entwurf erteilt keine davon.
+
+**Aktuell lokal testbar:** Nicht implementierte Produktrouten bleiben bei
+fehlendem, leerem, ungültigem oder behauptetem app-spezifischem Auth-Kontext 404;
+gefälschte Rollen-/App-Header ändern das nicht. Öffentliche Health-Routen bleiben
+ohne Authentifizierung erreichbar, Readiness immer 503. Das prüft nur die
+bestehende Routen-/Nichtaktivierungsgrenze, **keine Tokenvalidierung oder
+Autorisierung**. Die obigen zukünftigen 401-/403-, Widerrufs-, Ressourcen-,
+Rotation- und Geräteprüfungen bleiben mangels Implementierung offen.
 
 ## Integration in den separaten App-Repositories
 
