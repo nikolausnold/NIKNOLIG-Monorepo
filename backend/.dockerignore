@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+.git
+__pycache__/
+*.py[cod]
+tests/
+migrations/
+contracts/
+openapi.yaml
+README.md
