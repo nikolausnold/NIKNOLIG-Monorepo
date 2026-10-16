@@ -78,8 +78,8 @@ Weitere Inventur- und Cloudflare-Nachweise stehen im
 [`backend/`](backend/README.md) enthält einen lokalen, nicht produktionsfreigegebenen
 Vertragsentwurf mit getrennten App-Bereichen, OpenAPI-Health-/Fehlerverträgen,
 provisorischer Datenbankmigration, loopback-isolierter PostgreSQL-Compose-
-Konfiguration und statischen Vertragstests. Es gibt noch keinen API-Server oder
-eine App-Anbindung. Die operative Geräteintegration bleibt bis zur dokumentierten
+Konfiguration und Tests. Eine lokale FastAPI-Laufzeit bedient nur Health-Routen;
+es gibt keine App-Anbindung. Die operative Geräteintegration bleibt bis zur dokumentierten
 SecurityChain-P0-Freigabe gesperrt.
 
 Die Gerätewechsel-, Sensor- und Android-Abnahmeplanung ist in

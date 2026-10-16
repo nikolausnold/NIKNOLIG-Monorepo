@@ -19,8 +19,15 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Run backend contract regression tests
-        run: python3 -m unittest discover -s backend/tests
+      - name: Run backend contract and local health runtime tests
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/nold-backend-env
+        run: |
+          python3 -m venv "$RUNNER_TEMP/nold-backend-tooling"
+          "$RUNNER_TEMP/nold-backend-tooling/bin/python" -m pip install uv==0.13.1
+          "$RUNNER_TEMP/nold-backend-tooling/bin/uv" sync --locked --project backend
+          "$RUNNER_TEMP/nold-backend-tooling/bin/uv" run --locked --project backend \
+            python -m unittest discover -s backend/tests -v
       - name: Assemble both debug APKs
         run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon
       - name: Verify package identities and APK signatures

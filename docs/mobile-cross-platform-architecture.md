@@ -22,6 +22,7 @@ bleiben in ihrer Zuständigkeit unverändert. Dieses Dokument autorisiert keine
 | `backend/contracts/sensor-capability-v1.schema.json` und `sensor-summary-v1.schema.json` | Laufzeitfähigkeit und abgeleitete Sensordaten | Deklarative Verträge, keine Sensor-Runtime und keine Übertragungsfreigabe. |
 | `backend/migrations/001_initial_contract.sql` | Vorschlag für App-Bereiche, Installationen und Geräte-Link-Lifecycle | Nicht angewendet; ein Link verleiht keine appübergreifende Aktionserlaubnis. |
 | `backend/tests/test_contracts.py` | Statische Invarianten und optionale JSON-Schema-2020-12-Validierung | Kein Authentifizierungs-, Server-, Plattform- oder Geräteintegrationstest. |
+| `backend/app/` und `backend/tests/test_health.py` | Lokale FastAPI-Laufzeit ausschließlich für die beiden Health-Routen samt In-Process-HTTP-/Timeout-/Fehlertests | Keine Produktoperation, DB-Anbindung, Authentifizierung oder Produktionsfreigabe. |
 
 Die Fehlercodes in OpenAPI und ihre HTTP-Zuordnung sind in
 [`backend/README.md`](../backend/README.md) dokumentiert. Das Elektro-Engel-

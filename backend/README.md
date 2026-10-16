@@ -1,11 +1,11 @@
 # Gemeinsame Backend-Grundlage
 
-**Status: contract-first, lokal isoliert, nicht produktionsfreigegeben.**
+**Status: contract-first mit lokaler Health-Laufzeit, nicht produktionsfreigegeben.**
 
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
-Apps `com.niknolig.app` und `com.niknolig.defense`. Es gibt derzeit keinen
-Backend-Server im Repository, keine App-API-Clients, keinen produktiven Endpunkt und keine
-Cloudflare-/Deployment-Konfiguration. NIKNOLIG und NIKNOLIG Defense bleiben
+Apps `com.niknolig.app` und `com.niknolig.defense`. Die FastAPI-Laufzeit bedient
+ausschließlich lokale Health-Prüfungen. Es gibt keine Produkt-API, App-API-Clients,
+Produktionsfreigabe oder Cloudflare-/Deployment-Konfiguration. Die Apps bleiben
 getrennte Sicherheits- und Release-Domänen; gemeinsame Verträge verleihen keine
 Rechte. Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 
@@ -29,6 +29,14 @@ Rechte. Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
   Regressionstests für kritische Vertrags- und Isolationsinvarianten. Sie sind
   keine vollständige JSON-Schema-Validierung, Integration-, Sicherheits- oder
   Gerätetests.
+- [`app/main.py`](app/main.py) und [`app/health.py`](app/health.py): lokale
+  FastAPI-App-Factory und zeitbegrenzte Readiness-Prüfung, ohne Datenbanktreiber,
+  Produktoperationen, Authentifizierung oder automatische Migration.
+- [`tests/test_health.py`](tests/test_health.py): In-Process-HTTP-, Fehler-,
+  Timeout-, Abbruch- und Vertragsprüfungen ohne Listener oder echte Abhängigkeiten.
+- [`pyproject.toml`](pyproject.toml) und [`uv.lock`](uv.lock): Python 3.12,
+  exakte direkte Versionen sowie aufgelöste transitive Versionen/Artefakthashes;
+  Runtime- und Testabhängigkeiten sind getrennt.
 
 Fehlercodes werden auf Implementierungsebene einheitlich zugeordnet:
 `AUTHENTICATION_REQUIRED`/`AUTHENTICATION_INVALID` → 401;
@@ -36,7 +44,8 @@ Fehlercodes werden auf Implementierungsebene einheitlich zugeordnet:
 `DEVICE_IDENTITY_UNVERIFIED`/`PAIRING_REQUIRED`/`PAIRING_EXPIRED`/
 `REPLAY_DETECTED` → 403 (Integritäts-/Sicherheitsereignisse beenden die Sitzung);
 `VALIDATION_FAILED` → 400; `RATE_LIMITED` → 429; `CONFLICT` → 409;
-`NOT_FOUND` → 404; `SERVICE_UNAVAILABLE` → 503; `INTERNAL_ERROR` → 500.
+`NOT_FOUND` → 404; `METHOD_NOT_ALLOWED` → 405;
+`SERVICE_UNAVAILABLE` → 503; `INTERNAL_ERROR` → 500.
 Antworten enthalten nur den stabilen Code, eine nicht-sensitive Nachricht und
 eine Korrelations-ID; interne Details sind nicht offenzulegen.
 
@@ -72,10 +81,10 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    Aufbewahrung, Löschung, Benutzeridentität und konkrete Nutzdaten sind noch
    nicht fachlich freigegeben.
 6. **Healthchecks:** `/health/live` meldet nur Prozessverfügbarkeit;
-   `/health/ready` darf bei einer späteren Serverimplementierung zusätzlich
-   notwendige Abhängigkeiten prüfen. Antworten dürfen keine Umgebungsvariablen,
-   interne Hosts, Stacktraces oder Datenbankdetails offenlegen. Aktuell existiert
-   kein Server, der diese Routen bedient.
+   `/health/ready` prüft ausschließlich explizit registrierte notwendige
+   Abhängigkeiten mit einem gemeinsamen Timeout. Antworten enthalten keine
+   Umgebungsvariablen, internen Hosts, Stacktraces oder Datenbankdetails.
+   Ein grüner Healthcheck ist weder P0-, Auth- noch Produktionsfreigabe.
 
 ## Lokale Datenbankumgebung
 
@@ -119,8 +128,10 @@ werden durch dieses Monorepo automatisch geändert.
 
 ## Verifikation und nächste Schritte
 
-`python3 -m unittest discover -s backend/tests` prüft die oben genannten
-statischen Invarianten. Sofern Docker Compose installiert ist, kann die lokale
+Die unten dokumentierte gesperrte Python-Umgebung führt mit
+`python -m unittest discover -s backend/tests` Vertrags- und Health-Tests aus.
+Ohne Runtime-/Testabhängigkeiten ist die vollständige Suite nicht ausführbar.
+Sofern Docker Compose installiert ist, kann die lokale
 Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:
 
 ```sh
@@ -128,9 +139,10 @@ POSTGRES_PASSWORD=local-only-check docker compose \
   --env-file backend/.env.example -f backend/compose.yaml config --quiet
 ```
 
-Der Start verlangt bewusst ein gesetztes lokales Passwort und ist nicht Teil der
-automatischen Tests. Keine der Prüfungen belegt eine laufende API, sichere Authentifizierung,
-P0-Freigabe oder Verbindung zwischen zwei physischen Geräten.
+Der PostgreSQL-Start verlangt bewusst ein gesetztes lokales Passwort und ist nicht
+Teil der automatischen Tests. Die HTTP-Tests laufen ausschließlich im Prozess;
+sie belegen keinen laufenden Server, sichere Authentifizierung, P0-Freigabe oder
+eine Verbindung zwischen zwei physischen Geräten.
 
 Gerätewechsel-, Sensorverträge, Android API-/Berechtigungsanforderungen und
 Geräteabnahmeplan stehen in
@@ -151,7 +163,116 @@ Betriebsverantwortung auswählen; dann OpenAPI/Schema versionieren und
 Implementierung, Negativtests und unabhängige Sicherheitsprüfung freigeben.
 Bei nicht abgedeckten Sicherheitsentscheidungen hier anhalten.
 
-## Hetzner-Integrationsprüfung – 16.10.2026
+## Lokale FastAPI-Laufzeit
+
+**Nur Entwicklungs-/Testumfang, keine Produktionsfreigabe.** Die Version `0.1.0`
+bezeichnet den Vertrag/die Anwendung, nicht die installierte FastAPI-Version.
+Es gibt genau zwei GET-Routen; FastAPI-Dokumentations- und Schema-HTTP-Routen,
+Debug-Modus und Slash-Weiterleitungen sind deaktiviert. Das eingecheckte
+OpenAPI-Dokument bleibt über `app.openapi()` die Vertragsquelle. Tests vergleichen
+die tatsächliche Routenmatrix, Operation-IDs, Statuscodes, Beispiele und
+Antwortschemas damit. Unbekannte Routen liefern 404; andere Methoden 405.
+Die kompatible Vertragsergänzung enthält gemeinsame Standardfehlerantworten und
+den Code `METHOD_NOT_ALLOWED`, keine neue Operation.
+
+### Readiness und Fehlergrenzen
+
+- Die aktuelle Health-App hat **keine freigegebene externe Laufzeitabhängigkeit**:
+  keine DB-Verbindung, Umgebungs-/Secret-Ladung, Migration, App-Anbindung oder
+  Hintergrundaufgabe. Daher meldet ihre Standard-Readiness 200/`ready`, ohne
+  PostgreSQL-Verfügbarkeit oder Produktbereitschaft zu behaupten.
+- Die Factory `create_app` kann ausdrücklich registrierte asynchrone Prüffunktionen
+  aufnehmen. Nur das boolesche Ergebnis `True` gilt als Erfolg; Fehler,
+  `False`, andere Rückgaben und Timeout liefern 503 mit `SERVICE_UNAVAILABLE`.
+  Standardbudget: insgesamt 0,5 Sekunden, endlich und auf höchstens 5 Sekunden
+  begrenzt. Es wird nicht pro Abhängigkeit neu gestartet.
+- Prüffunktionen sind vertrauenswürdiger Anwendungscode, keine HTTP-Eingabe.
+  Sie müssen nichtblockierend und abbrechbar sein, eigene I/O-Zeitgrenzen haben
+  und Ressourcen bei Abbruch freigeben. Python kann blockierenden oder
+  Abbruch unterdrückenden Code nicht hart zeitbegrenzen. Ein echter DB-/Netzwerk-
+  Adapter und seine Betriebsanforderungen bleiben eine gesonderte Freigabe.
+- Liveness ruft niemals Prüffunktionen auf. Anfrageabbruch wird weitergegeben;
+  Fehler/Timeouts schalten keine Produktoperation frei.
+- Fehler enthalten nur stabilen Code, festen nicht-sensitiven Text und eine
+  frisch serverseitig erzeugte UUID. Client-Korrelationswerte, Request-Inhalte
+  und Exception-Details werden nicht übernommen oder von der App geloggt.
+  Antworten sind nicht cachebar; unerwartete App-Fehler ergeben minimiertes 500.
+  Proxy-/ASGI-Server-Logging ist eine zusätzliche Betriebsgrenze; der lokale
+  Startbefehl deaktiviert Access-Logs und Proxy-Header-Vertrauen.
+
+### Reproduzierbare lokale Entwicklung
+
+Voraussetzung: installiertes Python 3.12; keine Zugangsdaten oder laufende DB
+erforderlich. Die folgenden Befehle beziehen sich auf den Checkout unter
+`/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo`; bei einem anderen
+lokalen Checkout dessen absoluten Pfad einsetzen. Nicht auf Hetzner ausführen.
+`uv` 0.13.1 wurde zum initialen Projekt-Scaffolding und Locking genutzt.
+Der Lockfile wird mit `--locked` geprüft und nicht stillschweigend aktualisiert.
+
+```sh
+cd /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo
+python3 -m venv /tmp/nold-backend-tooling
+/tmp/nold-backend-tooling/bin/python -m pip install uv==0.13.1
+export UV_PYTHON_DOWNLOADS=never
+/tmp/nold-backend-tooling/bin/uv sync --locked \
+  --project /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/backend
+/tmp/nold-backend-tooling/bin/uv run --locked \
+  --project /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/backend \
+  python -m unittest discover \
+  -s /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/backend/tests -v
+```
+
+Nur bei gewünschtem **lokalem** Teststart, ausschließlich auf Loopback:
+
+```sh
+cd /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo
+/tmp/nold-backend-tooling/bin/uv run --locked \
+  --project /home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/backend \
+  uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 \
+  --no-proxy-headers --no-access-log --no-server-header
+```
+
+Lokale Prüfrouten: <http://127.0.0.1:8000/health/live> und
+<http://127.0.0.1:8000/health/ready>. Keine Docker-/Firewall-/Proxyänderung
+erforderlich; die PostgreSQL-Compose-Datei bleibt unverändert. `--no-dev` kann
+bei `uv sync` Testpakete ausschließen, ersetzt aber keine Produktionsabnahme.
+
+### Tatsächliche lokale Prüfergebnisse
+
+- Backend: 31 Tests erfolgreich, **keine übersprungenen Tests**, einschließlich
+  UUID- und RFC-3339-Formatprüfung mit den gelockten Testpaketen.
+- Python-Kompilierung mit `compileall` und Paketkompatibilität mit
+  `uv pip check` erfolgreich. Es gibt keinen vorhandenen separaten Python-Linter;
+  ein solcher wird nicht als ausgeführt behauptet.
+- OpenAPI-/Compose-/Workflow-YAML geparst, lokale Compose-Syntax mit
+  `config --quiet`, Lockfile-Konsistenz und `git diff --check` erfolgreich geprüft.
+  Alle 25 aufgelösten Runtime-/Testpakete sowie das verwendete `uv` wurden vor
+  Installation gegen die GitHub Advisory Database geprüft, ohne gemeldeten Fund
+  zum Prüfzeitpunkt. Das ersetzt keine spätere erneute Prüfung.
+- Der bestehende Android-Workflow installiert jetzt die gelockte Testumgebung
+  und führt dieselbe vollständige Backend-Suite aus; keine zusätzliche
+  Android-Buildpipeline und kein redundanter lokaler Android-Build.
+- Die weitere vorhandene Python-Suite unter
+  `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/tools/tests`
+  ergab 5 erfolgreiche Tests und 4 Fehler durch veraltete README-Zeilenbelege
+  in der Evolution-Ideenliste. Diese Fehler wurden bereits vor der
+  README-Aktualisierung bei unveränderten Eingabedateien festgestellt; keine
+  sachfremden Tests oder Belege wurden geändert.
+- Kein Container-/Paketimage-Build, echter HTTP-Listener, DB-/Migrations-/
+  Restore-Test oder P0-/Authentifizierungsnachweis. Solche Integrationsprüfungen
+  sind nicht freigegeben bzw. mangels Implementierung nicht verfügbar.
+
+Nächster Schritt: Health-Laufzeit und Vertragsnachweise unabhängig prüfen;
+Identitäts-/Autorisierungs-, P0- und Betriebsentscheidungen separat freigeben.
+Kein Deployment empfehlen oder aus dem Health-Ergebnis ableiten.
+
+## Historische Hetzner-Integrationsprüfung – 16.10.2026
+
+**Die folgende Inventur beschreibt ausschließlich den damaligen Commit
+`e91be05`, vor der oben dokumentierten lokalen Health-Implementierung.**
+Ihre Aussagen über fehlende API-Laufzeit und damalige Testlücken sind historisch;
+Serverbestand, Auth-/P0-/Betriebsblocker und fehlende Deployment-Freigabe bleiben
+unverifiziert bzw. offen.
 
 ### Prüfgrundlage und belastbare Grenzen
 

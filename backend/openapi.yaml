@@ -20,6 +20,8 @@ paths:
       summary: Report process liveness.
       security: []
       responses:
+        default:
+          $ref: "#/components/responses/SafeError"
         "200":
           description: The API process is alive.
           content:
@@ -35,6 +37,8 @@ paths:
       summary: Report readiness without exposing dependency details.
       security: []
       responses:
+        default:
+          $ref: "#/components/responses/SafeError"
         "200":
           description: Required dependencies are available.
           content:
@@ -55,6 +59,13 @@ paths:
                   message: Service is temporarily unavailable.
                   requestId: 00000000-0000-4000-8000-000000000000
 components:
+  responses:
+    SafeError:
+      description: Non-sensitive error response; no internal diagnostic details.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
   securitySchemes:
     AccessToken:
       type: http
@@ -107,5 +118,6 @@ components:
         - RATE_LIMITED
         - CONFLICT
         - NOT_FOUND
+        - METHOD_NOT_ALLOWED
         - SERVICE_UNAVAILABLE
         - INTERNAL_ERROR
