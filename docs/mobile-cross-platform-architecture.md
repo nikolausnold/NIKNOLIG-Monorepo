@@ -250,7 +250,34 @@ und Backend konsumiert werden. Davor vermeidet ein Vertragsinventar im
 Monorepo unnötige Duplikation. Produktive Umsetzung bleibt unabhängig davon
 SecurityChain-P0-blockiert.
 
-## 7. Offene Entscheidungen und Stop-Gate
+## 7. Automatische Updates und Plattformtrennung
+
+Automatische Builds oder Updates dürfen Android und iOS nicht als gemeinsame
+Auslieferungsstrecke behandeln. Gemeinsame Verträge und kompatible Produkt-
+funktionen verbinden weder Plattformpakete noch deren Updateberechtigung.
+
+- Android-Releases bleiben Android-Pakete mit eigener `applicationId`,
+  Android-Signierung und einem separat freizugebenden Google-Play- bzw.
+  Android-Verteilungskanal. NIKNOLIG und NIKNOLIG Defense behalten auch dort
+  getrennte Pakete, Signierschlüssel und Releasefreigaben.
+- iOS-Releases dürfen ausschließlich iOS-Builds mit eigener Bundle-ID,
+  Apple-Signierung und einem separat freizugebenden App-Store-Connect-/
+  TestFlight-Kanal ausliefern. Es gibt hier derzeit weder ein iOS-Projekt noch
+  einen iOS-Build-, Signier- oder Store-Workflow.
+- Versionsnummern, Buildnummern, Signiermaterial, Store-Credentials,
+  Freigaben, Rollouts und Rücknahmen werden pro Plattform und App getrennt
+  verwaltet. Ein Workflow darf nur Artefakte seiner festgelegten Plattform und
+  App veröffentlichen; ein Android-Update kann keine iOS-Installation und ein
+  iOS-Update keine Android-Installation aktualisieren.
+- Ein automatisierter Build oder ein hochgeladenes CI-Artefakt ist keine
+  Store-Veröffentlichung und aktiviert keine automatische Nutzeraktualisierung.
+  Ein Store-Rollout benötigt eine eigene, ausdrücklich freigegebene
+  Veröffentlichungspipeline und Plattform-spezifische Konten und Secrets.
+
+Bis App-Projekte, Store-Konten, getrennte Pipelines und Freigabekriterien
+vorliegen, werden keine automatischen Store-Updates eingerichtet oder behauptet.
+
+## 8. Offene Entscheidungen und Stop-Gate
 
 Offen sind die normative SecurityChain-P0-Fassung, Produkt- und Rollenmodell,
 Auth-Anbieter/-Fluss, Installations-/Peer-Identität, Schlüssel- und

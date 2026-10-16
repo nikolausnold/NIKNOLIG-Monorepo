@@ -61,6 +61,16 @@ prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
 Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
 Android-Testtask behauptet.
 
+## Automatische Updates
+
+Die vorhandene Build-/Release-Automatisierung ist Android-only und veröffentlicht
+nicht automatisch in einen App-Store. iOS hat in diesem Repository weder ein
+App-Projekt noch einen Build-, Signier- oder Store-Workflow. Künftige iOS- und
+Android-Updates benötigen getrennte Plattform-Pipelines, Signierungen,
+Store-Zugänge und Freigaben; keine Pipeline darf die jeweils andere Plattform
+aktualisieren. Einzelheiten stehen in der
+[Plattformtrennung für automatische Updates](docs/mobile-cross-platform-architecture.md#7-automatische-updates-und-plattformtrennung).
+
 ## Read-only Audit
 
 Der manuelle Workflow
