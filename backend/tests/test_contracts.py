@@ -236,6 +236,7 @@ class BackendContractTests(unittest.TestCase):
         invalid_instances = {
             "device-consent-v1": [
                 {**consent, "targetInstallationId": None},
+                {**consent, "consentId": "not-a-uuid"},
                 {
                     **consent,
                     "purpose": {
@@ -247,6 +248,7 @@ class BackendContractTests(unittest.TestCase):
             ],
             "consent-audit-event-v1": [
                 {**event, "sensorPayload": "must not be logged"},
+                {**event, "correlationId": "not-a-uuid"},
             ],
             "sensor-capability-v1": [
                 {**capability, "permissionState": "denied"},
@@ -255,18 +257,68 @@ class BackendContractTests(unittest.TestCase):
             ],
             "sensor-summary-v1": [
                 {**summary, "processedOnDevice": False},
+                {**summary, "sourceInstallationId": "not-a-uuid"},
                 {key: value for key, value in summary.items() if key != "consentId"},
                 {**summary, "dataClass": "derived_environment_summary"},
                 {**summary, "rawImage": "base64-data"},
             ],
         }
         for name, instance in valid_instances.items():
-            validator = Draft202012Validator(schemas[name])
+            validator = Draft202012Validator(
+                schemas[name],
+                format_checker=Draft202012Validator.FORMAT_CHECKER,
+            )
             with self.subTest(schema=name, case="valid"):
                 self.assertTrue(validator.is_valid(instance))
             for invalid in invalid_instances[name]:
                 with self.subTest(schema=name, case="invalid"):
                     self.assertFalse(validator.is_valid(invalid))
+
+    @unittest.skipIf(
+        Draft202012Validator is None,
+        "jsonschema is optional; UUID format validation was not run",
+    )
+    def test_uuid_formats_reject_malformed_identifiers(self):
+        checker = Draft202012Validator.FORMAT_CHECKER
+        self.assertIn("uuid", checker.checkers)
+        for path in (BACKEND / "contracts").glob("*.schema.json"):
+            schema = json.loads(path.read_text(encoding="utf-8"))
+            for name, property_schema in schema["properties"].items():
+                if property_schema.get("format") != "uuid":
+                    continue
+                validator = Draft202012Validator(
+                    property_schema, format_checker=checker
+                )
+                with self.subTest(schema=path.name, field=name):
+                    self.assertTrue(
+                        validator.is_valid("00000000-0000-4000-8000-000000000001")
+                    )
+                    for invalid in ("not-a-uuid", "", "0" * 32):
+                        self.assertFalse(validator.is_valid(invalid))
+
+    @unittest.skipIf(
+        Draft202012Validator is None
+        or "date-time" not in Draft202012Validator.FORMAT_CHECKER.checkers,
+        "optional RFC 3339 checker unavailable; timestamp validation was not run",
+    )
+    def test_timestamp_formats_reject_malformed_values(self):
+        for path in (BACKEND / "contracts").glob("*.schema.json"):
+            schema = json.loads(path.read_text(encoding="utf-8"))
+            for name, property_schema in schema["properties"].items():
+                if property_schema.get("format") != "date-time":
+                    continue
+                validator = Draft202012Validator(
+                    property_schema,
+                    format_checker=Draft202012Validator.FORMAT_CHECKER,
+                )
+                with self.subTest(schema=path.name, field=name):
+                    self.assertTrue(validator.is_valid("2026-10-16T00:00:00Z"))
+                    for invalid in (
+                        "not-a-timestamp",
+                        "2026-02-30T00:00:00Z",
+                        "2026-10-16T00:00:00",
+                    ):
+                        self.assertFalse(validator.is_valid(invalid))
 
 
 if __name__ == "__main__":
