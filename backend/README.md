@@ -1,26 +1,30 @@
 # Gemeinsame Backend-Grundlage
 
-**Status: Health-only-Laufzeit mit PostgreSQL-Readiness-Probe und Verträgen,
-lokal isoliert, nicht produktionsfreigegeben.**
+**Status: lokale Health-Laufzeit, konfigurierbare Supabase-JWT-Prüfung für
+`GET /v1/session`, PostgreSQL-Readiness-Probe und Verträge; nicht produktionsfreigegeben.**
 
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
-Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt ausschließlich
-nicht-sensitive Health-Routen bereit; Produkt-, Authentifizierungs-, Geräte- und
-Pairing-APIs, App-Clients, produktive Endpunkte und eine Cloudflare-/Deployment-
-Konfiguration existieren nicht. NIKNOLIG und NIKNOLIG Defense bleiben getrennte
+Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt nicht-sensitive
+Health-Routen und einen minimalen, konfigurierbaren JWT-Sessioncheck bereit;
+Login/Registrierung, Produkt-, Geräte- und Pairing-APIs, App-Clients, produktive
+Endpunkte und eine Cloudflare-/Deployment-Konfiguration existieren nicht.
+NIKNOLIG und NIKNOLIG Defense bleiben getrennte
 Sicherheits- und Release-Domänen; gemeinsame Verträge verleihen keine Rechte.
 Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 
 ## Artefakte
 
 - [`openapi.yaml`](openapi.yaml): OpenAPI 3.1-Vertrag für nicht-sensitive
-  Liveness-/Readiness-Prüfungen und einheitliche Fehlerantworten. Es sind bewusst
-  noch keine operativen Geräte-, Profil- oder Pairing-Endpunkte freigegeben.
-- [`app.py`](app.py) und [`database.py`](database.py): Health-only-HTTP-
-  Laufzeit. `/health/ready` führt bei vorhandener Konfiguration eine begrenzte
-  PostgreSQL-Verbindungs- und `SELECT 1`-Prüfung aus; ohne Treiber, Konfiguration
-  oder Datenbank meldet es 503. Es gibt weiterhin keine Produkt-API,
-  Authentifizierung oder Autorisierung.
+  Liveness-/Readiness-Prüfungen, den geschützten Sessioncheck und einheitliche
+  Fehlerantworten. Es sind bewusst noch keine operativen Geräte-, Profil- oder
+  Pairing-Endpunkte freigegeben.
+- [`app.py`](app.py), [`authentication.py`](authentication.py) und
+  [`database.py`](database.py): lokale HTTP-Laufzeit. `/v1/session` prüft ein
+  signiertes Supabase-JWT gegen HTTPS-JWKS, festen Issuer, Audience, Ablaufzeit
+  und serververwaltetes `app_metadata.app_area`. Es stellt keine Tokens aus,
+  erstellt keine Konten und implementiert keine Produkt-API. `/health/ready`
+  führt bei vorhandener Konfiguration eine begrenzte PostgreSQL-Verbindungs- und
+  `SELECT 1`-Prüfung aus; ohne Treiber, Konfiguration oder Datenbank meldet es 503.
 - [`authorization.py`](authorization.py): fail-closed Prüfung von Produktbereich,
   Aktion, Ablaufzeit, Issuer/Audience und bereits bestätigtem Gerätezustand.
   Sie verifiziert weder Tokens noch stellt sie diese aus; ungeprüfte
@@ -30,11 +34,11 @@ Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
   vorgeschlagenes relationales Modell für App-Bereiche, Installationen,
   Geräteidentitätsstatus und spätere Zwei-App-Link-Beziehungen. Das Anwenden der
   Migration ist bis zur Architektur-/Security-Freigabe gesperrt.
-- [`compose.yaml`](compose.yaml) und [`Dockerfile`](Dockerfile): ausschließlich
-  lokale Health-only-API und PostgreSQL. Veröffentliche Ports sind an Loopback
+- [`compose.yaml`](compose.yaml) und [`Dockerfile`](Dockerfile): lokale API und
+  PostgreSQL. Veröffentliche Ports sind an Loopback
   gebunden; die Container kommunizieren in einem internen Netzwerk.
-- [`requirements.txt`](requirements.txt): fest gepinnter PostgreSQL-Treiber für
-  den API-Container.
+- [`requirements.txt`](requirements.txt): fest gepinnter PostgreSQL-Treiber,
+  PyJWT und Kryptographiebibliothek für den API-Container.
 - [`.env.example`](.env.example): Variablennamen ohne eingetragene Credentials.
 - [`contracts/`](contracts/): versionierte, deklarative Entwürfe für
   Gerätewechsel-Zustimmung, minimierte Audit-Ereignisse, Sensor-Capabilities und
@@ -65,10 +69,12 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    einem Linkstatus.
 2. **Authentifizierung:** Geschützte API-Aufrufe benötigen künftig kurzlebige,
    widerrufbare Zugriffsnachweise mit festgelegtem Aussteller, Zielgruppe,
-   Ablaufzeit, App-Bereich und minimalen Aktionsrechten. Tokenformat, Aussteller,
-   Login-/Registrierungsfluss, Schlüsselrotation und Durchsetzung sind offen;
-   aus dem Bearer-Schema des OpenAPI-Vertrags folgt keine implementierte oder
-   freigegebene Authentifizierung.
+   Ablaufzeit, App-Bereich und minimalen Aktionsrechten. `/v1/session` verifiziert
+   lokal RS256-/ES256-JWTs mit konfiguriertem Supabase-Issuer/JWKS/Audience und
+   serververwaltetem `app_metadata.app_area`; Login/Registrierung,
+   Schlüsselrotation im Produktivbetrieb, Aktionsrechte und produktive Freigabe
+   bleiben offen. Der Sessioncheck ist keine vollständige Authentifizierung für
+   Produktdaten.
 3. **Geräteidentität:** Eine Installations-ID oder ein Android-Gerätename ist
    kein Authentizitätsnachweis. Vorgesehen ist eine registrierte
    App-Installation mit Challenge-basierter Besitzprüfung eines

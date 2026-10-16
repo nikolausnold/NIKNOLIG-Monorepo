@@ -57,18 +57,23 @@ class SupabaseTokenAuthenticator:
         self.app_area = settings.get("BACKEND_APP_AREA", "").strip()
         self.jwks_url = settings.get("AUTH_JWKS_URL", "").strip()
 
-        issuer = urlparse(self.issuer)
-        jwks = urlparse(self.jwks_url)
         if (
             not _valid_https_url(self.issuer, path="/auth/v1")
             or not _valid_https_url(
                 self.jwks_url, path="/auth/v1/.well-known/jwks.json"
             )
-            or issuer.hostname != jwks.hostname
-            or not issuer.hostname.endswith(".supabase.co")
             or not self.audience
             or len(self.audience) > 256
             or self.app_area not in APP_AREAS
+        ):
+            raise AuthenticationConfigurationError(
+                "Supabase issuer, JWKS, audience, and app area must be configured."
+            )
+        issuer = urlparse(self.issuer)
+        jwks = urlparse(self.jwks_url)
+        if (
+            issuer.hostname != jwks.hostname
+            or not issuer.hostname.endswith(".supabase.co")
         ):
             raise AuthenticationConfigurationError(
                 "Supabase issuer, JWKS, audience, and app area must be configured."

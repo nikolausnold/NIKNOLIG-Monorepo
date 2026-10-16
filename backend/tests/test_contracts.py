@@ -13,17 +13,18 @@ BACKEND = Path(__file__).resolve().parents[1]
 
 
 class BackendContractTests(unittest.TestCase):
-    def test_openapi_only_exposes_non_sensitive_health_operations(self):
+    def test_openapi_exposes_health_and_configured_authentication_operations(self):
         contract = (BACKEND / "openapi.yaml").read_text(encoding="utf-8")
         self.assertIn("openapi: 3.1.0", contract)
         self.assertIn("/health/live:", contract)
         self.assertIn("/health/ready:", contract)
+        self.assertIn("/v1/session:", contract)
         self.assertIn("security: []", contract)
         self.assertIn("AUTHENTICATION_REQUIRED", contract)
         self.assertIn("APP_AREA_MISMATCH", contract)
         self.assertIn("REPLAY_DETECTED", contract)
-        self.assertNotIn("/v1/", contract)
-        self.assertIn("specified or implemented", contract)
+        self.assertIn("JWT is verified against the configured Supabase JWKS", contract)
+        self.assertIn("no operational app, device, profile", contract)
 
     def test_migration_separates_app_domains_and_does_not_store_private_keys(self):
         migration = (BACKEND / "migrations/001_initial_contract.sql").read_text(
