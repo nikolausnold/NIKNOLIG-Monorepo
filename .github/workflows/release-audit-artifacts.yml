@@ -7,12 +7,16 @@ on:
       - docs/release-readiness.md
       - .github/workflows/release-audit-artifacts.yml
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Android apps build"]
+    types: [completed]
 
 permissions:
   contents: read
 
 jobs:
   upload-report:
+    if: github.event_name != 'workflow_run'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -26,5 +30,21 @@ jobs:
           path: |
             CHATGPT-BERICHT.txt
             docs/release-readiness.md
+          if-no-files-found: error
+          retention-days: 7
+  upload-readiness-report:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Upload release readiness report
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release-readiness-report
+          path: docs/release-readiness.md
           if-no-files-found: error
           retention-days: 7

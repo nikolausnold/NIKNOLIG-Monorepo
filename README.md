@@ -46,8 +46,8 @@ Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
 ## Build und Prüfung
 
-Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 8.13 (über den
-mitgelieferten Wrapper).
+Voraussetzungen: JDK 17, Android SDK / compile SDK 35, Build Tools 35.0.0,
+Android Gradle Plugin 8.11.1, Kotlin 2.2.21 und Gradle 8.13 (über den Wrapper).
 
 Beide APKs unabhängig im selben Build aufbauen:
 
@@ -57,9 +57,18 @@ Beide APKs unabhängig im selben Build aufbauen:
 
 Der Workflow
 [`Android apps build`](.github/workflows/android-build.yml) baut beide Apps,
-prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
-Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
-Android-Testtask behauptet.
+führt `testDebugUnitTest` und `lintDebug` aus und prüft die APK-IDs sowie
+Signaturen. Es gibt keine Android-Testquellen; ein `NO-SOURCE`-Testtask ist
+kein bestandener Unit-Test.
+
+[`Backend contracts and tooling`](.github/workflows/backend-contracts.yml)
+prüft Backend-Verträge und Tooling getrennt vom Android-Build. Gemeinsame
+API-Verträge und das Systemupdate-Inventar bleiben plattformneutral.
+Der Release-Readiness-Bericht wird nach einem erfolgreichen Android-Lauf in
+einem separaten Audit-Workflow bereitgestellt.
+Android-Workflows enthalten keine Swift-/Xcode-Aufgaben. iOS-CI gehört in das
+separate Repository
+[`NIKNOLIG-iOS-Monorepo`](https://github.com/nikolausnold/NIKNOLIG-iOS-Monorepo).
 
 ## Read-only Audit
 
@@ -111,32 +120,35 @@ Builds, Netzwerkzugriffe oder Deployments vor.
 
 ## Automatische Updates und Autobuild
 
-- Bei Push und Pull Request sowie montags um 04:23 UTC und manuell laufen
-  gemeinsame Vertrags-/Tooltests und der Build beider getrennten Android-Apps.
-  Der Zeitplan wird erst nach Übernahme auf den Default-Branch aktiv; GitHub
-  kann geplante Läufe verzögern oder bei inaktiven öffentlichen Repositories
-  deaktivieren.
+- Android-Build/Lint/Unit-Testtasks und gemeinsame Backend-/Tooling-Prüfungen
+  laufen in getrennten Workflows auf Push, Pull Request, montags um 04:23 UTC
+  und manuell. Der Zeitplan wird erst nach Übernahme auf den Default-Branch
+  aktiv; GitHub kann geplante Läufe verzögern oder bei inaktiven öffentlichen
+  Repositories deaktivieren.
 - [Dependabot](.github/dependabot.yml) schlägt wöchentlich Updates für Gradle
   und GitHub Actions als Pull Requests vor. Diese durchlaufen den Autobuild;
   es gibt keinen automatischen Merge und keine ungeprüfte Quellcodeübernahme.
 - Das [Systemregister](config/system-repositories.json) erfasst dieses
   Monorepo, die bekannten NIKNOLIG-/Defense-Quellen und den noch offenen
-  iOS-Anschluss. Auf `main` prüft der Autobuild die registrierten Repositories
-  lesend über die GitHub-API. Der commitbezogene `system-update-report` zeigt
-  Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
+  iOS-Anschluss. Der plattformneutrale Workflow prüft die registrierten
+  Repositories auf `main` lesend über die GitHub-API. Der commitbezogene
+  `system-update-report` zeigt Änderungen gegenüber den eingetragenen
+  Quellständen; er importiert sie nicht.
   Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung
   fehlschlagen, statt vollständige Systemkompatibilität vorzutäuschen.
-- Das Artefakt `mobile-contracts-<Commit-SHA>` enthält dieselben OpenAPI- und
+- Das plattformneutrale Artefakt `mobile-contracts-<Commit-SHA>` enthält
+  dieselben OpenAPI- und
   JSON-Verträge für Android und spätere iOS-Verbraucher sowie das Systemregister.
   Neue Repositories müssen ausdrücklich im Register aufgenommen werden.
   Andere Repositories werden weder verändert noch ferngesteuert gebaut;
   ein erfolgreicher Monorepo-Build bestätigt nicht deren Builds oder Integration.
-- Nach einem erfolgreichen `main`-Autobuild aus Push, Zeitplan oder manuellem
-  Start erzeugt [Preparing release APKs](.github/workflows/android-release.yml)
-  automatisch signierte APKs **genau des geprüften Commits**. PR-Builds und
-  fehlgeschlagene Builds lösen keine Signierung aus. Die vorhandenen Freigaben
-  des Environments `android-release` und seine sechs Signiergeheimnisse bleiben
-  erforderlich; fehlende Geheimnisse stoppen den Release-Build.
+- Vor der Signierung prüft ein separater, secretfreier Job die Backend- und
+  Tooling-Tests am exakten Commit. Erst nach einem erfolgreichen vertrauenswürdigen
+  `main`-Android-Build aus Push, Zeitplan oder manuellem Start erzeugt
+  [Preparing release APKs](.github/workflows/android-release.yml) signierte
+  APKs genau dieses Commits. PR-Builds und fehlgeschlagene Builds lösen keine
+  Signierung aus. Die vorhandenen Freigaben des Environments `android-release`
+  und seine sechs Signiergeheimnisse bleiben erforderlich.
 - Release-Builds verwenden für beide Apps `versionCode = 1000 +` fortlaufende
   Release-Workflow-Laufnummer und `versionName = 0.1.<versionCode>`.
   Wiederholungen desselben Laufs behalten dieselbe Version; lokale Builds

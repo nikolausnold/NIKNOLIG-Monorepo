@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  assemble-release:
+  contracts:
     if: >-
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_run' &&
@@ -23,6 +23,20 @@ jobs:
        github.event.workflow_run.head_repository.full_name == github.repository &&
        github.event.workflow_run.head_branch == 'main' &&
        contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event.workflow_run.event))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - name: Run backend contract regression tests before signing
+        run: python3 -m unittest discover -s backend/tests
+      - name: Run tooling regression tests before signing
+        run: python3 -m unittest discover -s tools/tests
+
+  assemble-release:
+    needs: contracts
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: android-release
@@ -44,10 +58,6 @@ jobs:
         run: |
           set -euo pipefail
           printf 'NIKNOLIG_VERSION_CODE=%s\n' "$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
-
-      - name: Run contract regression tests for manual builds
-        if: github.event_name == 'workflow_dispatch'
-        run: python3 -m unittest discover -s backend/tests
 
       - name: Validate and stage release keystores
         shell: bash

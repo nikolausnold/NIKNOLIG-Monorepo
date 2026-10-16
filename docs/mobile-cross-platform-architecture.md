@@ -259,3 +259,37 @@ Backend-Betrieb, Plattform-Mindestversionen, Apple-/Android-Berechtigungs-
 details, Sensor-Gerätematrix und Retention. Keine dieser Entscheidungen wird
 durch Architekturtext oder ein valides Schema genehmigt. Bei nicht erfüllter
 oder nicht belegbarer Freigabe gilt fail closed.
+
+## 8. CI-Plattformtrennung und Toolchain
+
+| Workflow | Zuständigkeit |
+| --- | --- |
+| `android-build.yml` | Android-only: Debug-Unit-Testtasks, Lint, Debug-APKs, Paketidentitäts-/Signaturprüfung und APK-Artefakte. Runner Linux mit JDK 17. |
+| `backend-contracts.yml` | Plattformneutrale Backend-/Toolingtests, gemeinsamer Vertrags-Snapshot und lesendes Systemupdate-Inventar. Kein Gradle- oder Xcode-Build. |
+| `android-release.yml` | Prüft Backend-/Toolingtests am exakten vertrauenswürdigen Main-Commit ohne Signing-Secrets; erst danach werden Android-Releasesignaturen verwendet. |
+| `audit-workers.yml`, `release-audit-artifacts.yml` | Manuelle Audit- bzw. Berichtsartefakte; der Release-Readiness-Bericht wird nach erfolgreichem Android-CI-Lauf separat hochgeladen. Keine App-Builds. |
+
+Gemeinsame API-Verträge bleiben für Android, Backend und spätere iOS-Verbraucher
+plattformübergreifend. Swift-/Xcode-CI gehört ausschließlich in das separate
+Repository `nikolausnold/NIKNOLIG-iOS-Monorepo`; dieses Repository enthält keine
+iOS-Buildschritte.
+
+**Toolchain-Befund:** Im aktuellen Checkout ist AGP 9.4.1 nicht konfiguriert.
+`settings.gradle.kts` setzt AGP 8.11.1 und Kotlin Gradle Plugin 2.2.21,
+`gradle/wrapper/gradle-wrapper.properties` setzt Gradle 8.13, und beide
+App-Module zielen auf JDK/JVM 17. `pluginManagement` verwendet Google,
+Maven Central und Gradle Plugin Portal. Der erfolgreiche Android-Main-Lauf
+[38907632444](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38907632444)
+baute beide Debug-APKs und verifizierte ihre IDs/Signaturen; damit ist diese
+konfigurierte Kombination samt Pluginauflösung praktisch belegt. Es wurde
+keine Version geändert.
+
+Der geprüfte fehlgeschlagene Lauf
+[38907847698](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38907847698)
+scheiterte nicht an Gradle oder Plugin-Kompatibilität, sondern an
+`:niknolig-defense:lintDebug`: `android:windowLightNavigationBar` benötigt API
+27, während `minSdk` 26 ist. Die explizite Zuweisung auf `false` wurde aus
+beiden Basisthemes entfernt; `false` ist der Android-Standard. Android-CI führt
+jetzt Build-, Lint- und Testtasks direkt aus. Da die App-Module keine
+Testquellen enthalten, kann `testDebugUnitTest` als `NO-SOURCE` enden und ist
+kein Nachweis bestandener App-Unit-Tests.
