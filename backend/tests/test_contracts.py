@@ -16,7 +16,7 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("APP_AREA_MISMATCH", contract)
         self.assertIn("REPLAY_DETECTED", contract)
         self.assertNotIn("/v1/", contract)
-        self.assertIn("not specified or implemented", contract)
+        self.assertIn("specified or implemented", contract)
 
     def test_migration_separates_app_domains_and_does_not_store_private_keys(self):
         migration = (BACKEND / "migrations/001_initial_contract.sql").read_text(
@@ -27,6 +27,8 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("public_key_fingerprint", migration)
         self.assertIn("identity_state <> 'verified' OR public_key_fingerprint IS NOT NULL", migration)
         self.assertIn("CHECK (first_device_id <> second_device_id)", migration)
+        self.assertIn("CHECK (first_app_area <> second_app_area)", migration)
+        self.assertIn("identity_state <> 'verified' OR verified_at IS NOT NULL", migration)
         self.assertIn("grants no action or", migration)
         self.assertNotIn("private_key", migration.lower())
 

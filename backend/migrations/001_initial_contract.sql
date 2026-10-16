@@ -18,6 +18,10 @@ CREATE TABLE device_installations (
     revoked_at TIMESTAMPTZ,
     CONSTRAINT device_installations_area_installation_unique
         UNIQUE (app_area, installation_reference),
+    CONSTRAINT device_installations_id_area_unique
+        UNIQUE (id, app_area),
+    CONSTRAINT device_installations_principal_not_empty
+        CHECK (length(btrim(principal_reference)) > 0),
     CONSTRAINT device_installations_fingerprint_format
         CHECK (
             public_key_fingerprint IS NULL
@@ -26,7 +30,10 @@ CREATE TABLE device_installations (
     CONSTRAINT device_installations_verified_requires_key
         CHECK (identity_state <> 'verified' OR public_key_fingerprint IS NOT NULL),
     CONSTRAINT device_installations_verified_timestamp
-        CHECK ((identity_state = 'verified') = (verified_at IS NOT NULL)),
+        CHECK (
+            (identity_state <> 'verified' OR verified_at IS NOT NULL)
+            AND (identity_state <> 'pending' OR verified_at IS NULL)
+        ),
     CONSTRAINT device_installations_revoked_timestamp
         CHECK ((identity_state = 'revoked') = (revoked_at IS NOT NULL))
 );
@@ -37,10 +44,10 @@ CREATE UNIQUE INDEX device_installations_area_fingerprint_unique
 
 CREATE TABLE device_links (
     id UUID PRIMARY KEY,
-    first_device_id UUID NOT NULL
-        REFERENCES device_installations (id) ON DELETE RESTRICT,
-    second_device_id UUID NOT NULL
-        REFERENCES device_installations (id) ON DELETE RESTRICT,
+    first_device_id UUID NOT NULL,
+    first_app_area app_area NOT NULL,
+    second_device_id UUID NOT NULL,
+    second_app_area app_area NOT NULL,
     state device_link_state NOT NULL DEFAULT 'pending',
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -48,10 +55,20 @@ CREATE TABLE device_links (
     revoked_at TIMESTAMPTZ,
     CONSTRAINT device_links_distinct_devices
         CHECK (first_device_id <> second_device_id),
+    CONSTRAINT device_links_distinct_app_areas
+        CHECK (first_app_area <> second_app_area),
+    CONSTRAINT device_links_first_device_area
+        FOREIGN KEY (first_device_id, first_app_area)
+        REFERENCES device_installations (id, app_area) ON DELETE RESTRICT,
+    CONSTRAINT device_links_second_device_area
+        FOREIGN KEY (second_device_id, second_app_area)
+        REFERENCES device_installations (id, app_area) ON DELETE RESTRICT,
+    CONSTRAINT device_links_expiry_after_creation
+        CHECK (expires_at > created_at),
     CONSTRAINT device_links_activation_timestamp
-        CHECK ((state = 'active') = (activated_at IS NOT NULL)),
+        CHECK (state <> 'active' OR activated_at IS NOT NULL),
     CONSTRAINT device_links_revocation_timestamp
-        CHECK ((state = 'revoked') = (revoked_at IS NOT NULL))
+        CHECK (state <> 'revoked' OR revoked_at IS NOT NULL)
 );
 
 CREATE INDEX device_links_first_device_idx ON device_links (first_device_id);

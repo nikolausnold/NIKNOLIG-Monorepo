@@ -25,6 +25,16 @@ Rechte. Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
   Regressionstests für kritische Vertrags- und Isolationsinvarianten. Sie sind
   keine Integration-, Sicherheits- oder Gerätetests.
 
+Fehlercodes werden auf Implementierungsebene einheitlich zugeordnet:
+`AUTHENTICATION_REQUIRED`/`AUTHENTICATION_INVALID` → 401;
+`AUTHORIZATION_DENIED`/`APP_AREA_MISMATCH` → 403;
+`DEVICE_IDENTITY_UNVERIFIED`/`PAIRING_REQUIRED`/`PAIRING_EXPIRED`/
+`REPLAY_DETECTED` → 403 (Integritäts-/Sicherheitsereignisse beenden die Sitzung);
+`VALIDATION_FAILED` → 400; `RATE_LIMITED` → 429; `CONFLICT` → 409;
+`NOT_FOUND` → 404; `SERVICE_UNAVAILABLE` → 503; `INTERNAL_ERROR` → 500.
+Antworten enthalten nur den stabilen Code, eine nicht-sensitive Nachricht und
+eine Korrelations-ID; interne Details sind nicht offenzulegen.
+
 ## Grenzen und Sicherheitsanforderungen
 
 1. **App-Bereiche:** Jeder Token und jede Ressource muss einem einzelnen
@@ -106,10 +116,15 @@ werden durch dieses Monorepo automatisch geändert.
 
 `python3 -m unittest discover -s backend/tests` prüft die oben genannten
 statischen Invarianten. Sofern Docker Compose installiert ist, kann die lokale
-Compose-Konfiguration mit `docker compose --env-file .env.example -f
-backend/compose.yaml config --quiet` syntaktisch geprüft werden; der Start
-verlangt bewusst ein gesetztes Passwort und ist nicht Teil der automatischen
-Tests. Keine der Prüfungen belegt eine laufende API, sichere Authentifizierung,
+Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:
+
+```sh
+POSTGRES_PASSWORD=local-only-check docker compose \
+  --env-file backend/.env.example -f backend/compose.yaml config --quiet
+```
+
+Der Start verlangt bewusst ein gesetztes lokales Passwort und ist nicht Teil der
+automatischen Tests. Keine der Prüfungen belegt eine laufende API, sichere Authentifizierung,
 P0-Freigabe oder Verbindung zwischen zwei physischen Geräten.
 
 Nächste Schritte: SecurityChain-P0-Nachweis und fachlich verantwortliche
