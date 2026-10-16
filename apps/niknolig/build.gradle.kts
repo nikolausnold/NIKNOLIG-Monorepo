@@ -3,6 +3,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val updateVersionCode = providers.environmentVariable("NIKNOLIG_VERSION_CODE").orNull?.let {
+    val code = requireNotNull(it.toIntOrNull()) { "Invalid NIKNOLIG_VERSION_CODE" }
+    require(code in 2..2100000000) { "Invalid NIKNOLIG_VERSION_CODE" }
+    code
+}
+
 val releaseStoreFile = System.getenv("NIKNOLIG_RELEASE_STORE_FILE")
 val releaseStorePassword = System.getenv("NIKNOLIG_RELEASE_STORE_PASSWORD")
 val releaseKeyAlias = System.getenv("NIKNOLIG_RELEASE_KEY_ALIAS")
@@ -40,8 +46,8 @@ android {
         applicationId = "com.niknolig.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = updateVersionCode ?: 1
+        versionName = updateVersionCode?.let { "0.1.$it" } ?: "0.1.0"
     }
 
     buildTypes {
