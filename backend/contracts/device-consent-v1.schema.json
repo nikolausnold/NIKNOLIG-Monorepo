@@ -10,7 +10,9 @@
     "consentId",
     "subjectRef",
     "grantedByInstallationId",
+    "grantedByAppArea",
     "targetInstallationId",
+    "targetAppArea",
     "purpose",
     "userFacingTextVersion",
     "grantedAt",
@@ -34,9 +36,23 @@
       "type": "string",
       "format": "uuid"
     },
+    "grantedByAppArea": {
+      "type": "string",
+      "enum": [
+        "niknolig",
+        "niknolig-defense"
+      ]
+    },
     "targetInstallationId": {
       "type": "string",
       "format": "uuid"
+    },
+    "targetAppArea": {
+      "type": "string",
+      "enum": [
+        "niknolig",
+        "niknolig-defense"
+      ]
     },
     "purpose": {
       "type": "object",
@@ -67,7 +83,45 @@
             ]
           }
         }
-      }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "code": {
+              "const": "assistant_session_resume"
+            },
+            "dataCategories": {
+              "const": [
+                "session_resume_marker"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "code": {
+              "const": "sensor_depth_summary"
+            },
+            "dataCategories": {
+              "const": [
+                "derived_depth_summary"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "code": {
+              "const": "sensor_environment_summary"
+            },
+            "dataCategories": {
+              "const": [
+                "derived_environment_summary"
+              ]
+            }
+          }
+        }
+      ]
     },
     "userFacingTextVersion": {
       "type": "string",

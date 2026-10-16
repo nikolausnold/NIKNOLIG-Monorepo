@@ -9,6 +9,8 @@
     "contractVersion",
     "sensorType",
     "providerId",
+    "sourceInstallationId",
+    "targetInstallationId",
     "purposeCode",
     "capturedAt",
     "processedOnDevice",
@@ -36,6 +38,14 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128
+    },
+    "sourceInstallationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "targetInstallationId": {
+      "type": "string",
+      "format": "uuid"
     },
     "purposeCode": {
       "type": "string",
@@ -125,6 +135,32 @@
         "required": [
           "consentId"
         ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "purposeCode": {
+            "const": "sensor_depth_summary"
+          }
+        },
+        "required": [
+          "purposeCode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "dataClass": {
+            "const": "derived_depth_summary"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "dataClass": {
+            "const": "derived_environment_summary"
+          }
+        }
       }
     }
   ]

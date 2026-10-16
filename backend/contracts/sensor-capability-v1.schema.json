@@ -44,6 +44,10 @@
       "minLength": 1,
       "maxLength": 128
     },
+    "extensionId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$"
+    },
     "availability": {
       "type": "string",
       "enum": [
@@ -113,13 +117,7 @@
       "then": {
         "required": [
           "extensionId"
-        ],
-        "properties": {
-          "extensionId": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$"
-          }
-        }
+        ]
       },
       "else": {
         "not": {

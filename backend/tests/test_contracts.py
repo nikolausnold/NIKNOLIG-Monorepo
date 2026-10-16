@@ -1,6 +1,12 @@
 import unittest
 import json
+import copy
 from pathlib import Path
+
+try:
+    from jsonschema import Draft202012Validator
+except ImportError:
+    Draft202012Validator = None
 
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -57,7 +63,9 @@ class BackendContractTests(unittest.TestCase):
         self.assertTrue(
             {
                 "grantedByInstallationId",
+                "grantedByAppArea",
                 "targetInstallationId",
+                "targetAppArea",
                 "purpose",
                 "userFacingTextVersion",
                 "grantedAt",
@@ -65,6 +73,10 @@ class BackendContractTests(unittest.TestCase):
             }.issubset(required)
         )
         self.assertFalse(schema["additionalProperties"])
+        self.assertEqual(
+            3,
+            len(schema["properties"]["purpose"]["oneOf"]),
+        )
         self.assertNotIn("assistant_messages", str(schema))
         self.assertNotIn("remote_control", str(schema))
 
@@ -116,11 +128,126 @@ class BackendContractTests(unittest.TestCase):
             BACKEND.parent / "docs/electro-engel-multidevice-sensors.md"
         ).read_text(encoding="utf-8")
         self.assertIn("P0: BLOCKED", plan)
-        self.assertIn("keine Rohbilder", plan)
-        self.assertIn("erneute Peer-Authentifizierung", plan)
-        self.assertIn("keine Änderung an den separaten Quell-Repositories", plan)
+        self.assertIn("Keine Rohbilder", plan)
+        self.assertIn("frische Peer-Authentifizierung", plan)
+        self.assertIn("Keine Änderung an den separaten Quell-Repositories", plan)
         self.assertIn("minSdk 26", plan)
         self.assertIn("nicht durchgeführt", plan)
+
+    @unittest.skipIf(
+        Draft202012Validator is None,
+        "jsonschema is optional; structural assertions still run",
+    )
+    def test_schemas_accept_valid_contracts_and_reject_negative_cases(self):
+        schemas = {
+            path.name.removesuffix(".schema.json"): json.loads(
+                path.read_text(encoding="utf-8")
+            )
+            for path in (BACKEND / "contracts").glob("*.schema.json")
+        }
+        for schema in schemas.values():
+            Draft202012Validator.check_schema(schema)
+
+        consent = {
+            "contractVersion": "1.0",
+            "consentId": "00000000-0000-4000-8000-000000000001",
+            "subjectRef": "opaque-subject-ref-001",
+            "grantedByInstallationId": "00000000-0000-4000-8000-000000000002",
+            "grantedByAppArea": "niknolig",
+            "targetInstallationId": "00000000-0000-4000-8000-000000000003",
+            "targetAppArea": "niknolig-defense",
+            "purpose": {
+                "code": "assistant_session_resume",
+                "dataCategories": ["session_resume_marker"],
+            },
+            "userFacingTextVersion": "consent.v1",
+            "grantedAt": "2026-10-16T00:00:00Z",
+            "expiresAt": "2026-10-16T01:00:00Z",
+        }
+        event = {
+            "contractVersion": "1.0",
+            "eventId": "00000000-0000-4000-8000-000000000004",
+            "eventType": "grant",
+            "consentId": consent["consentId"],
+            "actorInstallationId": consent["grantedByInstallationId"],
+            "actorAppArea": "niknolig",
+            "targetInstallationId": consent["targetInstallationId"],
+            "targetAppArea": "niknolig-defense",
+            "purposeCode": "assistant_session_resume",
+            "occurredAt": "2026-10-16T00:00:00Z",
+            "correlationId": "00000000-0000-4000-8000-000000000005",
+        }
+        capability = {
+            "contractVersion": "1.0",
+            "pluginId": "com.example.depth",
+            "pluginVersion": "1.0.0",
+            "sensorType": "depth_camera",
+            "providerId": "android.camera2",
+            "availability": "available",
+            "permissionState": "granted",
+            "requiredAndroidPermissions": ["android.permission.CAMERA"],
+            "capabilities": ["depth_map"],
+            "discoveredAt": "2026-10-16T00:00:00Z",
+        }
+        summary = {
+            "contractVersion": "1.0",
+            "sensorType": "depth_camera",
+            "providerId": "android.camera2",
+            "sourceInstallationId": consent["grantedByInstallationId"],
+            "targetInstallationId": consent["targetInstallationId"],
+            "purposeCode": "sensor_depth_summary",
+            "capturedAt": "2026-10-16T00:00:00Z",
+            "processedOnDevice": True,
+            "dataClass": "derived_depth_summary",
+            "retentionPolicyId": "approved-policy.pending",
+            "transmission": "consented_remote",
+            "consentId": consent["consentId"],
+            "summary": {
+                "metric": "nearest_depth_m",
+                "value": 1.5,
+                "unit": "m",
+            },
+        }
+        valid_instances = {
+            "device-consent-v1": consent,
+            "consent-audit-event-v1": event,
+            "sensor-capability-v1": capability,
+            "sensor-summary-v1": summary,
+        }
+        invalid_instances = {
+            "device-consent-v1": [
+                {**consent, "targetInstallationId": None},
+                {
+                    **consent,
+                    "purpose": {
+                        "code": "assistant_session_resume",
+                        "dataCategories": ["derived_depth_summary"],
+                    },
+                },
+                {**consent, "unapprovedContent": "private message"},
+            ],
+            "consent-audit-event-v1": [
+                {**event, "sensorPayload": "must not be logged"},
+            ],
+            "sensor-capability-v1": [
+                {**capability, "permissionState": "denied"},
+                {**capability, "sensorType": "infrared"},
+                {**capability, "sensorType": "other"},
+            ],
+            "sensor-summary-v1": [
+                {**summary, "processedOnDevice": False},
+                {key: value for key, value in summary.items() if key != "consentId"},
+                {**summary, "dataClass": "derived_environment_summary"},
+                {**summary, "rawImage": "base64-data"},
+            ],
+        }
+        for name, instance in valid_instances.items():
+            validator = Draft202012Validator(schemas[name])
+            with self.subTest(schema=name, case="valid"):
+                self.assertTrue(validator.is_valid(instance))
+            for invalid in invalid_instances[name]:
+                with self.subTest(schema=name, case="invalid"):
+                    self.assertFalse(validator.is_valid(invalid))
 
 
 if __name__ == "__main__":

@@ -124,10 +124,13 @@ separater Laufzeitfeststellung und zweckbezogener Zustimmung zulässig.
 
 ## Tests und reale Geräteabnahme
 
-`backend/tests/test_contracts.py` prüft Schema-Versionen, Pflichtfelder und
-verbotene implizite Zustände mit Python-Standardbibliothek. Das ersetzt keine
-JSON-Schema-Validator-Ausführung, Transport-/Auth-Tests oder physische
-Geräteabnahme.
+`backend/tests/test_contracts.py` prüft mit Python-Standardbibliothek
+Schema-Versionen, Pflichtfelder und verbotene implizite Zustände. Wenn das
+optionale, bereits installierte `jsonschema`-Paket verfügbar ist, validiert es
+zusätzlich gültige und ungültige Beispielinstanzen nach JSON Schema 2020-12.
+Ohne dieses Paket wird der Validator-Test übersprungen; es wird keine neue
+Dependency vorausgesetzt. Auch bestandene Schema-Tests ersetzen keine
+Transport-/Auth-Tests oder physische Geräteabnahme.
 
 Vor Freigabe sind mindestens automatisiert negativ zu prüfen: fehlende Quelle,
 Ziel, Zweck, Textversion oder Ablaufzeit; falsche App-Domäne; veralteter oder

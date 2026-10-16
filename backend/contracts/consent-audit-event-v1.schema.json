@@ -11,7 +11,9 @@
     "eventType",
     "consentId",
     "actorInstallationId",
+    "actorAppArea",
     "targetInstallationId",
+    "targetAppArea",
     "purposeCode",
     "occurredAt",
     "correlationId"
@@ -41,9 +43,23 @@
       "type": "string",
       "format": "uuid"
     },
+    "actorAppArea": {
+      "type": "string",
+      "enum": [
+        "niknolig",
+        "niknolig-defense"
+      ]
+    },
     "targetInstallationId": {
       "type": "string",
       "format": "uuid"
+    },
+    "targetAppArea": {
+      "type": "string",
+      "enum": [
+        "niknolig",
+        "niknolig-defense"
+      ]
     },
     "purposeCode": {
       "type": "string",
