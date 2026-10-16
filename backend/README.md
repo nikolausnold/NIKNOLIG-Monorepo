@@ -242,6 +242,9 @@ laufenden Hetzner-Backends. Offene sicherheitskritische Lücken sind:
   12 Tests, 11 erfolgreich, 1 ausdrücklich übersprungen
   (RFC-3339-Formatchecker fehlt). Python 3.12.3, vorhandenes jsonschema 4.10.3.
   Keine neuen Abhängigkeiten installiert.
+  Zusätzlich wurde der bestehende Standardbibliothek-Pfad ohne optionale
+  Pakete geprüft: 12 Tests, 9 erfolgreich, 3 explizite Skips; keine
+  Behauptung einer Schema-/Formatvalidierung in dieser Variante.
 - Statisch: bestehende Compose-Konfiguration mit dem oben dokumentierten
   nicht-sensitiven Syntaxprüfwert und `config --quiet` erfolgreich geprüft
   (Compose 2.38.2); keine aufgelösten Credentials ausgegeben.
@@ -250,6 +253,12 @@ laufenden Hetzner-Backends. Offene sicherheitskritische Lücken sind:
 - SQL nur gelesen; keine Ausführung wegen fehlender Modellfreigabe.
   Kein API-Build möglich: Laufzeit und Dockerfile fehlen.
   Kein behaupteter HTTP-/DB-/P0-/Restore-Erfolg.
+- Secret-Scan der beiden geänderten Dateien: keine Secrets erkannt.
+  Die angeforderte automatisierte Code-Review war wegen eines nicht verfügbaren
+  Review-Modells technisch nicht nutzbar; ein separater read-only
+  Code-Review-Agent fand keine wesentlichen Fehler. CodeQL wurde vom
+  Validierungswerkzeug wegen ausschließlich Dokumentations-/Teständerungen
+  übersprungen. Dies ist kein erfolgreicher Produktions-Sicherheitsscan.
 
 ### Kontrollierter Deployment-Plan – aktuell NICHT ausführungsfreigegeben
 
