@@ -86,9 +86,9 @@
         },
         {
           "path": "backend/README.md",
-          "startLine": 143,
-          "endLine": 144,
-          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und\ndie Health-only-Laufzeit.",
+          "startLine": 151,
+          "endLine": 154,
+          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,\nReadiness-Zustände und den Health-only-Server. Sofern Docker Compose installiert\nist, kann die lokale Compose-Konfiguration mit diesem lokalen Platzhalter\nsyntaktisch geprüft werden:",
           "state": "verified"
         }
       ]
