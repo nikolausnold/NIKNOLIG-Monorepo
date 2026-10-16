@@ -1,0 +1,43 @@
+name: iOS contract update
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run backend contract regression tests
+        run: python3 -m unittest discover -s backend/tests
+      - name: Prepare shared contracts for both separate iOS repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/ios-contracts"
+          mkdir -p "$bundle/backend/contracts" "$bundle/docs"
+          cp backend/openapi.yaml "$bundle/backend/"
+          cp backend/contracts/*.schema.json "$bundle/backend/contracts/"
+          cp docs/mobile-cross-platform-architecture.md "$bundle/docs/"
+          source_commit="$(git rev-parse HEAD)"
+          printf 'source_commit=%s\nconsumer_app_areas=niknolig,niknolig-defense\nproduction_approved=false\n' \
+            "$source_commit" > "$bundle/SOURCE.txt"
+          cd "$bundle"
+          sha256sum SOURCE.txt backend/openapi.yaml backend/contracts/*.schema.json \
+            docs/mobile-cross-platform-architecture.md > SHA256SUMS
+          sha256sum --check SHA256SUMS
+      - name: Upload shared iOS contract snapshot
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ios-contracts-${{ github.sha }}
+          path: ${{ runner.temp }}/ios-contracts/
+          if-no-files-found: error
+          retention-days: 7

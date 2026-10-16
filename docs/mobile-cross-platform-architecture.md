@@ -259,3 +259,77 @@ Backend-Betrieb, Plattform-Mindestversionen, Apple-/Android-Berechtigungs-
 details, Sensor-Gerätematrix und Retention. Keine dieser Entscheidungen wird
 durch Architekturtext oder ein valides Schema genehmigt. Bei nicht erfüllter
 oder nicht belegbarer Freigabe gilt fail closed.
+
+## 8. Automatische iOS-Vertragsaktualisierung ohne App-Builds
+
+Das Monorepo bleibt die gemeinsame Vertragsquelle für **beide** getrennten
+iOS-Apps, NIKNOLIG und NIKNOLIG Defense. Ihre Swift-/Xcode-Projekte, Bundle-IDs,
+Signierung, Tests, Builds und Veröffentlichungen gehören ausschließlich in
+die jeweils separaten App-Repositories. Hier werden weder iOS-Apps gebaut
+noch neue App-Repositories angelegt. Bestehende Android-Workflows bleiben
+unverändert; der iOS-Vertragsworkflow selbst führt keinen App-Build aus.
+
+### Automatischer Ablauf im Monorepo
+
+Der Workflow
+[`iOS contract update`](../.github/workflows/ios-contract-update.yml)
+startet bei jedem Push, bei Pull-Request-Ereignissen (standardmäßig Öffnen,
+neue Commits und Wiederöffnen) und per `workflow_dispatch`. „Nach jeder Aktion“
+bedeutet hier eine Aktualisierung nach einer Repository-Änderung, nicht nach
+einer Nutzeraktion in der App und nicht nach jedem einzelnen Workflow-Schritt.
+Ein erneuter Lauf erzeugt ebenfalls einen neuen Snapshot für denselben Commit.
+Es gibt bewusst keine `workflow_run`-Kette oder Selbst-Commit-Schleife.
+
+1. Die bestehenden Backend-Vertragstests müssen erfolgreich sein. Ihre
+   optionalen JSON-Schema-Prüfungen laufen nur bei installiertem `jsonschema`;
+   der Workflow installiert keine Zusatzpakete. Ein grüner Lauf ist keine
+   vollständige Schema-/OpenAPI-Validierung oder Produktfreigabe.
+2. Ein gemeinsamer Snapshot enthält `backend/openapi.yaml`, die vorhandenen
+   `backend/contracts/*.schema.json` und dieses Architektur-/Integrationsdokument.
+   Kein Android-Code, keine Datenbankkonfiguration und keine Credentials
+   werden aufgenommen.
+3. `SOURCE.txt` nennt den tatsächlich ausgecheckten Commit, die getrennten
+   Verbraucherbereiche `niknolig` und `niknolig-defense` sowie
+   `production_approved=false`. `SHA256SUMS` enthält SHA-256-Prüfsummen für
+   sämtliche Snapshot-Quelldateien einschließlich `SOURCE.txt`.
+4. Erst nach erfolgreichen Prüfungen wird das Artefakt
+   `ios-contracts-<Commit-SHA>` für sieben Tage hochgeladen. Bei einem
+   fehlgeschlagenen Lauf entsteht kein neuer verwendbarer Snapshot.
+
+Die Läufe und Artefakte sind unter
+[iOS contract update in GitHub Actions](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/ios-contract-update.yml)
+erreichbar. Bei Pull Requests bezeichnet die SHA normalerweise den getesteten
+Merge-Commit, nicht den Head-Commit des Quellbranches. Solche Artefakte sind
+reine Vorschauen und keine freigegebene Verbrauchergrundlage.
+
+### Übernahme in den separaten iOS-Repositories
+
+Die automatische **Bereitstellung hier** ist eingerichtet; automatisches
+**Übernehmen dort** benötigt einen separat freigegebenen Workflow pro
+iOS-Repository und ist durch diese Änderung nicht aktiviert:
+
+- Beide Verbraucher verwenden denselben ausdrücklich ausgewählten, erfolgreichen
+  Lauf eines vertrauenswürdigen Push-Commits auf dem geschützten Standardbranch.
+  Sie prüfen Repository, Ereignis, Branch, Commit und Ergebnis des Laufs;
+  niemals blind das neueste Artefakt oder ein PR-Artefakt übernehmen.
+- Der Consumer bindet die Übernahme an die vollständige Commit-SHA, gleicht
+  `SOURCE.txt` damit ab und prüft nach dem Download `sha256sum --check SHA256SUMS`.
+  Die Prüfsummen erkennen Beschädigungen, ersetzen aber keine vertrauenswürdige
+  Herkunft oder Freigabe. Für langfristige Reproduzierbarkeit bleibt der
+  ausgewählte Git-Commit die Quelle; Artefakte sind nur kurzlebige Transportkopien.
+- Eine spätere Automatisierung prüft auf neue erfolgreiche Snapshots und öffnet
+  je App einen unabhängigen Update-PR mit alter/neuer Quell-SHA und
+  Kompatibilitätsnachweisen. Unveränderte SHAs erzeugen keine doppelten PRs;
+  fehlerhafte oder inkompatible Updates lassen den bisher gebundenen Stand
+  unverändert. Keine automatische Zusammenführung oder Veröffentlichung.
+- NIKNOLIG übernimmt nur seinen App-Bereich, Defense nur `niknolig-defense`;
+  derselbe Vertragssnapshot teilt weder Zugangsdaten noch Laufzeitrechte.
+  Vertragsänderungen bleiben den Versions-/Migrationsregeln aus Abschnitt 2
+  und den gemeinsamen Konformitätstests aus Abschnitt 5 unterworfen.
+
+Das Monorepo benötigt dafür nur `contents: read` und keine Apple-Zugangsdaten,
+externen Repository-Tokens oder Schreibrechte. Es sendet keine
+repositoryübergreifenden Dispatches und verändert keine fremden Repositories.
+App-/TestFlight-/App-Store-Updates und iOS-Systemupdates werden nicht ausgelöst.
+SecurityChain-P0 und die fehlenden Produkt-/Sync-APIs bleiben unverändert
+blockierend; ein neuer Snapshot hebt kein Stop-Gate auf.

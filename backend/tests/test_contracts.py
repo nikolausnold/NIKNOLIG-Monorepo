@@ -153,6 +153,52 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("NIKNOLIG-Abhängigkeiten im Core", architecture)
         self.assertIn("python3 -m unittest discover -s backend/tests", architecture)
 
+    def test_ios_contract_updates_preserve_read_only_build_boundaries(self):
+        workflow = (
+            BACKEND.parent / ".github/workflows/ios-contract-update.yml"
+        ).read_text(encoding="utf-8")
+        for trigger in ("  push:", "  pull_request:", "  workflow_dispatch:"):
+            self.assertIn(trigger, workflow)
+        self.assertIn("contents: read", workflow)
+        self.assertIn("persist-credentials: false", workflow)
+        self.assertIn("python3 -m unittest discover -s backend/tests", workflow)
+        self.assertIn("consumer_app_areas=niknolig,niknolig-defense", workflow)
+        self.assertIn("production_approved=false", workflow)
+        self.assertIn("git rev-parse HEAD", workflow)
+        self.assertIn("sha256sum --check SHA256SUMS", workflow)
+        self.assertIn("ios-contracts-${{ github.sha }}", workflow)
+        self.assertIn("if-no-files-found: error", workflow)
+        for forbidden in (
+            "workflow_run:", "pull_request_target:", "secrets.",
+            "contents: write", "repository_dispatch", "gradlew", "xcodebuild",
+        ):
+            self.assertNotIn(forbidden, workflow)
+
+    def test_ios_snapshot_has_an_explicit_source_allowlist(self):
+        workflow = (
+            BACKEND.parent / ".github/workflows/ios-contract-update.yml"
+        ).read_text(encoding="utf-8")
+        copies = [
+            line.strip() for line in workflow.splitlines()
+            if line.strip().startswith("cp ")
+        ]
+        self.assertEqual(
+            [
+                'cp backend/openapi.yaml "$bundle/backend/"',
+                'cp backend/contracts/*.schema.json "$bundle/backend/contracts/"',
+                'cp docs/mobile-cross-platform-architecture.md "$bundle/docs/"',
+            ],
+            copies,
+        )
+        self.assertLess(
+            workflow.index("Run backend contract regression tests"),
+            workflow.index("Prepare shared contracts"),
+        )
+        self.assertLess(
+            workflow.index("sha256sum --check SHA256SUMS"),
+            workflow.index("uses: actions/upload-artifact@"),
+        )
+
     @unittest.skipIf(
         Draft202012Validator is None,
         "jsonschema is optional; structural assertions still run",

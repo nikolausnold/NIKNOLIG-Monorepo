@@ -104,6 +104,14 @@ Integrationsplan für spätere separate iOS-Repositories stehen in
 [`docs/mobile-cross-platform-architecture.md`](docs/mobile-cross-platform-architecture.md).
 Es werden keine iOS-Repositories oder produktiven APIs angelegt.
 
+Der Workflow [`iOS contract update`](.github/workflows/ios-contract-update.yml)
+prüft bei jedem Push und Pull Request sowie bei manuellem Start die gemeinsame
+Vertragsgrundlage und stellt einen commitgebundenen Snapshot für beide separaten
+iOS-App-Repositories bereit. Er baut keine Apps und löst keine externen Builds
+oder Deployments aus. Übernahme und Grenzen sind im
+[iOS-Aktualisierungsablauf](docs/mobile-cross-platform-architecture.md#8-automatische-ios-vertragsaktualisierung-ohne-app-builds)
+beschrieben.
+
 Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
 [`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
 nur belegte, kuratierte Vorschläge und nimmt selbst keine Dateiänderungen,
