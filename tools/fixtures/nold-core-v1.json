@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "sourced-fact",
+      "record": {
+        "kind": "fact",
+        "claim": "A health endpoint returned HTTP 200 during a test.",
+        "sources": ["backend/tests/test_server.py"],
+        "recordedAt": "2026-10-16T21:00:00Z",
+        "confidence": 0.9
+      },
+      "expectedValid": true
+    },
+    {
+      "id": "fact-without-source",
+      "record": {
+        "kind": "fact",
+        "claim": "This unsourced statement must not be accepted as a fact.",
+        "sources": [],
+        "recordedAt": "2026-10-16T21:00:00Z",
+        "confidence": 0.9
+      },
+      "expectedValid": false
+    },
+    {
+      "id": "qualified-assumption",
+      "record": {
+        "kind": "assumption",
+        "claim": "A future client may consume the shared contract.",
+        "sources": [],
+        "recordedAt": "2026-10-16T21:00:00Z",
+        "confidence": 0.5
+      },
+      "expectedValid": true
+    },
+    {
+      "id": "uncertain-assumption",
+      "record": {
+        "kind": "assumption",
+        "claim": "An assumption cannot be marked certain.",
+        "sources": [],
+        "recordedAt": "2026-10-16T21:00:00Z",
+        "confidence": 1
+      },
+      "expectedValid": false
+    },
+    {
+      "id": "explicit-unknown",
+      "record": {
+        "kind": "unknown",
+        "claim": "Whether a production API is deployed is unknown.",
+        "sources": [],
+        "recordedAt": "2026-10-16T21:00:00Z",
+        "confidence": 0
+      },
+      "expectedValid": true
+    },
+    {
+      "id": "unknown-with-source",
+      "record": {
+        "kind": "unknown",
+        "claim": "An unknown record cannot imply evidence.",
+        "sources": ["unverified-source"],
+        "recordedAt": "2026-10-16T21:00:00Z",
+        "confidence": 0
+      },
+      "expectedValid": false
+    },
+    {
+      "id": "secret-like-claim",
+      "record": {
+        "kind": "assumption",
+        "claim": "api_key=do-not-accept-this-value",
+        "sources": [],
+        "recordedAt": "2026-10-16T21:00:00Z",
+        "confidence": 0.2
+      },
+      "expectedValid": false
+    },
+    {
+      "id": "timestamp-without-timezone",
+      "record": {
+        "kind": "assumption",
+        "claim": "Timezone-less timestamps are ambiguous.",
+        "sources": [],
+        "recordedAt": "2026-10-16T21:00:00",
+        "confidence": 0.2
+      },
+      "expectedValid": false
+    }
+  ]
+}
