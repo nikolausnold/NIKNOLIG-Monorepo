@@ -1,7 +1,8 @@
-import unittest
-from unittest.mock import Mock
-from pathlib import Path
 import sys
+import unittest
+from pathlib import Path
+from unittest.mock import Mock
+
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
@@ -42,14 +43,13 @@ class DatabaseReadinessTests(unittest.TestCase):
         connector = Mock(return_value=connection_context)
 
         self.assertTrue(check_database(self.environment, connector=connector))
-        connector.assert_called_once_with(
-            host="postgres",
-            port=5432,
-            dbname="niknolig_local",
-            user="local_user",
-            ******,
-            connect_timeout=2,
-        )
+        options = connector.call_args.kwargs
+        self.assertEqual("postgres", options["host"])
+        self.assertEqual(5432, options["port"])
+        self.assertEqual("niknolig_local", options["dbname"])
+        self.assertEqual("local_user", options["user"])
+        self.assertEqual(self.environment["BACKEND_DB_PASSWORD"], options["password"])
+        self.assertEqual(2, options["connect_timeout"])
         cursor.execute.assert_called_once_with("SELECT 1")
 
     def test_probe_failure_returns_false_without_leaking_details(self):

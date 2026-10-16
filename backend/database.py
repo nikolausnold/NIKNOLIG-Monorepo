@@ -31,15 +31,16 @@ def check_database(
             return False
         connector = psycopg.connect
 
+    connection_options = {
+        "host": host,
+        "port": port,
+        "dbname": database,
+        "user": user,
+        "password": password,
+        "connect_timeout": 2,
+    }
     try:
-        with connector(
-            host=host,
-            port=port,
-            dbname=database,
-            user=user,
-            ******
-            connect_timeout=2,
-        ) as connection:
+        with connector(**connection_options) as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1")
                 return cursor.fetchone() == (1,)
