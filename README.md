@@ -89,3 +89,8 @@ Das Soll-Konzept für getrennte Gründerrollen und app-spezifische Konten steht 
 [`docs/founder-roles-and-account-requirements.md`](docs/founder-roles-and-account-requirements.md).
 Es wurden keine Konten angelegt; die produktive Rollenvergabe bleibt bis zur
 SecurityChain-P0-Freigabe gesperrt.
+
+Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
+[`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
+nur belegte, kuratierte Vorschläge und nimmt selbst keine Dateiänderungen,
+Builds, Netzwerkzugriffe oder Deployments vor.

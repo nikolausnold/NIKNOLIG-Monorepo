@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "ideas": [
+    {
+      "id": "accessibility-preview-checklist",
+      "title": "Add a focused accessibility review checklist for preview screens",
+      "goal": "Make accessibility checks repeatable without claiming current defects.",
+      "rationale": "The repository documents that app test sources are absent; a bounded manual checklist can record evidence before UI behavior changes.",
+      "successCriteria": [
+        "Checklist covers labels, text scaling, contrast, focus/order, and touch targets for each existing screen.",
+        "Findings include screen and reproducible steps; no unsupported accessibility claim is recorded."
+      ],
+      "score": {
+        "impact": 3,
+        "effort": 1,
+        "risk": 1,
+        "feasibility": 5
+      },
+      "scope": "documentation",
+      "reversible": true,
+      "estimatedFiles": 1,
+      "riskFlags": [
+        "accessibility",
+        "documentation"
+      ],
+      "dependencies": [],
+      "sideEffects": [
+        "Documents test scope but does not verify or modify app accessibility."
+      ],
+      "lifecycle": {
+        "status": "proposed",
+        "decision": "pending",
+        "outcome": "not_run"
+      },
+      "evidence": [
+        {
+          "path": "README.md",
+          "startLine": 55,
+          "endLine": 59,
+          "excerpt": "In den importierten\nQuellständen sind keine Android-Testquellen vorhanden; deshalb wird kein\nAndroid-Testtask behauptet.",
+          "state": "hypothesis"
+        }
+      ]
+    },
+    {
+      "id": "run-contract-tests-in-ci",
+      "title": "Run backend contract tests in a bounded CI job",
+      "goal": "Catch contract regressions automatically without invoking Android builds twice.",
+      "rationale": "Android CI is documented around APK build and verification; the backend README documents a local contract-test command, making CI ownership a candidate to investigate rather than a proven global CI gap.",
+      "successCriteria": [
+        "CI runs the standard-library contract test suite once per relevant change.",
+        "The CI job does not access secrets, production endpoints, external services, or perform deployment."
+      ],
+      "score": {
+        "impact": 4,
+        "effort": 2,
+        "risk": 2,
+        "feasibility": 4
+      },
+      "scope": "ci",
+      "reversible": true,
+      "estimatedFiles": 1,
+      "riskFlags": [
+        "ci_pipeline",
+        "infrastructure",
+        "test_coverage"
+      ],
+      "dependencies": [
+        "Choose whether the existing Android workflow or a separate Python workflow owns the test."
+      ],
+      "sideEffects": [
+        "May add CI runtime and workflow maintenance; no extra Android build should be introduced."
+      ],
+      "lifecycle": {
+        "status": "proposed",
+        "decision": "pending",
+        "outcome": "not_run"
+      },
+      "evidence": [
+        {
+          "path": ".github/workflows/android-build.yml",
+          "startLine": 22,
+          "endLine": 24,
+          "excerpt": "      - name: Assemble both debug APKs\n        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon\n      - name: Verify package identities and APK signatures",
+          "state": "verified"
+        },
+        {
+          "path": "backend/README.md",
+          "startLine": 122,
+          "endLine": 123,
+          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft die oben genannten\nstatischen Invarianten.",
+          "state": "verified"
+        }
+      ]
+    },
+    {
+      "id": "device-session-transfer",
+      "title": "Implement consent-based cross-device session transfer",
+      "goal": "Allow a user-approved, scoped session continuation between separately installed apps.",
+      "rationale": "The transfer is currently a proposal; identity, transport, action scope, key lifecycle, and security acceptance criteria are unresolved.",
+      "successCriteria": [
+        "Only explicitly approved source and target installations can participate.",
+        "Replay, wrong-app scope, stale consent, revocation, and reconnection without fresh authentication are rejected.",
+        "SecurityChain-P0 and physical-device acceptance are documented and pass before production release."
+      ],
+      "score": {
+        "impact": 5,
+        "effort": 5,
+        "risk": 5,
+        "feasibility": 2
+      },
+      "scope": "application",
+      "reversible": false,
+      "estimatedFiles": 20,
+      "riskFlags": [
+        "authentication",
+        "authorization",
+        "securitychain_p0",
+        "permissions",
+        "personal_data",
+        "key_management",
+        "cross_repository",
+        "irreversible"
+      ],
+      "dependencies": [
+        "Written SecurityChain-P0 criteria and owner approval.",
+        "Approved threat model, identity, transport, key lifecycle, consent text, and data scope.",
+        "Separate reviews in both app repositories."
+      ],
+      "sideEffects": [
+        "Would create new security-sensitive cross-device data flows and operational obligations."
+      ],
+      "lifecycle": {
+        "status": "proposed",
+        "decision": "pending",
+        "outcome": "not_run"
+      },
+      "evidence": [
+        {
+          "path": "docs/device-link-security-design.md",
+          "startLine": 169,
+          "endLine": 174,
+          "excerpt": "Die Planung ist abgeschlossen; die Implementierung bleibt **BLOCKED**, bis\nSecurityChain-P0-Nachweis, Bedrohungsmodell, fachlicher Daten-/Aktionsumfang,\nTransportwahl und Protokollvertrag freigegeben sind.",
+          "state": "verified"
+        }
+      ]
+    },
+    {
+      "id": "runtime-lidar-sensor-plugin",
+      "title": "Add a runtime-detected LiDAR/depth sensor plugin",
+      "goal": "Expose only verified, user-approved sensor-derived summaries on compatible devices.",
+      "rationale": "No sensor runtime or supported-device evidence exists; a generic Android depth capability must not be represented as LiDAR support.",
+      "successCriteria": [
+        "A plugin reports a sensor only after runtime provider/capability detection.",
+        "Capture requires both applicable OS permission and explicit purpose-specific user consent.",
+        "Raw sensor data remains local and unsupported devices expose no fabricated capability."
+      ],
+      "score": {
+        "impact": 4,
+        "effort": 5,
+        "risk": 5,
+        "feasibility": 1
+      },
+      "scope": "application",
+      "reversible": false,
+      "estimatedFiles": 20,
+      "riskFlags": [
+        "permissions",
+        "sensor_access",
+        "personal_data",
+        "securitychain_p0",
+        "cross_repository",
+        "irreversible"
+      ],
+      "dependencies": [
+        "Evidence-backed target device/API compatibility matrix.",
+        "Approved sensor purpose, permission UX, local processing, and retention policy.",
+        "Written SecurityChain-P0 approval and physical-device testing."
+      ],
+      "sideEffects": [
+        "Would require new sensor permissions, privacy review, device-specific testing, and retention controls."
+      ],
+      "lifecycle": {
+        "status": "proposed",
+        "decision": "pending",
+        "outcome": "not_run"
+      },
+      "evidence": [
+        {
+          "path": "docs/electro-engel-multidevice-sensors.md",
+          "startLine": 13,
+          "endLine": 17,
+          "excerpt": "Die aktuellen Android-Manifeste enthalten keine Kamera-, Mikrofon-, Standort-,\nBluetooth- oder Netzwerkberechtigungen. NIKNOLIG zeigt den Assistenten lokal;\ndie Anfrage wird lokal dargestellt und nicht übertragen.",
+          "state": "verified"
+        },
+        {
+          "path": "docs/electro-engel-multidevice-sensors.md",
+          "startLine": 101,
+          "endLine": 102,
+          "excerpt": "Android hat keine universelle LiDAR-Gerätegarantie/API im bestehenden Vertrag.",
+          "state": "verified"
+        }
+      ]
+    }
+  ]
+}
