@@ -155,3 +155,56 @@ SecurityChain-P0 und die produktive Releasesperre bleiben bestehen.
 
 Ergebnisse: [Autobuilds](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/android-build.yml)
 und [signierte Builds](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/android-release.yml).
+
+### Vorbereitung der Storeanbindung
+
+Der Release-Workflow baut zusätzlich zu den bisherigen APKs zwei getrennte,
+signierte Android App Bundles (`:niknolig:bundleRelease` und
+`:niknolig-defense:bundleRelease`). JDK `jarsigner -verify -strict` prüft jedes
+Bundle gegen den jeweiligen Keystore-Alias; fehlende, mehrere, unsignierte
+oder nicht passend signierte Bundles stoppen den Lauf vor den Uploads.
+Die commitbezogenen Artefakte `niknolig-store-aab-<Commit-SHA>` und
+`niknolig-defense-store-aab-<Commit-SHA>` werden 14 Tage aufbewahrt. Sie sind
+Vorbereitungsartefakte, keine Store-Freigabe oder vollständige Bundlevalidierung.
+Vor einer späteren Einreichung ist ein frischer, erfolgreich geprüfter Build
+mit noch nicht verwendeter Versionsnummer zu verwenden.
+
+**Es gibt keinen Store-Upload, keine Store-Zugangsdaten und keine zeitgesteuerte
+Aktivierung in einer Woche.** Die tatsächliche Anbindung benötigt anschließend:
+
+1. Zwei getrennte App-Einträge in der
+   [Google Play Console](https://play.google.com/console/) mit den unveränderten
+   Paketnamen `com.niknolig.app` und `com.niknolig.defense`. Pro App sind
+   Storetexte, Screenshots, Support-/Datenschutz-URL, Inhaltsbewertung,
+   Zielgruppe und wahrheitsgemäße Angaben zur Datensicherheit vorzubereiten.
+   Die dann geltenden Ziel-API-, Konto- und Testanforderungen sind vor Upload
+   zu prüfen; das aktuelle `targetSdk = 35` ist keine Zusage der Storeannahme.
+2. Vor dem ersten Upload pro App die
+   [Play-App-Signing-Entscheidung](https://support.google.com/googleplay/android-developer/answer/9842756)
+   dokumentieren: App-Signierschlüssel und Upload-Schlüssel sind unterschiedliche
+   Rollen. Die vorhandenen Keystores werden nicht automatisch ersetzt. Falls
+   bestehende APK-Installationen künftig Storeupdates erhalten sollen, muss
+   die gewählte App-Signieridentität mit deren Updatepfad kompatibel sein.
+   Freigegebene Zertifikat-Fingerprints und höchste bereits verteilte
+   `versionCode`s sind unabhängig vom jeweiligen Build festzuhalten.
+3. Erst nach SecurityChain-P0-/Produktfreigabe einen internen Test-Track
+   einrichten und das geprüfte Bundle zunächst manuell hochladen.
+   Paketname, Upload-Zertifikat und Versionsnummer durch Play prüfen lassen;
+   Installation und Update einer Vorversion auf Geräten je App testen.
+   Ein erfolgreicher Signaturcheck ersetzt weder diese Tests noch die
+   Storeprüfung. Ein Rollback der Funktionalität benötigt im Store ebenfalls
+   einen neuen, höheren Versionscode.
+4. Für einen späteren automatisierten Upload einen eigenen, minimal berechtigten
+   Zugang nach der
+   [Google-Play-API-Einrichtung](https://developers.google.com/android-publisher/getting_started)
+   vorsehen, auf die benötigten Apps und Test-Tracks begrenzen und in einem
+   separat geschützten GitHub-Environment mit manueller Freigabe verwalten.
+   Keine Zugangsschlüssel in Git oder Artefakte aufnehmen. Eine künftige
+   Veröffentlichung muss den exakt geprüften Commit und seine Bundles verwenden;
+   kein automatischer Produktions-Rollout als Folge eines normalen Autobuilds.
+5. iOS bleibt ein separater Anschluss: In
+   [Apple Developer](https://developer.apple.com/account/) und
+   [App Store Connect](https://appstoreconnect.apple.com/) werden eigene
+   App-Identitäten, Signierung, Datenschutzangaben und TestFlight-Prüfungen
+   benötigt. Da hier kein iOS-App-Projekt existiert, erzeugt dieser Workflow
+   weder ein iOS-Archiv noch einen iOS-Storeupload.
