@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
+from jwt.exceptions import PyJWKClientConnectionError
 
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -19,7 +20,6 @@ from app import create_server
 from authentication import (
     AppAreaMismatch,
     AuthenticationConfigurationError,
-    AuthenticationUnavailable,
     SupabaseTokenAuthenticator,
 )
 
@@ -114,7 +114,7 @@ class SupabaseAuthenticationTests(unittest.TestCase):
                 other_key,
                 algorithm="RS256",
             ),
-            self.token(exp=int(time.time()) - 1),
+            self.token(exp=int(time.time()) - 60),
             self.token(iss="https://attacker.supabase.co/auth/v1"),
             self.token(aud="another-api"),
         )
@@ -141,11 +141,18 @@ class SupabaseAuthenticationTests(unittest.TestCase):
     def test_unavailable_jwks_fails_closed_without_token_details(self):
         class UnavailableClient:
             def get_signing_key_from_jwt(self, token):
-                raise AuthenticationUnavailable
+                raise PyJWKClientConnectionError("synthetic JWKS outage")
 
         self.server.authenticator = SupabaseTokenAuthenticator(
             SETTINGS, jwks_client=UnavailableClient()
         )
+        with self.assertRaises(HTTPError) as raised:
+            self.request(self.token())
+        self.assertEqual(503, raised.exception.code)
+        self.assertEqual("SERVICE_UNAVAILABLE", json.load(raised.exception)["error"]["code"])
+
+    def test_missing_auth_configuration_fails_closed(self):
+        self.server.authenticator = None
         with self.assertRaises(HTTPError) as raised:
             self.request(self.token())
         self.assertEqual(503, raised.exception.code)
@@ -162,11 +169,18 @@ class SupabaseAuthenticationTests(unittest.TestCase):
                     SupabaseTokenAuthenticator(SETTINGS | changes)
 
     def test_product_area_claim_must_be_server_managed(self):
-        token = self.token(app_metadata={}, user_metadata={"app_area": "niknolig"})
-        with self.assertRaises(HTTPError) as raised:
-            self.request(token)
-        self.assertEqual(401, raised.exception.code)
-        self.assertEqual("AUTHENTICATION_INVALID", json.load(raised.exception)["error"]["code"])
+        for app_metadata in ({}, {"app_area": []}):
+            with self.subTest(app_metadata=app_metadata):
+                token = self.token(
+                    app_metadata=app_metadata, user_metadata={"app_area": "niknolig"}
+                )
+                with self.assertRaises(HTTPError) as raised:
+                    self.request(token)
+                self.assertEqual(401, raised.exception.code)
+                self.assertEqual(
+                    "AUTHENTICATION_INVALID",
+                    json.load(raised.exception)["error"]["code"],
+                )
 
 
 if __name__ == "__main__":

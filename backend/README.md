@@ -93,8 +93,7 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    Aufbewahrung, Löschung, Benutzeridentität und konkrete Nutzdaten sind noch
    nicht fachlich freigegeben.
 6. **Healthchecks:** `/health/live` meldet nur Prozessverfügbarkeit;
-   `/health/ready` meldet die Bereitschaft dieser Health-only-Laufzeit. Es gibt
-   noch keine Produktabhängigkeiten, die geprüft werden könnten. Antworten legen
+   `/health/ready` meldet die Bereitschaft der lokalen Laufzeit. Antworten legen
    keine Umgebungsvariablen, internen Hosts, Stacktraces oder Datenbankdetails
    offen.
 
@@ -102,29 +101,38 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
 
 Docker Compose veröffentlicht API und PostgreSQL ausschließlich an Loopback
 (standardmäßig `127.0.0.1:8000` und `127.0.0.1:54329`). Beide Services verwenden
-ein internes Netzwerk; der API-Container läuft nicht als root, mit read-only
-Root-Dateisystem und ohne Linux-Capabilities. Das API-Readiness-Signal prüft die
-DB-Verbindung, ist jedoch kein Authentifizierungs-, Produkt- oder
+ein internes Netzwerk ohne Internet-Egress; der API-Container läuft nicht als
+root, mit read-only Root-Dateisystem und ohne Linux-Capabilities. Daher kann
+Compose keine externe Supabase-JWKS beziehen und `/v1/session` bleibt dort
+unverfügbar. Das API-Readiness-Signal prüft die DB-Verbindung, ist jedoch kein
+Authentifizierungs-, Produkt- oder
 Produktionsbereitschaftsnachweis. `.env` wird lokal aus `.env.example` erstellt
 und nicht eingecheckt. Das Compose-Setup ist nicht für Deployment oder sensible
 Daten bestimmt.
 
 ## Lokaler Health-Server
 
-Für den isolierten Health-Server ohne Datenbankprüfung:
+Für den lokalen Server:
 
 ```sh
+python3 -m pip install -r backend/requirements.txt
 python3 backend/app.py
 ```
 
 Die Standardbindung ist `127.0.0.1:8000`. `BACKEND_HOST` und `BACKEND_PORT`
-können als Umgebungsvariablen gesetzt werden. Die Anwendung lädt `.env` nicht
+können als Umgebungsvariablen gesetzt werden. Für `/v1/session` sind zusätzlich
+`BACKEND_APP_AREA`, `AUTH_ISSUER`, `AUTH_JWKS_URL` und `AUTH_AUDIENCE` mit den
+Werten des autorisierten Supabase-Projekts zu konfigurieren; es werden keine
+Zugangsdaten oder Token gespeichert. Der Issuer und JWKS-Endpunkt müssen zur
+gleichen `*.supabase.co`-Domain gehören. Die Anwendung lädt `.env` nicht
 automatisch. `/health/live` prüft nur den Prozess. `/health/ready` liefert 200
 nur wenn die Datenbank erreichbar ist; ohne `psycopg` oder DB-Konfiguration
-liefert es 503. Andere GET-Pfade bleiben 404. Es gibt weiterhin keine Anmeldung,
-Autorisierung, Gerätefunktion oder Produkt-API. Der HTTP-Server ist nur für
-lokale Entwicklung und Vertragstests gedacht: nicht öffentlich exponieren oder
-als produktiven Internetserver verwenden. Serverplattform, TLS, Authentifizierung
+liefert es 503. Ohne vollständige Auth-Konfiguration antwortet `/v1/session`
+fail-closed mit 503; unbekannte GET-Pfade bleiben 404. Es gibt keinen
+Login-/Registrierungsflow, keine Gerätefunktion und keine Produkt-API. Der
+HTTP-Server ist nur für lokale
+Entwicklung und Vertragstests gedacht: nicht öffentlich exponieren oder als
+produktiven Internetserver verwenden. Serverplattform, TLS, Authentifizierung
 und produktives Deployment bleiben separat zu konfigurieren und freizugeben.
 
 ## SecurityChain-P0 und Freigabe
@@ -160,9 +168,10 @@ werden durch dieses Monorepo automatisch geändert.
 ## Verifikation und nächste Schritte
 
 `python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,
-Readiness-Zustände und den Health-only-Server. Sofern Docker Compose installiert
-ist, kann die lokale Compose-Konfiguration mit diesem lokalen Platzhalter
-syntaktisch geprüft werden:
+synthetisch signierte JWTs, App-Bereichstrennung und Readiness-Zustände. Der
+JWT-Test verwendet einen gemockten JWKS-Schlüssel; er bestätigt keine Verbindung
+zu einem echten Supabase-Projekt. Sofern Docker Compose installiert ist, kann die
+lokale Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:
 
 ```sh
 POSTGRES_PASSWORD=local-only-check docker compose \
@@ -170,8 +179,8 @@ POSTGRES_PASSWORD=local-only-check docker compose \
 ```
 
 Der Datenbankstart verlangt bewusst ein gesetztes lokales Passwort und ist nicht
-Teil der automatischen Tests. Keine der Prüfungen belegt eine operative API,
-sichere Authentifizierung, P0-Freigabe oder Verbindung zwischen zwei physischen
+Teil der automatischen Tests. Die Tests belegen keine Supabase-Projektkonfiguration,
+P0-Freigabe, Produkt-API, App-Integration oder Verbindung zwischen zwei physischen
 Geräten.
 
 Gerätewechsel-, Sensorverträge, Android API-/Berechtigungsanforderungen und

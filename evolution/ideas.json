@@ -79,16 +79,16 @@
       "evidence": [
         {
           "path": ".github/workflows/android-build.yml",
-          "startLine": 42,
-          "endLine": 44,
+          "startLine": 44,
+          "endLine": 46,
           "excerpt": "      - name: Assemble both debug APKs\n        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon\n      - name: Verify package identities and APK signatures",
           "state": "verified"
         },
         {
           "path": "backend/README.md",
-          "startLine": 156,
-          "endLine": 159,
-          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,\nReadiness-Zustände und den Health-only-Server. Sofern Docker Compose installiert\nist, kann die lokale Compose-Konfiguration mit diesem lokalen Platzhalter\nsyntaktisch geprüft werden:",
+          "startLine": 170,
+          "endLine": 174,
+          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,\nsynthetisch signierte JWTs, App-Bereichstrennung und Readiness-Zustände. Der\nJWT-Test verwendet einen gemockten JWKS-Schlüssel; er bestätigt keine Verbindung\nzu einem echten Supabase-Projekt. Sofern Docker Compose installiert ist, kann die\nlokale Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:",
           "state": "verified"
         }
       ]

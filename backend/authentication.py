@@ -52,10 +52,14 @@ def _valid_https_url(value: object, *, path: str | None = None) -> bool:
 
 class SupabaseTokenAuthenticator:
     def __init__(self, settings: Mapping[str, str], jwks_client=None):
-        self.issuer = settings.get("AUTH_ISSUER", "").strip().rstrip("/")
-        self.audience = settings.get("AUTH_AUDIENCE", "").strip()
-        self.app_area = settings.get("BACKEND_APP_AREA", "").strip()
-        self.jwks_url = settings.get("AUTH_JWKS_URL", "").strip()
+        def setting(name):
+            value = settings.get(name, "")
+            return value.strip() if isinstance(value, str) else ""
+
+        self.issuer = setting("AUTH_ISSUER").rstrip("/")
+        self.audience = setting("AUTH_AUDIENCE")
+        self.app_area = setting("BACKEND_APP_AREA")
+        self.jwks_url = setting("AUTH_JWKS_URL")
 
         if (
             not _valid_https_url(self.issuer, path="/auth/v1")
@@ -118,7 +122,7 @@ class SupabaseTokenAuthenticator:
         ):
             raise InvalidAccessToken
         claim_app_area = app_metadata.get("app_area")
-        if claim_app_area not in APP_AREAS:
+        if not isinstance(claim_app_area, str) or claim_app_area not in APP_AREAS:
             raise InvalidAccessToken
         if claim_app_area != self.app_area:
             raise AppAreaMismatch
