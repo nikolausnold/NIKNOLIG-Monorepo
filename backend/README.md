@@ -131,6 +131,14 @@ Die Quell-Repositories `nikolausnold/NIKNOLIG` und
 | `nikolausnold/NIKNOLIG` | `app/build.gradle.kts` (geprüfte HTTP-/TLS-Clientabhängigkeit), `app/src/main/AndroidManifest.xml` (nur freigegebene Netzwerkrechte), `app/src/main/java/com/niknolig/app/` (eigener API-Client und app-spezifische Authentifizierung), `app/src/main/res/values/strings.xml` (Zustimmungs-/Fehlertexte), `app/src/test/` und `app/src/androidTest/` (Vertrag, Ablehnung, Widerruf) | Eigener App-Bereich `niknolig`; API-Client aus dem freigegebenen Vertrag generieren oder dagegen testen. Keine Defense-Credentials oder gemeinsamen Laufzeitrechte. |
 | `nikolausnold/NIKNOLIG-Defense` | `app/build.gradle.kts` (separat geprüfte Clientabhängigkeit), `app/src/main/AndroidManifest.xml` (nur freigegebene Netzwerkrechte), `app/src/main/java/com/niknolig/defense/` (eigener API-Client und app-spezifische Authentifizierung), `app/src/main/res/values/strings.xml` (Zustimmungs-/Fehlertexte), `app/src/test/` und `app/src/androidTest/` (Vertrag, Ablehnung, Widerruf) | Eigener App-Bereich `niknolig-defense`; niemals das NIKNOLIG-Token oder dessen Installationsidentität wiederverwenden. |
 
+Die verbindliche Zielarchitektur für Frontends, NOLD-Backend, PostgreSQL und
+die drei Supabase-Projekte einschließlich der noch offenen Verantwortlichen,
+RLS-Grenzen und Negativtest-Abnahmekriterien steht in
+[`docs/backend-data-architecture.md`](../docs/backend-data-architecture.md).
+Die dort genannten Projekt-IDs stammen aus dem Auftrag; Projektkonfiguration,
+Schema und RLS wurden nicht verifiziert. Die Testfälle sind Plan, keine
+implementierte Laufzeitprüfung.
+
 Für beide Apps müssen zusätzlich Backend-Basis-URL pro Build-Variante, TLS-
 Vertrauensregeln, Authentifizierung/Tokenbezug, Datenschutztexte und
 Fehler-/Timeoutverhalten beschlossen werden. Diese Werte dürfen nicht aus
