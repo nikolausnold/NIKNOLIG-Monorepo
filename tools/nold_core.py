@@ -15,6 +15,7 @@ from typing import Any
 CORE_VERSION = "0.1.0"
 MAX_FIXTURE_BYTES = 64_000
 MAX_CASES = 100
+MAX_LEDGER_ENTRIES = 1_000
 MAX_CLAIM_CHARS = 2_000
 MAX_SOURCES = 5
 MAX_SOURCE_CHARS = 500
@@ -112,11 +113,33 @@ def validate_entry(value: Any) -> KnowledgeEntry:
     )
 
 
+class KnowledgeLedger:
+    """An in-memory append-only ledger; persistence and truth verification are external."""
+
+    def __init__(self, capacity: int = MAX_LEDGER_ENTRIES):
+        if type(capacity) is not int or not 1 <= capacity <= MAX_LEDGER_ENTRIES:
+            raise CoreInputError("invalid_ledger_capacity")
+        self._capacity = capacity
+        self._entries: list[KnowledgeEntry] = []
+
+    def append(self, value: Any) -> KnowledgeEntry:
+        if len(self._entries) >= self._capacity:
+            raise CoreInputError("ledger_capacity_reached")
+        entry = validate_entry(value)
+        self._entries.append(entry)
+        return entry
+
+    @property
+    def entries(self) -> tuple[KnowledgeEntry, ...]:
+        return tuple(self._entries)
+
+
 def evaluate_fixture(fixture: Any) -> dict[str, Any]:
     """Run versioned provenance cases using validators only; no dynamic code execution."""
     if (
         not isinstance(fixture, dict)
         or set(fixture) != {"schemaVersion", "cases"}
+        or type(fixture["schemaVersion"]) is not int
         or fixture["schemaVersion"] != 1
     ):
         raise CoreInputError("invalid_fixture")

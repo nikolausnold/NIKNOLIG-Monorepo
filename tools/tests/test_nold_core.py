@@ -5,6 +5,7 @@ from pathlib import Path
 
 from tools.nold_core import (
     CoreInputError,
+    KnowledgeLedger,
     evaluate_fixture,
     validate_entry,
 )
@@ -46,6 +47,15 @@ class NoldCoreTests(unittest.TestCase):
             ):
                 validate_entry(record)
 
+    def test_ledger_is_append_only_and_enforces_capacity(self):
+        ledger = KnowledgeLedger(capacity=1)
+        entry = ledger.append(self.fixture["cases"][0]["record"])
+        self.assertEqual((entry,), ledger.entries)
+        with self.assertRaisesRegex(CoreInputError, "ledger_capacity_reached"):
+            ledger.append(self.fixture["cases"][2]["record"])
+        with self.assertRaises(CoreInputError):
+            KnowledgeLedger(capacity=0)
+
     def test_unknown_cannot_smuggle_evidence_or_confidence(self):
         record = {
             "kind": "unknown",
@@ -72,6 +82,7 @@ class NoldCoreTests(unittest.TestCase):
     def test_invalid_case_fixture_is_rejected(self):
         for fixture in (
             {},
+            {"schemaVersion": True, "cases": []},
             {"schemaVersion": 2, "cases": []},
             {"schemaVersion": 1, "cases": []},
         ):
