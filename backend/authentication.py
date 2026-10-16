@@ -85,7 +85,7 @@ class SupabaseTokenAuthenticator:
 
         self._jwks_client = jwks_client or PyJWKClient(
             self.jwks_url,
-            cache_keys=True,
+            cache_keys=False,
             cache_jwk_set=True,
             lifespan=300,
             timeout=3,

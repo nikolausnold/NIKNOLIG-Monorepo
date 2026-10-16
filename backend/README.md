@@ -23,8 +23,10 @@ Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
   signiertes Supabase-JWT gegen HTTPS-JWKS, festen Issuer, Audience, Ablaufzeit
   und serververwaltetes `app_metadata.app_area`. Es stellt keine Tokens aus,
   erstellt keine Konten und implementiert keine Produkt-API. `/health/ready`
-  führt bei vorhandener Konfiguration eine begrenzte PostgreSQL-Verbindungs- und
-  `SELECT 1`-Prüfung aus; ohne Treiber, Konfiguration oder Datenbank meldet es 503.
+  führt bei vorhandener Konfiguration eine auf zwei Sekunden begrenzte
+  PostgreSQL-Verbindungs- und `SELECT 1`-Prüfung aus; es läuft höchstens eine
+  Probe gleichzeitig. Ohne Treiber, Konfiguration, Datenbank oder innerhalb der
+  Frist antwortende DB meldet es 503.
 - [`authorization.py`](authorization.py): fail-closed Prüfung von Produktbereich,
   Aktion, Ablaufzeit, Issuer/Audience und bereits bestätigtem Gerätezustand.
   Sie verifiziert weder Tokens noch stellt sie diese aus; ungeprüfte
@@ -168,9 +170,10 @@ werden durch dieses Monorepo automatisch geändert.
 ## Verifikation und nächste Schritte
 
 `python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,
-synthetisch signierte JWTs, App-Bereichstrennung und Readiness-Zustände. Der
-JWT-Test verwendet einen gemockten JWKS-Schlüssel; er bestätigt keine Verbindung
-zu einem echten Supabase-Projekt. Sofern Docker Compose installiert ist, kann die
+synthetisch signierte JWTs, App-Bereichstrennung, entfernte JWKS-Schlüssel und
+Readiness-Zustände einschließlich DB-Timeout. Die JWT-Tests verwenden
+synthetische Schlüssel; sie bestätigen keine Verbindung zu einem echten
+Supabase-Projekt. Sofern Docker Compose installiert ist, kann die
 lokale Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:
 
 ```sh

@@ -10,7 +10,9 @@ from urllib.request import Request, urlopen
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
+from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientConnectionError
+from unittest.mock import patch
 
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -20,6 +22,7 @@ from app import create_server
 from authentication import (
     AppAreaMismatch,
     AuthenticationConfigurationError,
+    InvalidAccessToken,
     SupabaseTokenAuthenticator,
 )
 
@@ -74,7 +77,9 @@ class SupabaseAuthenticationTests(unittest.TestCase):
             "user_metadata": {"app_area": "niknolig-defense"},
         }
         claims.update(changes)
-        return jwt.encode(claims, self.private_key, algorithm="RS256")
+        return jwt.encode(
+            claims, self.private_key, algorithm="RS256", headers={"kid": "test-key"}
+        )
 
     def request(self, token=None):
         headers = {}
@@ -181,6 +186,24 @@ class SupabaseAuthenticationTests(unittest.TestCase):
                     "AUTHENTICATION_INVALID",
                     json.load(raised.exception)["error"]["code"],
                 )
+
+    def test_removed_jwks_key_is_rejected_after_cache_expiry(self):
+        authenticator = SupabaseTokenAuthenticator(SETTINGS)
+        client = authenticator._jwks_client
+        key = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(self.public_key))
+        key.update({"kid": "test-key", "alg": "RS256", "use": "sig"})
+        documents = iter(({"keys": [key]}, {"keys": []}, {"keys": []}))
+        client.jwk_set_cache.lifespan = 0
+
+        def fetch_data():
+            document = next(documents)
+            client.jwk_set_cache.put(document)
+            return document
+
+        with patch.object(client, "fetch_data", side_effect=fetch_data):
+            authenticator.authenticate(self.token())
+            with self.assertRaises(InvalidAccessToken):
+                authenticator.authenticate(self.token())
 
 
 if __name__ == "__main__":
