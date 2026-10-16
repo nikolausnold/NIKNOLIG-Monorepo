@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://niknolig.invalid/contracts/device-consent-v1.schema.json",
+  "title": "Device-scoped user consent grant",
+  "description": "Declarative contract only. A valid record is not proof of identity, authorization, or a SecurityChain-P0 approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "consentId",
+    "subjectRef",
+    "grantedByInstallationId",
+    "grantedByAppArea",
+    "targetInstallationId",
+    "targetAppArea",
+    "purpose",
+    "userFacingTextVersion",
+    "grantedAt",
+    "expiresAt"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "1.0"
+    },
+    "consentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "subjectRef": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "description": "Opaque reference; not an email, username, or device name."
+    },
+    "grantedByInstallationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "grantedByAppArea": {
+      "type": "string",
+      "enum": [
+        "niknolig",
+        "niknolig-defense"
+      ]
+    },
+    "targetInstallationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "targetAppArea": {
+      "type": "string",
+      "enum": [
+        "niknolig",
+        "niknolig-defense"
+      ]
+    },
+    "purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "dataCategories"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "assistant_session_resume",
+            "sensor_depth_summary",
+            "sensor_environment_summary"
+          ]
+        },
+        "dataCategories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "session_resume_marker",
+              "derived_depth_summary",
+              "derived_environment_summary"
+            ]
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "code": {
+              "const": "assistant_session_resume"
+            },
+            "dataCategories": {
+              "const": [
+                "session_resume_marker"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "code": {
+              "const": "sensor_depth_summary"
+            },
+            "dataCategories": {
+              "const": [
+                "derived_depth_summary"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "code": {
+              "const": "sensor_environment_summary"
+            },
+            "dataCategories": {
+              "const": [
+                "derived_environment_summary"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "userFacingTextVersion": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,64}$"
+    },
+    "grantedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

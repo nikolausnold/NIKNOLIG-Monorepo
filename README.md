@@ -11,6 +11,9 @@ und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
 | `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG/tree/3c4d6618a61604f6433639151e741371491a5f0d), Commit `3c4d6618a61604f6433639151e741371491a5f0d` |
 | `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
 
+Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
+die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
+
 Die App-Verzeichnisse beider Quell-Commits hatten denselben Git-Tree-Stand.
 Darum starteten die Module mit denselben Vorschau-Funktionen. Die
 NIKNOLIG-App enthält zusätzlich eine lokale Elektro-Engel-Oberfläche ohne
@@ -69,3 +72,28 @@ keine Geheimnisse vorhanden sind.
 
 Weitere Inventur- und Cloudflare-Nachweise stehen im
 [Master-Integrationsplan](docs/MASTER-INTEGRATION-PLAN.md).
+
+## Gemeinsame Backend-Verträge
+
+[`backend/`](backend/README.md) enthält einen lokalen, nicht produktionsfreigegebenen
+Vertragsentwurf mit getrennten App-Bereichen, OpenAPI-Health-/Fehlerverträgen,
+provisorischer Datenbankmigration, loopback-isolierter PostgreSQL-Compose-
+Konfiguration und statischen Vertragstests. Es gibt noch keinen API-Server oder
+eine App-Anbindung. Die operative Geräteintegration bleibt bis zur dokumentierten
+SecurityChain-P0-Freigabe gesperrt.
+
+Die Gerätewechsel-, Sensor- und Android-Abnahmeplanung ist in
+[`docs/electro-engel-multidevice-sensors.md`](docs/electro-engel-multidevice-sensors.md)
+dokumentiert; versionierte, deklarative Consent-/Sensorverträge liegen unter
+[`backend/contracts/`](backend/contracts/). Es wurden keine Sensoren aktiviert
+oder Geräte gekoppelt; die Laufzeitintegration bleibt P0-blockiert.
+
+Das Soll-Konzept für getrennte Gründerrollen und app-spezifische Konten steht in
+[`docs/founder-roles-and-account-requirements.md`](docs/founder-roles-and-account-requirements.md).
+Es wurden keine Konten angelegt; die produktive Rollenvergabe bleibt bis zur
+SecurityChain-P0-Freigabe gesperrt.
+
+Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
+[`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
+nur belegte, kuratierte Vorschläge und nimmt selbst keine Dateiänderungen,
+Builds, Netzwerkzugriffe oder Deployments vor.
