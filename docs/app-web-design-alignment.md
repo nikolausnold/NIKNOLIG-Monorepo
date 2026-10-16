@@ -29,11 +29,53 @@ bleiben und keine alte Referenz wieder Gold darstellt.
   Support.
 - Android-Layouts bleiben für mobile Nutzung und App-spezifische Abläufe
   optimiert; sie werden nicht als Desktop-Webseiten nachgebaut.
-- Die lokale Elektro-Engel-Vorschau bleibt NIKNOLIG-spezifisch. Es werden
-  weder Funktionen noch Identitäten zwischen den Apps vereinheitlicht.
-- Diese Änderung fasst nur die gemeinsame Farbpalette an. Typografie,
-  Abstände, Komponentenstruktur und Responsive-Verhalten wurden nicht
-  visuell auf Geräten oder Browsern abgenommen.
+- Die bestehende lokale Assistenzseite bleibt NIKNOLIG-spezifisch; die
+  bisherigen Lernprofile bleiben unverändert. Die neue Defense-
+  Designvorschau ist **keine operative Assistenzintegration**.
+- Die neuen Engel sind verwandt, aber getrennt gestaltet: NIKNOLIG mit
+  runden Flügeln, weicher Karte und Assistenztext; Defense mit kantigem
+  Engel, Schild, kantiger Karte und eigener Produktkennzeichnung.
+- Es werden weder Funktionen noch Identitäten, Daten oder Rechte zwischen
+  den Apps vereinheitlicht.
+
+## Lokale adaptive Designvorschauen
+
+In NIKNOLIG öffnet „Elektro-Engel: Designvorschau“ auf der Assistenzseite
+die Vorschau; in Defense liegt dieser Einstieg auf der Startseite. Jedes
+Modul besitzt eine eigene, nicht exportierte `AppearancePreviewActivity`,
+eigene Ressourcen und keine neue Modulabhängigkeit.
+
+Die Auswahl dient ausschließlich dem lokalen Designvergleich:
+
+| Auswahl | Darstellung |
+| --- | --- |
+| Ruhe / Hilfe / Verarbeitung / Warnung / Fehler | Aufrechter bzw. unterschiedlich geneigter Engel, eindeutiges Symbol, Zustandsname und erklärender Beispieltext; Warnung/Fehler zusätzlich mit stärkerem Rahmen |
+| Telefon / Tablet | Zielbreite maximal 320 / 600 dp, auf die tatsächlich verfügbare Breite begrenzt; angepasste Engel- und Überschriftgröße |
+| App / Website-inspiriert | Kompakte App-Orientierung oder einleitender Web-Mustertext mit größerer Überschrift und mehr Innenabstand, jeweils mit eigener Produktkennzeichnung; kein Browser, keine echte Webseite |
+
+Ein sichtbarer Hinweis kennzeichnet alle Zustände als Beispiele und jeden
+Zielwechsel als **Simulation ohne Übertragung**. Auch „Verarbeitung“ startet
+keinen Auftrag und zeigt keinen Fortschritt. Die Darstellung ist immer
+statisch (auch bei aktivierter Bewegungsreduktion): kein Blinken, keine
+Animationen oder Timer. Text und Symbole vermitteln den Zustand ohne
+Farbabhängigkeit; die dekorative Silhouette wird nicht doppelt vorgelesen.
+
+Die Oberflächen verwenden native Android-Views, vertikales Scrollen,
+mehrzeilige Auswahltexte und inhaltsabhängige Höhen statt Overlays oder
+festen Bildschirmhöhen. Beschriftungen sind den Auswahlfeldern zugeordnet;
+deutsche und englische Texte liegen je Modul separat vor. Die drei Auswahlen
+werden über `Bundle` bei Rotation und systembedingter Neuerstellung erhalten.
+Es gibt keine neue Berechtigung, Sensorabfrage, Geräteerkennung, Verbindung,
+Authentifizierung, Backend-Anbindung oder Übertragungsfunktion.
+
+Die strukturellen Regressionstests unter
+`backend/tests/test_appearance_previews.py` prüfen unter anderem
+App-Grenzen, nicht exportierte Activities, fehlende Berechtigungen,
+lokalisierte Zustände und beschriftete Auswahlfelder. Sie ersetzen keine
+visuelle Geräteabnahme. Noch manuell zu prüfen: beide Produkte × fünf
+Situationen × beide Zielgrößen × beide Oberflächen, kleine/große tatsächliche
+Viewports, Querformat, große Schrift, TalkBack, RTL und Wiederherstellung
+nach Prozessende. Eine visuelle Geräte-/Browserabnahme wird nicht behauptet.
 
 ## Änderungsgrenze und nächste Integration
 
@@ -47,5 +89,6 @@ abgeglichen werden. Die Android-Anpassungen bleiben auf die getrennten Module
 Für die Build-Prüfung dieses Abgleichs:
 
 ```sh
-./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug
+./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug \
+  :niknolig:lintDebug :niknolig-defense:lintDebug --no-daemon
 ```

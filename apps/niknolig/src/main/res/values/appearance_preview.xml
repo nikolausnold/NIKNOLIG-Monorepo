@@ -1,0 +1,35 @@
+<resources>
+    <dimen name="preview_corner_radius">28dp</dimen>
+    <string name="preview_open">Elektro-Engel: Designvorschau</string>
+    <string name="preview_title">NIKNOLIG · Elektro-Engel</string>
+    <string name="preview_disclaimer">Nur lokale Designvorschau. Alle Zustände sind Beispiele, keine Live-Meldungen. Keine KI-, Geräte-, Sensor- oder Backend-Anbindung. Websites bleiben unverändert.</string>
+    <string name="preview_situation_label">Beispielsituation</string>
+    <string name="preview_device_label">Simulierter Zielbildschirm</string>
+    <string name="preview_surface_label">Oberfläche als lokales Muster</string>
+    <string name="preview_target_description">Simulation: %1$s · %2$s. Ein Wechsel ändert nur dieses Muster, überträgt nichts. Breite auf den verfügbaren Bildschirm begrenzt.</string>
+    <string name="preview_app_heading">NIKNOLIG · Assistenzkarte</string>
+    <string name="preview_app_body">App-Muster · weiche Konturen und kompakte Orientierung.</string>
+    <string name="preview_web_heading">NIKNOLIG · Willkommen</string>
+    <string name="preview_web_body">Web-inspiriertes Muster · einleitender Bereich, keine Website und kein Browser.</string>
+    <string name="preview_motion_notice">Immer statisch: keine Animation, kein Blinken, kein Fortschrittsbalken. Symbol und Text kennzeichnen jeden Zustand auch ohne Farbe.</string>
+    <string name="preview_close">Vorschau schließen</string>
+    <string-array name="preview_situations">
+        <item>Ruhe</item><item>Hilfe</item><item>Verarbeitung</item><item>Warnung</item><item>Fehler</item>
+    </string-array>
+    <string-array name="preview_devices">
+        <item>Telefon (max. 320 dp)</item><item>Tablet (max. 600 dp)</item>
+    </string-array>
+    <string-array name="preview_surfaces">
+        <item>App</item><item>Website-inspiriert</item>
+    </string-array>
+    <string-array name="preview_states">
+        <item>○ Ruhe · Beispiel</item><item>ⓘ Hilfe · Beispiel</item><item>⋯ Verarbeitung · Beispiel</item><item>△ Warnung · Beispiel</item><item>× Fehler · Beispiel</item>
+    </string-array>
+    <string-array name="preview_details">
+        <item>Der Engel ruht aufrecht. Keine Aufgabe wird ausgeführt.</item>
+        <item>Leicht geneigter Engel: Hier könnte eine verständliche Hilfestellung stehen.</item>
+        <item>Leicht gedrehter Engel: Nur ein statisches Verarbeitungsmuster, kein laufender Auftrag.</item>
+        <item>Geneigter Engel und verstärkter Rahmen: Ein Hinweis könnte Aufmerksamkeit erfordern. Keine echte Warnung.</item>
+        <item>Anders geneigter Engel und verstärkter Rahmen: Ein Fehler könnte erklärt werden. Kein echter Fehler.</item>
+    </string-array>
+</resources>

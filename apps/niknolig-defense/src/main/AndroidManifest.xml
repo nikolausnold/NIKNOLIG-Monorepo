@@ -15,6 +15,9 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".AppearancePreviewActivity"
+            android:exported="false" />
+        <activity
             android:name=".LearningProfileActivity"
             android:exported="false" />
     </application>

@@ -12,6 +12,10 @@ class AssistantActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_assistant)
 
+        findViewById<Button>(R.id.appearance_preview_button).setOnClickListener {
+            startActivity(Intent(this, AppearancePreviewActivity::class.java))
+        }
+
         findViewById<Button>(R.id.assistant_close_button).setOnClickListener {
             finish()
         }

@@ -17,9 +17,11 @@ die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
 Die App-Verzeichnisse beider Quell-Commits hatten denselben Git-Tree-Stand.
 Darum starteten die Module mit denselben Vorschau-Funktionen. Die
 NIKNOLIG-App enthält zusätzlich eine lokale Elektro-Engel-Oberfläche ohne
-KI-/Backend-Anbindung oder Gerätezugriff. Die Defense-App bleibt separat; für
-sie ist darüber hinaus keine Defense-spezifische Funktion belegt. Änderungen
-an den Quell-Repositories wurden nicht vorgenommen.
+KI-/Backend-Anbindung oder Gerätezugriff. Beide Apps bieten jetzt getrennte
+lokale Elektro-Engel-Designvorschauen: NIKNOLIG über die Assistenzseite,
+Defense über die Startseite. Die neue Defense-Vorschau ist rein visuell,
+keine operative Assistenz oder Sicherheitsfunktion. Änderungen an den
+Quell-Repositories wurden nicht vorgenommen.
 
 ## Elektro-Engel als Systemfunktion
 
@@ -31,6 +33,12 @@ werden nicht übertragen oder automatisch beantwortet; Geräteerkennung,
 Verbindungen und Steuerbefehle sind nicht verfügbar. Es gibt keine gemeinsame
 Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
+Die Designvorschauen zeigen fünf ausdrücklich beispielhafte Situationen,
+simulierte Telefon-/Tablet-Zielgrößen und App-/Web-inspirierte Muster.
+Zielwechsel übertragen nichts; echte Websites bleiben unverändert. Engel,
+Statussymbol und Beschreibung bleiben statisch, ohne Blinken oder erfundenen
+Fortschritt. Die drei Auswahlen werden bei Activity-Neuerstellung erhalten.
+
 ## Sicherheits- und Integrationsgrenzen
 
 - Kein App-Modul hängt vom jeweils anderen ab; es gibt keine gemeinsame
@@ -39,7 +47,8 @@ Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
   separate Android-App-Daten. Es werden keine Berechtigungen hinzugefügt.
 - Die vorhandene Vorschau verwendet keine Netzwerk- oder Bluetooth-Berechtigung.
   Das Launcher-Activity ist exportiert; das Lernprofil-Activity bleibt nicht
-  exportiert. Backups sind in beiden Manifesten deaktiviert.
+  exportiert; auch beide Designvorschau-Activities sind nicht exportiert.
+  Backups sind in beiden Manifesten deaktiviert.
 - Websites, GitHub-Pages-Workflows und Cloudflare-Einstellungen wurden nicht
   verschoben oder verändert. Dieses Monorepo führt kein Website- oder
   Cloudflare-Deployment aus.

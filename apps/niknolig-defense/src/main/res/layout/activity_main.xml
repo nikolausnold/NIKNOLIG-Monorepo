@@ -135,6 +135,13 @@
                 android:text="@string/support_contact_button" />
         </LinearLayout>
 
+        <Button
+            android:id="@+id/appearance_preview_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_large"
+            android:text="@string/preview_open" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

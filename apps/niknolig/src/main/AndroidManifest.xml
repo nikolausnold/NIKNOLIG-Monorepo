@@ -18,6 +18,9 @@
             android:name=".LearningProfileActivity"
             android:exported="false" />
         <activity
+            android:name=".AppearancePreviewActivity"
+            android:exported="false" />
+        <activity
             android:name=".AssistantActivity"
             android:exported="false" />
     </application>

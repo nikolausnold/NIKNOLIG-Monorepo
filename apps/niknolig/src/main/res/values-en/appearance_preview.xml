@@ -1,0 +1,34 @@
+<resources>
+    <string name="preview_open">Elektro-Engel: design preview</string>
+    <string name="preview_title">NIKNOLIG · Elektro-Engel</string>
+    <string name="preview_disclaimer">Local design preview only. Every state is an example, not a live report. No AI, device, sensor or backend connection. Websites remain unchanged.</string>
+    <string name="preview_situation_label">Example situation</string>
+    <string name="preview_device_label">Simulated target screen</string>
+    <string name="preview_surface_label">Local surface sample</string>
+    <string name="preview_target_description">Simulation: %1$s · %2$s. Switching changes only this sample and transfers nothing. Width is bounded by the available screen.</string>
+    <string name="preview_app_heading">NIKNOLIG · Assistance card</string>
+    <string name="preview_app_body">App sample · soft contours and compact guidance.</string>
+    <string name="preview_web_heading">NIKNOLIG · Welcome</string>
+    <string name="preview_web_body">Web-inspired sample · introductory section, not a website or browser.</string>
+    <string name="preview_motion_notice">Always static: no animation, blinking or progress bar. Symbols and text identify every state without relying on colour.</string>
+    <string name="preview_close">Close preview</string>
+    <string-array name="preview_situations">
+        <item>Idle</item><item>Help</item><item>Processing</item><item>Warning</item><item>Error</item>
+    </string-array>
+    <string-array name="preview_devices">
+        <item>Phone (max. 320 dp)</item><item>Tablet (max. 600 dp)</item>
+    </string-array>
+    <string-array name="preview_surfaces">
+        <item>App</item><item>Web-inspired</item>
+    </string-array>
+    <string-array name="preview_states">
+        <item>○ Idle · example</item><item>ⓘ Help · example</item><item>⋯ Processing · example</item><item>△ Warning · example</item><item>× Error · example</item>
+    </string-array>
+    <string-array name="preview_details">
+        <item>The angel rests upright. No task is running.</item>
+        <item>A gently tilted angel: understandable guidance could appear here.</item>
+        <item>A gently turned angel: a static processing sample only, not a running task.</item>
+        <item>Tilted angel and stronger border: a notice could need attention. Not a real warning.</item>
+        <item>Differently tilted angel and stronger border: an error could be explained. Not a real error.</item>
+    </string-array>
+</resources>

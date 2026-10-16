@@ -52,6 +52,13 @@
             android:layout_marginTop="@dimen/space_medium"
             android:text="@string/learning_profile_button" />
 
+        <Button
+            android:id="@+id/appearance_preview_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:text="@string/preview_open" />
+
         <EditText
             android:id="@+id/assistant_request_input"
             android:layout_width="match_parent"

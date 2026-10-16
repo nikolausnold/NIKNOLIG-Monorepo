@@ -13,6 +13,10 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        findViewById<Button>(R.id.appearance_preview_button).setOnClickListener {
+            startActivity(Intent(this, AppearancePreviewActivity::class.java))
+        }
+
         findViewById<Button>(R.id.support_contact_button).setOnClickListener {
             openTechnicalSupportEmail()
         }
