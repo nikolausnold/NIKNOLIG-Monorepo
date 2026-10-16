@@ -1,4 +1,5 @@
 import unittest
+import json
 from pathlib import Path
 
 
@@ -45,6 +46,81 @@ class BackendContractTests(unittest.TestCase):
         example = (BACKEND / ".env.example").read_text(encoding="utf-8")
         self.assertIn("POSTGRES_PASSWORD=", example)
         self.assertNotRegex(example, r"(?m)^POSTGRES_PASSWORD=.+$")
+
+    def test_device_transfer_consent_is_explicit_and_scoped(self):
+        schema = json.loads(
+            (BACKEND / "contracts/device-consent-v1.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        required = set(schema["required"])
+        self.assertTrue(
+            {
+                "grantedByInstallationId",
+                "targetInstallationId",
+                "purpose",
+                "userFacingTextVersion",
+                "grantedAt",
+                "expiresAt",
+            }.issubset(required)
+        )
+        self.assertFalse(schema["additionalProperties"])
+        self.assertNotIn("assistant_messages", str(schema))
+        self.assertNotIn("remote_control", str(schema))
+
+    def test_sensor_contract_fails_closed_for_unknown_or_unapproved_capabilities(self):
+        capability = json.loads(
+            (BACKEND / "contracts/sensor-capability-v1.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertFalse(capability["additionalProperties"])
+        self.assertIn("unknown", capability["properties"]["availability"]["enum"])
+        self.assertIn("revoked", capability["properties"]["permissionState"]["enum"])
+        self.assertIn("allOf", capability)
+        self.assertIn("extensionId", str(capability["allOf"]))
+
+        summary = json.loads(
+            (BACKEND / "contracts/sensor-summary-v1.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertFalse(summary["additionalProperties"])
+        self.assertEqual(True, summary["properties"]["processedOnDevice"]["const"])
+        self.assertIn(
+            "consented_remote",
+            summary["properties"]["transmission"]["enum"],
+        )
+        self.assertIn("consentId", summary["required"])
+        self.assertNotIn("rawImage", summary["properties"])
+        self.assertNotIn("audioBytes", summary["properties"])
+        self.assertNotIn("pointCloud", summary["properties"])
+
+    def test_audit_contract_excludes_free_form_or_sensor_payloads(self):
+        schema = json.loads(
+            (BACKEND / "contracts/consent-audit-event-v1.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertFalse(schema["additionalProperties"])
+        self.assertIn(
+            "revoke",
+            schema["properties"]["eventType"]["enum"],
+        )
+        self.assertIn("correlationId", schema["required"])
+        self.assertNotIn("payload", schema["properties"])
+        self.assertNotIn("notes", schema["properties"])
+
+    def test_sensor_and_device_plan_keeps_p0_and_app_boundaries(self):
+        plan = (
+            BACKEND.parent / "docs/electro-engel-multidevice-sensors.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("P0: BLOCKED", plan)
+        self.assertIn("keine Rohbilder", plan)
+        self.assertIn("erneute Peer-Authentifizierung", plan)
+        self.assertIn("keine Änderung an den separaten Quell-Repositories", plan)
+        self.assertIn("minSdk 26", plan)
+        self.assertIn("nicht durchgeführt", plan)
 
 
 if __name__ == "__main__":

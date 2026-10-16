@@ -21,9 +21,14 @@ Rechte. Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 - [`compose.yaml`](compose.yaml): ausschließlich lokale PostgreSQL-Entwicklung,
   an Loopback gebunden und ohne API-Service oder öffentlich erreichbaren Port.
 - [`.env.example`](.env.example): Variablennamen ohne eingetragene Credentials.
+- [`contracts/`](contracts/): versionierte, deklarative Entwürfe für
+  Gerätewechsel-Zustimmung, minimierte Audit-Ereignisse, Sensor-Capabilities und
+  abgeleitete Sensorzusammenfassungen. Sie sind nicht an eine Laufzeit-API
+  angeschlossen.
 - [`tests/test_contracts.py`](tests/test_contracts.py): Python-Standardbibliothek-
   Regressionstests für kritische Vertrags- und Isolationsinvarianten. Sie sind
-  keine Integration-, Sicherheits- oder Gerätetests.
+  keine vollständige JSON-Schema-Validierung, Integration-, Sicherheits- oder
+  Gerätetests.
 
 Fehlercodes werden auf Implementierungsebene einheitlich zugeordnet:
 `AUTHENTICATION_REQUIRED`/`AUTHENTICATION_INVALID` → 401;
@@ -126,6 +131,11 @@ POSTGRES_PASSWORD=local-only-check docker compose \
 Der Start verlangt bewusst ein gesetztes lokales Passwort und ist nicht Teil der
 automatischen Tests. Keine der Prüfungen belegt eine laufende API, sichere Authentifizierung,
 P0-Freigabe oder Verbindung zwischen zwei physischen Geräten.
+
+Gerätewechsel-, Sensorverträge, Android API-/Berechtigungsanforderungen und
+Geräteabnahmeplan stehen in
+[`docs/electro-engel-multidevice-sensors.md`](../docs/electro-engel-multidevice-sensors.md).
+Sie genehmigen keine Implementierung und lockern das P0-Gate nicht.
 
 Nächste Schritte: SecurityChain-P0-Nachweis und fachlich verantwortliche
 Freigaben einholen; API-Datenflüsse und Ressourcenumfang mit beiden App-Teams

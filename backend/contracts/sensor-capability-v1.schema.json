@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://niknolig.invalid/contracts/sensor-capability-v1.schema.json",
+  "title": "Runtime sensor capability declaration",
+  "description": "A locally discovered capability statement, not proof that capture is permitted or currently active.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "pluginId",
+    "pluginVersion",
+    "sensorType",
+    "providerId",
+    "availability",
+    "permissionState",
+    "capabilities",
+    "discoveredAt"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "1.0"
+    },
+    "pluginId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$"
+    },
+    "pluginVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "sensorType": {
+      "type": "string",
+      "enum": [
+        "lidar",
+        "depth_camera",
+        "camera",
+        "microphone",
+        "location",
+        "other"
+      ]
+    },
+    "providerId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "availability": {
+      "type": "string",
+      "enum": [
+        "available",
+        "unavailable",
+        "unknown"
+      ]
+    },
+    "permissionState": {
+      "type": "string",
+      "enum": [
+        "not_required",
+        "granted",
+        "denied",
+        "revoked",
+        "unknown"
+      ]
+    },
+    "requiredAndroidPermissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "android.permission.CAMERA",
+          "android.permission.RECORD_AUDIO",
+          "android.permission.ACCESS_COARSE_LOCATION",
+          "android.permission.ACCESS_FINE_LOCATION",
+          "android.permission.BLUETOOTH_SCAN",
+          "android.permission.BLUETOOTH_CONNECT"
+        ]
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "depth_map",
+          "point_cloud",
+          "image",
+          "audio",
+          "location_fix",
+          "environment_summary"
+        ]
+      }
+    },
+    "discoveredAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "sensorType": {
+            "const": "other"
+          }
+        },
+        "required": [
+          "sensorType"
+        ]
+      },
+      "then": {
+        "required": [
+          "extensionId"
+        ],
+        "properties": {
+          "extensionId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$"
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "required": [
+            "extensionId"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "availability": {
+            "const": "available"
+          }
+        },
+        "required": [
+          "availability"
+        ]
+      },
+      "then": {
+        "not": {
+          "properties": {
+            "permissionState": {
+              "enum": [
+                "denied",
+                "revoked",
+                "unknown"
+              ]
+            }
+          },
+          "required": [
+            "permissionState"
+          ]
+        }
+      }
+    }
+  ]
+}

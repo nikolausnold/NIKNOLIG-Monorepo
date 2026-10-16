@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://niknolig.invalid/contracts/sensor-summary-v1.schema.json",
+  "title": "Minimized on-device sensor summary",
+  "description": "Only derived, non-raw summaries are modeled. Remote transfer requires a matching, active, unexpired consent checked by the receiving implementation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "sensorType",
+    "providerId",
+    "purposeCode",
+    "capturedAt",
+    "processedOnDevice",
+    "dataClass",
+    "retentionPolicyId",
+    "transmission",
+    "consentId"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "1.0"
+    },
+    "sensorType": {
+      "type": "string",
+      "enum": [
+        "lidar",
+        "depth_camera",
+        "camera",
+        "microphone",
+        "location",
+        "other"
+      ]
+    },
+    "providerId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "purposeCode": {
+      "type": "string",
+      "enum": [
+        "sensor_depth_summary",
+        "sensor_environment_summary"
+      ]
+    },
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "processedOnDevice": {
+      "const": true
+    },
+    "dataClass": {
+      "type": "string",
+      "enum": [
+        "derived_depth_summary",
+        "derived_environment_summary"
+      ]
+    },
+    "retentionPolicyId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,64}$",
+      "description": "Must resolve to an explicitly approved retention policy; no default retention is implied."
+    },
+    "transmission": {
+      "type": "string",
+      "enum": [
+        "local_only",
+        "consented_remote"
+      ]
+    },
+    "consentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "value",
+        "unit"
+      ],
+      "properties": {
+        "metric": {
+          "type": "string",
+          "enum": [
+            "nearest_depth_m",
+            "depth_coverage_ratio",
+            "environment_class"
+          ]
+        },
+        "value": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "maxLength": 64
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "m",
+            "ratio",
+            "class"
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "transmission": {
+            "const": "consented_remote"
+          }
+        },
+        "required": [
+          "transmission"
+        ]
+      },
+      "then": {
+        "required": [
+          "consentId"
+        ]
+      }
+    }
+  ]
+}

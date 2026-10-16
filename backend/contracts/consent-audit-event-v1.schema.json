@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://niknolig.invalid/contracts/consent-audit-event-v1.schema.json",
+  "title": "Privacy-minimized consent audit event",
+  "description": "Metadata-only event. Never include sensor payloads, messages, credentials, keys, or free-form user content.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "eventId",
+    "eventType",
+    "consentId",
+    "actorInstallationId",
+    "targetInstallationId",
+    "purposeCode",
+    "occurredAt",
+    "correlationId"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "1.0"
+    },
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "grant",
+        "deny",
+        "revoke",
+        "expire"
+      ]
+    },
+    "consentId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "actorInstallationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "targetInstallationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "purposeCode": {
+      "type": "string",
+      "enum": [
+        "assistant_session_resume",
+        "sensor_depth_summary",
+        "sensor_environment_summary"
+      ]
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}

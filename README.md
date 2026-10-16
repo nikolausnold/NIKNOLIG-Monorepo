@@ -78,3 +78,9 @@ provisorischer Datenbankmigration, loopback-isolierter PostgreSQL-Compose-
 Konfiguration und statischen Vertragstests. Es gibt noch keinen API-Server oder
 eine App-Anbindung. Die operative Geräteintegration bleibt bis zur dokumentierten
 SecurityChain-P0-Freigabe gesperrt.
+
+Die Gerätewechsel-, Sensor- und Android-Abnahmeplanung ist in
+[`docs/electro-engel-multidevice-sensors.md`](docs/electro-engel-multidevice-sensors.md)
+dokumentiert; versionierte, deklarative Consent-/Sensorverträge liegen unter
+[`backend/contracts/`](backend/contracts/). Es wurden keine Sensoren aktiviert
+oder Geräte gekoppelt; die Laufzeitintegration bleibt P0-blockiert.
