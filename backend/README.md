@@ -137,6 +137,13 @@ Geräteabnahmeplan stehen in
 [`docs/electro-engel-multidevice-sensors.md`](../docs/electro-engel-multidevice-sensors.md).
 Sie genehmigen keine Implementierung und lockern das P0-Gate nicht.
 
+Die Android-/iOS-übergreifende Vertrags- und Backend-Architektur, vorhandene
+Vertragslücken, Testparität und der Integrationsplan für separate iOS-Apps
+stehen in
+[`docs/mobile-cross-platform-architecture.md`](../docs/mobile-cross-platform-architecture.md).
+Das Dokument ergänzt die Bestandsverträge, erstellt aber keine Produkt-API und
+hebt das P0-Gate nicht auf.
+
 Nächste Schritte: SecurityChain-P0-Nachweis und fachlich verantwortliche
 Freigaben einholen; API-Datenflüsse und Ressourcenumfang mit beiden App-Teams
 abgleichen; Identitätsanbieter, Schlüsselrichtlinie, Serverplattform und

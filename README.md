@@ -99,6 +99,11 @@ Das Soll-Konzept für getrennte Gründerrollen und app-spezifische Konten steht 
 Es wurden keine Konten angelegt; die produktive Rollenvergabe bleibt bis zur
 SecurityChain-P0-Freigabe gesperrt.
 
+Die plattformübergreifende Vertragsarchitektur, Android-/iOS-Grenzen und der
+Integrationsplan für spätere separate iOS-Repositories stehen in
+[`docs/mobile-cross-platform-architecture.md`](docs/mobile-cross-platform-architecture.md).
+Es werden keine iOS-Repositories oder produktiven APIs angelegt.
+
 Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
 [`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
 nur belegte, kuratierte Vorschläge und nimmt selbst keine Dateiänderungen,
