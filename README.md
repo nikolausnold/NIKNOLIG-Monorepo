@@ -88,6 +88,12 @@ dokumentiert; versionierte, deklarative Consent-/Sensorverträge liegen unter
 [`backend/contracts/`](backend/contracts/). Es wurden keine Sensoren aktiviert
 oder Geräte gekoppelt; die Laufzeitintegration bleibt P0-blockiert.
 
+Die vorbereiteten Core-/Adapter-/App-Grenzen, Vertragsregeln und ein möglicher
+späterer Extraktionspfad sind in
+[`docs/electro-engel-architecture-and-migration.md`](docs/electro-engel-architecture-and-migration.md)
+dokumentiert. Das ist keine Freigabe, ein Core-Modul, eine Runtime oder ein
+separates Repository anzulegen.
+
 Das Soll-Konzept für getrennte Gründerrollen und app-spezifische Konten steht in
 [`docs/founder-roles-and-account-requirements.md`](docs/founder-roles-and-account-requirements.md).
 Es wurden keine Konten angelegt; die produktive Rollenvergabe bleibt bis zur

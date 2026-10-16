@@ -134,6 +134,25 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("minSdk 26", plan)
         self.assertIn("nicht durchgeführt", plan)
 
+    def test_electro_engel_architecture_preserves_app_boundaries(self):
+        root = BACKEND.parent
+        settings = (root / "settings.gradle.kts").read_text(encoding="utf-8")
+        self.assertIn('include(":niknolig", ":niknolig-defense")', settings)
+        for app in ("niknolig", "niknolig-defense"):
+            build_file = (root / "apps" / app / "build.gradle.kts").read_text(
+                encoding="utf-8"
+            )
+            self.assertNotRegex(build_file, r'\bproject\s*\(')
+
+        architecture = (
+            root / "docs/electro-engel-architecture-and-migration.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("keine Core-Runtime", architecture)
+        self.assertIn("SecurityChain-P0 bleibt", architecture)
+        self.assertIn("NIKNOLIG-Integration", architecture)
+        self.assertIn("NIKNOLIG-Abhängigkeiten im Core", architecture)
+        self.assertIn("python3 -m unittest discover -s backend/tests", architecture)
+
     @unittest.skipIf(
         Draft202012Validator is None,
         "jsonschema is optional; structural assertions still run",
