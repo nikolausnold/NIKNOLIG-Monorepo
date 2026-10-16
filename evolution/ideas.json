@@ -86,9 +86,9 @@
         },
         {
           "path": "backend/README.md",
-          "startLine": 122,
-          "endLine": 123,
-          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft die oben genannten\nstatischen Invarianten.",
+          "startLine": 143,
+          "endLine": 144,
+          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und\ndie Health-only-Laufzeit.",
           "state": "verified"
         }
       ]

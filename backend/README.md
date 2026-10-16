@@ -1,19 +1,22 @@
 # Gemeinsame Backend-Grundlage
 
-**Status: contract-first, lokal isoliert, nicht produktionsfreigegeben.**
+**Status: Health-only-Laufzeit und Verträge, lokal isoliert, nicht produktionsfreigegeben.**
 
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
-Apps `com.niknolig.app` und `com.niknolig.defense`. Es gibt derzeit keinen
-Backend-Server, keine App-API-Clients, keinen produktiven Endpunkt und keine
-Cloudflare-/Deployment-Konfiguration. NIKNOLIG und NIKNOLIG Defense bleiben
-getrennte Sicherheits- und Release-Domänen; gemeinsame Verträge verleihen keine
-Rechte. Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
+Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt ausschließlich
+nicht-sensitive Health-Routen bereit; Produkt-, Authentifizierungs-, Geräte- und
+Pairing-APIs, App-Clients, produktive Endpunkte und eine Cloudflare-/Deployment-
+Konfiguration existieren nicht. NIKNOLIG und NIKNOLIG Defense bleiben getrennte
+Sicherheits- und Release-Domänen; gemeinsame Verträge verleihen keine Rechte.
+Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 
 ## Artefakte
 
 - [`openapi.yaml`](openapi.yaml): OpenAPI 3.1-Vertrag für nicht-sensitive
   Liveness-/Readiness-Prüfungen und einheitliche Fehlerantworten. Es sind bewusst
   noch keine operativen Geräte-, Profil- oder Pairing-Endpunkte freigegeben.
+- [`app.py`](app.py): lokale Health-only-HTTP-Laufzeit ohne externe
+  Python-Abhängigkeiten. Sie ist kein produktionsgeeigneter API-Server.
 - [`migrations/001_initial_contract.sql`](migrations/001_initial_contract.sql):
   vorgeschlagenes relationales Modell für App-Bereiche, Installationen,
   Geräteidentitätsstatus und spätere Zwei-App-Link-Beziehungen. Das Anwenden der
@@ -72,10 +75,10 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    Aufbewahrung, Löschung, Benutzeridentität und konkrete Nutzdaten sind noch
    nicht fachlich freigegeben.
 6. **Healthchecks:** `/health/live` meldet nur Prozessverfügbarkeit;
-   `/health/ready` darf bei einer späteren Serverimplementierung zusätzlich
-   notwendige Abhängigkeiten prüfen. Antworten dürfen keine Umgebungsvariablen,
-   interne Hosts, Stacktraces oder Datenbankdetails offenlegen. Aktuell existiert
-   kein Server, der diese Routen bedient.
+   `/health/ready` meldet die Bereitschaft dieser Health-only-Laufzeit. Es gibt
+   noch keine Produktabhängigkeiten, die geprüft werden könnten. Antworten legen
+   keine Umgebungsvariablen, internen Hosts, Stacktraces oder Datenbankdetails
+   offen.
 
 ## Lokale Datenbankumgebung
 
@@ -86,6 +89,24 @@ gibt keinen API-Container, keine Internetfreigabe und keine produktive
 Konfiguration. `.env` wird lokal aus `.env.example` erstellt und nicht
 eingecheckt. Das Compose-Setup ist nicht für Deployment oder sensible Daten
 bestimmt.
+
+## Lokaler Health-Server
+
+Mit Python 3 starten:
+
+```sh
+python3 backend/app.py
+```
+
+Die Standardbindung ist `127.0.0.1:8000`. `BACKEND_HOST` und `BACKEND_PORT`
+können als Umgebungsvariablen gesetzt werden. Die Anwendung lädt `.env` nicht
+automatisch. `/health/live` und `/health/ready` liefern die vereinbarten
+Statusantworten; andere GET-Pfade geben eine generische 404-Antwort zurück.
+Es gibt keine Anmeldung, Datenbankverbindung, Gerätefunktion oder Produkt-API.
+Die Standardbibliotheks-HTTP-Laufzeit ist nur für lokale Entwicklung und
+Vertragstests gedacht: nicht öffentlich exponieren oder als produktiven
+Internetserver verwenden. Serverplattform, TLS, Authentifizierung, Betrieb und
+Deployment bleiben separat zu konfigurieren und freizugeben.
 
 ## SecurityChain-P0 und Freigabe
 
@@ -119,8 +140,8 @@ werden durch dieses Monorepo automatisch geändert.
 
 ## Verifikation und nächste Schritte
 
-`python3 -m unittest discover -s backend/tests` prüft die oben genannten
-statischen Invarianten. Sofern Docker Compose installiert ist, kann die lokale
+`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und
+die Health-only-Laufzeit. Sofern Docker Compose installiert ist, kann die lokale
 Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:
 
 ```sh
@@ -128,9 +149,10 @@ POSTGRES_PASSWORD=local-only-check docker compose \
   --env-file backend/.env.example -f backend/compose.yaml config --quiet
 ```
 
-Der Start verlangt bewusst ein gesetztes lokales Passwort und ist nicht Teil der
-automatischen Tests. Keine der Prüfungen belegt eine laufende API, sichere Authentifizierung,
-P0-Freigabe oder Verbindung zwischen zwei physischen Geräten.
+Der Datenbankstart verlangt bewusst ein gesetztes lokales Passwort und ist nicht
+Teil der automatischen Tests. Keine der Prüfungen belegt eine operative API,
+sichere Authentifizierung, P0-Freigabe oder Verbindung zwischen zwei physischen
+Geräten.
 
 Gerätewechsel-, Sensorverträge, Android API-/Berechtigungsanforderungen und
 Geräteabnahmeplan stehen in
