@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "repositories": [
+    {
+      "id": "monorepo",
+      "kind": "local",
+      "repository": "nikolausnold/NIKNOLIG-Monorepo",
+      "baseline": null
+    },
+    {
+      "id": "niknolig",
+      "kind": "external",
+      "repository": "nikolausnold/NIKNOLIG",
+      "baseline": "3c4d6618a61604f6433639151e741371491a5f0d"
+    },
+    {
+      "id": "niknolig-defense",
+      "kind": "external",
+      "repository": "nikolausnold/NIKNOLIG-Defense",
+      "baseline": "5f0f385089bc27347eacd282c13a546eb4511da2"
+    },
+    {
+      "id": "ios",
+      "kind": "pending",
+      "repository": null,
+      "baseline": null
+    }
+  ]
+}
