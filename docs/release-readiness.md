@@ -3,7 +3,7 @@
 **Ergebnis: BLOCKED**
 
 **Audit-Baseline:** 2026-10-15, Bestandsaufnahme ab 15:03 UTC
-**Letzte Aktualisierung:** 2026-10-16, 06:25 UTC
+**Letzte Aktualisierung:** 2026-10-16, 06:32 UTC
 
 **Repository:** `nikolausnold/NIKNOLIG-Monorepo`
 
@@ -16,20 +16,22 @@
 Diese Aktualisierung ergänzt den historischen Auditstand; sie ersetzt weder
 SecurityChain-P0-Nachweise noch einen Zwei-Geräte-Test.
 
-- Aktueller Arbeitsbranch: `copilot/download-apps-without-zip`,
-  HEAD `3920e30d2e2927b74c55942c94f4fc6cb0d7574d`. Der Arbeitsbaum war bei
-  Beginn der Prüfung sauber. Gegenüber `main` `b28a19b` enthält dieser Branch
-  nur den Sicherheitsdesign-Entwurf; keine App- oder Workflow-Implementierung.
+- Arbeitsbranch: `copilot/download-apps-without-zip`; letzter geprüfter Stand
+  vor dieser Berichtsergänzung: `79b627a87a2be4e242587ac72337f72982d0daf2`.
+  Der Ausgangsstand `3920e30` war sauber. Seit `main` `b28a19b` enthält der
+  Branch ausschließlich Sicherheitsdesign-/Auditdokumentation, keine App- oder
+  Workflow-Implementierung.
 - Der erfolgreiche Android-Debug-Lauf #94 baute und prüfte beide APKs auf
   `main` bei `b28a19b`:
   [Actions-Lauf #94](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38772997928).
   Er belegt keinen Geräte-Link und führt keine App-Unit-/Instrumentierungstests
   aus.
-- Der aktuelle Branch-Push löste Android-Lauf #96 aus, Ergebnis
-  `action_required`, **null Jobs und keine fehlgeschlagenen Jobs**:
-  [Actions-Lauf #96](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38860217913).
-  Somit fand in diesem Lauf kein CI-Build statt; es liegt kein Job-Log vor, das
-  auf einen Codefehler schließen lässt.
+- Der letzte Branch-Push löste Android-Lauf #98 auf dem geprüften Stand aus,
+  Ergebnis `action_required`, **null Jobs und keine fehlgeschlagenen Jobs**:
+  [Actions-Lauf #98](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38861769602).
+  Lauf #96 und #97 endeten gleichfalls mit `action_required`. Somit fand für
+  diese Branch-Pushes kein CI-Build statt; es gibt keine Job-Logs, die einen
+  Codefehler belegen.
 - Ein lokaler Versuch von
   `./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon`
   brach vor der Build-/Testausführung ab: Gradle konnte das Android-Gradle-
