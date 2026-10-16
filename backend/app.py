@@ -3,6 +3,8 @@ import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import uuid4
 
+from database import check_database
+
 
 class HealthHandler(BaseHTTPRequestHandler):
     server_version = "NIKNOLIGBackend"
@@ -13,7 +15,19 @@ class HealthHandler(BaseHTTPRequestHandler):
         if path == "/health/live":
             self._send_json(200, {"status": "live"})
         elif path == "/health/ready":
-            self._send_json(200, {"status": "ready"})
+            if self.server.readiness_check():
+                self._send_json(200, {"status": "ready"})
+            else:
+                self._send_json(
+                    503,
+                    {
+                        "error": {
+                            "code": "SERVICE_UNAVAILABLE",
+                            "message": "Service is temporarily unavailable.",
+                            "requestId": str(uuid4()),
+                        }
+                    },
+                )
         else:
             self._send_json(
                 404,
@@ -40,9 +54,10 @@ class HealthHandler(BaseHTTPRequestHandler):
         return
 
 
-def create_server(host, port):
+def create_server(host, port, readiness_check=check_database):
     server = ThreadingHTTPServer((host, port), HealthHandler)
     server.daemon_threads = True
+    server.readiness_check = readiness_check
     return server
 
 
@@ -57,7 +72,7 @@ def main():
         raise SystemExit("BACKEND_PORT must be an integer between 1 and 65535.")
 
     server = create_server(host, port)
-    print(f"Health-only backend listening on {host}:{port}")
+    print(f"Local backend listening on {host}:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
