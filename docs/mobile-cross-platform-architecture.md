@@ -259,3 +259,78 @@ Backend-Betrieb, Plattform-Mindestversionen, Apple-/Android-Berechtigungs-
 details, Sensor-Gerätematrix und Retention. Keine dieser Entscheidungen wird
 durch Architekturtext oder ein valides Schema genehmigt. Bei nicht erfüllter
 oder nicht belegbarer Freigabe gilt fail closed.
+
+## 8. CI-Plattformtrennung und Prüfnachweise
+
+Inventur und lokale Prüfung: 16.10.2026. Alle Dateien unter
+`.github/workflows/` sind wie folgt zugeordnet:
+
+| Workflow | Domäne / Runner | Abhängigkeiten und Grenzen |
+| --- | --- | --- |
+| `android-build.yml` | Android, `ubuntu-24.04`, JDK 17, Gradle/Android SDK | Unit-Testtasks, Lint, Debug-APKs und Identitäts-/Signaturprüfung beider getrennten Apps; keine Backend-, Tooling- oder iOS-Buildabhängigkeit. |
+| `android-release.yml` | Android-Release, `ubuntu-24.04` | Separater, secretfreier Vertrags-/Tooling-Prüfjob am exakten Release-Commit vor Signierung; vertrauenswürdiger Main-Trigger bleibt erhalten. Keine Store-Veröffentlichung. |
+| `backend-contracts.yml` | Plattformneutrale Backend-Verträge und Tooling, `ubuntu-24.04` | Zwei unabhängige Python-Jobs; Vertrags-Snapshot, Tooling-Tests und bisheriges lesendes Systemupdate-Inventar ohne Android-/iOS-Build. |
+| `audit-workers.yml` | Plattformneutrales Repository-/Vertragsumfeld, `ubuntu-latest` | Nur manueller Read-only-Audit; kein App-Build oder Deployment. |
+| `release-audit-artifacts.yml` | Plattformneutrale Audit-Dokumentation, `ubuntu-24.04` | Lädt nur bestehende Berichte hoch; keine Signierung oder Veröffentlichung. |
+
+Die beiden Audit-Workflows sind keine Backend-Vertragstests. Sie bleiben als
+plattformneutrale Nachweise bestehen. Zwischen Android-Debug- und Backend-CI
+gibt es kein `needs`/`workflow_run`. Nur der Android-Releasepfad verlangt bewusst
+die Vertrags-/Tooling-Prüfung erneut am ausgewählten Commit: Die Entkopplung
+darf die bisherige Prüfung vor Zugriff auf Signing-Secrets nicht entfernen.
+Ein fehlgeschlagenes externes Update-Inventar ist kein Android-Buildfehler.
+Android-Push-/PR-Builds reagieren nur auf App-, Gradle- oder Android-Workflow-
+Änderungen; reine Backend-, Dokumentations- oder spätere iOS-Änderungen lösen
+keinen Android-Build aus. Zeitplan und manuelle Android-Ausführung bleiben
+erhalten. Falls Android als bedingungslos erforderlicher Branch-Protection-
+Check konfiguriert ist, muss diese externe Einstellung passend geprüft werden:
+Ein durch Pfadfilter ausgelassener Workflow kann sonst als „Pending“ bleiben.
+
+**Versionsbefund:** Der gemeldete Konflikt AGP 9.4.1 / Gradle 8.13 liegt im
+untersuchten Stand nicht mehr vor: `settings.gradle.kts` verwendet bereits
+AGP 8.11.1 und Kotlin 2.2.21, der Wrapper Gradle 8.13. Beide Android-Module
+nutzen JDK/JVM 17, compile/target SDK 35, Build Tools 35.0.0 und minSdk 26.
+Die [AGP-8.11-Kompatibilitätstabelle](https://developer.android.com/build/releases/past-releases/agp-8-11-0-release-notes)
+nennt Gradle 8.13 und JDK 17. Zusätzlich belegt der bestehende
+[Main-Build 38895441459](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38895441459/job/116954683496)
+am unveränderten Build-Konfigurationsstand beide Debug-APKs sowie deren
+Identitäts-/Signaturprüfung (`BUILD SUCCESSFUL`, 66 Tasks). Deshalb keine
+erneute Versionsänderung und insbesondere keine iOS-Versionsänderung.
+
+**Tatsächliche lokale Testgrenzen:** Android SDK 35, Build Tools 35.0.0 und
+JDK 17 sind vorhanden. Ein gemeinsamer Gradle-Aufruf für
+`:niknolig:testDebugUnitTest`, `:niknolig-defense:testDebugUnitTest`,
+beide `lintDebug`- und beide `assembleDebug`-Tasks bricht jedoch bereits bei
+der Pluginauflösung ab: `com.android.application:8.11.1` ist nicht abrufbar,
+`dl.google.com` lässt sich in dieser Umgebung nicht auflösen. Damit wurden
+hier weder Lint noch Debug-Build noch Unit-Tests erfolgreich ausgeführt.
+Android-Testquellen fehlen außerdem; `NO-SOURCE` wäre kein Unit-Testnachweis.
+Der ältere erfolgreiche Main-Build ersetzt keine Lint-Prüfung der neuen CI.
+
+Backend-Vertrags-/Health-Tests: 13 erfolgreich, einschließlich optionaler
+JSON-Schema-Validierung mit vorhandenem `jsonschema`. Tooling-Regressionen:
+34 erfolgreich. Beim Verschieben der CI wurden die dadurch ungültigen
+Datei-/Zeilenbelege in `evolution/ideas.json` aktualisiert, nicht die
+Validierungsregeln gelockert. Alle fünf Workflow-YAML-Dateien sind parsebar;
+`git diff --check` und der verfügbare Secret-Scan sind ohne Befund.
+Ein dedizierter `actionlint` ist lokal nicht installiert.
+
+**iOS:** Im Monorepo fehlen Swift-Quellen, `Package.swift`, Xcode-Projekte,
+Workspaces und Schemes. Deployment Targets und Signing-Konfigurationen sind
+daher nicht prüfbar. Die lokale Umgebung ist Linux, kein macOS-/Xcode-Runner.
+Es wurde kein iOS-Projekt oder Platzhalterworkflow erfunden und kein
+iOS-Test-/Build-Erfolg behauptet. Erst nach einer gesonderten Entscheidung
+über tatsächlichen Quellcode, Scheme, Deployment Target und Ownership kann
+ein eigener macOS-CI-Pfad ergänzt werden; er darf keinen Android-Build als
+Voraussetzung haben. Separate iOS-Repositories werden hier nicht verändert.
+
+NIKNOLIG und NIKNOLIG Defense behalten getrennte App-IDs, App-Daten,
+PKCS12-Stores und app-spezifische Signing-Secrets. Der vorhandene gemeinsame
+Android-Release-Orchestrator bleibt unverändert für beide Apps zuständig;
+eine Aufteilung auf app-eigene Release-Workflows/Environments ist eine offene
+Architekturentscheidung, keine implizite Freigabe zur Schlüsselteilung.
+Es gibt keine neue gemeinsame Runtime, keine geteilten App-Credentials,
+keine neuen Rechte und keine dritte Elektro-Engel-App.
+SecurityChain-P0 bleibt verbindlich. Kein Deployment, keine Migration und
+keine Veröffentlichung wurde ausgeführt; ein grüner Build ist keine
+Produktions- oder Release-Freigabe.

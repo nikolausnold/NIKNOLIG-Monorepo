@@ -46,8 +46,8 @@ Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
 ## Build und Prüfung
 
-Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 8.13 (über den
-mitgelieferten Wrapper).
+Voraussetzungen: JDK 17, Android SDK / compile SDK 35, Build Tools 35.0.0,
+Android Gradle Plugin 8.11.1, Kotlin 2.2.21 und Gradle 8.13 (über den Wrapper).
 
 Beide APKs unabhängig im selben Build aufbauen:
 
@@ -57,9 +57,23 @@ Beide APKs unabhängig im selben Build aufbauen:
 
 Der Workflow
 [`Android apps build`](.github/workflows/android-build.yml) baut beide Apps,
-prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
-Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
-Android-Testtask behauptet.
+prüft ihre APK-IDs und verifiziert die APK-Signaturen. Er fordert außerdem
+`testDebugUnitTest` und `lintDebug` für jedes Modul an.
+Es gibt keine Android-Testquellen; ein `NO-SOURCE`-Testtask ist kein bestandener
+Unit-Test.
+
+[`Backend contracts and tooling`](.github/workflows/backend-contracts.yml)
+prüft Backend-Verträge/Health-Runtime und Tooling in unabhängigen Linux-Jobs,
+ohne Gradle, Android SDK oder Xcode. Vertragsartefakte und das Systemupdate-
+Inventar liegen dort und blockieren den Android-Debug-Build nicht.
+Vor Android-Signierung bleiben Vertrags- und Tooling-Tests für exakt denselben
+Commit als eigener, secretfreier Release-Prüfjob verpflichtend.
+
+Es gibt keine Swift-Dateien, Xcode-Projekte, Schemes oder Swift Packages und
+deshalb keinen iOS-Buildworkflow. Ein späterer iOS-Pfad muss unabhängig von
+Android auf macOS mit Swift/Xcode sowie eigenen Signierungs-/Release-Grenzen
+laufen. Die vollständige [Workflow-Zuordnung und Prüfnachweise](docs/mobile-cross-platform-architecture.md#8-ci-plattformtrennung-und-prüfnachweise)
+dokumentieren auch die derzeitigen Testgrenzen.
 
 ## Read-only Audit
 
