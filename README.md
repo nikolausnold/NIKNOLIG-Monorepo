@@ -84,3 +84,8 @@ Die Gerätewechsel-, Sensor- und Android-Abnahmeplanung ist in
 dokumentiert; versionierte, deklarative Consent-/Sensorverträge liegen unter
 [`backend/contracts/`](backend/contracts/). Es wurden keine Sensoren aktiviert
 oder Geräte gekoppelt; die Laufzeitintegration bleibt P0-blockiert.
+
+Das Soll-Konzept für getrennte Gründerrollen und app-spezifische Konten steht in
+[`docs/founder-roles-and-account-requirements.md`](docs/founder-roles-and-account-requirements.md).
+Es wurden keine Konten angelegt; die produktive Rollenvergabe bleibt bis zur
+SecurityChain-P0-Freigabe gesperrt.
