@@ -314,6 +314,22 @@ Datei-/Zeilenbelege in `evolution/ideas.json` aktualisiert, nicht die
 Validierungsregeln gelockert. Alle fünf Workflow-YAML-Dateien sind parsebar;
 `git diff --check` und der verfügbare Secret-Scan sind ohne Befund.
 Ein dedizierter `actionlint` ist lokal nicht installiert.
+Der automatisierte Review-Dienst war wegen eines Modellregistrierungsfehlers
+nicht verfügbar; ein ersatzweises Read-only-Code-Review fand keine
+wesentlichen Fehler. CodeQL meldete keine Python-Befunde, aber zwei
+Cache-Poisoning-Warnungen an den Release-Vertrags-/Tooling-Testschritten.
+Diese wurden geprüft und als nicht ausnutzbare Fehlalarme bewertet: Der
+vorgeschaltete Job erlaubt nur manuelle Main-Läufe oder erfolgreiche
+Main-Läufe desselben Repositories aus Push/Zeitplan/manuellem Trigger.
+PR-/Fork-Code passiert diesen Guard nicht; der Job hat nur Leserechte, keine
+Signing-Secrets und keinen konfigurierten Cache. Die Warnungen werden nicht
+durch einen schwächeren Guard oder eine Scan-Unterdrückung beseitigt.
+Die neuen GitHub-Läufe für
+[Android](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38906531831)
+und [Backend/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38906531894)
+stehen auf `action_required`, jeweils ohne gestartete Jobs oder Job-Logs.
+Ihre Ausführung ist daher noch nicht nachgewiesen; die erforderliche
+GitHub-Aktion/Freigabe muss im jeweiligen Lauf geprüft werden.
 
 **iOS:** Im Monorepo fehlen Swift-Quellen, `Package.swift`, Xcode-Projekte,
 Workspaces und Schemes. Deployment Targets und Signing-Konfigurationen sind
