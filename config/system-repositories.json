@@ -21,9 +21,9 @@
     },
     {
       "id": "ios",
-      "kind": "pending",
-      "repository": null,
-      "baseline": null
+      "kind": "external",
+      "repository": "nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo",
+      "baseline": "afe4f5a3f0b84500437484a3bf0b3976d7b99e58"
     }
   ]
 }

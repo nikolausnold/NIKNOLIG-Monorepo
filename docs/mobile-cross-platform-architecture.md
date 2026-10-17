@@ -1,9 +1,12 @@
 # Android-/iOS-Architektur und Integrationsplan
 
-**Status:** Architektur- und Vertragsplanung. Keine iOS-App, kein neuer
-API-Endpunkt, kein produktiver Backend-Dienst und keine Änderung an den
-separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein verbindliches
-Stop-Gate.
+**Status:** Architektur- und Vertragsplanung. Die separaten NIKNOLIG- und
+Defense-iOS-Projekte liegen im externen Repository
+[`nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo`](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo);
+dieses Monorepo überwacht es nur lesend. Keine operative App-/Backend-Verbindung,
+kein neuer API-Endpunkt, kein produktiver Backend-Dienst und keine Änderung an
+den separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein
+verbindliches Stop-Gate.
 
 ## 1. Bestand: wiederverwenden statt duplizieren
 
@@ -229,26 +232,25 @@ Kein neues Repository wird im Rahmen dieser Vorbereitung erstellt.
    Monorepo-Module behalten Ownership und App-Identität. Eine spätere Anbindung
    wird von den zuständigen Teams separat geplant, reviewed und freigegeben;
    dieses Dokument ändert sie nicht.
-5. **iOS-Repository NIKNOLIG-iOS:** Erst nach Freigabe separat erstellen. Es
-   enthält NIKNOLIG-Oberfläche, eigenes Bundle-/Signing-/Release-Setup,
-   App-scoped Authentifizierung und iOS-Adapter. Es konsumiert ausschließlich
-   die genehmigten gemeinsamen Verträge; kein Defense-Schlüssel, keine
+5. **NIKNOLIG iOS:** Das Projekt liegt bereits in einem separaten iOS-Monorepo.
+   Es benötigt ein eigenes Bundle-/Signing-/Release-Setup, app-scoped
+   Authentifizierung und iOS-Adapter. Es konsumiert ausschließlich die
+   genehmigten gemeinsamen Verträge; kein Defense-Schlüssel, keine
    Android-Runtime und kein impliziter Elektro-Engel-Berechtigungsbereich.
-6. **iOS-Repository NIKNOLIG-Defense-iOS:** Ebenfalls separat und mit eigenem
-   Bundle, Signing, Release, Identität, Authentifizierung und Test-/Consent-
-   Fluss. Keine gemeinsame App-Sandbox, Credentials oder implizite Rechte mit
-   NIKNOLIG-iOS oder den Android-Apps.
+6. **NIKNOLIG Defense iOS:** Das Projekt liegt im selben iOS-Monorepo, bleibt
+   aber mit eigenem Bundle, Signing, Release, Identität, Authentifizierung und
+   Test-/Consent-Fluss getrennt. Keine gemeinsame App-Sandbox, Credentials oder
+   implizite Rechte mit NIKNOLIG iOS oder den Android-Apps.
 7. **Parität und Übergang:** Für jeden iOS-Verbraucher Schema-/Fehler-Fixtures,
    App-Bereich, Widerruf, Permission-Nein/Widerruf und Release-Artefakte
    verifizieren. Verträge werden nur nach einer dokumentierten Consumer-
    Migration und Kompatibilitätsprüfung ausgebaut oder abgekündigt.
 
-Technisch sinnvoll werden getrennte iOS-Repositories, wenn Verantwortliche,
-Bundle-IDs, Signierung, Releasezyklen und unabhängige Wartung feststehen und
-die gemeinsamen Verträge versioniert, automatisiert geprüft und von Android
-und Backend konsumiert werden. Davor vermeidet ein Vertragsinventar im
-Monorepo unnötige Duplikation. Produktive Umsetzung bleibt unabhängig davon
-SecurityChain-P0-blockiert.
+Das vorhandene iOS-Monorepo wird in diesem Monorepo nur als externe Quelle
+inventarisiert; das bestätigt weder seinen Build noch eine Laufzeitintegration.
+Unabhängig von der Repository-Aufteilung erfordern produktive API- und
+Geräteintegration freigegebene, versionierte Verträge und bleiben bis zur
+SecurityChain-P0-Freigabe blockiert.
 
 ## 7. Offene Entscheidungen und Stop-Gate
 
