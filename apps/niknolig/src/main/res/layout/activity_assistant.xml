@@ -59,6 +59,7 @@
             android:layout_marginTop="@dimen/space_medium"
             android:gravity="top|start"
             android:hint="@string/assistant_request_hint"
+            android:importantForAutofill="no"
             android:inputType="textCapSentences|textMultiLine"
             android:maxLength="500"
             android:minHeight="96dp"

@@ -3,7 +3,6 @@
     <color name="dark_surface">#131A17</color>
     <color name="brand_accent">#C8F169</color>
     <color name="gold">@color/brand_accent</color>
-    <color name="active_green">#A6CF4D</color>
     <color name="text_primary">#F3F4EF</color>
     <color name="text_secondary">#A0AAA2</color>
 </resources>
