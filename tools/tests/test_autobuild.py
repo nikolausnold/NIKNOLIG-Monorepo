@@ -1,3 +1,7 @@
+import os
+import subprocess
+import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -6,6 +10,50 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class AutobuildTests(unittest.TestCase):
+    def test_audit_uses_only_local_checkout_without_secrets(self):
+        workflow = (ROOT / ".github/workflows/audit-workers.yml").read_text()
+        for guard in (
+            "contents: read",
+            "uses: actions/checkout@",
+            "persist-credentials: false",
+            'python3 - "$GITHUB_WORKSPACE" "$GITHUB_STEP_SUMMARY"',
+        ):
+            with self.subTest(guard=guard):
+                self.assertIn(guard, workflow)
+        self.assertNotIn("secrets.", workflow)
+        self.assertNotIn("WORKERS_REPOSITORY_URL", workflow)
+        self.assertNotIn("WORKERS_REPO_READ_PAT", workflow)
+        self.assertNotIn("git clone", workflow)
+
+    def test_audit_runs_without_valid_legacy_configuration(self):
+        workflow = (ROOT / ".github/workflows/audit-workers.yml").read_text()
+        script = textwrap.dedent(workflow.split("        run: |\n", 1)[1])
+        for legacy_value in (None, "not-a-github-clone-url"):
+            with self.subTest(legacy_value=legacy_value), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / "README.md").write_text("# Local audit fixture\n")
+                summary = root / "summary.txt"
+                env = os.environ.copy()
+                for name in ("WORKERS_REPOSITORY_URL", "WORKERS_REPO_READ_PAT"):
+                    env.pop(name, None)
+                    if legacy_value is not None:
+                        env[name] = legacy_value
+                env.update(GITHUB_WORKSPACE=str(root), GITHUB_STEP_SUMMARY=str(summary))
+                result = subprocess.run(
+                    ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", script],
+                    cwd=root,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                report = summary.read_text()
+                self.assertIn("- Files inspected: 1", report)
+                self.assertIn("# Local audit fixture", report)
+                self.assertIn("This report inspects this repository only.", report)
+                self.assertNotIn("not-a-github-clone-url", report)
+
     def test_release_only_signs_successful_trusted_main_build_commit(self):
         workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
         for guard in (

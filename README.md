@@ -70,6 +70,10 @@ oder Skripte aus und ist weder ein Anwendungstest noch ein Nachweis für eine
 Cloudflare-Verbindung. Sein begrenzter Credential-Musterscan beweist nicht, dass
 keine Geheimnisse vorhanden sind.
 
+Die früheren Secrets `WORKERS_REPOSITORY_URL` und `WORKERS_REPO_READ_PAT` werden
+nicht mehr benötigt oder ausgewertet. Der Audit verwendet den lokalen Checkout
+mit `contents: read` und ohne dauerhaft gespeicherte Git-Anmeldedaten.
+
 Weitere Inventur- und Cloudflare-Nachweise stehen im
 [Master-Integrationsplan](docs/MASTER-INTEGRATION-PLAN.md).
 
