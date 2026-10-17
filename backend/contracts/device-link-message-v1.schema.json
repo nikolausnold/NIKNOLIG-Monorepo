@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://niknolig.example/contracts/device-link-message-v1.schema.json",
+  "title": "NIKNOLIG device-link control message v1",
+  "description": "Proposed bounded control-plane envelope only. Schema validity does not establish identity, consent, authorization, signature validity, replay safety, or P0 approval. No user payload is defined.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "messageId",
+    "sessionId",
+    "senderInstallationId",
+    "senderAppArea",
+    "recipientAppArea",
+    "sequence",
+    "eventType",
+    "issuedAt",
+    "expiresAt",
+    "nonce",
+    "signature"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "1.0"
+    },
+    "messageId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sessionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "senderInstallationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "senderAppArea": {
+      "enum": [
+        "niknolig",
+        "niknolig-defense"
+      ]
+    },
+    "recipientAppArea": {
+      "enum": [
+        "niknolig",
+        "niknolig-defense"
+      ]
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "eventType": {
+      "enum": [
+        "consent.accepted",
+        "session.heartbeat",
+        "session.revoke"
+      ]
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "nonce": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{22,86}$"
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43,684}$"
+    }
+  }
+}
