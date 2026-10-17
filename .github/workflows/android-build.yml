@@ -39,8 +39,16 @@ jobs:
           path: ${{ runner.temp }}/system-update-report.json
           if-no-files-found: error
           retention-days: 7
-      - name: Assemble both debug APKs
-        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon
+      - name: Run Android unit tests and assemble both debug APKs
+        run: >-
+          ./gradlew
+          :niknolig:testDebugUnitTest
+          :niknolig-defense:testDebugUnitTest
+          :niknolig:lintDebug
+          :niknolig-defense:lintDebug
+          :niknolig:assembleDebug
+          :niknolig-defense:assembleDebug
+          --no-daemon
       - name: Verify package identities and APK signatures
         shell: bash
         run: |

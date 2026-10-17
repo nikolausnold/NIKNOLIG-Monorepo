@@ -3,6 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+}
+
 val updateVersionCode = providers.environmentVariable("NIKNOLIG_VERSION_CODE").orNull?.let {
     val code = requireNotNull(it.toIntOrNull()) { "Invalid NIKNOLIG_VERSION_CODE" }
     require(code in 2..2100000000) { "Invalid NIKNOLIG_VERSION_CODE" }
