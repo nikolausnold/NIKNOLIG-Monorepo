@@ -100,9 +100,9 @@ Es wurden keine Konten angelegt; die produktive Rollenvergabe bleibt bis zur
 SecurityChain-P0-Freigabe gesperrt.
 
 Die plattformübergreifende Vertragsarchitektur, Android-/iOS-Grenzen und der
-Integrationsplan für spätere separate iOS-Repositories stehen in
+Integrationsplan für das separate iOS-Monorepo stehen in
 [`docs/mobile-cross-platform-architecture.md`](docs/mobile-cross-platform-architecture.md).
-Es werden keine iOS-Repositories oder produktiven APIs angelegt.
+Dieses Monorepo legt keine zusätzlichen iOS-Repositories oder produktiven APIs an.
 
 Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
 [`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
@@ -120,10 +120,11 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   und GitHub Actions als Pull Requests vor. Diese durchlaufen den Autobuild;
   es gibt keinen automatischen Merge und keine ungeprüfte Quellcodeübernahme.
 - Das [Systemregister](config/system-repositories.json) erfasst dieses
-  Monorepo, die bekannten NIKNOLIG-/Defense-Quellen und den noch offenen
-  iOS-Anschluss. Auf `main` prüft der Autobuild die registrierten Repositories
-  lesend über die GitHub-API. Der commitbezogene `system-update-report` zeigt
-  Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
+  Monorepo und alle fünf im Account-Inventar sichtbaren externen NIKNOLIG-,
+  Defense- und iOS-Repositories. Auf `main` prüft der Autobuild die registrierten
+  Repositories lesend über die GitHub-API. Der commitbezogene
+  `system-update-report` zeigt Änderungen gegenüber den eingetragenen
+  Quellständen; er importiert sie nicht und prüft weder Kompatibilität noch Builds.
   Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung
   fehlschlagen, statt vollständige Systemkompatibilität vorzutäuschen.
 - Das Artefakt `mobile-contracts-<Commit-SHA>` enthält dieselben OpenAPI- und
@@ -148,7 +149,7 @@ Builds, Netzwerkzugriffe oder Deployments vor.
 **Geräteseitige Updates sind noch nicht aktiviert.** APK-Artefakte sind keine
 Store-Veröffentlichung; Debug-APKs sind kein Updatepfad für signierte Releases.
 Für automatische Android-Updates braucht es einen freigegebenen Play-Store-
-oder verwalteten Verteilungsweg. iOS benötigt eigene App-Repositories, Apple-
+oder verwalteten Verteilungsweg. iOS benötigt getrennte App-Identitäten, Apple-
 Signierung und einen TestFlight-/App-Store-Verteilungsweg. Ein stiller eigener
 Installer oder die Umgehung von Plattformfreigaben wird nicht eingerichtet.
 SecurityChain-P0 und die produktive Releasesperre bleiben bestehen.
@@ -206,5 +207,5 @@ Aktivierung in einer Woche.** Die tatsächliche Anbindung benötigt anschließen
    [Apple Developer](https://developer.apple.com/account/) und
    [App Store Connect](https://appstoreconnect.apple.com/) werden eigene
    App-Identitäten, Signierung, Datenschutzangaben und TestFlight-Prüfungen
-   benötigt. Da hier kein iOS-App-Projekt existiert, erzeugt dieser Workflow
+   benötigt. Da dieses Monorepo kein iOS-App-Projekt enthält, erzeugt dieser Workflow
    weder ein iOS-Archiv noch einen iOS-Storeupload.

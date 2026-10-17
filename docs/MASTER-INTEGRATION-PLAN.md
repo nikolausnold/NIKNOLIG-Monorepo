@@ -6,7 +6,7 @@ Assistenzoberfläche ohne KI-/Backend- oder Geräteintegration. Eine produktive
 Integration, Cloudflare-Verbindung und Deployment sind nicht nachgewiesen oder
 freigegeben.
 
-**Inventurstand:** 2026-10-14
+**Inventurstand:** 2026-10-17
 
 **Historischer Inventurbranch:** `copilot/maintain-existing-work`
 
@@ -74,14 +74,24 @@ Cloudflare-Verbindung.
 
 ### Quell-Repositories
 
-Die GitHub-Inhaltsabfragen sind jetzt erfolgreich. Die folgenden Revisionsstände
-und begrenzten Inhalte wurden read-only über die GitHub-API geprüft; es wurde
-nichts geklont:
+Die Inventur der sichtbaren Repositories des Accounts `nikolausnold` ergab sechs
+Einträge einschließlich dieses Monorepos. Die folgenden externen Quellstände und
+begrenzten Inhalte wurden read-only über die GitHub-API geprüft; es wurde nichts
+geklont oder in externen Repositories geändert:
 
 | Quelle | `main`-Revision | Geprüfte Struktur und Inhalte | Status / Grenzen |
 | --- | --- | --- | --- |
 | [nikolausnold/NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG) | `3c4d6618a61604f6433639151e741371491a5f0d` | README; Android-Gerüst mit Gradle-Wrapper, `app/`, `app/src/main/AndroidManifest.xml`; statische Website mit `index.html` und `styles.css`; Android-Build- und GitHub-Pages-Workflows. | README beschreibt eine frühe Vorschau. BLE, Gerätevertrauen, Sicherheitsfreigaben und produktive Funktionen seien noch nicht implementiert. |
 | [nikolausnold/NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense) | `5f0f385089bc27347eacd282c13a546eb4511da2` | README; Android-Gerüst mit Gradle-Wrapper, `app/`, `app/src/main/AndroidManifest.xml`; eigene statische Website mit `index.html` und `styles.css`; Android-Build- und GitHub-Pages-Workflows. | README/Website beschreiben die App und Defense als in Entwicklung; sie belegen keine produktive Sicherheitsintegration. |
+| [nikolausnold/NIKNOLIG-iOS-](https://github.com/nikolausnold/NIKNOLIG-iOS-) | `ff77f13d01df26a2e4749d061a9ec6e9b05528d8` | README; eigenständiger Android-Gradle-Root mit `:app`, Website-Dateien und zusätzlichen Assets/Docs. | Trotz Repository-Namens kein nativer iOS-App-Root; README verweist auf das iOS-Monorepo. |
+| [nikolausnold/NIKNOLIG-Defense-iOS-](https://github.com/nikolausnold/NIKNOLIG-Defense-iOS-) | `1100ed6e1f636c296747d4c2bc628a78c99975d2` | README; eigenständiger Android-Gradle-Root mit `:app`, Website-Dateien und zusätzlichen Assets/Docs. | Trotz Repository-Namens kein nativer iOS-App-Root; README beschreibt ein Android-Gerüst. |
+| [nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo) | `afe4f5a3f0b84500437484a3bf0b3976d7b99e58` | Swift-Package für Health-Vertragsmodelle/Keychain-Adapter und Tests; getrennte NIKNOLIG- und Defense-iOS-App-Projekte/Schemes laut README. | Native iOS-Quelle mit SecurityChain-P0 als Release-Blocker; Simulator-Builds benötigen macOS/Xcode. Keine Produktionsfreigabe abgeleitet. |
+
+Das Register `config/system-repositories.json` erfasst nun alle fünf externen
+Quellen mit den jeweils beobachteten `main`-Revisionen. Die beiden Repositories
+mit „iOS“ im Namen werden nicht als native iOS-Apps fehlklassifiziert; das
+separate iOS-Monorepo wird als eigentliche native iOS-Quelle beobachtet. Diese
+Inventur bestätigt weder vollständige Kompatibilität noch Builds oder Releases.
 
 Beide geprüften Upstream-App-Gradle-Konfigurationen verwenden weiterhin
 `com.niknolig.app` als Namespace und `applicationId`. Das wäre für parallele

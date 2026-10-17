@@ -20,10 +20,22 @@
       "baseline": "5f0f385089bc27347eacd282c13a546eb4511da2"
     },
     {
-      "id": "ios",
-      "kind": "pending",
-      "repository": null,
-      "baseline": null
+      "id": "niknolig-ios-root",
+      "kind": "external",
+      "repository": "nikolausnold/NIKNOLIG-iOS-",
+      "baseline": "ff77f13d01df26a2e4749d061a9ec6e9b05528d8"
+    },
+    {
+      "id": "niknolig-defense-ios-root",
+      "kind": "external",
+      "repository": "nikolausnold/NIKNOLIG-Defense-iOS-",
+      "baseline": "1100ed6e1f636c296747d4c2bc628a78c99975d2"
+    },
+    {
+      "id": "ios-monorepo",
+      "kind": "external",
+      "repository": "nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo",
+      "baseline": "afe4f5a3f0b84500437484a3bf0b3976d7b99e58"
     }
   ]
 }
