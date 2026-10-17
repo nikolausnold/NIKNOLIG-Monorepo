@@ -2,6 +2,21 @@
 
 **Ergebnis: BLOCKED**
 
+## Aktueller Sicherheits- und Fingerprint-Nachweis (2026-10-17)
+
+Der aktuelle Stand der Signatur-Fingerprints, P0-Abnahmekriterien,
+Zuständigkeiten und plattformgetrennten Geräte-Testvorbereitung ist in
+[`security-release-readiness-2026-10-17.md`](security-release-readiness-2026-10-17.md)
+dokumentiert. Die Release-Läufe #70 und #71 bestätigen jeweils nur die
+Übereinstimmung zwischen APK und Keystore derselben CI-Vertrauenskette. Beide
+Fingerprints bleiben **UNVERIFIED**, bis sie gegen eine unabhängig
+vertrauenswürdige Referenz bestätigt wurden. P0-Abnahmen und physische
+Zwei-Geräte-Tests sind weiterhin **PENDING**; eine Geräteverbindung und
+Produktionsfreigabe bleiben **BLOCKED**.
+
+Der nachfolgende Bericht ist ein historischer Prüfstand vom 2026-10-15/16 und
+wird nicht als aktueller Build- oder Geräte-Testnachweis ausgegeben.
+
 **Audit-Baseline:** 2026-10-15, Bestandsaufnahme ab 15:03 UTC
 **Letzte Aktualisierung:** 2026-10-16, 06:32 UTC
 
