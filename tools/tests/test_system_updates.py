@@ -70,7 +70,7 @@ class SystemUpdatesTests(unittest.TestCase):
             lambda data: data.update(repositories=[]),
             lambda data: data["repositories"].pop(0),
             lambda data: data["repositories"][0].update(repository="nikolausnold/other"),
-            lambda data: data["repositories"][3].update(repository="nikolausnold/fake-ios"),
+            lambda data: data["repositories"][3].update(kind="pending"),
             lambda data: data["repositories"][1].update(kind="automatic"),
         ]
         for mutation in mutations:
@@ -193,23 +193,26 @@ class SystemUpdatesTests(unittest.TestCase):
         return exit_code, output.getvalue()
 
     def test_cli_emits_complete_json_and_failure_exit_code(self):
-        code, output = self.run_cli([("main", HEAD), InventoryError("unavailable"), ("main", HEAD)])
+        code, output = self.run_cli([
+            ("main", HEAD), InventoryError("unavailable"), ("main", HEAD),
+            ("main", HEAD), ("main", HEAD),
+        ])
         self.assertEqual(1, code)
         report = json.loads(output)
-        self.assertEqual(4, len(report["repositories"]))
+        self.assertEqual(6, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][1]["status"])
-        code, output = self.run_cli([("main", HEAD)] * 3)
+        code, output = self.run_cli([("main", HEAD)] * 5)
         self.assertEqual(0, code)
-        self.assertEqual(["ios"], json.loads(output)["pending_configuration"])
+        self.assertEqual([], json.loads(output)["pending_configuration"])
 
     def test_cli_output_file_and_unwritable_output_fallback(self):
         with patch("tools.system_updates.Path.write_text") as write:
-            code, output = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
+            code, output = self.run_cli([("main", HEAD)] * 5, ["--output", "inventory.json"])
             self.assertEqual(0, code)
             self.assertEqual("", output)
-            self.assertEqual(4, len(json.loads(write.call_args.args[0])["repositories"]))
+            self.assertEqual(6, len(json.loads(write.call_args.args[0])["repositories"]))
         with patch("tools.system_updates.Path.write_text", side_effect=PermissionError):
-            code, output = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
+            code, output = self.run_cli([("main", HEAD)] * 5, ["--output", "inventory.json"])
             self.assertEqual(2, code)
             self.assertTrue(json.loads(output)["all_configured_repositories_checked"])
 
