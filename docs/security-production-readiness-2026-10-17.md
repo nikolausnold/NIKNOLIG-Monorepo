@@ -1,9 +1,8 @@
 # NIKNOLIG – Security & Production Readiness Gates
 
-**Prüfdatum:** 2026-10-17  
-**Prüfstand:** `copilot/android-build-checks`, Commit
-`692e44d02f55afc90bab6288aba5aeee24f314b7`  
-**Gesamtergebnis:** **BLOCKED – keine technische Produktionsfreigabe**
+- **Prüfdatum:** 2026-10-17
+- **Prüfstand:** `copilot/android-build-checks`, Commit `692e44d02f55afc90bab6288aba5aeee24f314b7`
+- **Gesamtergebnis:** **BLOCKED – keine technische Produktionsfreigabe**
 
 Dieser Bericht trennt technische Prüfergebnisse von einer abschließenden
 Gründerentscheidung. Er erteilt weder eine Produktionsfreigabe noch eine
