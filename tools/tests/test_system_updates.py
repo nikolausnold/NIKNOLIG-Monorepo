@@ -42,7 +42,9 @@ class SystemUpdatesTests(unittest.TestCase):
             sources["ios-monorepo"]["repository"],
         )
         self.assertEqual("afe4f5a3f0b84500437484a3bf0b3976d7b99e58", sources["ios-monorepo"]["baseline"])
-        self.assertEqual(6, len(self.entries))
+        self.assertEqual("nikolausnold/nold-edge-v0.1", sources["nold-edge"]["repository"])
+        self.assertEqual("3556a8d8d2d7d14fa685f37f2454fb0bbe38dfc4", sources["nold-edge"]["baseline"])
+        self.assertEqual(7, len(self.entries))
         self.assertFalse(any(entry["kind"] == "pending" for entry in self.entries))
 
     def test_registry_rejects_untrusted_paths_and_malformed_baselines(self):
@@ -84,14 +86,14 @@ class SystemUpdatesTests(unittest.TestCase):
             "id": "future-app", "kind": "external",
             "repository": "nikolausnold/Future-App", "baseline": HEAD,
         })
-        self.assertEqual(7, len(validate_registry(self.registry)))
+        self.assertEqual(8, len(validate_registry(self.registry)))
 
     def test_report_compares_external_repositories_without_claiming_builds(self):
         reader = MagicMock()
         baseline = self.entries[1]["baseline"]
         reader.head.side_effect = [
             ("main", HEAD), ("release", baseline), ("main", HEAD),
-            ("main", HEAD), ("main", HEAD), ("main", HEAD),
+            ("main", HEAD), ("main", HEAD), ("main", HEAD), ("main", HEAD),
         ]
         report = build_report(self.entries, reader, LOCAL)
         local, unchanged, changed, *additional = report["repositories"]
@@ -103,20 +105,20 @@ class SystemUpdatesTests(unittest.TestCase):
         self.assertFalse(unchanged["changed"])
         self.assertTrue(changed["changed"])
         self.assertIn("no update adopted", report["semantics"]["changed"])
-        self.assertEqual(3, len(additional))
+        self.assertEqual(4, len(additional))
         self.assertTrue(all(result["status"] == "checked" for result in additional))
         self.assertTrue(all(result["changed"] for result in additional))
-        self.assertEqual(6, reader.head.call_count)
+        self.assertEqual(7, reader.head.call_count)
 
     def test_failure_does_not_skip_remaining_repositories_or_claim_unchanged(self):
         reader = MagicMock()
         reader.head.side_effect = [
             InventoryError("GitHub HTTP 404"), ("main", HEAD), ("main", HEAD),
-            ("main", HEAD), ("main", HEAD), ("main", HEAD),
+            ("main", HEAD), ("main", HEAD), ("main", HEAD), ("main", HEAD),
         ]
         report = build_report(self.entries, reader)
         self.assertFalse(report["all_configured_repositories_checked"])
-        self.assertEqual(6, len(report["repositories"]))
+        self.assertEqual(7, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][0]["status"])
         self.assertIsNone(report["repositories"][0]["changed"])
         self.assertEqual("not_available", report["repositories"][0]["local_reference_status"])
@@ -195,24 +197,24 @@ class SystemUpdatesTests(unittest.TestCase):
     def test_cli_emits_complete_json_and_failure_exit_code(self):
         code, output = self.run_cli([
             ("main", HEAD), InventoryError("unavailable"), ("main", HEAD),
-            ("main", HEAD), ("main", HEAD), ("main", HEAD),
+            ("main", HEAD), ("main", HEAD), ("main", HEAD), ("main", HEAD),
         ])
         self.assertEqual(1, code)
         report = json.loads(output)
-        self.assertEqual(6, len(report["repositories"]))
+        self.assertEqual(7, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][1]["status"])
-        code, output = self.run_cli([("main", HEAD)] * 6)
+        code, output = self.run_cli([("main", HEAD)] * 7)
         self.assertEqual(0, code)
         self.assertEqual([], json.loads(output)["pending_configuration"])
 
     def test_cli_output_file_and_unwritable_output_fallback(self):
         with patch("tools.system_updates.Path.write_text") as write:
-            code, output = self.run_cli([("main", HEAD)] * 6, ["--output", "inventory.json"])
+            code, output = self.run_cli([("main", HEAD)] * 7, ["--output", "inventory.json"])
             self.assertEqual(0, code)
             self.assertEqual("", output)
-            self.assertEqual(6, len(json.loads(write.call_args.args[0])["repositories"]))
+            self.assertEqual(7, len(json.loads(write.call_args.args[0])["repositories"]))
         with patch("tools.system_updates.Path.write_text", side_effect=PermissionError):
-            code, output = self.run_cli([("main", HEAD)] * 6, ["--output", "inventory.json"])
+            code, output = self.run_cli([("main", HEAD)] * 7, ["--output", "inventory.json"])
             self.assertEqual(2, code)
             self.assertTrue(json.loads(output)["all_configured_repositories_checked"])
 

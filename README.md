@@ -120,8 +120,8 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   und GitHub Actions als Pull Requests vor. Diese durchlaufen den Autobuild;
   es gibt keinen automatischen Merge und keine ungeprüfte Quellcodeübernahme.
 - Das [Systemregister](config/system-repositories.json) erfasst dieses
-  Monorepo und alle fünf im Account-Inventar sichtbaren externen NIKNOLIG-,
-  Defense- und iOS-Repositories. Auf `main` prüft der Autobuild die registrierten
+  Monorepo und alle sechs im Account-Inventar sichtbaren externen NIKNOLIG-,
+  Defense-, iOS- und NOLD-Edge-Repositories. Auf `main` prüft der Autobuild die registrierten
   Repositories lesend über die GitHub-API. Der commitbezogene
   `system-update-report` zeigt Änderungen gegenüber den eingetragenen
   Quellständen; er importiert sie nicht und prüft weder Kompatibilität noch Builds.

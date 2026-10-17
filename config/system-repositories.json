@@ -36,6 +36,12 @@
       "kind": "external",
       "repository": "nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo",
       "baseline": "afe4f5a3f0b84500437484a3bf0b3976d7b99e58"
+    },
+    {
+      "id": "nold-edge",
+      "kind": "external",
+      "repository": "nikolausnold/nold-edge-v0.1",
+      "baseline": "3556a8d8d2d7d14fa685f37f2454fb0bbe38dfc4"
     }
   ]
 }
