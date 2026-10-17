@@ -49,6 +49,32 @@ class DeviceLinkConnectionManagerTest {
     }
 
     @Test
+    fun refusesTransportWithoutVerifiedEncryptionAndMitmProtection() {
+        val fixture = Fixture()
+        assertTrue(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
+        fixture.ble.completeWith(
+            0,
+            DeviceLinkTransportEvidence(
+                sessionId = fixture.peer.sessionId,
+                peerInstallationId = fixture.peer.installationId,
+                encrypted = true,
+                mitmProtected = false,
+            ),
+        )
+        assertEquals(DeviceLinkState.FAILED, fixture.manager.state)
+        assertEquals(1, fixture.ble.disconnectCalls)
+
+        val policyRejectsEvidence = Fixture()
+        assertTrue(policyRejectsEvidence.manager.connect(
+            policyRejectsEvidence.peer,
+            localConsentConfirmed = true,
+        ))
+        policyRejectsEvidence.policy.transportEvidenceVerified = false
+        policyRejectsEvidence.ble.complete(0, true)
+        assertEquals(DeviceLinkState.FAILED, policyRejectsEvidence.manager.state)
+    }
+
+    @Test
     fun rejectsDuplicateSequenceAndDisconnectsSession() {
         val fixture = Fixture()
         fixture.startConnected()
@@ -57,6 +83,29 @@ class DeviceLinkConnectionManagerTest {
         assertFalse(fixture.manager.receive(fixture.message(sequence = 1)))
         assertEquals(DeviceLinkState.FAILED, fixture.manager.state)
         assertEquals(1, fixture.ble.disconnectCalls)
+    }
+
+    @Test
+    fun rejectsReusedMessageIdOrNonceEvenWithIncreasingSequence() {
+        val reusedId = Fixture()
+        reusedId.startConnected()
+        assertTrue(reusedId.manager.receive(reusedId.message(sequence = 1)))
+        assertFalse(
+            reusedId.manager.receive(
+                reusedId.message(sequence = 2).copy(nonce = "B".repeat(22)),
+            ),
+        )
+        assertEquals(DeviceLinkState.FAILED, reusedId.manager.state)
+
+        val reusedNonce = Fixture()
+        reusedNonce.startConnected()
+        assertTrue(reusedNonce.manager.receive(reusedNonce.message(sequence = 1)))
+        assertFalse(
+            reusedNonce.manager.receive(
+                reusedNonce.message(sequence = 2).copy(messageId = NEW_MESSAGE_ID),
+            ),
+        )
+        assertEquals(DeviceLinkState.FAILED, reusedNonce.manager.state)
     }
 
     @Test
@@ -111,6 +160,8 @@ class DeviceLinkConnectionManagerTest {
         assertEquals(1, fixture.ble.disconnectCalls)
         assertFalse(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
 
+        fixture.manager.disconnect()
+        assertFalse(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
         val freshPeer = fixture.peer.copy(sessionId = NEW_SESSION)
         assertTrue(fixture.manager.connect(freshPeer, localConsentConfirmed = true))
     }
@@ -172,10 +223,15 @@ class DeviceLinkConnectionManagerTest {
     private class FakeBle : DeviceLinkBleTransport {
         var connectCalls = 0
         var disconnectCalls = 0
-        private val callbacks = mutableListOf<(Boolean) -> Unit>()
+        private val callbacks = mutableListOf<(DeviceLinkTransportEvidence?) -> Unit>()
+        private val peers = mutableListOf<DeviceLinkPeer>()
 
-        override fun connect(peer: DeviceLinkPeer, onResult: (Boolean) -> Unit) {
+        override fun connect(
+            peer: DeviceLinkPeer,
+            onResult: (DeviceLinkTransportEvidence?) -> Unit,
+        ) {
             connectCalls++
+            peers += peer
             callbacks += onResult
         }
 
@@ -184,13 +240,30 @@ class DeviceLinkConnectionManagerTest {
         }
 
         fun complete(index: Int, connected: Boolean) {
-            callbacks[index](connected)
+            val peer = peers[index]
+            callbacks[index](
+                if (connected) {
+                    DeviceLinkTransportEvidence(
+                        sessionId = peer.sessionId,
+                        peerInstallationId = peer.installationId,
+                        encrypted = true,
+                        mitmProtected = true,
+                    )
+                } else {
+                    null
+                },
+            )
+        }
+
+        fun completeWith(index: Int, evidence: DeviceLinkTransportEvidence?) {
+            callbacks[index](evidence)
         }
     }
 
     private class FakePolicy : DeviceLinkSecurityPolicy {
         var identityTrusted = true
         var peerConsentVerified = true
+        var transportEvidenceVerified = true
         var messageSignatureValid = true
         var messageAuthorized = true
         var identityChecks = 0
@@ -202,6 +275,11 @@ class DeviceLinkConnectionManagerTest {
 
         override fun verifyPeerConsent(peer: DeviceLinkPeer, localAppArea: String) =
             peerConsentVerified
+
+        override fun verifyTransportEvidence(
+            peer: DeviceLinkPeer,
+            evidence: DeviceLinkTransportEvidence,
+        ) = transportEvidenceVerified
 
         override fun verifyMessageSignature(peer: DeviceLinkPeer, message: DeviceLinkMessage) =
             messageSignatureValid
@@ -217,6 +295,7 @@ class DeviceLinkConnectionManagerTest {
         const val SESSION = "00000000-0000-4000-8000-000000000032"
         const val NEW_SESSION = "00000000-0000-4000-8000-000000000033"
         const val MESSAGE_ID = "00000000-0000-4000-8000-000000000034"
+        const val NEW_MESSAGE_ID = "00000000-0000-4000-8000-000000000035"
         const val NOW = 1_797_000_000L
     }
 }

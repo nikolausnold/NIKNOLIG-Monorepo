@@ -5,6 +5,35 @@
 **Geltungsbereich:** Nachweise für Android; iOS-Bestand im Monorepo; keine
 Store-Veröffentlichung, Signierung oder Schlüsselverwaltung in diesem Bericht.
 
+## Implementierungsfortschritt (2026-10-17)
+
+Im offenen PR wurde app-getrennte Android-Grundlogik für Verbindungssitzung,
+explizite lokale Zustimmung, Peer-/Einwilligungsprüfungs-Gates, begrenzte
+Control-Nachrichten, Sequenz-Replay-Abwehr, Widerruf und Fehlerzustände ergänzt.
+Der neue versionierte Vertrag
+[`device-link-message-v1.schema.json`](../backend/contracts/device-link-message-v1.schema.json)
+definiert ausschließlich ein minimiertes Control-Envelope, keine Nutzdaten und
+keinen Backend-Endpunkt. Die Android-CI führt nun Unit-Tests für beide Apps
+zusätzlich zu den bisherigen Prüfungen aus.
+
+Dies ist **keine lauffähige BLE-Verbindung**: Im Bestand gab es keinen
+Connection Manager. Die neue `DeviceLinkBleTransport`-Schnittstelle besitzt
+noch keinen Android-Bluetooth/GATT-Adapter; `DeviceLinkSecurityPolicy` besitzt
+keine produktive kryptografische Vertrauens-, Consent- oder
+Autorisierungsimplementierung. Eine explizite deny-all-Policy ist verfügbar;
+es gibt keinen permissiven Produktions-Provider. Verbindungszustand wird erst
+nach policy-bestätigtem, verschlüsseltem und MITM-geschütztem
+Transportnachweis als verbunden gemeldet. Es gibt keine UI-/Manifest-Integration,
+dauerhafte Replay-/Widerrufsspeicherung oder Geräte-Interoperabilität. Daher
+bleibt Geräteauthentifizierung, BLE-Verbindung und Produktionsintegration
+**BLOCKED**. Die Unit-Tests verwenden kontrollierte Fakes und belegen nur
+Zustands-/Envelope-Ablehnungslogik; sie belegen keine Kryptografie oder
+Sicherheit auf Geräten.
+
+Das iOS-Quellprojekt ist in diesem Monorepo weiterhin nicht vorhanden. Der
+versionierte JSON-Vertrag ist plattformneutral, aber hier ist weder eine iOS-
+Implementierung noch ein zweites iOS-Backend hinzugefügt.
+
 Dieser Bericht trennt nachgewiesene technische Prüfungen von unabhängiger
 Vertrauensstellung, menschlichen Freigaben und noch nicht ausgeführten Tests.
 Dokumentierte Kriterien sind ein Freigabeentwurf, keine behauptete
@@ -82,10 +111,11 @@ Dokumentation durch den Coding Agent ist keine menschliche Abnahme.
 ### Android
 
 Die zwei Android-Module sind getrennte Apps mit den IDs `com.niknolig.app` und
-`com.niknolig.defense`. Im geprüften Bestand gibt es keine Geräteerkennung,
-BLE-/GATT-Verbindung, Pairing-, Authentifizierungs-, Autorisierungs- oder
-Wiederverbindungsimplementierung und keine Android-App-Unit-/Instrumented-Tests.
-Die aktuellen Release- und Debug-Builds belegen daher keine Geräteverbindung.
+`com.niknolig.defense`. Implementiert ist nur der neue app-lokale
+Sitzungs-/Envelope-Manager mit kontrollierten Test-Fakes. Es gibt weiterhin
+keine Android-BLE/GATT-Implementierung, Produktiv-Pairing, produktive
+Kryptografie-/Autorisierungs-Policy oder Instrumented-/Zwei-Geräte-Tests. Die
+vorhandenen Release- und Debug-Builds belegen daher keine Geräteverbindung.
 
 ### iOS
 
@@ -131,9 +161,11 @@ Abnahme.
 | Unabhängige Vertrauensstellung der Fingerprints | **PENDING** | Keine unabhängige Referenz oder menschliche Bestätigung verfügbar; beide daher `UNVERIFIED`. |
 | P0-Kriterien und Testmatrix schriftlich konkretisiert | **IMPLEMENTED** | In diesem Dokument als abnahmebedürftiger Entwurf erfasst. |
 | Produkt-/Security-/Release-Freigaben | **PENDING** | Keine menschlichen Abnahmen oder benannten unabhängigen Prüfer dokumentiert. |
-| Android-Geräteauthentifizierung/-autorisierung/Transport | **BLOCKED** | Nicht implementiert; P0, Bedrohungsmodell und Transportentscheidung offen. |
+| Android-Sitzungs-/Envelope-Grundlogik | **IMPLEMENTED** | App-lokale fail-closed Manager-Grundlage und Fake-basierte Negativtests; keine Produktivverdrahtung. |
+| Android-Geräteauthentifizierung/-autorisierung/Transport | **BLOCKED** | Kein kryptografischer Security-Provider und kein BLE/GATT-Adapter; P0, Bedrohungsmodell und Transportentscheidung offen. |
 | iOS-Geräteauthentifizierung/-autorisierung/Transport | **BLOCKED** | Keine iOS-Quellen in diesem Monorepo-Arbeitsstand; keine externen Änderungen. |
-| Negative Geräteverbindungs- und Wiederverbindungstests | **BLOCKED** | Laufzeitkomponente und Test-Harness nicht vorhanden. |
+| Manager-Negativtests | **IMPLEMENTED** | App-getrennte Unit-Tests prüfen Ablehnung und sichere Zustandsreaktion mit Fakes; keine echte BLE-/Geräteprüfung. |
+| BLE-Fehler-/Wiederverbindungstests und Zwei-Geräte-Abnahme | **BLOCKED** | Kein BLE-Adapter oder Hardwaretest; keine produktive Authentifizierungs-Policy. |
 | Physische Zwei-Geräte-Abnahme | **PENDING** | Testfälle vorbereitet; kein Test ausgeführt. |
 | Android Release-Build #71 | **TESTED** | Beide Release-APKs und Paketsignaturen erfolgreich geprüft; das ist keine P0-Abnahme. |
 | Produktions-/Verteilungsfreigabe | **BLOCKED** | Erfordert unabhängig bestätigte Signieridentität, alle technischen Gates und dokumentierte menschliche Abnahmen. |

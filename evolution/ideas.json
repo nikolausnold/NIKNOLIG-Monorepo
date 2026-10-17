@@ -80,8 +80,8 @@
         {
           "path": ".github/workflows/android-build.yml",
           "startLine": 42,
-          "endLine": 44,
-          "excerpt": "      - name: Assemble both debug APKs\n        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon\n      - name: Verify package identities and APK signatures",
+          "endLine": 50,
+          "excerpt": "      - name: Run Android unit tests and assemble both debug APKs\n        run: >-\n          ./gradlew\n          :niknolig:testDebugUnitTest\n          :niknolig-defense:testDebugUnitTest\n          :niknolig:assembleDebug\n          :niknolig-defense:assembleDebug\n          --no-daemon\n      - name: Verify package identities and APK signatures",
           "state": "verified"
         },
         {
