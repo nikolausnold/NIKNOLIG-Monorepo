@@ -1,6 +1,6 @@
 # Android-/iOS-Architektur und Integrationsplan
 
-**Status:** Architektur- und Vertragsplanung. Keine iOS-App, kein neuer
+**Status:** Architektur- und Vertragsplanung mit lokalen iOS-App-Grundgerüsten. Kein neuer
 API-Endpunkt, kein produktiver Backend-Dienst und keine Änderung an den
 separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein verbindliches
 Stop-Gate.
@@ -259,3 +259,154 @@ Backend-Betrieb, Plattform-Mindestversionen, Apple-/Android-Berechtigungs-
 details, Sensor-Gerätematrix und Retention. Keine dieser Entscheidungen wird
 durch Architekturtext oder ein valides Schema genehmigt. Bei nicht erfüllter
 oder nicht belegbarer Freigabe gilt fail closed.
+
+## 8. CI-Plattformtrennung und Prüfnachweise
+
+Inventur und lokale Prüfung: aktualisiert am 17.10.2026 für PR #26. Alle Dateien unter
+`.github/workflows/` sind wie folgt zugeordnet:
+
+| Workflow | Domäne / Runner | Abhängigkeiten und Grenzen |
+| --- | --- | --- |
+| `android-build.yml` | Android, `ubuntu-24.04`, JDK 17, Gradle/Android SDK | Unit-Testtasks, Lint, Debug-APKs und Identitäts-/Signaturprüfung beider getrennten Apps; keine Backend-, Tooling- oder iOS-Buildabhängigkeit. |
+| `ios-build.yml` | iOS, `macos-15`, Swift/Xcode | Zwei unabhängige Simulator-Build-/XCTest-Jobs für die tatsächlichen Projekte unter `ios/`; keine Android-/Backend-Buildabhängigkeit, keine Signierung oder Veröffentlichung. |
+| `android-release.yml` | Android-Release, `ubuntu-24.04` | Separater, secretfreier Vertrags-/Tooling-Prüfjob am exakten Release-Commit vor Signierung; vertrauenswürdiger Main-Trigger bleibt erhalten. Keine Store-Veröffentlichung. |
+| `backend-contracts.yml` | Plattformneutrale Backend-Verträge und Tooling, `ubuntu-24.04` | Zwei unabhängige Python-Jobs; Vertrags-Snapshot, Tooling-Tests und bisheriges lesendes Systemupdate-Inventar ohne Android-/iOS-Build. |
+| `audit-workers.yml` | Plattformneutrales Repository-/Vertragsumfeld, `ubuntu-latest` | Nur manueller Read-only-Audit; kein App-Build oder Deployment. |
+| `release-audit-artifacts.yml` | Plattformneutrale Audit-Dokumentation, `ubuntu-24.04` | Lädt nur bestehende Berichte hoch; keine Signierung oder Veröffentlichung. |
+
+Die beiden Audit-Workflows sind keine Backend-Vertragstests. Sie bleiben als
+plattformneutrale Nachweise bestehen. Zwischen Android-Debug- und Backend-CI
+gibt es kein `needs`/`workflow_run`. Nur der Android-Releasepfad verlangt bewusst
+die Vertrags-/Tooling-Prüfung erneut am ausgewählten Commit: Die Entkopplung
+darf die bisherige Prüfung vor Zugriff auf Signing-Secrets nicht entfernen.
+Ein fehlgeschlagenes externes Update-Inventar ist kein Android-Buildfehler.
+Android-Push-/PR-Builds reagieren nur auf App-, Gradle- oder Android-Workflow-
+Änderungen; reine Backend-, Dokumentations- oder spätere iOS-Änderungen lösen
+keinen Android-Build aus. Zeitplan und manuelle Android-Ausführung bleiben
+erhalten. Falls Android als bedingungslos erforderlicher Branch-Protection-
+Check konfiguriert ist, muss diese externe Einstellung passend geprüft werden:
+Ein durch Pfadfilter ausgelassener Workflow kann sonst als „Pending“ bleiben.
+
+**Versionsbefund:** Der gemeldete Konflikt AGP 9.4.1 / Gradle 8.13 liegt im
+untersuchten Stand nicht mehr vor: `settings.gradle.kts` verwendet bereits
+AGP 8.11.1 und Kotlin 2.2.21, der Wrapper Gradle 8.13. Beide Android-Module
+nutzen JDK/JVM 17, compile/target SDK 35, Build Tools 35.0.0 und minSdk 26.
+Die [AGP-8.11-Kompatibilitätstabelle](https://developer.android.com/build/releases/past-releases/agp-8-11-0-release-notes)
+nennt Gradle 8.13 und JDK 17. Zusätzlich belegt der bestehende
+[Main-Build 38895441459](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38895441459/job/116954683496)
+am unveränderten Build-Konfigurationsstand beide Debug-APKs sowie deren
+Identitäts-/Signaturprüfung (`BUILD SUCCESSFUL`, 66 Tasks). Deshalb keine
+erneute Versionsänderung und insbesondere keine iOS-Versionsänderung.
+
+**Tatsächliche lokale Testgrenzen:** Android SDK 35, Build Tools 35.0.0 und
+JDK 17 sind vorhanden. Ein gemeinsamer Gradle-Aufruf für
+`:niknolig:testDebugUnitTest`, `:niknolig-defense:testDebugUnitTest`,
+beide `lintDebug`- und beide `assembleDebug`-Tasks bricht jedoch bereits bei
+der Pluginauflösung ab: `com.android.application:8.11.1` ist nicht abrufbar,
+`dl.google.com` lässt sich in dieser Umgebung nicht auflösen. Damit wurden
+hier weder Lint noch Debug-Build noch Unit-Tests erfolgreich ausgeführt.
+Android-Testquellen fehlen außerdem; `NO-SOURCE` wäre kein Unit-Testnachweis.
+Der abschließende lokale Gesamtaufruf am 17.10.2026 mit `--no-daemon --continue`
+endet mit Exitcode 1 vor der Taskausführung. Der direkte HTTPS-Abruf des
+AGP-POMs endet ebenfalls vor HTTP mit `curl: (6) Could not resolve host:
+dl.google.com`. Es werden keine Versionen geändert, Mirrors eingeführt oder
+identische Builds wiederholt, um diesen externen Netzwerkblocker zu umgehen.
+
+Backend-Vertrags-/Health-Tests: 13 erfolgreich, einschließlich optionaler
+JSON-Schema-Validierung mit vorhandenem `jsonschema`. Tooling-Regressionen:
+37 erfolgreich, einschließlich Ressourcen- und CI-Diagnoseregressionen
+(beide Python-Aufrufe Exitcode 0). Beim Verschieben der CI wurden die dadurch ungültigen
+Datei-/Zeilenbelege in `evolution/ideas.json` aktualisiert, nicht die
+Validierungsregeln gelockert. Alle fünf Workflow-YAML-Dateien sind parsebar;
+`git diff --check` und der verfügbare Secret-Scan sind ohne Befund.
+Ein dedizierter `actionlint` ist lokal nicht installiert.
+Der automatisierte Review-Dienst war wegen eines Modellregistrierungsfehlers
+nicht verfügbar; ein ersatzweises Read-only-Code-Review fand keine
+wesentlichen Fehler. CodeQL meldete keine Python-Befunde, aber zwei
+Cache-Poisoning-Warnungen an den Release-Vertrags-/Tooling-Testschritten.
+Diese wurden geprüft und als nicht ausnutzbare Fehlalarme bewertet: Der
+vorgeschaltete Job erlaubt nur manuelle Main-Läufe oder erfolgreiche
+Main-Läufe desselben Repositories aus Push/Zeitplan/manuellem Trigger.
+PR-/Fork-Code passiert diesen Guard nicht; der Job hat nur Leserechte, keine
+Signing-Secrets und keinen konfigurierten Cache. Die Warnungen werden nicht
+durch einen schwächeren Guard oder eine Scan-Unterdrückung beseitigt.
+**Aktualisierter CI-Nachweis, kein neuer lokaler Erfolg:** Für PR-Head `d8041ae`
+hat [Android-Lauf 39017172542, Versuch 2](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39017172542/job/117353502911)
+beide `assembleDebug`- und beide `lintDebug`-Tasks erfolgreich abgeschlossen
+(`BUILD SUCCESSFUL in 1m 37s`). Der PR-Lauf prüfte den GitHub-Merge-Commit
+`a890f94` aus `d8041ae` und dem damaligen Main-Stand `dca6b1b`.
+Beide Unit-Testtasks melden `NO-SOURCE`, also
+keine ausgeführten Android-Unit-Tests. App-IDs und Debug-Signaturen wurden
+anschließend geprüft. Tatsächlich erzeugte APK-Artefakte:
+[NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39017172542/artifacts/12094863697)
+und [Defense](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39017172542/artifacts/12095038203).
+Das [Diagnoseartefakt](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39017172542/artifacts/12095756026)
+wurde ebenfalls erfolgreich hochgeladen. Der separate
+[Backend-/Tooling-Lauf](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39017172670)
+bestand 13 Backend- und 37 Tooling-Tests. Damit ist auch die Ausführung der
+Workflow-Diagnosekorrektur nachgewiesen, nicht aber eine Release-Freigabe.
+
+**Abgleich des behaupteten AGP-9-Konflikts am 17.10.2026:** PR #26 und die
+lokalen Dateien verwenden übereinstimmend AGP 8.11.1, Kotlin 2.2.21 und
+Gradle 8.13 mit JDK 17. Kein Versionskatalog und keine abweichende
+Modul-Pluginversion ist vorhanden. Die abgerufenen PR-Reviews enthalten
+keinen Befund „AGP 9 build fails due to conflicting Kotlin plugins“; der
+Review zu `d8041ae` nennt die damals ausstehende CI-Validierung und die
+Branch-Protection/Pfadfilter-Abstimmung. Ein Konflikt mit integriertem
+AGP-9-Kotlin ist in diesem Stand daher nicht reproduziert. Das externe
+Kotlin-Plugin bleibt für die vorhandene AGP-8-Konfiguration erhalten.
+Es erfolgt weder ein fingierter Downgrade noch ein Upgrade oder ein
+Built-in-Kotlin-Opt-out. Ein erneuter lokaler Android-Gesamtaufruf nach
+diesem Abgleich blieb bei der AGP-Auflösung mit Exitcode 1 blockiert;
+Backend und Tooling bestanden separat erneut mit Exitcode 0.
+
+Die ursprüngliche Defense-Lint-Ursache war `windowLightNavigationBar` in
+unqualifizierten Ressourcen trotz minSdk 26. In beiden Apps liegt dieses
+Attribut jetzt nur in `values-v27`, mit explizitem Basistheme für API 26.
+Autofill ist für die drei Freitextfelder ausdrücklich deaktiviert; zwei
+unbenutzte Farbressourcen wurden entfernt. Die vollständigen historischen
+20 Einzelwarnungen wurden nicht als Artefakt gesichert und sind aus dem
+erfolgreichen CI-Log nicht rekonstruierbar. Warnungsfreiheit wird nicht behauptet.
+
+**Diagnosekorrektur:** Android-CI sichert Gradle-Konsolenausgabe,
+Lint-HTML/XML/Textberichte sowie vorhandene Unit-Testberichte/-Ergebnisse auch
+bei Fehlern in einem siebentägigen, lauf-/versuchsspezifischen Diagnoseartefakt.
+`--continue` lässt unabhängige Tasks zur Diagnose weiterlaufen; Gradle behält
+einen Fehler-Exitcode. Bash `pipefail` erhält ihn trotz `tee`. Es gibt weder
+`continue-on-error` noch eine Lint-Baseline/Deaktivierung. APK-Prüfung und
+APK-Upload bleiben auf erfolgreiche vorherige Schritte beschränkt.
+
+**iOS – auf ausdrücklichen Folgeauftrag eingerichtet:** Unter
+`ios/niknolig/Niknolig.xcodeproj` und
+`ios/niknolig-defense/NiknoligDefense.xcodeproj` liegen separate SwiftUI-Apps
+mit den geteilten Schemes `Niknolig` und `NiknoligDefense`, Deployment Target
+iOS 16.0 und getrennten Bundle-IDs `com.niknolig.app.ios` bzw.
+`com.niknolig.defense.ios`. Die Projekte wurden mit dem bereits verfügbaren
+Xcodeproj-Generator erstellt; es gibt keine Swift-Package-Abhängigkeiten.
+Beide Projekte besitzen je zwei XCTest-Identitätsprüfungen mit eigenem App-Testhost.
+Es sind lokale, funktionsarme Vorschauen ohne Backend-Verbindung, Persistenz,
+Credentials, Entitlements oder Gerätezugriff, keine vollständigen Produktclients.
+Elektro-Engel wird nur innerhalb der NIKNOLIG-Vorschau dargestellt.
+
+`ios-build.yml` führt `xcodebuild test` auf einem verfügbaren iPhone-Simulator
+unter macOS aus. Die Matrix hat `fail-fast: false`; ein App-Fehler bricht
+die andere App-Prüfung nicht ab. Der Workflow reagiert ausschließlich auf
+iOS-/eigene Workflow-Änderungen oder manuelle Ausführung, benutzt nur
+Leserechte und sichert Logs/`.xcresult` auch bei Fehlern. Es werden keine
+Signing-Secrets, Teams oder Release-Automatisierungen eingerichtet.
+Die lokale Umgebung bleibt Linux ohne Xcode: iOS-Kompilierung und XCTest
+sind hier **BLOCKIERT**, nicht bestanden. Eine statische Projekt-/Scheme-
+Prüfung ersetzt den noch erforderlichen macOS-Lauf nicht. iOS 16 ist die
+technische Basis dieses Grundgerüsts, keine endgültige Produkt-Abnahmematrix.
+Separate iOS-Repositories werden nicht verändert.
+
+NIKNOLIG und NIKNOLIG Defense behalten getrennte App-IDs, App-Daten,
+PKCS12-Stores und app-spezifische Signing-Secrets. Der vorhandene gemeinsame
+Android-Release-Orchestrator bleibt unverändert für beide Apps zuständig;
+eine Aufteilung auf app-eigene Release-Workflows/Environments ist eine offene
+Architekturentscheidung, keine implizite Freigabe zur Schlüsselteilung.
+Es gibt keine neue gemeinsame Runtime, keine geteilten App-Credentials,
+keine neuen Rechte und keine dritte Elektro-Engel-App.
+SecurityChain-P0 bleibt verbindlich. Kein Deployment, keine Migration und
+keine Veröffentlichung wurde ausgeführt; ein grüner Build ist keine
+Produktions- oder Release-Freigabe.

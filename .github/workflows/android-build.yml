@@ -2,7 +2,25 @@ name: Android apps build
 
 on:
   push:
+    paths:
+      - "apps/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - "gradle/**"
+      - "gradlew"
+      - "gradlew.bat"
+      - ".github/workflows/android-build.yml"
+      - ".github/workflows/android-release.yml"
   pull_request:
+    paths:
+      - "apps/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - "gradle/**"
+      - "gradlew"
+      - "gradlew.bat"
+      - ".github/workflows/android-build.yml"
+      - ".github/workflows/android-release.yml"
   workflow_dispatch:
   schedule:
     - cron: "23 4 * * 1"
@@ -22,25 +40,30 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Run backend contract regression tests
-        run: python3 -m unittest discover -s backend/tests
-      - name: Run tooling regression tests
-        run: python3 -m unittest discover -s tools/tests
-      - name: Check registered system repositories
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python3 -m tools.system_updates --output "$RUNNER_TEMP/system-update-report.json"
-      - name: Upload system update report
-        if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: Test, lint and assemble both debug APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew \
+            :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest \
+            :niknolig:lintDebug :niknolig-defense:lintDebug \
+            :niknolig:assembleDebug :niknolig-defense:assembleDebug \
+            --no-daemon --continue 2>&1 | tee "$RUNNER_TEMP/android-debug-build.log"
+      - name: Upload Android diagnostic reports
+        if: always()
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: system-update-report-${{ github.sha }}
-          path: ${{ runner.temp }}/system-update-report.json
-          if-no-files-found: error
+          name: android-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/android-debug-build.log
+            apps/niknolig/build/reports/
+            apps/niknolig-defense/build/reports/
+            apps/niknolig/build/test-results/
+            apps/niknolig-defense/build/test-results/
+            apps/niknolig/build/intermediates/lint_intermediate_text_report/
+            apps/niknolig-defense/build/intermediates/lint_intermediate_text_report/
+          if-no-files-found: warn
           retention-days: 7
-      - name: Assemble both debug APKs
-        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon
       - name: Verify package identities and APK signatures
         shell: bash
         run: |
@@ -85,15 +108,5 @@ jobs:
         with:
           name: release-readiness-report
           path: docs/release-readiness.md
-          if-no-files-found: error
-          retention-days: 7
-      - name: Upload shared Android and iOS contract snapshot
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          name: mobile-contracts-${{ github.sha }}
-          path: |
-            backend/openapi.yaml
-            backend/contracts/*.json
-            config/system-repositories.json
           if-no-files-found: error
           retention-days: 7

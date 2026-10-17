@@ -32,3 +32,9 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Xcode user data and local build output
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcresult/

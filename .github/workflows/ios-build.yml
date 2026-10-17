@@ -1,0 +1,72 @@
+name: iOS apps build and test
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-build.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    name: iOS ${{ matrix.scheme }}
+    runs-on: macos-15
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: niknolig
+            scheme: Niknolig
+          - app: niknolig-defense
+            scheme: NiknoligDefense
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select available iPhone simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          simulator_id="$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          candidates = [device["udid"] for runtime, entries in devices.items()
+                        if ".iOS-" in runtime for device in entries
+                        if device.get("isAvailable") and device["name"].startswith("iPhone")]
+          if not candidates:
+              sys.exit("No available iPhone simulator on this runner")
+          print(candidates[0])
+          ')"
+          echo "IOS_SIMULATOR_ID=$simulator_id" >> "$GITHUB_ENV"
+      - name: Build and run XCTest on simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project "ios/${{ matrix.app }}/${{ matrix.scheme }}.xcodeproj" \
+            -scheme "${{ matrix.scheme }}" \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$IOS_SIMULATOR_ID" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData-${{ matrix.scheme }}" \
+            -resultBundlePath "$RUNNER_TEMP/${{ matrix.scheme }}.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$RUNNER_TEMP/${{ matrix.scheme }}-xcodebuild.log"
+      - name: Upload iOS diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-diagnostics-${{ matrix.scheme }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/${{ matrix.scheme }}-xcodebuild.log
+            ${{ runner.temp }}/${{ matrix.scheme }}.xcresult
+          retention-days: 7
+          if-no-files-found: warn

@@ -1,6 +1,6 @@
 # NIKNOLIG-Monorepo
 
-Monorepo für zwei getrennte Android-Apps: NIKNOLIG und NIKNOLIG Defense. Die
+Monorepo für NIKNOLIG und NIKNOLIG Defense auf Android sowie als iOS-Grundgerüste. Die
 Apps bleiben eigenständige Installationen und Sicherheitsdomänen. Die Websites
 und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
 
@@ -46,8 +46,8 @@ Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
 ## Build und Prüfung
 
-Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 8.13 (über den
-mitgelieferten Wrapper).
+Voraussetzungen: JDK 17, Android SDK / compile SDK 35, Build Tools 35.0.0,
+Android Gradle Plugin 8.11.1, Kotlin 2.2.21 und Gradle 8.13 (über den Wrapper).
 
 Beide APKs unabhängig im selben Build aufbauen:
 
@@ -57,9 +57,48 @@ Beide APKs unabhängig im selben Build aufbauen:
 
 Der Workflow
 [`Android apps build`](.github/workflows/android-build.yml) baut beide Apps,
-prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
-Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
-Android-Testtask behauptet.
+prüft ihre APK-IDs und verifiziert die APK-Signaturen. Er fordert außerdem
+`testDebugUnitTest` und `lintDebug` für jedes Modul an.
+Es gibt keine Android-Testquellen; ein `NO-SOURCE`-Testtask ist kein bestandener
+Unit-Test.
+
+[`Backend contracts and tooling`](.github/workflows/backend-contracts.yml)
+prüft Backend-Verträge/Health-Runtime und Tooling in unabhängigen Linux-Jobs,
+ohne Gradle, Android SDK oder Xcode. Vertragsartefakte und das Systemupdate-
+Inventar liegen dort und blockieren den Android-Debug-Build nicht.
+Vor Android-Signierung bleiben Vertrags- und Tooling-Tests für exakt denselben
+Commit als eigener, secretfreier Release-Prüfjob verpflichtend.
+
+## iOS-Grundgerüste
+
+Zwei unabhängige native SwiftUI-Apps für iPhone/iPad ab iOS 16:
+
+| Projekt / geteiltes Scheme | Bundle-ID |
+| --- | --- |
+| `ios/niknolig/Niknolig.xcodeproj` / `Niknolig` | `com.niknolig.app.ios` |
+| `ios/niknolig-defense/NiknoligDefense.xcodeproj` / `NiknoligDefense` | `com.niknolig.defense.ios` |
+
+Das jeweilige Projekt in Xcode öffnen und einen iOS-Simulator auswählen.
+Mit **Product → Test** werden die App gebaut und ihre zwei XCTest-Tests
+ausgeführt. Die Tests prüfen Produktidentität und Bundle-ID des App-Testhosts,
+nicht Backend-, Geräte- oder Sicherheitsfunktionen. Es bestehen keine
+Abhängigkeiten zwischen den Apps, zu Gradle oder zu externen Swift Packages.
+
+[`iOS apps build and test`](.github/workflows/ios-build.yml) baut und testet
+beide Schemes in voneinander unabhängigen macOS-Matrixjobs mit
+`CODE_SIGNING_ALLOWED=NO`. Ein vorhandener iPhone-Simulator wird dynamisch
+ausgewählt. Logs und XCTest-Ergebnisse werden auch bei Fehlern aufbewahrt.
+Es gibt keine Signing-Teams, Zertifikate, Secrets, Entitlements, Gerätezugriffe,
+Anmeldung, Netzwerkaufrufe oder iOS-Release-Workflows. Bundle-IDs sind lokale
+Projektidentitäten, keine registrierten App-Store-IDs.
+
+Die Oberflächen sind ausdrücklich lokale Grundgerüste, keine Portierung
+aller Android-Funktionen. Elektro-Engel bleibt eine NIKNOLIG-Systemfunktion.
+SecurityChain P0 bleibt für jede operative Integration verpflichtend.
+Xcode-/Simulator-Tests sind lokal unter Linux **BLOCKIERT**; ein erfolgreicher
+iOS-Build wird erst durch einen tatsächlich abgeschlossenen macOS-CI-Lauf
+belegt. Die vollständige [Workflow-Zuordnung und Prüfnachweise](docs/mobile-cross-platform-architecture.md#8-ci-plattformtrennung-und-prüfnachweise)
+dokumentieren die Plattformgrenzen.
 
 ## Read-only Audit
 
