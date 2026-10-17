@@ -1,4 +1,4 @@
-name: Android apps build
+name: Android preview APK checks (not release approval)
 
 on:
   push:
@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   assemble-debug:
+    name: Build and verify debug APKs (not release readiness)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -97,3 +98,13 @@ jobs:
             config/system-repositories.json
           if-no-files-found: error
           retention-days: 7
+      - name: Summarize validation scope
+        if: success()
+        run: |
+          {
+            echo "## Android debug APK checks passed"
+            echo
+            echo "This confirms the configured regression checks, both debug APK builds, package identities/signatures, and artifact uploads for commit \`$GITHUB_SHA\`."
+            echo
+            echo "**It does not confirm:** feature completeness, a working connection between devices, physical-device acceptance, release readiness, or publication."
+          } >> "$GITHUB_STEP_SUMMARY"

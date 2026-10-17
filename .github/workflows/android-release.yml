@@ -1,4 +1,4 @@
-name: Preparing release APKs
+name: Sign Android artifacts (not store publication)
 
 on:
   workflow_dispatch:
@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   assemble-release:
+    name: Build and verify signed APK/AAB artifacts (no publication)
     if: >-
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_run' &&
@@ -251,3 +252,14 @@ jobs:
           keystore_dir="$RUNNER_TEMP/android-release"
           rm -f "$keystore_dir/niknolig-release.p12" "$keystore_dir/niknolig-defense-release.p12"
           rmdir "$keystore_dir" 2>/dev/null || true
+
+      - name: Summarize release artifact scope
+        if: success()
+        run: |
+          {
+            echo "## Signed Android artifacts built"
+            echo
+            echo "Both app APKs and AABs were built, their package identities/signatures were checked, and artifacts were uploaded."
+            echo
+            echo "**This workflow does not:** upload to a store, independently approve the signing identity, prove feature completeness or physical-device acceptance, or authorize publication."
+          } >> "$GITHUB_STEP_SUMMARY"
