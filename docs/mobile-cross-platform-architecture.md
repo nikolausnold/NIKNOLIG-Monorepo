@@ -1,6 +1,6 @@
 # Android-/iOS-Architektur und Integrationsplan
 
-**Status:** Architektur- und Vertragsplanung. Keine iOS-App, kein neuer
+**Status:** Architektur- und Vertragsplanung mit lokalen iOS-App-Grundgerüsten. Kein neuer
 API-Endpunkt, kein produktiver Backend-Dienst und keine Änderung an den
 separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein verbindliches
 Stop-Gate.
@@ -268,6 +268,7 @@ Inventur und lokale Prüfung: aktualisiert am 17.10.2026 für PR #26. Alle Datei
 | Workflow | Domäne / Runner | Abhängigkeiten und Grenzen |
 | --- | --- | --- |
 | `android-build.yml` | Android, `ubuntu-24.04`, JDK 17, Gradle/Android SDK | Unit-Testtasks, Lint, Debug-APKs und Identitäts-/Signaturprüfung beider getrennten Apps; keine Backend-, Tooling- oder iOS-Buildabhängigkeit. |
+| `ios-build.yml` | iOS, `macos-15`, Swift/Xcode | Zwei unabhängige Simulator-Build-/XCTest-Jobs für die tatsächlichen Projekte unter `ios/`; keine Android-/Backend-Buildabhängigkeit, keine Signierung oder Veröffentlichung. |
 | `android-release.yml` | Android-Release, `ubuntu-24.04` | Separater, secretfreier Vertrags-/Tooling-Prüfjob am exakten Release-Commit vor Signierung; vertrauenswürdiger Main-Trigger bleibt erhalten. Keine Store-Veröffentlichung. |
 | `backend-contracts.yml` | Plattformneutrale Backend-Verträge und Tooling, `ubuntu-24.04` | Zwei unabhängige Python-Jobs; Vertrags-Snapshot, Tooling-Tests und bisheriges lesendes Systemupdate-Inventar ohne Android-/iOS-Build. |
 | `audit-workers.yml` | Plattformneutrales Repository-/Vertragsumfeld, `ubuntu-latest` | Nur manueller Read-only-Audit; kein App-Build oder Deployment. |
@@ -375,14 +376,29 @@ einen Fehler-Exitcode. Bash `pipefail` erhält ihn trotz `tee`. Es gibt weder
 `continue-on-error` noch eine Lint-Baseline/Deaktivierung. APK-Prüfung und
 APK-Upload bleiben auf erfolgreiche vorherige Schritte beschränkt.
 
-**iOS:** Im Monorepo fehlen Swift-Quellen, `Package.swift`, Xcode-Projekte,
-Workspaces und Schemes. Deployment Targets und Signing-Konfigurationen sind
-daher nicht prüfbar. Die lokale Umgebung ist Linux, kein macOS-/Xcode-Runner.
-Es wurde kein iOS-Projekt oder Platzhalterworkflow erfunden und kein
-iOS-Test-/Build-Erfolg behauptet. Erst nach einer gesonderten Entscheidung
-über tatsächlichen Quellcode, Scheme, Deployment Target und Ownership kann
-ein eigener macOS-CI-Pfad ergänzt werden; er darf keinen Android-Build als
-Voraussetzung haben. Separate iOS-Repositories werden hier nicht verändert.
+**iOS – auf ausdrücklichen Folgeauftrag eingerichtet:** Unter
+`ios/niknolig/Niknolig.xcodeproj` und
+`ios/niknolig-defense/NiknoligDefense.xcodeproj` liegen separate SwiftUI-Apps
+mit den geteilten Schemes `Niknolig` und `NiknoligDefense`, Deployment Target
+iOS 16.0 und getrennten Bundle-IDs `com.niknolig.app.ios` bzw.
+`com.niknolig.defense.ios`. Die Projekte wurden mit dem bereits verfügbaren
+Xcodeproj-Generator erstellt; es gibt keine Swift-Package-Abhängigkeiten.
+Beide Projekte besitzen je zwei XCTest-Identitätsprüfungen mit eigenem App-Testhost.
+Es sind lokale, funktionsarme Vorschauen ohne Backend-Verbindung, Persistenz,
+Credentials, Entitlements oder Gerätezugriff, keine vollständigen Produktclients.
+Elektro-Engel wird nur innerhalb der NIKNOLIG-Vorschau dargestellt.
+
+`ios-build.yml` führt `xcodebuild test` auf einem verfügbaren iPhone-Simulator
+unter macOS aus. Die Matrix hat `fail-fast: false`; ein App-Fehler bricht
+die andere App-Prüfung nicht ab. Der Workflow reagiert ausschließlich auf
+iOS-/eigene Workflow-Änderungen oder manuelle Ausführung, benutzt nur
+Leserechte und sichert Logs/`.xcresult` auch bei Fehlern. Es werden keine
+Signing-Secrets, Teams oder Release-Automatisierungen eingerichtet.
+Die lokale Umgebung bleibt Linux ohne Xcode: iOS-Kompilierung und XCTest
+sind hier **BLOCKIERT**, nicht bestanden. Eine statische Projekt-/Scheme-
+Prüfung ersetzt den noch erforderlichen macOS-Lauf nicht. iOS 16 ist die
+technische Basis dieses Grundgerüsts, keine endgültige Produkt-Abnahmematrix.
+Separate iOS-Repositories werden nicht verändert.
 
 NIKNOLIG und NIKNOLIG Defense behalten getrennte App-IDs, App-Daten,
 PKCS12-Stores und app-spezifische Signing-Secrets. Der vorhandene gemeinsame
