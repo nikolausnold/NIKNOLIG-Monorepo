@@ -3,7 +3,7 @@ name: Sign Android artifacts (not store publication)
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Android apps build"]
+    workflows: ["Android preview APK checks (not release approval)"]
     branches: [main]
     types: [completed]
 

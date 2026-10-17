@@ -9,7 +9,7 @@ class AutobuildTests(unittest.TestCase):
     def test_release_only_signs_successful_trusted_main_build_commit(self):
         workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
         for guard in (
-            "workflows: [\"Android apps build\"]",
+            'workflows: ["Android preview APK checks (not release approval)"]',
             "github.event.workflow_run.conclusion == 'success'",
             "github.event.workflow_run.head_repository.full_name == github.repository",
             "github.event.workflow_run.head_branch == 'main'",
@@ -22,6 +22,8 @@ class AutobuildTests(unittest.TestCase):
             with self.subTest(guard=guard):
                 self.assertIn(guard, workflow)
         self.assertNotIn("pull_request_target", workflow)
+        self.assertIn("not store publication", workflow)
+        self.assertIn("This workflow does not:", workflow)
 
     def test_both_apps_keep_local_versions_and_validate_update_versions(self):
         for app in ("niknolig", "niknolig-defense"):
@@ -36,6 +38,8 @@ class AutobuildTests(unittest.TestCase):
     def test_autobuild_checks_tools_and_exports_shared_contracts(self):
         workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
         for check in (
+            "not release approval",
+            "It does not confirm:",
             'cron: "23 4 * * 1"',
             "python3 -m unittest discover -s backend/tests",
             "python3 -m unittest discover -s tools/tests",

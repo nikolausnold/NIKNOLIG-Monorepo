@@ -56,10 +56,17 @@ Beide APKs unabhängig im selben Build aufbauen:
 ```
 
 Der Workflow
-[`Android apps build`](.github/workflows/android-build.yml) baut beide Apps,
+[`Android preview APK checks (not release approval)`](.github/workflows/android-build.yml) baut beide Apps,
 prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
 Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
-Android-Testtask behauptet.
+Android-Testtask behauptet. Ein grüner Lauf belegt diese Prüfungen und den
+Artefakt-Upload, aber keine vollständige Funktion, Geräteverbindung,
+Geräteabnahme oder Release-Freigabe.
+
+Der separate Workflow
+[`Sign Android artifacts (not store publication)`](.github/workflows/android-release.yml)
+erstellt und prüft signierte APK-/AAB-Artefakte. Er lädt nichts in einen App
+Store hoch und erteilt keine Veröffentlichungsfreigabe.
 
 ## Read-only Audit
 
