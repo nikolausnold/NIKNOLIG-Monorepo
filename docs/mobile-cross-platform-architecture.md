@@ -329,17 +329,35 @@ Main-Läufe desselben Repositories aus Push/Zeitplan/manuellem Trigger.
 PR-/Fork-Code passiert diesen Guard nicht; der Job hat nur Leserechte, keine
 Signing-Secrets und keinen konfigurierten Cache. Die Warnungen werden nicht
 durch einen schwächeren Guard oder eine Scan-Unterdrückung beseitigt.
-**Vorhandener CI-Nachweis, kein neuer lokaler Erfolg:** Für Commit `4bae75a`
-hat [Android-Lauf 39009520400, Versuch 2](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39009520400/job/117332924884)
+**Aktualisierter CI-Nachweis, kein neuer lokaler Erfolg:** Für PR-Head `d8041ae`
+hat [Android-Lauf 39017172542, Versuch 2](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39017172542/job/117353502911)
 beide `assembleDebug`- und beide `lintDebug`-Tasks erfolgreich abgeschlossen
-(`BUILD SUCCESSFUL in 1m 16s`). Beide Unit-Testtasks melden `NO-SOURCE`, also
+(`BUILD SUCCESSFUL in 1m 37s`). Der PR-Lauf prüfte den GitHub-Merge-Commit
+`a890f94` aus `d8041ae` und dem damaligen Main-Stand `dca6b1b`.
+Beide Unit-Testtasks melden `NO-SOURCE`, also
 keine ausgeführten Android-Unit-Tests. App-IDs und Debug-Signaturen wurden
 anschließend geprüft. Tatsächlich erzeugte APK-Artefakte:
-[NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39009520400/artifacts/12092937072)
-und [Defense](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39009520400/artifacts/12093106264).
-Der separate [Backend-/Tooling-Lauf](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39009520416)
-war ebenfalls erfolgreich. Diese Nachweise stammen vor der abschließenden
-Workflow-Diagnosekorrektur; sie ersetzen deren erneute CI-Ausführung nicht.
+[NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39017172542/artifacts/12094863697)
+und [Defense](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39017172542/artifacts/12095038203).
+Das [Diagnoseartefakt](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39017172542/artifacts/12095756026)
+wurde ebenfalls erfolgreich hochgeladen. Der separate
+[Backend-/Tooling-Lauf](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39017172670)
+bestand 13 Backend- und 37 Tooling-Tests. Damit ist auch die Ausführung der
+Workflow-Diagnosekorrektur nachgewiesen, nicht aber eine Release-Freigabe.
+
+**Abgleich des behaupteten AGP-9-Konflikts am 17.10.2026:** PR #26 und die
+lokalen Dateien verwenden übereinstimmend AGP 8.11.1, Kotlin 2.2.21 und
+Gradle 8.13 mit JDK 17. Kein Versionskatalog und keine abweichende
+Modul-Pluginversion ist vorhanden. Die abgerufenen PR-Reviews enthalten
+keinen Befund „AGP 9 build fails due to conflicting Kotlin plugins“; der
+Review zu `d8041ae` nennt die damals ausstehende CI-Validierung und die
+Branch-Protection/Pfadfilter-Abstimmung. Ein Konflikt mit integriertem
+AGP-9-Kotlin ist in diesem Stand daher nicht reproduziert. Das externe
+Kotlin-Plugin bleibt für die vorhandene AGP-8-Konfiguration erhalten.
+Es erfolgt weder ein fingierter Downgrade noch ein Upgrade oder ein
+Built-in-Kotlin-Opt-out. Ein erneuter lokaler Android-Gesamtaufruf nach
+diesem Abgleich blieb bei der AGP-Auflösung mit Exitcode 1 blockiert;
+Backend und Tooling bestanden separat erneut mit Exitcode 0.
 
 Die ursprüngliche Defense-Lint-Ursache war `windowLightNavigationBar` in
 unqualifizierten Ressourcen trotz minSdk 26. In beiden Apps liegt dieses
@@ -349,7 +367,7 @@ unbenutzte Farbressourcen wurden entfernt. Die vollständigen historischen
 20 Einzelwarnungen wurden nicht als Artefakt gesichert und sind aus dem
 erfolgreichen CI-Log nicht rekonstruierbar. Warnungsfreiheit wird nicht behauptet.
 
-**Diagnosekorrektur:** Android-CI sichert künftig Gradle-Konsolenausgabe,
+**Diagnosekorrektur:** Android-CI sichert Gradle-Konsolenausgabe,
 Lint-HTML/XML/Textberichte sowie vorhandene Unit-Testberichte/-Ergebnisse auch
 bei Fehlern in einem siebentägigen, lauf-/versuchsspezifischen Diagnoseartefakt.
 `--continue` lässt unabhängige Tasks zur Diagnose weiterlaufen; Gradle behält
