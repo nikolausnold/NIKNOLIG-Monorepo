@@ -23,6 +23,15 @@ class AutobuildTests(unittest.TestCase):
                 self.assertIn(guard, workflow)
         self.assertNotIn("pull_request_target", workflow)
 
+    def test_manual_release_runs_backend_and_tooling_regressions_before_signing(self):
+        workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
+        test_step = workflow.index("- name: Run backend and tooling regression tests for manual builds")
+        signing_step = workflow.index("- name: Validate and stage release keystores")
+        test_commands = workflow[test_step:signing_step]
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", test_commands)
+        self.assertIn("python3 -m unittest discover -s backend/tests", test_commands)
+        self.assertIn("python3 -m unittest discover -s tools/tests", test_commands)
+
     def test_both_apps_keep_local_versions_and_validate_update_versions(self):
         for app in ("niknolig", "niknolig-defense"):
             build = (ROOT / "apps" / app / "build.gradle.kts").read_text()

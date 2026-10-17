@@ -137,6 +137,10 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   fehlgeschlagene Builds lösen keine Signierung aus. Die vorhandenen Freigaben
   des Environments `android-release` und seine sechs Signiergeheimnisse bleiben
   erforderlich; fehlende Geheimnisse stoppen den Release-Build.
+- Ein manuell auf `main` gestarteter Release führt vor dem Zugriff auf
+  Signiergeheimnisse sowohl die Backend- als auch die Tooling-Regressionstests
+  aus. Automatische Releases verlassen sich auf den erfolgreichen Autobuild,
+  der beide Test-Suiten vor der Signierung ausführt.
 - Release-Builds verwenden für beide Apps `versionCode = 1000 +` fortlaufende
   Release-Workflow-Laufnummer und `versionName = 0.1.<versionCode>`.
   Wiederholungen desselben Laufs behalten dieselbe Version; lokale Builds
