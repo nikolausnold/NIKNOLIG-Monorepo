@@ -108,7 +108,7 @@ def validate_entry(value: Any) -> KnowledgeEntry:
         kind=kind,
         claim=claim,
         sources=tuple(sources),
-        recorded_at=recorded_at,
+        recorded_at=parsed_timestamp.isoformat(),
         confidence=float(confidence),
     )
 

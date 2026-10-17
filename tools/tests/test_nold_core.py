@@ -56,6 +56,17 @@ class NoldCoreTests(unittest.TestCase):
         with self.assertRaises(CoreInputError):
             KnowledgeLedger(capacity=0)
 
+    def test_ledger_stores_canonical_timestamp_with_bounded_fraction(self):
+        record = {
+            "kind": "assumption",
+            "claim": "A bounded claim.",
+            "sources": [],
+            "recordedAt": "2026-10-16T21:00:00." + "1" * 1_000 + "Z",
+            "confidence": 0.2,
+        }
+        entry = KnowledgeLedger().append(record)
+        self.assertEqual("2026-10-16T21:00:00.111111+00:00", entry.recorded_at)
+
     def test_unknown_cannot_smuggle_evidence_or_confidence(self):
         record = {
             "kind": "unknown",
