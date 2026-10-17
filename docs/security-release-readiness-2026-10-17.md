@@ -123,11 +123,16 @@ daher keine Geräteverbindung.
 
 ### iOS
 
-In diesem Monorepo-Arbeitsstand existieren weder ein iOS-Quellordner noch
-Xcode-Projekte oder Swift-Tests. iOS-Quellen liegen außerhalb des hier
-verfügbaren Arbeitsstands; dieses Repository enthält damit keine prüfbare
-iOS-Geräteverbindungsimplementierung. Es wurden keine externen Repositories
-geändert oder als getestet ausgegeben.
+Das separate Repository
+[`nikolausnold-NIKNOLIG-iOS-Monorepo`](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo)
+ist erreichbar und enthält Swift-Paketquellen, getrennte App-Verzeichnisse,
+gemeinsame Modell-/API-/Security-Pakete und Swift-Tests (Stand der geprüften
+GitHub-Quelle: `afe4f5a3f0b84500437484a3bf0b3976d7b99e58`). Die gefundenen
+Quellen beschreiben eine Keychain-Grundlage und weiterhin gesperrten
+SecurityChain-P0-Status; in der geprüften Quelle wurde keine CoreBluetooth-
+Verbindungsimplementierung gefunden. Dieses Repository und seine Tests wurden
+nicht geändert oder ausgeführt. Für diese Plattform bleiben der native
+BLE-Adapter, Pairing-/Identitätsprotokoll, Autorisierung und Geräteabnahme offen.
 
 Android und iOS müssen später jeweils native Transport-/Berechtigungsadapter,
 Zustandsintegration und Tests in ihren eigenen Plattform-Builds erhalten. Ein
