@@ -109,6 +109,71 @@ Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
 nur belegte, kuratierte Vorschläge und nimmt selbst keine Dateiänderungen,
 Builds, Netzwerkzugriffe oder Deployments vor.
 
+## Externe Quellen: Voraussetzungen vor Aktivierung
+
+`config/source-candidates.json` erfasst Kandidaten für Verkehrsdaten,
+ausdrücklich autorisierte Verkehrskameras, amtliche Luftraumhinweise,
+Wetterdaten, kuratierte Internetmeldungen und freigegebene lokale Sensoren.
+Das ist keine Liste verfügbarer Anschlüsse. Alle Kandidaten sind zunächst
+gesperrt; keine Kamera, Internetabfrage oder Sensoraufnahme wird aktiviert.
+Im geprüften Monorepo ist keine Drohnenerkennung oder aktive Drohnenabwehr
+implementiert. Verkehrs-, Wetter- und Luftraumdaten sind Kontext, kein Nachweis
+einer anwesenden Drohne. Auch mehrere Internetmeldungen beweisen keine Sichtung;
+kopierte Meldungen sind keine unabhängigen Quellen.
+
+Die lokale Voraussetzungenprüfung läuft ohne Netzwerk, Zugangsdaten,
+Dateiänderungen oder App-Anbindung:
+
+```sh
+python3 -m tools.source_readiness
+python3 -m unittest discover -s tools/tests
+```
+
+Exitcode `1` bedeutet offene Voraussetzungen, `2` ungültige Eingabe.
+`0` bedeutet lediglich, dass alle Prüfpunkte als `documented` deklariert sind:
+Das Tool prüft nicht deren Wahrheit und erteilt weder Zugriff noch Releasefreigabe.
+Eine unabhängige Prüfung bleibt immer erforderlich. Die bestehenden Tooltests
+im Android-Autobuild prüfen auch dieses Verhalten, ohne externe Quellen abzurufen.
+
+Pro konkreter Quelle müssen vor einem späteren Adapter folgende Nachweise
+vorliegen:
+
+- Betreiberfreigabe, Lizenz und zulässiger Abrufweg; öffentlich sichtbar bedeutet
+  nicht frei automatisiert auswertbar. Keine geschützten Verkehrs-/Polizeikameras,
+  Zugriffsumgehung oder wahlloses Scraping.
+- Zweckbindung, Rechtsgrundlage, Datenminimierung, Löschfristen und gegebenenfalls
+  Einwilligung; keine Personen-/Kennzeichenerkennung oder Bewegungsprofile.
+  Bestehende Sensorverträge erlauben keine Übertragung von Rohbildern oder Audio.
+- Herkunft und Integrität, tatsächliche API-/Hardwarefähigkeit, Zeitstempel,
+  Aktualitätsgrenze und räumliche Abdeckung sowie Messwerte zu Qualität und
+  Fehlalarmen. Ausfall, veraltete oder widersprüchliche Daten bedeuten
+  „unbekannt“, nicht „keine Drohne“ oder „Gefahr bestätigt“.
+- SecurityChain-P0, Sicherheitsreview und menschliche Freigabe. Spätere Adapter
+  benötigen feste erlaubte Endpunkte, begrenzte Abrufe, sichere Zugangshaltung
+  und Tests für Ausfall, manipulierte Daten und Widerruf. Internetinhalte sind
+  nicht vertrauenswürdige Daten, keine ausführbaren Agentenanweisungen.
+
+Recherche-Einstiegspunkte sind [Mobilithek](https://mobilithek.info/),
+[dipul](https://www.dipul.de/homepage/de/) und
+[DWD Open Data](https://www.dwd.de/DE/leistungen/opendata/opendata.html).
+Diese Seiten waren aus dieser Arbeitsumgebung nicht abrufbar; konkrete APIs,
+Lizenzen, Aktualität und Drohneneignung wurden deshalb nicht bestätigt.
+Es besteht keine Anbieteranbindung.
+
+Der erlaubte Schutzumfang bleibt passive Prüfung, Warnung und menschliche
+Bestätigung; keine Zielverfolgung zur Bekämpfung, Funkstörung, Übernahme oder
+autonome Neutralisierung. Neue Technologien bleiben ohne belegte
+Voraussetzungen deaktiviert. Bewertung, Tests und Releasevorbereitung können
+automatisiert werden; Produktionsfreigaben werden dadurch nicht ersetzt.
+
+Das vom Nutzer benannte Repository `Elektro-Engel-` ist als separates Ideen-/
+Releaseprüfungsprojekt vorgesehen, nicht als dritte App. Sein Inhalt, exakter
+Repository-Pfad und Referenzcommit wurden hier nicht bestätigt. Die obige
+Beschreibung von Elektro-Engel ohne eigenes Repository beschreibt den bisherigen
+Monorepo-Stand, nicht eine Prüfung des neuen Projekts. Ohne diese Nachweise
+wird weder ein externer Quellstand registriert noch fremder Code übernommen;
+NIKNOLIG und Defense bleiben getrennt.
+
 ## Automatische Updates und Autobuild
 
 - Bei Push und Pull Request sowie montags um 04:23 UTC und manuell laufen

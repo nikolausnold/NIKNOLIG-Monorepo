@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "traffic-data",
+      "category": "traffic",
+      "checks": {
+        "access_and_license": "pending",
+        "privacy_and_purpose": "pending",
+        "provider_and_integrity": "pending",
+        "api_and_hardware": "pending",
+        "freshness_and_coverage": "pending",
+        "quality_and_false_alarms": "pending",
+        "securitychain_p0": "pending",
+        "human_approval": "pending"
+      }
+    },
+    {
+      "id": "authorized-traffic-cameras",
+      "category": "camera",
+      "checks": {
+        "access_and_license": "pending",
+        "privacy_and_purpose": "pending",
+        "provider_and_integrity": "pending",
+        "api_and_hardware": "pending",
+        "freshness_and_coverage": "pending",
+        "quality_and_false_alarms": "pending",
+        "securitychain_p0": "pending",
+        "human_approval": "pending"
+      }
+    },
+    {
+      "id": "official-airspace-notices",
+      "category": "airspace",
+      "checks": {
+        "access_and_license": "pending",
+        "privacy_and_purpose": "pending",
+        "provider_and_integrity": "pending",
+        "api_and_hardware": "pending",
+        "freshness_and_coverage": "pending",
+        "quality_and_false_alarms": "pending",
+        "securitychain_p0": "pending",
+        "human_approval": "pending"
+      }
+    },
+    {
+      "id": "weather-open-data",
+      "category": "weather",
+      "checks": {
+        "access_and_license": "pending",
+        "privacy_and_purpose": "pending",
+        "provider_and_integrity": "pending",
+        "api_and_hardware": "pending",
+        "freshness_and_coverage": "pending",
+        "quality_and_false_alarms": "pending",
+        "securitychain_p0": "pending",
+        "human_approval": "pending"
+      }
+    },
+    {
+      "id": "curated-internet-notices",
+      "category": "internet",
+      "checks": {
+        "access_and_license": "pending",
+        "privacy_and_purpose": "pending",
+        "provider_and_integrity": "pending",
+        "api_and_hardware": "pending",
+        "freshness_and_coverage": "pending",
+        "quality_and_false_alarms": "pending",
+        "securitychain_p0": "pending",
+        "human_approval": "pending"
+      }
+    },
+    {
+      "id": "consented-local-sensors",
+      "category": "local_sensor",
+      "checks": {
+        "access_and_license": "pending",
+        "privacy_and_purpose": "pending",
+        "provider_and_integrity": "pending",
+        "api_and_hardware": "pending",
+        "freshness_and_coverage": "pending",
+        "quality_and_false_alarms": "pending",
+        "securitychain_p0": "pending",
+        "human_approval": "pending"
+      }
+    }
+  ]
+}
