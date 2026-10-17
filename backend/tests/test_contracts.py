@@ -13,17 +13,18 @@ BACKEND = Path(__file__).resolve().parents[1]
 
 
 class BackendContractTests(unittest.TestCase):
-    def test_openapi_only_exposes_non_sensitive_health_operations(self):
+    def test_openapi_exposes_health_and_configured_authentication_operations(self):
         contract = (BACKEND / "openapi.yaml").read_text(encoding="utf-8")
         self.assertIn("openapi: 3.1.0", contract)
         self.assertIn("/health/live:", contract)
         self.assertIn("/health/ready:", contract)
+        self.assertIn("/v1/session:", contract)
         self.assertIn("security: []", contract)
         self.assertIn("AUTHENTICATION_REQUIRED", contract)
         self.assertIn("APP_AREA_MISMATCH", contract)
         self.assertIn("REPLAY_DETECTED", contract)
-        self.assertNotIn("/v1/", contract)
-        self.assertIn("specified or implemented", contract)
+        self.assertIn("JWT is verified against the configured Supabase JWKS", contract)
+        self.assertIn("no operational app, device, profile", contract)
 
     def test_migration_separates_app_domains_and_does_not_store_private_keys(self):
         migration = (BACKEND / "migrations/001_initial_contract.sql").read_text(
@@ -42,11 +43,13 @@ class BackendContractTests(unittest.TestCase):
     def test_compose_is_loopback_only_and_requires_local_password(self):
         compose = (BACKEND / "compose.yaml").read_text(encoding="utf-8")
         self.assertIn("127.0.0.1:${POSTGRES_PORT:-54329}:5432", compose)
+        self.assertIn("127.0.0.1:${BACKEND_PORT:-8000}:8000", compose)
         self.assertIn("${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD", compose)
         self.assertIn("internal: true", compose)
         self.assertIn("pg_isready", compose)
         self.assertNotIn("0.0.0.0:", compose)
-        self.assertNotIn("api:", compose)
+        self.assertIn("read_only: true", compose)
+        self.assertIn("no-new-privileges:true", compose)
 
     def test_example_configuration_contains_no_password_value(self):
         example = (BACKEND / ".env.example").read_text(encoding="utf-8")

@@ -1,28 +1,46 @@
 # Gemeinsame Backend-Grundlage
 
-**Status: Health-only-Laufzeit und Verträge, lokal isoliert, nicht produktionsfreigegeben.**
+**Status: lokale Health-Laufzeit, konfigurierbare Supabase-JWT-Prüfung für
+`GET /v1/session`, PostgreSQL-Readiness-Probe und Verträge; nicht produktionsfreigegeben.**
 
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
-Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt ausschließlich
-nicht-sensitive Health-Routen bereit; Produkt-, Authentifizierungs-, Geräte- und
-Pairing-APIs, App-Clients, produktive Endpunkte und eine Cloudflare-/Deployment-
-Konfiguration existieren nicht. NIKNOLIG und NIKNOLIG Defense bleiben getrennte
+Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt nicht-sensitive
+Health-Routen und einen minimalen, konfigurierbaren JWT-Sessioncheck bereit;
+Login/Registrierung, Produkt-, Geräte- und Pairing-APIs, App-Clients, produktive
+Endpunkte und eine Cloudflare-/Deployment-Konfiguration existieren nicht.
+NIKNOLIG und NIKNOLIG Defense bleiben getrennte
 Sicherheits- und Release-Domänen; gemeinsame Verträge verleihen keine Rechte.
 Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 
 ## Artefakte
 
 - [`openapi.yaml`](openapi.yaml): OpenAPI 3.1-Vertrag für nicht-sensitive
-  Liveness-/Readiness-Prüfungen und einheitliche Fehlerantworten. Es sind bewusst
-  noch keine operativen Geräte-, Profil- oder Pairing-Endpunkte freigegeben.
-- [`app.py`](app.py): lokale Health-only-HTTP-Laufzeit ohne externe
-  Python-Abhängigkeiten. Sie ist kein produktionsgeeigneter API-Server.
+  Liveness-/Readiness-Prüfungen, den geschützten Sessioncheck und einheitliche
+  Fehlerantworten. Es sind bewusst noch keine operativen Geräte-, Profil- oder
+  Pairing-Endpunkte freigegeben.
+- [`app.py`](app.py), [`authentication.py`](authentication.py) und
+  [`database.py`](database.py): lokale HTTP-Laufzeit. `/v1/session` prüft ein
+  signiertes Supabase-JWT gegen HTTPS-JWKS, festen Issuer, Audience, Ablaufzeit
+  und serververwaltetes `app_metadata.app_area`. Es stellt keine Tokens aus,
+  erstellt keine Konten und implementiert keine Produkt-API. `/health/ready`
+  führt bei vorhandener Konfiguration eine auf zwei Sekunden begrenzte
+  PostgreSQL-Verbindungs- und `SELECT 1`-Prüfung aus; es läuft höchstens eine
+  Probe gleichzeitig. Ohne Treiber, Konfiguration, Datenbank oder innerhalb der
+  Frist antwortende DB meldet es 503.
+- [`authorization.py`](authorization.py): fail-closed Prüfung von Produktbereich,
+  Aktion, Ablaufzeit, Issuer/Audience und bereits bestätigtem Gerätezustand.
+  Sie verifiziert weder Tokens noch stellt sie diese aus; ungeprüfte
+  Client-Claims sind kein vertrauenswürdiger Eingabewert und die Policy ist noch
+  an keinen API-Endpunkt angeschlossen.
 - [`migrations/001_initial_contract.sql`](migrations/001_initial_contract.sql):
   vorgeschlagenes relationales Modell für App-Bereiche, Installationen,
   Geräteidentitätsstatus und spätere Zwei-App-Link-Beziehungen. Das Anwenden der
   Migration ist bis zur Architektur-/Security-Freigabe gesperrt.
-- [`compose.yaml`](compose.yaml): ausschließlich lokale PostgreSQL-Entwicklung,
-  an Loopback gebunden und ohne API-Service oder öffentlich erreichbaren Port.
+- [`compose.yaml`](compose.yaml) und [`Dockerfile`](Dockerfile): lokale API und
+  PostgreSQL. Veröffentliche Ports sind an Loopback
+  gebunden; die Container kommunizieren in einem internen Netzwerk.
+- [`requirements.txt`](requirements.txt): fest gepinnter PostgreSQL-Treiber,
+  PyJWT und Kryptographiebibliothek für den API-Container.
 - [`.env.example`](.env.example): Variablennamen ohne eingetragene Credentials.
 - [`contracts/`](contracts/): versionierte, deklarative Entwürfe für
   Gerätewechsel-Zustimmung, minimierte Audit-Ereignisse, Sensor-Capabilities und
@@ -53,10 +71,12 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    einem Linkstatus.
 2. **Authentifizierung:** Geschützte API-Aufrufe benötigen künftig kurzlebige,
    widerrufbare Zugriffsnachweise mit festgelegtem Aussteller, Zielgruppe,
-   Ablaufzeit, App-Bereich und minimalen Aktionsrechten. Tokenformat, Aussteller,
-   Login-/Registrierungsfluss, Schlüsselrotation und Durchsetzung sind offen;
-   aus dem Bearer-Schema des OpenAPI-Vertrags folgt keine implementierte oder
-   freigegebene Authentifizierung.
+   Ablaufzeit, App-Bereich und minimalen Aktionsrechten. `/v1/session` verifiziert
+   lokal RS256-/ES256-JWTs mit konfiguriertem Supabase-Issuer/JWKS/Audience und
+   serververwaltetem `app_metadata.app_area`; Login/Registrierung,
+   Schlüsselrotation im Produktivbetrieb, Aktionsrechte und produktive Freigabe
+   bleiben offen. Der Sessioncheck ist keine vollständige Authentifizierung für
+   Produktdaten.
 3. **Geräteidentität:** Eine Installations-ID oder ein Android-Gerätename ist
    kein Authentizitätsnachweis. Vorgesehen ist eine registrierte
    App-Installation mit Challenge-basierter Besitzprüfung eines
@@ -75,38 +95,47 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    Aufbewahrung, Löschung, Benutzeridentität und konkrete Nutzdaten sind noch
    nicht fachlich freigegeben.
 6. **Healthchecks:** `/health/live` meldet nur Prozessverfügbarkeit;
-   `/health/ready` meldet die Bereitschaft dieser Health-only-Laufzeit. Es gibt
-   noch keine Produktabhängigkeiten, die geprüft werden könnten. Antworten legen
+   `/health/ready` meldet die Bereitschaft der lokalen Laufzeit. Antworten legen
    keine Umgebungsvariablen, internen Hosts, Stacktraces oder Datenbankdetails
    offen.
 
-## Lokale Datenbankumgebung
+## Lokale API- und Datenbankumgebung
 
-Docker Compose veröffentlicht PostgreSQL ausschließlich auf
-`127.0.0.1:54329` (konfigurierbar), nutzt ein erforderliches lokales Passwort,
-ein isoliertes internes Compose-Netzwerk und ein lokales benanntes Volume. Es
-gibt keinen API-Container, keine Internetfreigabe und keine produktive
-Konfiguration. `.env` wird lokal aus `.env.example` erstellt und nicht
-eingecheckt. Das Compose-Setup ist nicht für Deployment oder sensible Daten
-bestimmt.
+Docker Compose veröffentlicht API und PostgreSQL ausschließlich an Loopback
+(standardmäßig `127.0.0.1:8000` und `127.0.0.1:54329`). Beide Services verwenden
+ein internes Netzwerk ohne Internet-Egress; der API-Container läuft nicht als
+root, mit read-only Root-Dateisystem und ohne Linux-Capabilities. Daher kann
+Compose keine externe Supabase-JWKS beziehen und `/v1/session` bleibt dort
+unverfügbar. Das API-Readiness-Signal prüft die DB-Verbindung, ist jedoch kein
+Authentifizierungs-, Produkt- oder
+Produktionsbereitschaftsnachweis. `.env` wird lokal aus `.env.example` erstellt
+und nicht eingecheckt. Das Compose-Setup ist nicht für Deployment oder sensible
+Daten bestimmt.
 
 ## Lokaler Health-Server
 
-Mit Python 3 starten:
+Für den lokalen Server:
 
 ```sh
+python3 -m pip install -r backend/requirements.txt
 python3 backend/app.py
 ```
 
 Die Standardbindung ist `127.0.0.1:8000`. `BACKEND_HOST` und `BACKEND_PORT`
-können als Umgebungsvariablen gesetzt werden. Die Anwendung lädt `.env` nicht
-automatisch. `/health/live` und `/health/ready` liefern die vereinbarten
-Statusantworten; andere GET-Pfade geben eine generische 404-Antwort zurück.
-Es gibt keine Anmeldung, Datenbankverbindung, Gerätefunktion oder Produkt-API.
-Die Standardbibliotheks-HTTP-Laufzeit ist nur für lokale Entwicklung und
-Vertragstests gedacht: nicht öffentlich exponieren oder als produktiven
-Internetserver verwenden. Serverplattform, TLS, Authentifizierung, Betrieb und
-Deployment bleiben separat zu konfigurieren und freizugeben.
+können als Umgebungsvariablen gesetzt werden. Für `/v1/session` sind zusätzlich
+`BACKEND_APP_AREA`, `AUTH_ISSUER`, `AUTH_JWKS_URL` und `AUTH_AUDIENCE` mit den
+Werten des autorisierten Supabase-Projekts zu konfigurieren; es werden keine
+Zugangsdaten oder Token gespeichert. Der Issuer und JWKS-Endpunkt müssen zur
+gleichen `*.supabase.co`-Domain gehören. Die Anwendung lädt `.env` nicht
+automatisch. `/health/live` prüft nur den Prozess. `/health/ready` liefert 200
+nur wenn die Datenbank erreichbar ist; ohne `psycopg` oder DB-Konfiguration
+liefert es 503. Ohne vollständige Auth-Konfiguration antwortet `/v1/session`
+fail-closed mit 503; unbekannte GET-Pfade bleiben 404. Es gibt keinen
+Login-/Registrierungsflow, keine Gerätefunktion und keine Produkt-API. Der
+HTTP-Server ist nur für lokale
+Entwicklung und Vertragstests gedacht: nicht öffentlich exponieren oder als
+produktiven Internetserver verwenden. Serverplattform, TLS, Authentifizierung
+und produktives Deployment bleiben separat zu konfigurieren und freizugeben.
 
 ## SecurityChain-P0 und Freigabe
 
@@ -140,9 +169,12 @@ werden durch dieses Monorepo automatisch geändert.
 
 ## Verifikation und nächste Schritte
 
-`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und
-die Health-only-Laufzeit. Sofern Docker Compose installiert ist, kann die lokale
-Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:
+`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,
+synthetisch signierte JWTs, App-Bereichstrennung, entfernte JWKS-Schlüssel und
+Readiness-Zustände einschließlich DB-Timeout. Die JWT-Tests verwenden
+synthetische Schlüssel; sie bestätigen keine Verbindung zu einem echten
+Supabase-Projekt. Sofern Docker Compose installiert ist, kann die
+lokale Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:
 
 ```sh
 POSTGRES_PASSWORD=local-only-check docker compose \
@@ -150,8 +182,8 @@ POSTGRES_PASSWORD=local-only-check docker compose \
 ```
 
 Der Datenbankstart verlangt bewusst ein gesetztes lokales Passwort und ist nicht
-Teil der automatischen Tests. Keine der Prüfungen belegt eine operative API,
-sichere Authentifizierung, P0-Freigabe oder Verbindung zwischen zwei physischen
+Teil der automatischen Tests. Die Tests belegen keine Supabase-Projektkonfiguration,
+P0-Freigabe, Produkt-API, App-Integration oder Verbindung zwischen zwei physischen
 Geräten.
 
 Gerätewechsel-, Sensorverträge, Android API-/Berechtigungsanforderungen und

@@ -22,6 +22,8 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Install backend runtime dependencies
+        run: python3 -m pip install --user -r backend/requirements.txt
       - name: Run backend contract regression tests
         run: python3 -m unittest discover -s backend/tests
       - name: Run tooling regression tests

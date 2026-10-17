@@ -17,7 +17,8 @@ from app import create_server, main
 
 class BackendHealthServerTests(unittest.TestCase):
     def setUp(self):
-        self.server = create_server("127.0.0.1", 0)
+        self.readiness = False
+        self.server = create_server("127.0.0.1", 0, lambda: self.readiness)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         host, port = self.server.server_address
@@ -28,17 +29,29 @@ class BackendHealthServerTests(unittest.TestCase):
         self.thread.join()
         self.server.server_close()
 
-    def test_health_routes_match_the_openapi_status_contract(self):
-        for path, expected in (
-            ("/health/live", {"status": "live"}),
-            ("/health/ready", {"status": "ready"}),
-        ):
-            with self.subTest(path=path):
-                with urlopen(self.base_url + path, timeout=2) as response:
-                    self.assertEqual(200, response.status)
-                    self.assertEqual("application/json; charset=utf-8", response.headers["Content-Type"])
-                    self.assertEqual("no-store", response.headers["Cache-Control"])
-                    self.assertEqual(expected, json.load(response))
+    def test_liveness_does_not_depend_on_database_readiness(self):
+        with urlopen(self.base_url + "/health/live", timeout=2) as response:
+            self.assertEqual(200, response.status)
+            self.assertEqual({"status": "live"}, json.load(response))
+
+    def test_readiness_fails_closed_when_database_is_unavailable(self):
+        with self.assertRaises(HTTPError) as raised:
+            urlopen(self.base_url + "/health/ready", timeout=2)
+
+        self.assertEqual(503, raised.exception.code)
+        self.assertEqual("no-store", raised.exception.headers["Cache-Control"])
+        body = json.load(raised.exception)
+        self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
+        self.assertRegex(
+            body["error"]["requestId"],
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        )
+
+    def test_readiness_returns_200_only_after_dependency_probe_succeeds(self):
+        self.readiness = True
+        with urlopen(self.base_url + "/health/ready", timeout=2) as response:
+            self.assertEqual(200, response.status)
+            self.assertEqual({"status": "ready"}, json.load(response))
 
     def test_unsupported_path_returns_generic_not_found_error(self):
         with self.assertRaises(HTTPError) as raised:

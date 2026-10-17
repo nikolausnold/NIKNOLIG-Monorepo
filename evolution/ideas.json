@@ -79,16 +79,16 @@
       "evidence": [
         {
           "path": ".github/workflows/android-build.yml",
-          "startLine": 42,
-          "endLine": 44,
-          "excerpt": "      - name: Assemble both debug APKs\n        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon\n      - name: Verify package identities and APK signatures",
+          "startLine": 27,
+          "endLine": 30,
+          "excerpt": "      - name: Run backend contract regression tests\n        run: python3 -m unittest discover -s backend/tests\n      - name: Run tooling regression tests\n        run: python3 -m unittest discover -s tools/tests",
           "state": "verified"
         },
         {
           "path": "backend/README.md",
-          "startLine": 143,
-          "endLine": 144,
-          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und\ndie Health-only-Laufzeit.",
+          "startLine": 172,
+          "endLine": 177,
+          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,\nsynthetisch signierte JWTs, App-Bereichstrennung, entfernte JWKS-Schlüssel und\nReadiness-Zustände einschließlich DB-Timeout. Die JWT-Tests verwenden\nsynthetische Schlüssel; sie bestätigen keine Verbindung zu einem echten\nSupabase-Projekt. Sofern Docker Compose installiert ist, kann die",
           "state": "verified"
         }
       ]
