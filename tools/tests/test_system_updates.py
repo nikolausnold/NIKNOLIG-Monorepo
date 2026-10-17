@@ -91,7 +91,7 @@ class SystemUpdatesTests(unittest.TestCase):
         baseline = self.entries[1]["baseline"]
         reader.head.side_effect = [
             ("main", HEAD), ("release", baseline), ("main", HEAD),
-            ("main", HEAD), ("main", HEAD),
+            ("main", HEAD), ("main", HEAD), ("main", HEAD),
         ]
         report = build_report(self.entries, reader, LOCAL)
         local, unchanged, changed, *additional = report["repositories"]
@@ -106,13 +106,13 @@ class SystemUpdatesTests(unittest.TestCase):
         self.assertEqual(3, len(additional))
         self.assertTrue(all(result["status"] == "checked" for result in additional))
         self.assertTrue(all(result["changed"] for result in additional))
-        self.assertEqual(5, reader.head.call_count)
+        self.assertEqual(6, reader.head.call_count)
 
     def test_failure_does_not_skip_remaining_repositories_or_claim_unchanged(self):
         reader = MagicMock()
         reader.head.side_effect = [
             InventoryError("GitHub HTTP 404"), ("main", HEAD), ("main", HEAD),
-            ("main", HEAD), ("main", HEAD),
+            ("main", HEAD), ("main", HEAD), ("main", HEAD),
         ]
         report = build_report(self.entries, reader)
         self.assertFalse(report["all_configured_repositories_checked"])
@@ -195,24 +195,24 @@ class SystemUpdatesTests(unittest.TestCase):
     def test_cli_emits_complete_json_and_failure_exit_code(self):
         code, output = self.run_cli([
             ("main", HEAD), InventoryError("unavailable"), ("main", HEAD),
-            ("main", HEAD), ("main", HEAD),
+            ("main", HEAD), ("main", HEAD), ("main", HEAD),
         ])
         self.assertEqual(1, code)
         report = json.loads(output)
         self.assertEqual(6, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][1]["status"])
-        code, output = self.run_cli([("main", HEAD)] * 5)
+        code, output = self.run_cli([("main", HEAD)] * 6)
         self.assertEqual(0, code)
         self.assertEqual([], json.loads(output)["pending_configuration"])
 
     def test_cli_output_file_and_unwritable_output_fallback(self):
         with patch("tools.system_updates.Path.write_text") as write:
-            code, output = self.run_cli([("main", HEAD)] * 5, ["--output", "inventory.json"])
+            code, output = self.run_cli([("main", HEAD)] * 6, ["--output", "inventory.json"])
             self.assertEqual(0, code)
             self.assertEqual("", output)
             self.assertEqual(6, len(json.loads(write.call_args.args[0])["repositories"]))
         with patch("tools.system_updates.Path.write_text", side_effect=PermissionError):
-            code, output = self.run_cli([("main", HEAD)] * 5, ["--output", "inventory.json"])
+            code, output = self.run_cli([("main", HEAD)] * 6, ["--output", "inventory.json"])
             self.assertEqual(2, code)
             self.assertTrue(json.loads(output)["all_configured_repositories_checked"])
 
