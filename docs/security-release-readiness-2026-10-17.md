@@ -114,8 +114,12 @@ Die zwei Android-Module sind getrennte Apps mit den IDs `com.niknolig.app` und
 `com.niknolig.defense`. Implementiert ist nur der neue app-lokale
 Sitzungs-/Envelope-Manager mit kontrollierten Test-Fakes. Es gibt weiterhin
 keine Android-BLE/GATT-Implementierung, Produktiv-Pairing, produktive
-Kryptografie-/Autorisierungs-Policy oder Instrumented-/Zwei-Geräte-Tests. Die
-vorhandenen Release- und Debug-Builds belegen daher keine Geräteverbindung.
+Kryptografie-/Autorisierungs-Policy oder Instrumented-/Zwei-Geräte-Tests.
+Sitzungs-IDs müssen vor dem BLE-Aufbau über die Policy atomar und dauerhaft
+reserviert werden; Test-Fakes verwenden dafür nur flüchtigen Speicher. Ein
+Produktiv-Provider für diese Reservation sowie dauerhafte Replay-/
+Widerrufsspeicherung fehlt. Die vorhandenen Release- und Debug-Builds belegen
+daher keine Geräteverbindung.
 
 ### iOS
 

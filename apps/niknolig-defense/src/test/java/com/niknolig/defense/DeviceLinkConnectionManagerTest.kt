@@ -31,6 +31,10 @@ class DeviceLinkConnectionManagerTest {
         val unconsented = Fixture().apply { policy.peerConsentVerified = false }
         assertFalse(unconsented.manager.connect(unconsented.peer, localConsentConfirmed = true))
         assertEquals(0, unconsented.ble.connectCalls)
+
+        val replayedSession = Fixture().apply { policy.sessionReservationAllowed = false }
+        assertFalse(replayedSession.manager.connect(replayedSession.peer, localConsentConfirmed = true))
+        assertEquals(0, replayedSession.ble.connectCalls)
     }
 
     @Test
@@ -131,6 +135,15 @@ class DeviceLinkConnectionManagerTest {
         }
         assertFalse(unauthorized.manager.receive(unauthorized.message(sequence = 1)))
         assertEquals(DeviceLinkState.FAILED, unauthorized.manager.state)
+
+        val oversizedSignature = Fixture().apply { startConnected() }
+        assertFalse(
+            oversizedSignature.manager.receive(
+                oversizedSignature.message(sequence = 1).copy(signature = ByteArray(1_000_000)),
+            ),
+        )
+        assertEquals(0, oversizedSignature.policy.messageSignatureChecks)
+        assertEquals(DeviceLinkState.FAILED, oversizedSignature.manager.state)
     }
 
     @Test
@@ -164,6 +177,21 @@ class DeviceLinkConnectionManagerTest {
         assertFalse(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
         val freshPeer = fixture.peer.copy(sessionId = NEW_SESSION)
         assertTrue(fixture.manager.connect(freshPeer, localConsentConfirmed = true))
+    }
+
+    @Test
+    fun sessionReservationAllowsMoreThanFormerLimitAndRejectsReuse() {
+        val fixture = Fixture()
+        repeat(130) { index ->
+            val peer = fixture.peer.copy(sessionId = sessionId(index))
+            assertTrue(fixture.manager.connect(peer, localConsentConfirmed = true))
+            fixture.ble.complete(index, true)
+            assertEquals(DeviceLinkState.CONNECTED, fixture.manager.state)
+            fixture.manager.disconnect()
+        }
+
+        assertFalse(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
+        assertEquals(130, fixture.ble.connectCalls)
     }
 
     @Test
@@ -263,10 +291,13 @@ class DeviceLinkConnectionManagerTest {
     private class FakePolicy : DeviceLinkSecurityPolicy {
         var identityTrusted = true
         var peerConsentVerified = true
+        var sessionReservationAllowed = true
         var transportEvidenceVerified = true
         var messageSignatureValid = true
         var messageAuthorized = true
         var identityChecks = 0
+        var messageSignatureChecks = 0
+        private val reservedSessions = mutableSetOf<String>()
 
         override fun verifyPeerIdentity(peer: DeviceLinkPeer, localAppArea: String): Boolean {
             identityChecks++
@@ -276,19 +307,27 @@ class DeviceLinkConnectionManagerTest {
         override fun verifyPeerConsent(peer: DeviceLinkPeer, localAppArea: String) =
             peerConsentVerified
 
+        override fun reserveFreshSession(peer: DeviceLinkPeer): Boolean =
+            sessionReservationAllowed && reservedSessions.add(peer.sessionId)
+
         override fun verifyTransportEvidence(
             peer: DeviceLinkPeer,
             evidence: DeviceLinkTransportEvidence,
         ) = transportEvidenceVerified
 
-        override fun verifyMessageSignature(peer: DeviceLinkPeer, message: DeviceLinkMessage) =
-            messageSignatureValid
+        override fun verifyMessageSignature(peer: DeviceLinkPeer, message: DeviceLinkMessage): Boolean {
+            messageSignatureChecks++
+            return messageSignatureValid
+        }
 
         override fun authorizeMessage(peer: DeviceLinkPeer, message: DeviceLinkMessage) =
             messageAuthorized
     }
 
     private companion object {
+        fun sessionId(index: Int) =
+            "00000000-0000-4000-8000-${index.toString().padStart(12, '0')}"
+
         const val APP_NIKNOLIG = "niknolig"
         const val APP_DEFENSE = "niknolig-defense"
         const val PEER_INSTALLATION = "00000000-0000-4000-8000-000000000031"

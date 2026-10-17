@@ -44,6 +44,7 @@ internal interface DeviceLinkBleTransport {
 internal interface DeviceLinkSecurityPolicy {
     fun verifyPeerIdentity(peer: DeviceLinkPeer, localAppArea: String): Boolean
     fun verifyPeerConsent(peer: DeviceLinkPeer, localAppArea: String): Boolean
+    fun reserveFreshSession(peer: DeviceLinkPeer): Boolean
     fun verifyTransportEvidence(
         peer: DeviceLinkPeer,
         evidence: DeviceLinkTransportEvidence,
@@ -55,6 +56,7 @@ internal interface DeviceLinkSecurityPolicy {
 internal class DenyAllDeviceLinkSecurityPolicy : DeviceLinkSecurityPolicy {
     override fun verifyPeerIdentity(peer: DeviceLinkPeer, localAppArea: String) = false
     override fun verifyPeerConsent(peer: DeviceLinkPeer, localAppArea: String) = false
+    override fun reserveFreshSession(peer: DeviceLinkPeer) = false
     override fun verifyTransportEvidence(
         peer: DeviceLinkPeer,
         evidence: DeviceLinkTransportEvidence,
@@ -76,7 +78,6 @@ internal class DeviceLinkConnectionManager(
 
     private var peer: DeviceLinkPeer? = null
     private var lastSequence = 0L
-    private val closedSessionIds = linkedSetOf<String>()
     private val seenMessageIds = linkedSetOf<String>()
     private val seenNonces = linkedSetOf<String>()
 
@@ -95,16 +96,15 @@ internal class DeviceLinkConnectionManager(
         if (!localConsentConfirmed ||
             !isUuid(candidate.installationId) ||
             !isUuid(candidate.sessionId) ||
-            candidate.appArea != peerAppArea ||
-            candidate.sessionId in closedSessionIds ||
-            closedSessionIds.size >= MAX_CLOSED_SESSIONS
+            candidate.appArea != peerAppArea
         ) {
             return false
         }
 
         val trusted = try {
             securityPolicy.verifyPeerIdentity(candidate, localAppArea) &&
-                securityPolicy.verifyPeerConsent(candidate, localAppArea)
+                securityPolicy.verifyPeerConsent(candidate, localAppArea) &&
+                securityPolicy.reserveFreshSession(candidate)
         } catch (_: Exception) {
             false
         }
@@ -133,6 +133,10 @@ internal class DeviceLinkConnectionManager(
     fun receive(message: DeviceLinkMessage): Boolean {
         val activePeer = peer
         if (state != DeviceLinkState.CONNECTED || activePeer == null) return false
+        if (message.signature.size !in MIN_SIGNATURE_BYTES..MAX_SIGNATURE_BYTES) {
+            failClosed()
+            return false
+        }
         val immutableMessage = message.copy(signature = message.signature.copyOf())
         if (!isValidEnvelope(activePeer, immutableMessage)) {
             failClosed()
@@ -154,7 +158,6 @@ internal class DeviceLinkConnectionManager(
         seenMessageIds.add(immutableMessage.messageId)
         seenNonces.add(immutableMessage.nonce)
         if (immutableMessage.eventType == "session.revoke") {
-            closedSessionIds.add(activePeer.sessionId)
             peer = null
             lastSequence = 0
             seenMessageIds.clear()
@@ -168,7 +171,6 @@ internal class DeviceLinkConnectionManager(
     @Synchronized
     fun disconnect() {
         if (state != DeviceLinkState.REVOKED) state = DeviceLinkState.IDLE
-        peer?.sessionId?.let(closedSessionIds::add)
         peer = null
         lastSequence = 0
         seenMessageIds.clear()
@@ -178,7 +180,6 @@ internal class DeviceLinkConnectionManager(
 
     @Synchronized
     fun revoke() {
-        peer?.sessionId?.let(closedSessionIds::add)
         peer = null
         lastSequence = 0
         seenMessageIds.clear()
@@ -242,7 +243,6 @@ internal class DeviceLinkConnectionManager(
     }
 
     private fun failClosed() {
-        peer?.sessionId?.let(closedSessionIds::add)
         peer = null
         lastSequence = 0
         seenMessageIds.clear()
@@ -271,6 +271,5 @@ internal class DeviceLinkConnectionManager(
         const val MAX_SIGNATURE_BYTES = 512
         const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
         const val MAX_MESSAGES_PER_SESSION = 1_024
-        const val MAX_CLOSED_SESSIONS = 128
     }
 }
