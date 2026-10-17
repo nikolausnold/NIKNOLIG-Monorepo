@@ -70,6 +70,11 @@ oder Skripte aus und ist weder ein Anwendungstest noch ein Nachweis für eine
 Cloudflare-Verbindung. Sein begrenzter Credential-Musterscan beweist nicht, dass
 keine Geheimnisse vorhanden sind.
 
+Externe Repository-URLs oder PAT-Secrets sind nicht erforderlich; bestehende
+`WORKERS_REPOSITORY_URL`- und `WORKERS_REPO_READ_PAT`-Secrets werden nicht verwendet.
+Nach Workflow-Änderungen einen neuen manuellen Lauf starten: Ein erneuter Versuch
+eines alten Laufs verwendet weiterhin dessen alten Workflow-Stand.
+
 Weitere Inventur- und Cloudflare-Nachweise stehen im
 [Master-Integrationsplan](docs/MASTER-INTEGRATION-PLAN.md).
 
