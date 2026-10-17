@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://niknolig.example/contracts/device-link-message-v1.schema.json",
+  "$id": "https://niknolig.invalid/contracts/device-link-message-v1.schema.json",
   "title": "NIKNOLIG device-link control message v1",
   "description": "Proposed bounded control-plane envelope only. Schema validity does not establish identity, consent, authorization, signature validity, replay safety, or P0 approval. No user payload is defined.",
   "type": "object",

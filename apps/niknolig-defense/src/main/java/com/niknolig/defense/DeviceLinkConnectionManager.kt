@@ -60,7 +60,14 @@ internal class DeviceLinkConnectionManager(
 
     private var peer: DeviceLinkPeer? = null
     private var lastSequence = 0L
-    private var revokedSessionId: String? = null
+    private val revokedSessionIds = linkedSetOf<String>()
+
+    init {
+        require(
+            (localAppArea == "niknolig" && peerAppArea == "niknolig-defense") ||
+                (localAppArea == "niknolig-defense" && peerAppArea == "niknolig"),
+        )
+    }
 
     @Synchronized
     fun connect(candidate: DeviceLinkPeer, localConsentConfirmed: Boolean): Boolean {
@@ -71,7 +78,8 @@ internal class DeviceLinkConnectionManager(
             !isUuid(candidate.installationId) ||
             !isUuid(candidate.sessionId) ||
             candidate.appArea != peerAppArea ||
-            candidate.sessionId == revokedSessionId
+            candidate.sessionId in revokedSessionIds ||
+            revokedSessionIds.size >= MAX_REVOKED_SESSIONS
         ) {
             return false
         }
@@ -123,7 +131,7 @@ internal class DeviceLinkConnectionManager(
 
         lastSequence = message.sequence
         if (message.eventType == "session.revoke") {
-            revokedSessionId = activePeer.sessionId
+            revokedSessionIds.add(activePeer.sessionId)
             peer = null
             state = DeviceLinkState.REVOKED
             safeDisconnect()
@@ -141,7 +149,7 @@ internal class DeviceLinkConnectionManager(
 
     @Synchronized
     fun revoke() {
-        revokedSessionId = peer?.sessionId ?: revokedSessionId
+        peer?.sessionId?.let(revokedSessionIds::add)
         peer = null
         lastSequence = 0
         state = DeviceLinkState.REVOKED
@@ -150,12 +158,8 @@ internal class DeviceLinkConnectionManager(
 
     @Synchronized
     private fun onConnectionResult(sessionId: String, connected: Boolean) {
-        if (state != DeviceLinkState.CONNECTING || peer?.sessionId != sessionId || !connected) {
-            if (!connected || peer?.sessionId != sessionId || state != DeviceLinkState.CONNECTING) {
-                failClosed()
-            }
-            return
-        }
+        if (state != DeviceLinkState.CONNECTING || peer?.sessionId != sessionId) return
+        if (!connected) return failClosed()
         state = DeviceLinkState.CONNECTED
     }
 
@@ -205,5 +209,6 @@ internal class DeviceLinkConnectionManager(
         const val MAX_MESSAGE_LIFETIME_SECONDS = 120
         const val MIN_SIGNATURE_BYTES = 32
         const val MAX_SIGNATURE_BYTES = 512
+        const val MAX_REVOKED_SESSIONS = 128
     }
 }
