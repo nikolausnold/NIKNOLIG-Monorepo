@@ -262,7 +262,7 @@ oder nicht belegbarer Freigabe gilt fail closed.
 
 ## 8. CI-Plattformtrennung und Prüfnachweise
 
-Inventur und lokale Prüfung: 16.10.2026. Alle Dateien unter
+Inventur und lokale Prüfung: aktualisiert am 17.10.2026 für PR #26. Alle Dateien unter
 `.github/workflows/` sind wie folgt zugeordnet:
 
 | Workflow | Domäne / Runner | Abhängigkeiten und Grenzen |
@@ -305,11 +305,16 @@ der Pluginauflösung ab: `com.android.application:8.11.1` ist nicht abrufbar,
 `dl.google.com` lässt sich in dieser Umgebung nicht auflösen. Damit wurden
 hier weder Lint noch Debug-Build noch Unit-Tests erfolgreich ausgeführt.
 Android-Testquellen fehlen außerdem; `NO-SOURCE` wäre kein Unit-Testnachweis.
-Der ältere erfolgreiche Main-Build ersetzt keine Lint-Prüfung der neuen CI.
+Der abschließende lokale Gesamtaufruf am 17.10.2026 mit `--no-daemon --continue`
+endet mit Exitcode 1 vor der Taskausführung. Der direkte HTTPS-Abruf des
+AGP-POMs endet ebenfalls vor HTTP mit `curl: (6) Could not resolve host:
+dl.google.com`. Es werden keine Versionen geändert, Mirrors eingeführt oder
+identische Builds wiederholt, um diesen externen Netzwerkblocker zu umgehen.
 
 Backend-Vertrags-/Health-Tests: 13 erfolgreich, einschließlich optionaler
 JSON-Schema-Validierung mit vorhandenem `jsonschema`. Tooling-Regressionen:
-34 erfolgreich. Beim Verschieben der CI wurden die dadurch ungültigen
+37 erfolgreich, einschließlich Ressourcen- und CI-Diagnoseregressionen
+(beide Python-Aufrufe Exitcode 0). Beim Verschieben der CI wurden die dadurch ungültigen
 Datei-/Zeilenbelege in `evolution/ideas.json` aktualisiert, nicht die
 Validierungsregeln gelockert. Alle fünf Workflow-YAML-Dateien sind parsebar;
 `git diff --check` und der verfügbare Secret-Scan sind ohne Befund.
@@ -324,12 +329,33 @@ Main-Läufe desselben Repositories aus Push/Zeitplan/manuellem Trigger.
 PR-/Fork-Code passiert diesen Guard nicht; der Job hat nur Leserechte, keine
 Signing-Secrets und keinen konfigurierten Cache. Die Warnungen werden nicht
 durch einen schwächeren Guard oder eine Scan-Unterdrückung beseitigt.
-Die neuen GitHub-Läufe für
-[Android](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38906531831)
-und [Backend/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38906531894)
-stehen auf `action_required`, jeweils ohne gestartete Jobs oder Job-Logs.
-Ihre Ausführung ist daher noch nicht nachgewiesen; die erforderliche
-GitHub-Aktion/Freigabe muss im jeweiligen Lauf geprüft werden.
+**Vorhandener CI-Nachweis, kein neuer lokaler Erfolg:** Für Commit `4bae75a`
+hat [Android-Lauf 39009520400, Versuch 2](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39009520400/job/117332924884)
+beide `assembleDebug`- und beide `lintDebug`-Tasks erfolgreich abgeschlossen
+(`BUILD SUCCESSFUL in 1m 16s`). Beide Unit-Testtasks melden `NO-SOURCE`, also
+keine ausgeführten Android-Unit-Tests. App-IDs und Debug-Signaturen wurden
+anschließend geprüft. Tatsächlich erzeugte APK-Artefakte:
+[NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39009520400/artifacts/12092937072)
+und [Defense](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39009520400/artifacts/12093106264).
+Der separate [Backend-/Tooling-Lauf](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39009520416)
+war ebenfalls erfolgreich. Diese Nachweise stammen vor der abschließenden
+Workflow-Diagnosekorrektur; sie ersetzen deren erneute CI-Ausführung nicht.
+
+Die ursprüngliche Defense-Lint-Ursache war `windowLightNavigationBar` in
+unqualifizierten Ressourcen trotz minSdk 26. In beiden Apps liegt dieses
+Attribut jetzt nur in `values-v27`, mit explizitem Basistheme für API 26.
+Autofill ist für die drei Freitextfelder ausdrücklich deaktiviert; zwei
+unbenutzte Farbressourcen wurden entfernt. Die vollständigen historischen
+20 Einzelwarnungen wurden nicht als Artefakt gesichert und sind aus dem
+erfolgreichen CI-Log nicht rekonstruierbar. Warnungsfreiheit wird nicht behauptet.
+
+**Diagnosekorrektur:** Android-CI sichert künftig Gradle-Konsolenausgabe,
+Lint-HTML/XML/Textberichte sowie vorhandene Unit-Testberichte/-Ergebnisse auch
+bei Fehlern in einem siebentägigen, lauf-/versuchsspezifischen Diagnoseartefakt.
+`--continue` lässt unabhängige Tasks zur Diagnose weiterlaufen; Gradle behält
+einen Fehler-Exitcode. Bash `pipefail` erhält ihn trotz `tee`. Es gibt weder
+`continue-on-error` noch eine Lint-Baseline/Deaktivierung. APK-Prüfung und
+APK-Upload bleiben auf erfolgreiche vorherige Schritte beschränkt.
 
 **iOS:** Im Monorepo fehlen Swift-Quellen, `Package.swift`, Xcode-Projekte,
 Workspaces und Schemes. Deployment Targets und Signing-Konfigurationen sind

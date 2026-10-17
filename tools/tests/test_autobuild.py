@@ -83,6 +83,31 @@ class AutobuildTests(unittest.TestCase):
         self.assertIn("needs: contracts", signing)
         self.assertNotIn("backend/tests", signing)
 
+    def test_android_reports_survive_failures_without_masking_gradle_exit_code(self):
+        workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
+        build, rest = workflow.split("      - name: Upload Android diagnostic reports", 1)
+        reports, apk_checks = rest.split(
+            "      - name: Verify package identities and APK signatures", 1
+        )
+        self.assertIn("shell: bash", build)
+        self.assertIn("set -euo pipefail", build)
+        self.assertIn("--no-daemon --continue", build)
+        self.assertIn('2>&1 | tee "$RUNNER_TEMP/android-debug-build.log"', build)
+        self.assertIn("if: always()", reports)
+        self.assertIn("${{ runner.temp }}/android-debug-build.log", reports)
+        self.assertIn("${{ github.run_id }}-${{ github.run_attempt }}", reports)
+        for app in ("niknolig", "niknolig-defense"):
+            for directory in (
+                "reports/",
+                "test-results/",
+                "intermediates/lint_intermediate_text_report/",
+            ):
+                with self.subTest(app=app, directory=directory):
+                    self.assertIn(f"apps/{app}/build/{directory}", reports)
+        self.assertNotIn("continue-on-error", workflow)
+        self.assertNotIn("|| true", build)
+        self.assertNotIn("if: always()", apk_checks)
+
 
 if __name__ == "__main__":
     unittest.main()

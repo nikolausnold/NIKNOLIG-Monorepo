@@ -41,11 +41,29 @@ jobs:
           distribution: temurin
           java-version: "17"
       - name: Test, lint and assemble both debug APKs
-        run: >-
-          ./gradlew
-          :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest
-          :niknolig:lintDebug :niknolig-defense:lintDebug
-          :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew \
+            :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest \
+            :niknolig:lintDebug :niknolig-defense:lintDebug \
+            :niknolig:assembleDebug :niknolig-defense:assembleDebug \
+            --no-daemon --continue 2>&1 | tee "$RUNNER_TEMP/android-debug-build.log"
+      - name: Upload Android diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: android-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/android-debug-build.log
+            apps/niknolig/build/reports/
+            apps/niknolig-defense/build/reports/
+            apps/niknolig/build/test-results/
+            apps/niknolig-defense/build/test-results/
+            apps/niknolig/build/intermediates/lint_intermediate_text_report/
+            apps/niknolig-defense/build/intermediates/lint_intermediate_text_report/
+          if-no-files-found: warn
+          retention-days: 7
       - name: Verify package identities and APK signatures
         shell: bash
         run: |
