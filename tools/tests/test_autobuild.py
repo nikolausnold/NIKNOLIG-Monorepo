@@ -1,4 +1,5 @@
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -6,6 +7,34 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class AutobuildTests(unittest.TestCase):
+    def test_navigation_bar_theme_is_scoped_to_api_27(self):
+        for app in ("niknolig", "niknolig-defense"):
+            with self.subTest(app=app):
+                res = ROOT / "apps" / app / "src/main/res"
+                themes = ET.parse(res / "values/themes.xml").getroot()
+                self.assertIsNone(
+                    themes.find(".//item[@name='android:windowLightNavigationBar']")
+                )
+                base = themes.find("style[@name='Base.Theme.Niknolig']")
+                self.assertIsNotNone(base)
+                self.assertEqual(
+                    base.get("parent"), "@android:style/Theme.Material.NoActionBar"
+                )
+                self.assertEqual(
+                    base.find("item[@name='android:navigationBarColor']").text,
+                    "@color/dark_background",
+                )
+                for qualifier in ("values", "values-v27"):
+                    theme = ET.parse(res / qualifier / "themes.xml").find(
+                        "style[@name='Theme.Niknolig']"
+                    )
+                    self.assertIsNotNone(theme)
+                    self.assertEqual(theme.get("parent"), "Base.Theme.Niknolig")
+                self.assertEqual(
+                    theme.find("item[@name='android:windowLightNavigationBar']").text,
+                    "false",
+                )
+
     def test_release_only_signs_successful_trusted_main_build_commit(self):
         workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
         for guard in (
