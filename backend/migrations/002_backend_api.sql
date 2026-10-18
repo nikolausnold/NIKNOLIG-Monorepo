@@ -3,8 +3,12 @@
 BEGIN;
 
 ALTER TABLE device_installations ADD COLUMN public_key TEXT;
--- Existing fingerprint-only records remain readable, but cannot create a
--- possession challenge until an explicitly approved key-migration flow exists.
+-- Migration 001 has no stored verification key or proof provenance. Do not
+-- inherit its verified label as evidence of this API's possession protocol.
+UPDATE device_installations SET identity_state = 'pending', verified_at = NULL
+    WHERE identity_state = 'verified' AND public_key IS NULL;
+-- Fingerprint-only records cannot create a possession challenge until an
+-- explicitly approved key-migration flow exists. Revocation remains terminal.
 ALTER TABLE device_installations ADD CONSTRAINT device_public_key_size
     CHECK (public_key IS NULL OR length(public_key) <= 2048);
 

@@ -140,9 +140,12 @@ def create_app(config=None, store=None):
         return response
 
     def error(status, code):
-        return jsonify(error={
+        response = jsonify(error={
             "code": code, "message": ERROR_MESSAGES[code], "requestId": g.request_id,
-        }), status
+        })
+        if status == 401:
+            response.headers["WWW-Authenticate"] = "Bearer"
+        return response, status
 
     @app.errorhandler(APIError)
     def api_error(exc):
@@ -172,7 +175,10 @@ def create_app(config=None, store=None):
 
     @app.errorhandler(HTTPException)
     def http_error(exc):
-        code = "NOT_FOUND" if exc.code == 404 else "VALIDATION_FAILED"
+        codes = {401: "AUTHENTICATION_REQUIRED", 403: "AUTHORIZATION_DENIED",
+                 404: "NOT_FOUND", 409: "CONFLICT", 429: "RATE_LIMITED",
+                 503: "SERVICE_UNAVAILABLE"}
+        code = codes.get(exc.code, "INTERNAL_ERROR" if exc.code >= 500 else "VALIDATION_FAILED")
         response, status = error(exc.code, code)
         if exc.code == 405:
             response.headers["Allow"] = ", ".join(exc.valid_methods or ())
@@ -311,7 +317,7 @@ def create_app(config=None, store=None):
     @protected("devices:write")
     def challenge(device_id):
         _empty_body()
-        return jsonify(authority.challenge(g.area, g.principal, _uuid(device_id))), 201
+        return jsonify(authority.challenge(g.area, g.principal, _uuid(device_id)))
 
     @app.post("/v1/devices/<device_id>/verify")
     @protected("devices:write")

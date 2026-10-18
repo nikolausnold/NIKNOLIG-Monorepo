@@ -28,7 +28,8 @@ Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
   Migration ist bis zur Architektur-/Security-Freigabe gesperrt.
 - [`migrations/002_backend_api.sql`](migrations/002_backend_api.sql):
   additive API-Tabellen, öffentliche Geräteschlüssel und Schema-Versionsmarker.
-  Kein automatischer Migrationslauf beim Start.
+  Alte `verified`-Einträge ohne öffentlichen Schlüssel werden auf `pending`
+  zurückgesetzt; kein automatischer Migrationslauf beim Start.
 - [`compose.yaml`](compose.yaml): PostgreSQL und optionaler `api`-Profilservice,
   beide im internen DB-Netz; API zusätzlich im Edge-Netz und nur auf Loopback
   veröffentlicht. PostgreSQL besitzt keine Host-Portfreigabe.
@@ -166,6 +167,11 @@ installationsgebunden. Gerätewiderruf sperrt den Geräte-/Challenge-Zustand,
 nicht automatisch das Account-Token; dafür separat Token-Logout bzw.
 Aussteller-Sessionwiderruf verwenden. Keine gerätegebundenen Produktaktionen
 auf dieser Grundlage freigeben.
+Die Referenz begrenzt auf 100 gleichzeitig `pending`-Installationen je Principal
+und App-Bereich. Listen geben nur die ersten 100 Einträge nach Anlagezeit/ID
+zurück, ohne Pagination; weitere bekannte IDs bleiben einzeln abrufbar.
+Vor größerem Produktbetrieb Pagination, Gesamtquote und Lösch-/Retention-Regeln
+freigeben und ergänzen; die Pending-Grenze ist keine Gesamtquote.
 
 Android und iOS verwenden denselben Vertrag, aber je App eigene OAuth-
 Clientregistrierung, Redirect-URI, API-Zielgruppe, Tokenablage und Installation.
@@ -239,6 +245,15 @@ Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden
 POSTGRES_PASSWORD=local-only-check docker compose \
   --env-file backend/.env.example -f backend/compose.yaml config --quiet
 ```
+
+Für API-Tests zuerst `requirements.txt` in einer temporären Python-Venv
+außerhalb des Checkouts installieren und die Tests vom Repository-Root mit
+deren Python ausführen. `TEST_DATABASE_DSN` darf ausschließlich auf eine eigens
+gestartete lokale Wegwerf-DB zeigen: Fixtures erzeugen und löschen dort zufällige
+Testschemas und prüfen zusätzlich Races. Ohne Abhängigkeiten bzw. Test-DSN
+werden diese Fälle explizit übersprungen. Der unveränderte Android-Workflow
+installiert diese API-Abhängigkeiten nicht; sein grüner Vertragslauf ist
+**kein Nachweis** für einen vollständigen API-/DB-Sicherheitstest.
 
 Der Datenbankstart verlangt bewusst ein gesetztes lokales Passwort und ist nicht
 Teil der abhängigkeitfreien Tests. Keine lokale Prüfung belegt eine
@@ -373,11 +388,12 @@ bereits bestehenden Compose-PostgreSQL in geschützten vorhandenen Backup-Speich
 
 ```sh
 umask 077
-BACKUP=/srv/niknolig/backups/VORHERIGER_STAND.dump
+set -C
+BACKUP="/srv/niknolig/backups/before-$(date -u +%Y%m%dT%H%M%SZ).dump"
 docker compose -p "$PROJECT" --env-file "$ENV" -f "$RELEASE/backend/compose.yaml" \
   -f "$OVERRIDE" exec -T postgres \
-  sh -c 'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > "$BACKUP"
-test -s "$BACKUP"
+  sh -c 'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > "$BACKUP" \
+  && test -s "$BACKUP"
 ```
 
 Rückgabecode von `pg_dump` prüfen; nichtleere Datei allein ist kein Nachweis.
@@ -400,6 +416,11 @@ Tabellen zuerst gegen 001 abgleichen, **nicht** erneut ausführen oder mit
 Marker `002_backend_api` in `backend_schema_migrations`. Bei Teilzuständen oder
 unbekanntem Schema stoppen.
 Migrationen nie beim App-Start ausführen.
+002 stuft bestehende `verified`-Installationen ohne gespeicherten öffentlichen
+Schlüssel auf `pending` zurück und leert `verified_at`, damit Altstatus nicht
+als neuer Besitznachweis erscheint. Fingerprints und terminale Widerrufe
+bleiben erhalten. Diese Datenänderung vor Migration ausdrücklich prüfen und
+freigeben; es gibt keinen automatischen Key-Recovery-/Reaktivierungsweg.
 
 ```sh
 # Nur wenn die Zustandsprüfung die jeweilige Migration erlaubt:
@@ -528,7 +549,9 @@ Compose-Dateien/Projektnamen und `up -d --no-deps --no-build api` starten,
 Readiness/Negativfälle erneut prüfen. Health-only-Vorgänger nicht als Produkt-API
 veröffentlichen.
 
-002 ist additiv: beim App-Rollback bestehen lassen, kein automatisches Down/DROP,
+Die Schema-Erweiterungen von 002 beim App-Rollback bestehen lassen; auch das
+bewusste Herabstufen unbelegter Alt-Verifikationen nicht automatisch rückgängig
+machen. Kein automatisches Down/DROP,
 kein Volumewechsel. DB-Restore nur separat freigegeben: alle Schreiber stoppen,
 zuerst isolierte neue Ziel-DB wiederherstellen und prüfen, dann kontrolliert
 umschalten. Backup kann jüngste Widerrufe verlieren; bis Wiederherstellung
@@ -552,8 +575,20 @@ Prüfung im isolierten Arbeitscheckout, nicht auf Hetzner:
   Container-interne Liveness 200 und deaktivierte Readiness 503 beobachtet.
   Hostseitiger HTTP-Aufruf lief im Sandbox-Test in einen Timeout; ein
   vollständiger Host-/TLS-Proxy-Healthcheck ist damit **nicht nachgewiesen**.
-- Initialer Containerbuild erfolgreich; API-/DB-Testzahlen und finaler
-  Reviewstand werden nach Abschluss unten ergänzt.
+- **51 API-Tests erfolgreich**, ohne übersprungene Fälle, gegen isoliertes
+  PostgreSQL 17.6-alpine: JWT-Negativfälle, Scope-/App-/Ressourcenisolation,
+  Revocation-Persistenz, Challenge-Ablauf/Replay/Signatur, konkurrierende
+  Verifikation/Widerruf, DB-Ausfall, Ratenlimits und Legacy-Migration.
+  Separater Lauf ohne Test-DSN überspringt erwartungsgemäß 28 DB-Fälle;
+  ohne API-Abhängigkeiten werden 51 API-Fälle übersprungen.
+- Finaler Containerbuild `niknolig-backend-api-final:local` erfolgreich.
+  Gehärteter, netzwerkisolierter Gunicorn-Smoke: Liveness 200 (`live`),
+  deaktivierte Readiness und geschützte Route jeweils 503 mit Fehlervertrag.
+  Wegwerf-Testdatenbanken, Smoke-Container und DNS-Teststack entfernt.
+- Read-only-Sicherheitsreview der API: keine konkreten ausnutzbaren Befunde.
+  Installationsbindung der Verwaltungstokens und upstream Refresh-/Session-
+  Widerruf bleiben dokumentierte P0-Grenzen; unbelegte Alt-Verifikationen
+  werden durch Migration 002 zurückgestuft.
 - Advisory-Prüfung der direkten und beim Containerbuild aufgelösten
   transitiven Python-Abhängigkeiten: keine gemeldeten Schwachstellen.
 

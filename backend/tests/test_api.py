@@ -250,7 +250,7 @@ class APITests(unittest.TestCase):
         response = self.client.post(
             f"/v1/devices/{device_id}/challenge", headers=self.headers(), json={},
         )
-        self.assertEqual(response.status_code, 201, response.get_json())
+        self.assertEqual(response.status_code, 200, response.get_json())
         return response.get_json()
 
     def signed(self, challenge, key=None):
@@ -368,13 +368,15 @@ class APITests(unittest.TestCase):
                 self.assertEqual(set(response.get_json()["error"]), {"code", "message", "requestId"})
                 self.assertEqual(response.get_json()["error"]["code"], code)
                 self.assertIsInstance(response.get_json()["error"]["message"], str)
+                if status == 401:
+                    self.assertEqual(response.headers["WWW-Authenticate"], "Bearer")
 
     def test_bodyless_logout_and_challenge(self):
         device_id = self.new_device()
         response = self.client.post(
             f"/v1/devices/{device_id}/challenge", headers=self.headers(),
         )
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(set(response.get_json()), {"challengeId", "message", "expiresAt"})
         self.assertEqual(self.client.post(
             "/v1/auth/logout", headers=self.headers(),
@@ -647,6 +649,47 @@ class PostgreSQLAPITests(APITests):
         finally:
             with self.connection() as conn:
                 conn.execute("ALTER TABLE missing_challenges RENAME TO backend_device_challenges")
+
+    def test_migration_downgrades_unproven_legacy_verification_only(self):
+        schema = "api_legacy_" + uuid.uuid4().hex
+        root = Path(__file__).resolve().parents[1] / "migrations"
+        verified_id, revoked_id = uuid.uuid4(), uuid.uuid4()
+        with psycopg.connect(self.dsn, autocommit=True, row_factory=dict_row) as conn:
+            conn.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
+            try:
+                conn.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(schema)))
+                conn.execute((root / "001_initial_contract.sql").read_text())
+                for device_id, state, fingerprint in (
+                    (verified_id, "verified", "a" * 64), (revoked_id, "revoked", "b" * 64),
+                ):
+                    conn.execute(
+                        "INSERT INTO device_installations "
+                        "(id, app_area, principal_reference, installation_reference, "
+                        "public_key_fingerprint, identity_state, verified_at, revoked_at) "
+                        "VALUES (%s, 'niknolig', 'legacy-principal', %s, %s, %s, now(), "
+                        "CASE WHEN %s = 'revoked' THEN now() ELSE NULL END)",
+                        (device_id, uuid.uuid4(), fingerprint, state, state),
+                    )
+                conn.execute((root / "002_backend_api.sql").read_text())
+                verified = conn.execute(
+                    "SELECT * FROM device_installations WHERE id = %s", (verified_id,),
+                ).fetchone()
+                self.assertEqual(verified["identity_state"], "pending")
+                self.assertIsNone(verified["verified_at"])
+                self.assertIsNone(verified["public_key"])
+                self.assertEqual(verified["public_key_fingerprint"], "a" * 64)
+                revoked = conn.execute(
+                    "SELECT * FROM device_installations WHERE id = %s", (revoked_id,),
+                ).fetchone()
+                self.assertEqual(revoked["identity_state"], "revoked")
+                self.assertIsNotNone(revoked["revoked_at"])
+                self.assertIsNotNone(revoked["verified_at"])
+                self.assertEqual(conn.execute(
+                    "SELECT version FROM backend_schema_migrations",
+                ).fetchone()["version"], "002_backend_api")
+            finally:
+                conn.execute("SET search_path TO public")
+                conn.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
 
     def test_pending_registration_cap_and_list_bound(self):
         from backend.store import digest

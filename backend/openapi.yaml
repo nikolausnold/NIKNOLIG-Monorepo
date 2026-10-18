@@ -103,7 +103,7 @@ paths:
       summary: List own app-scoped installations; requires devices:read.
       responses:
         "200":
-          description: At most 100 installations; no other principals or app areas.
+          description: First 100 by creation time/id, no pagination; own principal and app area only.
           content:
             application/json:
               schema:
@@ -121,7 +121,9 @@ paths:
       operationId: registerDevice
       tags: [Devices]
       summary: Register a pending installation; requires devices:write.
-      description: No verification, rotation or permission is inferred from an ID.
+      description: >-
+        No verification, rotation or permission is inferred from an ID.
+        Maximum 100 pending installations per principal and app area.
       requestBody:
         required: true
         content:
@@ -215,7 +217,7 @@ paths:
                 challengeId: {type: string, format: uuid}
                 signature:
                    type: string
-                   maxLength: 256
+                   maxLength: 144
                    description: Standard base64-encoded ASN.1 DER ECDSA-SHA256 signature.
       responses:
         "200":
