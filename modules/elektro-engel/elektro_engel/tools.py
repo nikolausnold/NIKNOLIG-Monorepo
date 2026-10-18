@@ -46,6 +46,8 @@ class ToolRegistry:
         arguments: Mapping[str, Any],
         approval: ToolApproval,
     ) -> Any:
+        if not isinstance(name, str) or not TOOL_NAME_PATTERN.fullmatch(name):
+            raise ToolNotFoundError("tool is not registered")
         tool = self._tools.get(name)
         if tool is None:
             raise ToolNotFoundError("tool is not registered")

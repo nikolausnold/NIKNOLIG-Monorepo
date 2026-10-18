@@ -38,6 +38,8 @@ class CoreTests(unittest.TestCase):
             TaskRequest(" ")
         with self.assertRaises(RequestError):
             TaskRequest("x" * 2_001)
+        with self.assertRaises(RequestError):
+            TaskRequest("Review", request_id="token=private")
 
     def test_context_is_explicit_bounded_and_clearable(self):
         context = ContextStore(max_entries=1)
@@ -87,7 +89,8 @@ class CoreTests(unittest.TestCase):
         request = TaskRequest("Run a tool")
         approval = ToolApproval(request.request_id, "missing", True)
         with self.assertRaises(ToolNotFoundError):
-            engine.execute(request, "missing", {}, approval)
+            engine.execute(request, "token=private", {}, approval)
+        self.assertIsNone(engine.audit_log.events()[0].tool_name)
 
         tools = ToolRegistry()
         tools.register("failure", lambda _: (_ for _ in ()).throw(ValueError("sensitive")))

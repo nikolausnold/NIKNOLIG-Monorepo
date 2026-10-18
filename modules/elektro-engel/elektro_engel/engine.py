@@ -9,7 +9,7 @@ from .audit import InMemoryAuditLog
 from .errors import ToolApprovalRequired, ToolExecutionError, ToolNotFoundError
 from .models import TaskPlan, TaskRequest
 from .planning import BoundedPlanner
-from .tools import ToolApproval, ToolRegistry
+from .tools import TOOL_NAME_PATTERN, ToolApproval, ToolRegistry
 
 
 class CoreEngine:
@@ -41,7 +41,14 @@ class CoreEngine:
         try:
             result = self.tools.execute(tool_name, request, arguments, approval)
         except (ToolApprovalRequired, ToolNotFoundError, ToolExecutionError):
-            self.audit_log.record(request.request_id, "tool_execution", "denied_or_failed", tool_name)
+            safe_tool_name = (
+                tool_name
+                if isinstance(tool_name, str) and TOOL_NAME_PATTERN.fullmatch(tool_name)
+                else None
+            )
+            self.audit_log.record(
+                request.request_id, "tool_execution", "denied_or_failed", safe_tool_name
+            )
             raise
         self.audit_log.record(request.request_id, "tool_execution", "completed", tool_name)
         return result
