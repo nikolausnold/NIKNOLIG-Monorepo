@@ -589,6 +589,12 @@ Prüfung im isolierten Arbeitscheckout, nicht auf Hetzner:
   Installationsbindung der Verwaltungstokens und upstream Refresh-/Session-
   Widerruf bleiben dokumentierte P0-Grenzen; unbelegte Alt-Verifikationen
   werden durch Migration 002 zurückgestuft.
+- Abschließende read-only-Diffprüfung: keine wesentlichen Befunde.
+  Automatischer Code-Review im Paralleltool war wegen eines nicht verfügbaren
+  Reviewmodells nicht ausführbar; deshalb separate Code-Review-Prüfung.
+  Letzte CodeQL-Python-Analyse: **0 Alerts**; Abschlussaufruf verwendete den
+  unveränderten Codestand wieder und übersprang eine identische Neuanalyse.
+  Secret-Scans der geänderten Dateien: keine Secrets gefunden.
 - Advisory-Prüfung der direkten und beim Containerbuild aufgelösten
   transitiven Python-Abhängigkeiten: keine gemeldeten Schwachstellen.
 
