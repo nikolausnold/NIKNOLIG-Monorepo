@@ -126,10 +126,13 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   und GitHub Actions als Pull Requests vor. Diese durchlaufen den Autobuild;
   es gibt keinen automatischen Merge und keine ungeprüfte Quellcodeübernahme.
 - Das [Systemregister](config/system-repositories.json) erfasst dieses
-  Monorepo, die bekannten NIKNOLIG-/Defense-Quellen und den noch offenen
-  iOS-Anschluss. Auf `main` prüft der Autobuild die registrierten Repositories
-  lesend über die GitHub-API. Der commitbezogene `system-update-report` zeigt
-  Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
+  Monorepo, die bekannten NIKNOLIG-/Defense-Quellen, Elektro-Engel- als
+  read-only Onboarding-Quelle und den noch offenen iOS-Anschluss. Auf `main`
+  prüft der Autobuild die registrierten Repositories lesend über die GitHub-API.
+  Der commitbezogene `system-update-report` zeigt Änderungen gegenüber den
+  eingetragenen Quellständen; er importiert sie nicht. Ein leeres oder noch
+  nicht baseline-freigegebenes Onboarding-Repository bleibt ausdrücklich als
+  solches ausgewiesen.
   Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung
   fehlschlagen, statt vollständige Systemkompatibilität vorzutäuschen.
 - Das Artefakt `mobile-contracts-<Commit-SHA>` enthält dieselben OpenAPI- und

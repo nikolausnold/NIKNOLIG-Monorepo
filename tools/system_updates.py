@@ -5,7 +5,8 @@ GITHUB_TOKEN optionally authenticates GET requests only to api.github.com.
 External changed means SHA inequality, not ancestry or update safety. The local
 GITHUB_SHA is the build reference (possibly a PR merge); its remote default
 branch head is informational and is deliberately never compared with that SHA.
-Pending entries (including iOS) are explicit onboarding gaps, not checked repos.
+Pending entries are not checked; onboarding entries are checked read-only but
+require an explicit reviewed baseline before change tracking.
 Exit 0 means all configured repos were observed, not that all platforms are set
 up or builds passed. Exit 1 means an observation failed; 2 means invalid input
 or an unwritable report. Reports are still emitted on observation/input failure.
@@ -50,7 +51,7 @@ def validate_registry(data):
         if not isinstance(identifier, str) or not IDENTIFIER.fullmatch(identifier) or identifier in ids:
             raise InventoryError("Invalid or duplicate repository id")
         ids.add(identifier)
-        if kind not in ("local", "external", "pending"):
+        if kind not in ("local", "external", "onboarding", "pending"):
             raise InventoryError("Unsupported repository kind")
         if kind == "pending":
             if repository is not None or baseline is not None:
@@ -66,6 +67,9 @@ def validate_registry(data):
             local_count += 1
             if repository != "nikolausnold/NIKNOLIG-Monorepo" or baseline is not None:
                 raise InventoryError("Local entry must be the monorepo with no baseline")
+        elif kind == "onboarding":
+            if baseline is not None:
+                raise InventoryError("Onboarding entries must not have a baseline")
         elif not isinstance(baseline, str) or not SHA.fullmatch(baseline):
             raise InventoryError("External repositories require a full SHA baseline")
     if local_count != 1:
@@ -84,7 +88,7 @@ class GitHubReader:
         # Do not route bearer credentials through environment-configured proxies.
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
 
-    def get(self, path):
+    def get(self, path, allow_empty_repository=False):
         if not path.startswith("/repos/") or "?" in path or "#" in path:
             raise InventoryError("Invalid GitHub API path")
         request = urllib.request.Request(
@@ -108,6 +112,13 @@ class GitHubReader:
             return result
         except urllib.error.HTTPError as exc:
             # Never echo exception URLs, response bodies, headers, or credentials.
+            if allow_empty_repository and exc.code == 409:
+                try:
+                    error = json.loads(exc.read(4096))
+                except (OSError, ValueError):
+                    error = None
+                if isinstance(error, dict) and error.get("message") == "Git Repository is empty":
+                    return None
             raise InventoryError(f"GitHub HTTP {exc.code}; repository not checked") from None
         except (OSError, urllib.error.URLError, http.client.HTTPException, ValueError):
             raise InventoryError("GitHub response unavailable or invalid; repository not checked") from None
@@ -121,7 +132,12 @@ class GitHubReader:
         if (not isinstance(branch, str) or not branch or len(branch) > 255
                 or any(ord(char) < 32 or ord(char) == 127 for char in branch)):
             raise InventoryError("Missing or invalid default branch; repository not checked")
-        commit = self.get("/repos/" + repository + "/commits/" + urllib.parse.quote(branch, safe=""))
+        commit = self.get(
+            "/repos/" + repository + "/commits/" + urllib.parse.quote(branch, safe=""),
+            allow_empty_repository=True,
+        )
+        if commit is None:
+            return branch, None
         sha = commit.get("sha")
         if not isinstance(sha, str) or not SHA.fullmatch(sha):
             raise InventoryError("Missing or invalid head SHA; repository not checked")
@@ -138,6 +154,7 @@ def build_report(entries, reader, local_sha=None):
             "changed": "External default-branch SHA differs from baseline; inventory only, no update adopted or build claim.",
             "local": "GITHUB_SHA is the local build reference; remote default head is informational, never compared.",
             "pending": "Not configured or checked; not a successful platform check.",
+            "onboarding": "Repository checked read-only; an explicit reviewed baseline is required before change tracking.",
             "builds": "No builds, dispatches, installations, deployments, or external writes performed.",
         },
         "all_configured_repositories_checked": True,
@@ -150,12 +167,25 @@ def build_report(entries, reader, local_sha=None):
             result.update(status="not_configured", reason="Repository onboarding pending")
             report["pending_configuration"].append(entry["id"])
         else:
+            if entry["kind"] == "onboarding":
+                report["pending_configuration"].append(entry["id"])
             if entry["kind"] == "local":
                 result["local_build_sha"] = local_sha.lower() if local_sha else None
                 result["local_reference_status"] = "provided" if local_sha else "not_available"
             try:
                 branch, sha = reader.head(entry["repository"])
-                result.update(status="checked", default_branch=branch, observed_sha=sha)
+                if entry["kind"] == "onboarding":
+                    result.update(
+                        status="empty" if sha is None else "baseline_required",
+                        default_branch=branch,
+                        observed_sha=sha,
+                    )
+                    if sha is None:
+                        result["reason"] = "Repository has no commits; source code is unavailable."
+                    else:
+                        result["reason"] = "Review source before setting an explicit baseline."
+                else:
+                    result.update(status="checked", default_branch=branch, observed_sha=sha)
                 if entry["kind"] == "external":
                     result["changed"] = sha != entry["baseline"].lower()
             except InventoryError as exc:

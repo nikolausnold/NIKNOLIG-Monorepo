@@ -17,6 +17,24 @@ oder Sicherheitskomponenten in der bestätigten Quelle nachweisbar. Eine
 Übernahme wäre ohne lesbaren Quellstand erfunden und nicht überprüfbar. Das
 Quell-Repository wurde nicht geändert.
 
+## Read-only-Verbindung über das Systemregister
+
+`config/system-repositories.json` registriert die exakte Quelle als
+`electro-engel` vom Typ `onboarding`, ohne Commit-Baseline. Der vorhandene
+Inventurworkflow fragt Branch und Commit über GitHub-API-GET-Anfragen ab; er
+checkt keine Dateien aus und schreibt nicht in das Quell-Repository.
+
+- Ohne Commit meldet der Inventurbericht `empty`; es wird kein Quellcode
+  angenommen.
+- Nach einem initialen Commit meldet er `baseline_required` und den beobachteten
+  SHA, aber keine Änderung gegenüber einer erfundenen Baseline.
+- Erst nach Prüfung des Quellstands kann die Registrierung ausdrücklich auf
+  `external` mit einer festgehaltenen Baseline umgestellt werden.
+
+Diese Verbindung ist eine read-only Verfügbarkeits-/Revisionsinventur, kein
+Build, Codeimport, Deployment oder Laufzeitdatenaustausch. Die tatsächliche
+Quellcodeintegration bleibt blockiert.
+
 ## Tatsächlicher Elektro-Engel-Bestand im Monorepo
 
 - `apps/niknolig/` enthält eine lokale Assistenzvorschau. `AssistantActivity`
@@ -63,6 +81,6 @@ Für eine prüfbare Codeintegration sind erforderlich:
    den jeweils erforderlichen Sicherheits-, Produkt- und Rechtsfreigaben
    aktivieren.
 
-Diese Inventur bestätigt die Repository-Zuordnung, ersetzt aber keine
-Quellcodeprüfung. Eine Integration bleibt blockiert, bis ein nicht-leerer,
-lesbarer Quellstand verfügbar ist.
+Die Inventurverbindung bestätigt die Repository-Zuordnung und kann zukünftige
+Revisionen beobachten, ersetzt aber keine Quellcodeprüfung. Eine Integration
+bleibt blockiert, bis ein nicht-leerer, lesbarer Quellstand verfügbar ist.

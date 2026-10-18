@@ -33,6 +33,9 @@ class SystemUpdatesTests(unittest.TestCase):
         self.assertEqual("nikolausnold/NIKNOLIG-Monorepo", sources["monorepo"]["repository"])
         self.assertEqual("3c4d6618a61604f6433639151e741371491a5f0d", sources["niknolig"]["baseline"])
         self.assertEqual("5f0f385089bc27347eacd282c13a546eb4511da2", sources["niknolig-defense"]["baseline"])
+        self.assertEqual("onboarding", sources["electro-engel"]["kind"])
+        self.assertEqual("nikolausnold/Elektro-Engel-", sources["electro-engel"]["repository"])
+        self.assertIsNone(sources["electro-engel"]["baseline"])
         self.assertEqual("pending", sources["ios"]["kind"])
         self.assertIsNone(sources["ios"]["repository"])
 
@@ -61,7 +64,7 @@ class SystemUpdatesTests(unittest.TestCase):
             lambda data: data.update(repositories=[]),
             lambda data: data["repositories"].pop(0),
             lambda data: data["repositories"][0].update(repository="nikolausnold/other"),
-            lambda data: data["repositories"][3].update(repository="nikolausnold/fake-ios"),
+            lambda data: data["repositories"][4].update(repository="nikolausnold/fake-ios"),
             lambda data: data["repositories"][1].update(kind="automatic"),
         ]
         for mutation in mutations:
@@ -75,16 +78,45 @@ class SystemUpdatesTests(unittest.TestCase):
             "id": "future-app", "kind": "external",
             "repository": "nikolausnold/Future-App", "baseline": HEAD,
         })
-        self.assertEqual(5, len(validate_registry(self.registry)))
+        self.assertEqual(6, len(validate_registry(self.registry)))
+
+    def test_onboarding_requires_no_baseline_and_reports_observed_state(self):
+        entry = next(item for item in self.entries if item["kind"] == "onboarding")
+        for baseline in (HEAD, "", 1):
+            data = copy.deepcopy(self.registry)
+            onboarding = next(item for item in data["repositories"] if item["kind"] == "onboarding")
+            onboarding["baseline"] = baseline
+            with self.subTest(baseline=baseline), self.assertRaises(InventoryError):
+                validate_registry(data)
+
+        reader = MagicMock()
+        reader.head.return_value = ("main", None)
+        report = build_report([entry], reader)
+        result = report["repositories"][0]
+        self.assertEqual("empty", result["status"])
+        self.assertIsNone(result["observed_sha"])
+        self.assertEqual(["electro-engel"], report["pending_configuration"])
+
+        reader.head.return_value = ("main", HEAD)
+        report = build_report([entry], reader)
+        result = report["repositories"][0]
+        self.assertEqual("baseline_required", result["status"])
+        self.assertEqual(HEAD, result["observed_sha"])
+        self.assertIsNone(result["changed"])
 
     def test_report_compares_external_only_and_exposes_pending_ios(self):
         reader = MagicMock()
         baseline = self.entries[1]["baseline"]
-        reader.head.side_effect = [("main", HEAD), ("release", baseline), ("main", HEAD)]
+        reader.head.side_effect = [
+            ("main", HEAD),
+            ("release", baseline),
+            ("main", HEAD),
+            ("main", None),
+        ]
         report = build_report(self.entries, reader, LOCAL)
-        local, unchanged, changed, ios = report["repositories"]
+        local, unchanged, changed, onboarding, ios = report["repositories"]
         self.assertTrue(report["all_configured_repositories_checked"])
-        self.assertEqual(["ios"], report["pending_configuration"])
+        self.assertEqual(["electro-engel", "ios"], report["pending_configuration"])
         self.assertEqual(LOCAL, local["local_build_sha"])
         self.assertEqual(HEAD, local["observed_sha"])
         self.assertIsNone(local["changed"])
@@ -93,18 +125,26 @@ class SystemUpdatesTests(unittest.TestCase):
         self.assertIn("no update adopted", report["semantics"]["changed"])
         self.assertEqual("not_configured", ios["status"])
         self.assertIsNone(ios["changed"])
-        self.assertEqual(3, reader.head.call_count)
+        self.assertEqual("empty", onboarding["status"])
+        self.assertIsNone(onboarding["changed"])
+        self.assertEqual(4, reader.head.call_count)
 
     def test_failure_does_not_skip_remaining_repositories_or_claim_unchanged(self):
         reader = MagicMock()
-        reader.head.side_effect = [InventoryError("GitHub HTTP 404"), ("main", HEAD), ("main", HEAD)]
+        reader.head.side_effect = [
+            InventoryError("GitHub HTTP 404"),
+            ("main", HEAD),
+            ("main", HEAD),
+            ("main", None),
+        ]
         report = build_report(self.entries, reader)
         self.assertFalse(report["all_configured_repositories_checked"])
-        self.assertEqual(4, len(report["repositories"]))
+        self.assertEqual(5, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][0]["status"])
         self.assertIsNone(report["repositories"][0]["changed"])
         self.assertEqual("not_available", report["repositories"][0]["local_reference_status"])
         self.assertEqual("checked", report["repositories"][2]["status"])
+        self.assertEqual("baseline_required", report["repositories"][3]["status"])
 
     def test_invalid_local_sha_fails_before_network(self):
         reader = MagicMock()
@@ -132,6 +172,38 @@ class SystemUpdatesTests(unittest.TestCase):
             self.assertEqual("GET", call.args[0].get_method())
             self.assertEqual("Bearer " + reader.token, call.args[0].get_header("Authorization"))
             self.assertEqual(20, call.kwargs["timeout"])
+
+    def test_empty_repository_conflict_is_reported_only_for_github_empty_message(self):
+        reader = GitHubReader()
+        reader.opener = MagicMock()
+        metadata_response = MagicMock()
+        metadata_response.__enter__.return_value.read.return_value = json.dumps(
+            {"default_branch": "main"}
+        ).encode()
+        empty_repository = urllib.error.HTTPError(
+            "https://api.github.com/repos/nikolausnold/Elektro-Engel-/commits/main",
+            409,
+            "Conflict",
+            {},
+            io.BytesIO(b'{"message":"Git Repository is empty"}'),
+        )
+        reader.opener.open.side_effect = [metadata_response, empty_repository]
+        self.assertEqual(("main", None), reader.head("nikolausnold/Elektro-Engel-"))
+
+        conflict_response = MagicMock()
+        conflict_response.__enter__.return_value.read.return_value = json.dumps(
+            {"default_branch": "main"}
+        ).encode()
+        other_conflict = urllib.error.HTTPError(
+            "https://api.github.com/repos/nikolausnold/Elektro-Engel-/commits/main",
+            409,
+            "Conflict",
+            {},
+            io.BytesIO(b'{"message":"A different conflict"}'),
+        )
+        reader.opener.open.side_effect = [conflict_response, other_conflict]
+        with self.assertRaises(InventoryError):
+            reader.head("nikolausnold/Elektro-Engel-")
 
     def test_redirects_are_disabled_and_errors_do_not_echo_credentials(self):
         self.assertIsNone(NoRedirect().redirect_request(None, None, 302, "", {}, "https://evil.example"))
@@ -177,23 +249,28 @@ class SystemUpdatesTests(unittest.TestCase):
         return exit_code, output.getvalue()
 
     def test_cli_emits_complete_json_and_failure_exit_code(self):
-        code, output = self.run_cli([("main", HEAD), InventoryError("unavailable"), ("main", HEAD)])
+        code, output = self.run_cli([
+            ("main", HEAD),
+            InventoryError("unavailable"),
+            ("main", HEAD),
+            ("main", None),
+        ])
         self.assertEqual(1, code)
         report = json.loads(output)
-        self.assertEqual(4, len(report["repositories"]))
+        self.assertEqual(5, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][1]["status"])
-        code, output = self.run_cli([("main", HEAD)] * 3)
+        code, output = self.run_cli([("main", HEAD)] * 4)
         self.assertEqual(0, code)
-        self.assertEqual(["ios"], json.loads(output)["pending_configuration"])
+        self.assertEqual(["electro-engel", "ios"], json.loads(output)["pending_configuration"])
 
     def test_cli_output_file_and_unwritable_output_fallback(self):
         with patch("tools.system_updates.Path.write_text") as write:
-            code, output = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
+            code, output = self.run_cli([("main", HEAD)] * 4, ["--output", "inventory.json"])
             self.assertEqual(0, code)
             self.assertEqual("", output)
-            self.assertEqual(4, len(json.loads(write.call_args.args[0])["repositories"]))
+            self.assertEqual(5, len(json.loads(write.call_args.args[0])["repositories"]))
         with patch("tools.system_updates.Path.write_text", side_effect=PermissionError):
-            code, output = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
+            code, output = self.run_cli([("main", HEAD)] * 4, ["--output", "inventory.json"])
             self.assertEqual(2, code)
             self.assertTrue(json.loads(output)["all_configured_repositories_checked"])
 

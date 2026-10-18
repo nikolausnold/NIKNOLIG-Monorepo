@@ -20,6 +20,12 @@
       "baseline": "5f0f385089bc27347eacd282c13a546eb4511da2"
     },
     {
+      "id": "electro-engel",
+      "kind": "onboarding",
+      "repository": "nikolausnold/Elektro-Engel-",
+      "baseline": null
+    },
+    {
       "id": "ios",
       "kind": "pending",
       "repository": null,
