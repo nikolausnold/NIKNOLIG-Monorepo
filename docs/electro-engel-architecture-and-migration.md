@@ -8,10 +8,14 @@ BLOCKED.
 
 Elektro-Engel soll so abgegrenzt werden, dass ein späterer, eigenständiger Core
 ohne Abhängigkeit von Android-Oberflächen, App-Daten oder NIKNOLIG-Code gepflegt
-und gegebenenfalls in ein separates Repository übertragen werden kann. Das ist
-ein zukünftiges Architekturziel und ändert den aktuellen Produktstatus nicht:
-Die lokale Assistenzvorschau gehört zu NIKNOLIG; NIKNOLIG und NIKNOLIG Defense
-bleiben eigenständige Apps, Sicherheitsdomänen und Releases.
+und gegebenenfalls in ein separates Repository übertragen werden kann. Eine
+solche Repository-Grenze ändert niemals die Produktzugehörigkeit: Elektro-Engel
+bleibt dauerhaft eine Funktion des NIKNOLIG-Systems und muss über unterstützte,
+versionierte Verträge und eine explizite NIKNOLIG-Integration damit verbunden
+bleiben. Ein separates Repository macht Elektro-Engel weder zu einem unabhängigen
+Produkt noch zu einer dritten App oder Sicherheitsdomäne. Die lokale
+Assistenzvorschau gehört heute zu NIKNOLIG; NIKNOLIG und NIKNOLIG Defense bleiben
+eigenständige Apps, Sicherheitsdomänen und Releases.
 
 Heute gibt es keine Elektro-Engel-Core-Laufzeit oder gemeinsame Android-
 Bibliothek. Die JSON-Schemas unter `backend/contracts/` sind deklarative
@@ -38,6 +42,11 @@ Die Abhängigkeitsrichtung verläuft von Integrationen und Adaptern zu eng
 definierten Core-Schnittstellen. Der Core kennt keine konsumierende App und
 importiert keine Android-Typen. Apps dürfen jeweils eigene Integrationen
 bereitstellen; das macht sie nicht zu gegenseitigen Abhängigkeiten.
+Eine spätere Extraktion des neutralen Core ändert diese Produktgrenze nicht:
+NIKNOLIG bleibt das zugehörige System und ein unterstützter NIKNOLIG-Verbraucher
+muss über explizite Adapter und kompatible, versionierte Verträge angebunden
+bleiben. Die Verbindung ist eine Architektur- und Kompatibilitätsanforderung,
+keine Behauptung, dass heute schon eine Runtime- oder Backend-Verbindung besteht.
 
 ## Schnittstellen- und Kompatibilitätsregeln
 
@@ -103,8 +112,11 @@ optional; die strukturellen Invarianten verwenden die Python-Standardbibliothek.
    Implementierung, ihre öffentlichen Verträge, Tests, Dokumentation und
    reproduzierbare Build-Konfiguration übertragen. Android-UIs,
    app-spezifische Ressourcen, Credentials und NIKNOLIG-Integrationen verbleiben
-   in ihren App-Repositories. Sensoradapter und Multi-Device-Transport werden
-   nur übernommen, falls sie separat freigegeben und unabhängig testbar sind.
+   in ihren App-Repositories. Das neue Repository bleibt dem NIKNOLIG-System
+   zugeordnet; Extraktion darf weder Verträge/Kompatibilität mit NIKNOLIG
+   aufkündigen noch ein unabhängiges Produkt begründen. Sensoradapter und
+   Multi-Device-Transport werden nur übernommen, falls sie separat freigegeben
+   und unabhängig testbar sind.
 5. **Verbraucher unabhängig anbinden:** Je App eine eigene, explizite Integration
    gegen eine freigegebene Core-Version reviewen. Es gibt keine gemeinsame
    Laufzeit- oder Credential-Domäne und keine automatische Änderung der
@@ -127,14 +139,18 @@ optional; die strukturellen Invarianten verwenden die Python-Standardbibliothek.
   eigene negative Tests und Sicherheitsreview.
 - **Vertragsdrift zwischen Repositories:** Ein versionierter Vertrag ist die
   gemeinsame Referenz; Kompatibilität mit den geprüften App-Verbrauchern vor
-  jedem Breaking Release nachweisen.
+  jedem Breaking Release nachweisen. Bei einer Extraktion bleibt NIKNOLIG ein
+  unterstützter Verbraucher; die NIKNOLIG-Systemzugehörigkeit darf nicht durch
+  Repository- oder Eigentumsgrenzen verloren gehen.
 - **Builds hängen an lokalen Umgebungen oder Geheimnissen:** Toolchain und
   Abhängigkeiten pinnen; keine Signierdaten oder produktiven Konfigurationen für
   Core-Tests verwenden.
 - **Vorzeitige Extraktion erzeugt unnötige Kopplung und Betriebslast:** Ein
   eigenes Repository ist erst sinnvoll, wenn eine echte neutrale Core-
-  Implementierung unabhängig versioniert und verantwortet werden muss. Vorher
-  bleiben Dokumentation und Vertragsvorbereitung im Monorepo.
+  Implementierung unabhängig versioniert und verantwortet werden muss. Das ist
+  eine technische Trennung, keine Produktabspaltung: die NIKNOLIG-Zugehörigkeit
+  und die unterstützte Integration bleiben dauerhaft erhalten. Vorher bleiben
+  Dokumentation und Vertragsvorbereitung im Monorepo.
 
 Bis zur erfüllten Extraktionsreife und separaten Freigabe bleiben
 SecurityChain-P0-Grenzen, Nutzerzustimmung, die getrennten Android-Apps und der

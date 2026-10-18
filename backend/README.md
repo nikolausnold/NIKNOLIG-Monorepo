@@ -8,7 +8,10 @@ nicht-sensitive Health-Routen bereit; Produkt-, Authentifizierungs-, Geräte- un
 Pairing-APIs, App-Clients, produktive Endpunkte und eine Cloudflare-/Deployment-
 Konfiguration existieren nicht. NIKNOLIG und NIKNOLIG Defense bleiben getrennte
 Sicherheits- und Release-Domänen; gemeinsame Verträge verleihen keine Rechte.
-Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
+Elektro-Engel bleibt dauerhaft eine NIKNOLIG-Systemfunktion, keine dritte App
+oder unabhängiges Produkt. Ein künftig separates Core-Repository muss NIKNOLIG
+über unterstützte, versionierte Verträge angebunden halten; eine produktive
+Verbindung ist aktuell nicht implementiert.
 
 ## Artefakte
 

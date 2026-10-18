@@ -23,13 +23,16 @@ an den Quell-Repositories wurden nicht vorgenommen.
 
 ## Elektro-Engel als Systemfunktion
 
-Elektro-Engel ist eine Funktion des NIKNOLIG-Systems, kein eigenes Projekt,
-Repository oder eine separate App. NIKNOLIG und NIKNOLIG Defense bleiben
-getrennte Apps mit eigenen Identitäten und Installationen. Die NIKNOLIG-App
-enthält eine lokale Assistenzvorschau und ein lokales Lernprofil. Anfragen
-werden nicht übertragen oder automatisch beantwortet; Geräteerkennung,
-Verbindungen und Steuerbefehle sind nicht verfügbar. Es gibt keine gemeinsame
-Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
+Elektro-Engel ist dauerhaft eine Funktion des NIKNOLIG-Systems, keine separate
+App oder unabhängiges Produkt. Ein künftig separates Core-Repository ist
+möglich, darf aber die Verbindung und Kompatibilität mit NIKNOLIG nicht
+aufheben; die Integration muss über unterstützte, versionierte Verträge
+erhalten bleiben. NIKNOLIG und NIKNOLIG Defense bleiben getrennte Apps mit
+eigenen Identitäten und Installationen. Die NIKNOLIG-App enthält eine lokale
+Assistenzvorschau und ein lokales Lernprofil. Anfragen werden nicht übertragen
+oder automatisch beantwortet; Geräteerkennung, Verbindungen und Steuerbefehle
+sind nicht verfügbar. Eine produktive Verbindung besteht aktuell nicht. Es gibt
+keine gemeinsame Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
 ## Sicherheits- und Integrationsgrenzen
 

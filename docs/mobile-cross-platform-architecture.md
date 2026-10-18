@@ -7,6 +7,13 @@ Stop-Gate.
 
 ## 1. Bestand: wiederverwenden statt duplizieren
 
+Elektro-Engel bleibt dauerhaft dem NIKNOLIG-System zugeordnet. Eine spätere
+Extraktion eines neutralen Core in ein separates Repository darf die
+NIKNOLIG-Integration nicht aufheben: NIKNOLIG bleibt ein unterstützter
+Verbraucher der versionierten Verträge. Repository-Trennung ist keine
+Produkt-, Identitäts- oder Sicherheitsdomänentrennung. Eine produktive
+Verbindung besteht im aktuellen Stand nicht.
+
 Die Android-Apps sind die bestehenden Gradle-Module `:niknolig` und
 `:niknolig-defense` unter `apps/`. Sie haben getrennte Application IDs und
 bleiben in ihrer Zuständigkeit unverändert. Dieses Dokument autorisiert keine

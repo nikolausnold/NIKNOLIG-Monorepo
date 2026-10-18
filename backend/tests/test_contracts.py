@@ -171,6 +171,9 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("SecurityChain-P0 bleibt", architecture)
         self.assertIn("NIKNOLIG-Integration", architecture)
         self.assertIn("NIKNOLIG-Abhängigkeiten im Core", architecture)
+        self.assertIn("bleibt dauerhaft eine Funktion des NIKNOLIG-Systems", architecture)
+        self.assertIn("unterstützter NIKNOLIG-Verbraucher", architecture)
+        self.assertIn("Repository-Grenze ändert niemals die Produktzugehörigkeit", architecture)
         self.assertIn("python3 -m unittest discover -s backend/tests", architecture)
 
     @unittest.skipIf(
