@@ -194,3 +194,32 @@ Entscheidung: BLOCKED. Der Auftrag stellt Auditdateien und einen sicheren
 Uploadpfad bereit; er erfindet oder implementiert keine fehlenden Worker.
 Keine Änderungen an main, separaten App-Repositories, GitHub-/Cloudflare-Secrets
 oder externen Konten; kein Merge und kein Deployment.
+
+8. NACHTRAG: WORKERS-CI-FEHLERANALYSE (2026-10-18)
+
+Der fehlgeschlagene Read-only-Workers-Audit #7 auf main
+(Commit 95e7b1200e2b17967f16394072587578ffc262e4) wurde anhand des
+[Job-Logs](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38519976616/job/115707208538)
+geprüft. Ursache war kein Fehler in Worker-Anwendungscode: Dieser Workflow-
+Stand verlangte WORKERS_REPOSITORY_URL und WORKERS_REPO_READ_PAT. Beide Werte
+waren im Lauf nicht verfügbar; der Job brach daher vor dem Klon mit einer
+expliziten Fehlermeldung ab. Es wurden keine Secret-Werte ausgegeben oder
+geändert. Die Fehlerläufe belegen weder einen Worker-Build noch Tests.
+
+Im aktuell geprüften Checkout enthält
+`.github/workflows/audit-workers.yml` keinen Clone und benötigt keine
+repository-spezifischen Secrets. Er scannt nur dieses Monorepo, setzt
+`contents: read` und `persist-credentials: false` und führt keine Projektdateien
+aus. Der jüngste verfügbare erfolgreiche Lauf dieses Workflows ist
+[Audit #21](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39035262888)
+auf main bei Commit dca6b1bd808e266b4feb9d40be44c6952d9a95d4. Damit ist der
+frühere Fehlerpfad im aktuellen Audit-Workflow beseitigt; ein erfolgreicher
+Audit ist ausdrücklich kein Worker-Funktions- oder Buildnachweis.
+
+Im Arbeitsbaum sind weiterhin kein Worker-Entrypoint, Wrangler-/JavaScript-
+Projektmanifest, Worker-Testkonfiguration oder Worker-Buildskript vorhanden.
+Daher waren Worker-spezifische Tests und ein Worker-Build nicht ausführbar.
+Authentifizierung und Berechtigungen einer Worker-Anwendung können ohne
+freigegebenen Anwendungscode nicht geprüft oder sicher geändert werden. Kein
+Worker-Code, Token, Zugangsdaten oder Produktions-Secret wurde verändert;
+kein Deployment wurde gestartet.
