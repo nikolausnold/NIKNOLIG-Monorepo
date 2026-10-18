@@ -97,14 +97,34 @@ class SystemUpdatesTests(unittest.TestCase):
 
     def test_failure_does_not_skip_remaining_repositories_or_claim_unchanged(self):
         reader = MagicMock()
-        reader.head.side_effect = [InventoryError("GitHub HTTP 404"), ("main", HEAD), ("main", HEAD)]
+        configured = [entry for entry in self.entries if entry["kind"] != "pending"]
+        observations = [
+            ("main", None if entry["kind"] == "onboarding" else HEAD)
+            for entry in configured
+        ]
+        observations[0] = InventoryError("GitHub HTTP 404")
+        reader.head.side_effect = observations
         report = build_report(self.entries, reader)
         self.assertFalse(report["all_configured_repositories_checked"])
-        self.assertEqual(4, len(report["repositories"]))
+        self.assertEqual(len(self.entries), len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][0]["status"])
         self.assertIsNone(report["repositories"][0]["changed"])
         self.assertEqual("not_available", report["repositories"][0]["local_reference_status"])
-        self.assertEqual("checked", report["repositories"][2]["status"])
+        for entry, result in zip(self.entries[1:], report["repositories"][1:]):
+            with self.subTest(repository=entry["id"]):
+                expected_status = {
+                    "pending": "not_configured",
+                    "onboarding": "empty",
+                }.get(entry["kind"], "checked")
+                self.assertEqual(expected_status, result["status"])
+                self.assertEqual(None if entry["kind"] in ("pending", "onboarding")
+                                 else HEAD, result["observed_sha"])
+                if entry["kind"] in ("pending", "onboarding"):
+                    self.assertIsNone(result["changed"])
+        self.assertEqual(
+            [entry["repository"] for entry in configured],
+            [call.args[0] for call in reader.head.call_args_list],
+        )
 
     def test_invalid_local_sha_fails_before_network(self):
         reader = MagicMock()
