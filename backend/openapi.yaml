@@ -1,17 +1,21 @@
 openapi: 3.1.0
 info:
   title: NIKNOLIG Shared Backend Contract
-  version: 0.1.0
+  version: 0.2.0
   description: >-
-    Contract-first proposal. Only health operations are defined; no operational
-    app, device, profile, or pairing API is implemented or approved. Production
-    integration is blocked pending SecurityChain-P0 and product/security review.
+    Locally testable reference API, disabled by default. Production integration
+    remains blocked pending SecurityChain-P0 and product/security approval.
+    No account provisioning, token issuance, pairing, consent or sensor API.
 servers:
   - url: https://backend.invalid
     description: Placeholder only; not a deployed or approved endpoint.
 tags:
   - name: Health
     description: Non-sensitive process and dependency health contract.
+  - name: Authentication
+  - name: Devices
+security:
+  - AccessToken: []
 paths:
   /health/live:
     get:
@@ -54,17 +58,223 @@ paths:
                   code: SERVICE_UNAVAILABLE
                   message: Service is temporarily unavailable.
                   requestId: 00000000-0000-4000-8000-000000000000
+  /v1/auth/session:
+    parameters:
+      - $ref: "#/components/parameters/AppArea"
+    get:
+      operationId: getSession
+      tags: [Authentication]
+      summary: Validate an existing access token; requires auth:read.
+      responses:
+        "200":
+          description: Current authenticated principal; no credentials.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [principal, appArea, scopes, expiresAt]
+                properties:
+                   principal: {type: string}
+                   appArea: {$ref: "#/components/schemas/AppArea"}
+                   scopes: {type: array, items: {type: string}}
+                   expiresAt: {type: integer, description: Unix seconds}
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/auth/logout:
+    parameters:
+      - $ref: "#/components/parameters/AppArea"
+    post:
+      operationId: revokeAccessToken
+      tags: [Authentication]
+      summary: Revoke this access token until expiry; requires auth:revoke.
+      description: Does not revoke the upstream refresh token or other sessions.
+      responses:
+        "204":
+          description: Revocation persisted.
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/devices:
+    parameters:
+      - $ref: "#/components/parameters/AppArea"
+    get:
+      operationId: listDevices
+      tags: [Devices]
+      summary: List own app-scoped installations; requires devices:read.
+      responses:
+        "200":
+          description: At most 100 installations; no other principals or app areas.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [devices]
+                properties:
+                   devices:
+                     type: array
+                     maxItems: 100
+                     items: {$ref: "#/components/schemas/Device"}
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: registerDevice
+      tags: [Devices]
+      summary: Register a pending installation; requires devices:write.
+      description: No verification, rotation or permission is inferred from an ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [installationId, publicKey]
+              properties:
+                installationId: {type: string, format: uuid}
+                publicKey:
+                   type: string
+                   maxLength: 2048
+                   description: PEM SubjectPublicKeyInfo EC P-256 public key only.
+      responses:
+        "201":
+          description: Pending installation registered.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Device"}
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/devices/{deviceId}:
+    parameters:
+      - $ref: "#/components/parameters/AppArea"
+      - $ref: "#/components/parameters/DeviceId"
+    get:
+      operationId: getDevice
+      tags: [Devices]
+      summary: Read own installation; requires devices:read.
+      responses:
+        "200":
+          description: Owned installation in the token's app area.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Device"}
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: revokeDevice
+      tags: [Devices]
+      summary: Permanently revoke an installation; requires devices:write.
+      description: Invalidates outstanding verification challenges, not account tokens.
+      responses:
+        "204":
+          description: Installation revoked.
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/devices/{deviceId}/challenge:
+    parameters:
+      - $ref: "#/components/parameters/AppArea"
+      - $ref: "#/components/parameters/DeviceId"
+    post:
+      operationId: createDeviceChallenge
+      tags: [Devices]
+      summary: Request a single-use 120-second possession challenge; requires devices:write.
+      description: Replaces earlier challenges for this device. Not peer pairing or attestation.
+      responses:
+        "200":
+          description: Sign the exact UTF-8 message with the registered P-256 private key.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [challengeId, message, expiresAt]
+                properties:
+                   challengeId: {type: string, format: uuid}
+                   message: {type: string}
+                   expiresAt: {type: string, format: date-time}
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/devices/{deviceId}/verify:
+    parameters:
+      - $ref: "#/components/parameters/AppArea"
+      - $ref: "#/components/parameters/DeviceId"
+    post:
+      operationId: verifyDevicePossession
+      tags: [Devices]
+      summary: Verify possession, not hardware identity; requires devices:write.
+      description: Challenge is consumed even on invalid signature. No automatic retry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [challengeId, signature]
+              properties:
+                challengeId: {type: string, format: uuid}
+                signature:
+                   type: string
+                   maxLength: 256
+                   description: Standard base64-encoded ASN.1 DER ECDSA-SHA256 signature.
+      responses:
+        "200":
+          description: Device key possession verified.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Device"}
+        default:
+          $ref: "#/components/responses/Error"
 components:
+  parameters:
+    AppArea:
+      name: X-App-Area
+      in: header
+      required: true
+      schema: {$ref: "#/components/schemas/AppArea"}
+      description: Must equal the signed app_area; never grants rights itself.
+    DeviceId:
+      name: deviceId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+  responses:
+    Error:
+      description: >-
+        Generic error with requestId. 400 validation, 401 missing/invalid/revoked
+        token, 403 scope/area/integrity denial, 404 unknown or foreign resource,
+        409 conflict, 413 oversized request, 415 unsupported media type,
+        429 rate limit, 500 internal error, 503 disabled API or unavailable dependency.
+        Security failures must stop the client operation; no offline queue.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ApiError"}
   securitySchemes:
     AccessToken:
       type: http
       scheme: bearer
-      bearerFormat: opaque
+      bearerFormat: JWT
       description: >-
-        Reserved contract requirement for future protected operations only.
-        No issuer, token issuance, validation, or protected operation is
-        specified or implemented by this contract.
+        Existing issuer's RS256 access token, typ at+jwt. Required claims iss,
+        aud, sub, iat, exp, jti, app_area, scope. Lifetime at most 900 seconds.
+        Exact configured issuer and app-specific audience; persistent revocation.
+        No token endpoint or client secret. Login/refresh remain upstream.
   schemas:
+    AppArea:
+      type: string
+      enum: [niknolig, niknolig-defense]
+    Device:
+      type: object
+      additionalProperties: false
+      required: [id, installationId, appArea, identityState, createdAt, verifiedAt, revokedAt]
+      properties:
+        id: {type: string, format: uuid}
+        installationId: {type: string, format: uuid}
+        appArea: {$ref: "#/components/schemas/AppArea"}
+        identityState: {type: string, enum: [pending, verified, revoked]}
+        createdAt: {type: string, format: date-time}
+        verifiedAt: {type: [string, "null"], format: date-time}
+        revokedAt: {type: [string, "null"], format: date-time}
     HealthStatus:
       type: object
       additionalProperties: false

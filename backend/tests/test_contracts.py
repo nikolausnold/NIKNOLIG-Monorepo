@@ -13,7 +13,7 @@ BACKEND = Path(__file__).resolve().parents[1]
 
 
 class BackendContractTests(unittest.TestCase):
-    def test_openapi_only_exposes_non_sensitive_health_operations(self):
+    def test_openapi_separates_health_and_gated_protected_operations(self):
         contract = (BACKEND / "openapi.yaml").read_text(encoding="utf-8")
         self.assertIn("openapi: 3.1.0", contract)
         self.assertIn("/health/live:", contract)
@@ -22,8 +22,10 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("AUTHENTICATION_REQUIRED", contract)
         self.assertIn("APP_AREA_MISMATCH", contract)
         self.assertIn("REPLAY_DETECTED", contract)
-        self.assertNotIn("/v1/", contract)
-        self.assertIn("specified or implemented", contract)
+        self.assertIn("/v1/auth/session:", contract)
+        self.assertIn("/v1/devices:", contract)
+        self.assertIn("AccessToken: []", contract)
+        self.assertIn("SecurityChain-P0", contract)
 
     def test_migration_separates_app_domains_and_does_not_store_private_keys(self):
         migration = (BACKEND / "migrations/001_initial_contract.sql").read_text(
@@ -46,7 +48,11 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("internal: true", compose)
         self.assertIn("pg_isready", compose)
         self.assertNotIn("0.0.0.0:", compose)
-        self.assertNotIn("api:", compose)
+        self.assertIn('profiles: ["api"]', compose)
+        self.assertIn("PGHOST: postgres", compose)
+        self.assertIn('PGPORT: "5432"', compose)
+        self.assertIn("- backend-internal", compose)
+        self.assertIn("BACKEND_API_ENABLED:-false", compose)
 
     def test_example_configuration_contains_no_password_value(self):
         example = (BACKEND / ".env.example").read_text(encoding="utf-8")
