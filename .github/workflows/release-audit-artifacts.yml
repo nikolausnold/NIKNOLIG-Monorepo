@@ -5,6 +5,7 @@ on:
     paths:
       - CHATGPT-BERICHT.txt
       - docs/release-readiness.md
+      - docs/security-release-readiness-2026-10-17.md
       - .github/workflows/release-audit-artifacts.yml
   workflow_dispatch:
 
@@ -26,5 +27,6 @@ jobs:
           path: |
             CHATGPT-BERICHT.txt
             docs/release-readiness.md
+            docs/security-release-readiness-2026-10-17.md
           if-no-files-found: error
           retention-days: 7

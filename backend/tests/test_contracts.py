@@ -123,6 +123,26 @@ class BackendContractTests(unittest.TestCase):
         self.assertNotIn("payload", schema["properties"])
         self.assertNotIn("notes", schema["properties"])
 
+    def test_device_link_message_contract_is_bounded_and_fails_closed(self):
+        schema = json.loads(
+            (BACKEND / "contracts/device-link-message-v1.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertFalse(schema["additionalProperties"])
+        self.assertEqual("1.0", schema["properties"]["contractVersion"]["const"])
+        self.assertEqual(
+            {"consent.accepted", "session.heartbeat", "session.revoke"},
+            set(schema["properties"]["eventType"]["enum"]),
+        )
+        self.assertEqual(
+            {"niknolig", "niknolig-defense"},
+            set(schema["properties"]["senderAppArea"]["enum"]),
+        )
+        self.assertNotIn("payload", schema["properties"])
+        self.assertIn("signature", schema["required"])
+        self.assertIn("nonce", schema["required"])
+
     def test_sensor_and_device_plan_keeps_p0_and_app_boundaries(self):
         plan = (
             BACKEND.parent / "docs/electro-engel-multidevice-sensors.md"
@@ -227,11 +247,26 @@ class BackendContractTests(unittest.TestCase):
                 "unit": "m",
             },
         }
+        link_message = {
+            "contractVersion": "1.0",
+            "messageId": "00000000-0000-4000-8000-000000000011",
+            "sessionId": "00000000-0000-4000-8000-000000000012",
+            "senderInstallationId": "00000000-0000-4000-8000-000000000013",
+            "senderAppArea": "niknolig",
+            "recipientAppArea": "niknolig-defense",
+            "sequence": 1,
+            "eventType": "session.heartbeat",
+            "issuedAt": "2026-10-16T00:00:00Z",
+            "expiresAt": "2026-10-16T00:01:00Z",
+            "nonce": "A" * 22,
+            "signature": "B" * 86,
+        }
         valid_instances = {
             "device-consent-v1": consent,
             "consent-audit-event-v1": event,
             "sensor-capability-v1": capability,
             "sensor-summary-v1": summary,
+            "device-link-message-v1": link_message,
         }
         invalid_instances = {
             "device-consent-v1": [
@@ -258,6 +293,13 @@ class BackendContractTests(unittest.TestCase):
                 {key: value for key, value in summary.items() if key != "consentId"},
                 {**summary, "dataClass": "derived_environment_summary"},
                 {**summary, "rawImage": "base64-data"},
+            ],
+            "device-link-message-v1": [
+                {**link_message, "contractVersion": "2.0"},
+                {**link_message, "sequence": 0},
+                {**link_message, "eventType": "device.unlock"},
+                {**link_message, "extra": "not allowed"},
+                {key: value for key, value in link_message.items() if key != "signature"},
             ],
         }
         for name, instance in valid_instances.items():
