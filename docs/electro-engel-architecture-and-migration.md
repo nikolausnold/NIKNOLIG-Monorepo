@@ -140,9 +140,8 @@ Bis zur erfüllten Extraktionsreife und separaten Freigabe bleiben
 SecurityChain-P0-Grenzen, Nutzerzustimmung, die getrennten Android-Apps und der
 Status „keine produktive Laufzeitintegration“ unverändert.
 
-Die Prüfung des im Integrationsauftrag benannten Quellprojekts ergab am
-2026-10-18: `nikolausnold/Elektro-Engel` war über GitHub nicht lesbar (HTTP 404);
-das ähnlich benannte `nikolausnold/Elektro-Engel-` ist leer (HTTP 409). Es wurde
-daher keine Implementierung übernommen. Einzelheiten und der belegte
-Monorepo-Bestand stehen in
+Die Repository-Zuordnung wurde vom Nutzer für
+`nikolausnold/Elektro-Engel-` bestätigt. Eine erneute Prüfung am 2026-10-18
+ergab, dass dieses Repository derzeit leer ist (HTTP 409); es wurde daher keine
+Implementierung übernommen. Einzelheiten und der belegte Monorepo-Bestand stehen in
 [`electro-engel-source-inventory.md`](electro-engel-source-inventory.md).

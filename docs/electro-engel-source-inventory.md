@@ -5,21 +5,15 @@
 
 ## Prüfung des Quellprojekts
 
-Der Auftrag nennt `nikolausnold/Elektro-Engel`. Der GitHub-Dateizugriff auf
-dieses Repository lieferte HTTP 404. Deshalb konnten weder Dateien noch
-Revisionen oder Implementierungen dieses exakt benannten Quellprojekts geprüft
-werden.
-
-Die GitHub-Suche nach Repositories des Eigentümers fand stattdessen
+Die bestätigte Quelle ist
 [`nikolausnold/Elektro-Engel-`](https://github.com/nikolausnold/Elektro-Engel-)
-(mit abschließendem Bindestrich). GitHub meldet dieses öffentliche Repository
-als am 2026-10-17 erstellt; Inhalts- und Commit-Abfragen auf dessen `main`
-lieferten HTTP 409 „Git Repository is empty“. Es sind dort keine prüfbaren
-Dateien oder Commits vorhanden. Die Namensähnlichkeit belegt nicht, dass dieses
-leere Repository die im Auftrag gemeinte Quelle ist.
+(mit abschließendem Bindestrich). Eine erneute GitHub-Inhalts- und Commit-Abfrage
+am 2026-10-18 ergab für `main` HTTP 409 „Git Repository is empty“. Es sind
+weiterhin keine Dateien oder Commits vorhanden, die lokal geprüft oder
+integriert werden könnten.
 
 **Ergebnis:** Es sind keine Elektro-Engel-Core-, KI-, Adapter-, Datenzugriffs-
-oder Sicherheitskomponenten aus einem Quell-Repository nachweisbar. Eine
+oder Sicherheitskomponenten in der bestätigten Quelle nachweisbar. Eine
 Übernahme wäre ohne lesbaren Quellstand erfunden und nicht überprüfbar. Das
 Quell-Repository wurde nicht geändert.
 
@@ -58,8 +52,8 @@ weiterhin ein Zielentwurf, keine implementierte Funktion.
 
 Für eine prüfbare Codeintegration sind erforderlich:
 
-1. Den genauen Quell-Repository-Namen bestätigen und lesbaren, nicht-leeren
-   Quellstand bereitstellen.
+1. Einen befüllten Quellstand in der bestätigten Quelle bereitstellen und
+   sicherstellen, dass dessen Dateien und Revision lesbar sind.
 2. Quellrevision, Dateien, Abhängigkeiten, Lizenz, Datenflüsse und vorhandene
    Tests inventarisieren, bevor Komponenten ausgewählt oder übernommen werden.
 3. Nur tatsächlich vorhandene und passende Komponenten in den Zielbereich
@@ -69,6 +63,6 @@ Für eine prüfbare Codeintegration sind erforderlich:
    den jeweils erforderlichen Sicherheits-, Produkt- und Rechtsfreigaben
    aktivieren.
 
-Diese Prüfung belegt keine Kompatibilität mit dem leeren ähnlich benannten
-Repository und ersetzt keine Quellcodeprüfung, sobald der richtige Quellstand
-verfügbar ist.
+Diese Inventur bestätigt die Repository-Zuordnung, ersetzt aber keine
+Quellcodeprüfung. Eine Integration bleibt blockiert, bis ein nicht-leerer,
+lesbarer Quellstand verfügbar ist.

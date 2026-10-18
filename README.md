@@ -95,10 +95,10 @@ dokumentiert. Das ist keine Freigabe, ein Core-Modul, eine Runtime oder ein
 separates Repository anzulegen.
 
 Die Prüfung des im Integrationsauftrag genannten Elektro-Engel-Quellprojekts
-und der tatsächliche Integrationsblocker sind in
+und der tatsächliche Integrationsblocker (bestätigtes Quell-Repository derzeit
+leer) sind in
 [`docs/electro-engel-source-inventory.md`](docs/electro-engel-source-inventory.md)
-dokumentiert. Aus einem nicht zugänglichen beziehungsweise leeren Quellstand
-wurde kein Code übernommen.
+dokumentiert. Aus dem leeren Quellstand wurde kein Code übernommen.
 
 Das Soll-Konzept für getrennte Gründerrollen und app-spezifische Konten steht in
 [`docs/founder-roles-and-account-requirements.md`](docs/founder-roles-and-account-requirements.md).
