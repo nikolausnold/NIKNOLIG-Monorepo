@@ -79,8 +79,8 @@
       "evidence": [
         {
           "path": ".github/workflows/android-build.yml",
-          "startLine": 42,
-          "endLine": 44,
+          "startLine": 50,
+          "endLine": 52,
           "excerpt": "      - name: Assemble both debug APKs\n        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon\n      - name: Verify package identities and APK signatures",
           "state": "verified"
         },
