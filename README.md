@@ -124,8 +124,11 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   iOS-Anschluss. Auf `main` prüft der Autobuild die registrierten Repositories
   lesend über die GitHub-API. Der commitbezogene `system-update-report` zeigt
   Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
-  Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung
-  fehlschlagen, statt vollständige Systemkompatibilität vorzutäuschen.
+  Nicht erreichbare/private Quellen ohne Leserecht bleiben im Bericht als
+  `not_checked` sichtbar und erzeugen eine Warnung, blockieren aber nicht den
+  Android-Build. Ungültige Konfigurationen und nicht schreibbare Berichte
+  brechen den Build weiterhin ab; vollständige Systemkompatibilität wird
+  nicht vorgetäuscht.
 - Das Artefakt `mobile-contracts-<Commit-SHA>` enthält dieselben OpenAPI- und
   JSON-Verträge für Android und spätere iOS-Verbraucher sowie das Systemregister.
   Neue Repositories müssen ausdrücklich im Register aufgenommen werden.
