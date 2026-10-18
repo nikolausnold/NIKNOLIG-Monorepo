@@ -1,5 +1,6 @@
 import copy
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -51,6 +52,25 @@ class EvolutionEngineTests(unittest.TestCase):
         modified["ideas"][0]["evidence"][0]["excerpt"] = "invented repository finding"
         with self.assertRaisesRegex(BacklogError, "does not match cited lines"):
             validate_backlog(modified, ROOT)
+
+    def test_readme_citations_allow_three_line_documentation_insertions(self):
+        with tempfile.TemporaryDirectory(prefix="evolution-evidence-") as directory:
+            root = Path(directory)
+            for idea in self.backlog["ideas"]:
+                for evidence in idea["evidence"]:
+                    path = evidence["path"]
+                    target = root / path
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    text = (ROOT / path).read_text(encoding="utf-8")
+                    if path in ("README.md", "backend/README.md"):
+                        text = (
+                            "\n" * (evidence["startLine"] - 1 + 3)
+                            + evidence["excerpt"] + "\n"
+                        )
+                    target.write_text(text, encoding="utf-8")
+
+            ideas = validate_backlog(self.backlog, root)
+            self.assertEqual(len(self.backlog["ideas"]), len(ideas))
 
     def test_private_or_external_evidence_paths_are_rejected(self):
         for path in ("/etc/passwd", "../outside.md", "backend/.env"):
