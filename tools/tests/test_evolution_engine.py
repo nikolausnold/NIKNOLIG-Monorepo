@@ -39,6 +39,15 @@ class EvolutionEngineTests(unittest.TestCase):
         self.assertTrue(any(idea["tier"] == "VORSCHLAG" for idea in report["ideas"]))
         self.assertTrue(any(idea["tier"] == "GESPERRT" for idea in report["ideas"]))
 
+    def test_contract_test_idea_cites_actual_ci_test_step(self):
+        idea = next(idea for idea in self.backlog["ideas"] if idea["id"] == "run-contract-tests-in-ci")
+        self.assertTrue(any(
+            citation["path"] == ".github/workflows/android-build.yml"
+            and "run: python3 -m unittest discover -s backend/tests" in citation["excerpt"]
+            for citation in idea["evidence"]
+        ))
+        validate_backlog({**self.backlog, "ideas": [idea]}, ROOT)
+
     def test_risk_flags_override_high_benefit_and_auth_changes_are_locked(self):
         ideas = validate_backlog(self.backlog, ROOT)
         blocked = next(idea for idea in ideas if idea["id"] == "device-session-transfer")

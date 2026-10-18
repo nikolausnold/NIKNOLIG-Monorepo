@@ -85,10 +85,10 @@
           "state": "verified"
         },
         {
-          "path": "backend/README.md",
-          "startLine": 143,
-          "endLine": 144,
-          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und\ndie Health-only-Laufzeit.",
+          "path": ".github/workflows/android-build.yml",
+          "startLine": 25,
+          "endLine": 26,
+          "excerpt": "      - name: Run backend contract regression tests\n        run: python3 -m unittest discover -s backend/tests",
           "state": "verified"
         }
       ]
