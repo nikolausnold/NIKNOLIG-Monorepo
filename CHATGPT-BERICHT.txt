@@ -305,3 +305,47 @@ Tooling-Tests würden diesen Worker-Nachweis nicht ersetzen und wurden für dies
 Berichtsänderung nicht wiederholt. Offen bleiben die kanonischen Quellen,
 Commit-/Pfadzuordnung, Cloudflare-Zuordnung sowie getrennte Auth-/Scope- und
 Offline-Testverträge. Keine Secrets geändert, keine Deployments gestartet.
+
+10. NACHTRAG: STATISCHE WEBSITE-ASSETS ALS QUELLKANDIDATEN (2026-10-18)
+
+In den beiden bereits geprüften öffentlichen App-Repositories liegen tatsächliche
+statische Website-Quellen:
+
+- NIKNOLIG: `index.html`, `styles.css` und `assets/niknolig-mark.svg` auf
+  [main](https://github.com/nikolausnold/NIKNOLIG/tree/main). Die Historie von
+  `index.html` führt zur Erstellung der statischen Landingpage in Commit
+  [074d982](https://github.com/nikolausnold/NIKNOLIG/commit/074d982094bad34060a14235f841e5b99bb839ea);
+  spätere Website-/Brandingänderungen sind in den Datei-Commits dokumentiert.
+  Der aktuelle [Website-Workflow](https://github.com/nikolausnold/NIKNOLIG/blob/main/.github/workflows/deploy-website.yml)
+  kopiert genau HTML, CSS und SVG in ein GitHub-Pages-Artefakt. Ein erfolgreicher
+  Pages-Lauf ist [hier](https://github.com/nikolausnold/NIKNOLIG/actions/runs/38726002859)
+  nachgewiesen.
+- NIKNOLIG Defense: `index.html`, `styles.css` und
+  `assets/niknolig-mark.svg` auf
+  [main](https://github.com/nikolausnold/NIKNOLIG-Defense/tree/main). Die
+  Website-Historie umfasst den Initialstand
+  [9356216](https://github.com/nikolausnold/NIKNOLIG-Defense/commit/93562168eb4bec681a937c5a481d31f875f99177)
+  und die anschließende Website-Änderung
+  [0bd0b4a](https://github.com/nikolausnold/NIKNOLIG-Defense/commit/0bd0b4a5baf01dbd90aa34bffdef291597e9948e).
+  Der aktuelle [Website-Workflow](https://github.com/nikolausnold/NIKNOLIG-Defense/blob/main/.github/workflows/deploy-website.yml)
+  kopiert ebenfalls nur HTML, CSS und SVG in ein GitHub-Pages-Artefakt. Ein
+  erfolgreicher Pages-Lauf ist [hier](https://github.com/nikolausnold/NIKNOLIG-Defense/actions/runs/38927921976)
+  nachgewiesen.
+
+In den geprüften Website-Roots ist keine JavaScript-Datei aufgeführt; die
+HTML-Dateien binden `styles.css` und das SVG ein. Die Actions-Workflows weisen
+GitHub Pages als Ziel aus und enthalten keinen Cloudflare-/Wrangler-Build oder
+Worker-Asset-Pfad. Die Dateien sind daher eindeutig den jeweiligen Websites
+zugeordnet, aber anhand verfügbarer Belege nicht eindeutig den Cloudflare-
+Static-Assets-Workern `niknolig` bzw. `niknolig-defense` zugeordnet. Eine
+Gleichsetzung allein aufgrund gleicher Produktnamen wäre kein Herkunftsnachweis.
+
+Folglich wurden die Website-Dateien nicht in das Monorepo kopiert: Es wäre
+ungeklärt, ob damit die bestehenden Worker-Assets oder nur die separate
+GitHub-Pages-Website dupliziert würden. Auch
+`WORKERS_REPOSITORY_URL` ist laut Aufgabenstand nicht als Repository-Secret
+vorhanden; es wurde weder ein Ersatzwert erfunden noch ein Secret angelegt.
+Der verbleibende Nachweis ist die read-only Worker-Projektzuordnung pro Worker
+(verbundenes Repository, Branch/Commit und Asset-Root) oder ein entsprechender
+freigegebener Quellcommit/-pfad des Eigentümers. Keine Tokens oder
+Produktions-Secrets angefordert/geändert und kein Deployment ausgeführt.
