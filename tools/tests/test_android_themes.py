@@ -26,6 +26,14 @@ class AndroidThemeTests(unittest.TestCase):
                 self.assertIsNone(base_theme.find(item))
                 self.assertIsNotNone(qualified_theme.find(item))
                 self.assertEqual("false", qualified_theme.find(item).text)
+                qualified_items = {
+                    item.get("name"): item.text for item in qualified_theme
+                }
+                for item in base_theme:
+                    self.assertEqual(
+                        item.text, qualified_items.get(item.get("name")),
+                        f"{module}: API-27 theme must preserve {item.get('name')}",
+                    )
 
 
 if __name__ == "__main__":
