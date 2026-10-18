@@ -52,6 +52,15 @@ class EvolutionEngineTests(unittest.TestCase):
         with self.assertRaisesRegex(BacklogError, "does not match cited lines"):
             validate_backlog(modified, ROOT)
 
+    def test_contract_test_ci_evidence_cites_the_workflow_command(self):
+        idea = next(idea for idea in self.backlog["ideas"] if idea["id"] == "run-contract-tests-in-ci")
+        self.assertTrue(any(
+            citation["path"] == ".github/workflows/android-build.yml"
+            and "run: python3 -m unittest discover -s backend/tests" in citation["excerpt"]
+            for citation in idea["evidence"]
+        ))
+        validate_backlog({"schemaVersion": 1, "ideas": [idea]}, ROOT)
+
     def test_private_or_external_evidence_paths_are_rejected(self):
         for path in ("/etc/passwd", "../outside.md", "backend/.env"):
             modified = copy.deepcopy(self.backlog)
