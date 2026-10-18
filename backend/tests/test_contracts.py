@@ -39,14 +39,19 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("grants no action or", migration)
         self.assertNotIn("private_key", migration.lower())
 
-    def test_compose_is_loopback_only_and_requires_local_password(self):
+    def test_local_stack_is_loopback_only_and_requires_local_password(self):
         compose = (BACKEND / "compose.yaml").read_text(encoding="utf-8")
         self.assertIn("127.0.0.1:${POSTGRES_PORT:-54329}:5432", compose)
+        self.assertIn("127.0.0.1:${BACKEND_PORT:-8000}:8000", compose)
         self.assertIn("${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD", compose)
+        self.assertIn("DATABASE_PASSWORD: ${POSTGRES_PASSWORD", compose)
+        self.assertIn("depends_on:", compose)
+        self.assertIn("condition: service_healthy", compose)
+        self.assertIn("read_only: true", compose)
         self.assertIn("internal: true", compose)
         self.assertIn("pg_isready", compose)
         self.assertNotIn("0.0.0.0:", compose)
-        self.assertNotIn("api:", compose)
+        self.assertIn("api:", compose)
 
     def test_example_configuration_contains_no_password_value(self):
         example = (BACKEND / ".env.example").read_text(encoding="utf-8")

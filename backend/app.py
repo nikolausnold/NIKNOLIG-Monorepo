@@ -4,6 +4,42 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import uuid4
 
 
+def database_is_ready():
+    names = (
+        "DATABASE_HOST",
+        "DATABASE_PORT",
+        "DATABASE_NAME",
+        "DATABASE_USER",
+        "DATABASE_PASSWORD",
+    )
+    values = {name: os.environ.get(name) for name in names}
+    if not any(values.values()):
+        return True
+    if not all(values.values()):
+        return False
+
+    try:
+        port = int(values["DATABASE_PORT"])
+        if not 1 <= port <= 65535:
+            return False
+        import psycopg
+
+        connection_options = {
+            "host": values["DATABASE_HOST"],
+            "port": port,
+            "dbname": values["DATABASE_NAME"],
+            "user": values["DATABASE_USER"],
+            "connect_timeout": 2,
+        }
+        connection_options["password"] = values["DATABASE_PASSWORD"]
+        with psycopg.connect(**connection_options) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                return cursor.fetchone() == (1,)
+    except Exception:
+        return False
+
+
 class HealthHandler(BaseHTTPRequestHandler):
     server_version = "NIKNOLIGBackend"
     sys_version = ""
@@ -13,7 +49,23 @@ class HealthHandler(BaseHTTPRequestHandler):
         if path == "/health/live":
             self._send_json(200, {"status": "live"})
         elif path == "/health/ready":
-            self._send_json(200, {"status": "ready"})
+            try:
+                ready = self.server.readiness_check()
+            except Exception:
+                ready = False
+            if ready:
+                self._send_json(200, {"status": "ready"})
+            else:
+                self._send_json(
+                    503,
+                    {
+                        "error": {
+                            "code": "SERVICE_UNAVAILABLE",
+                            "message": "Service is temporarily unavailable.",
+                            "requestId": str(uuid4()),
+                        }
+                    },
+                )
         else:
             self._send_json(
                 404,
@@ -40,9 +92,12 @@ class HealthHandler(BaseHTTPRequestHandler):
         return
 
 
-def create_server(host, port):
+def create_server(host, port, readiness_check=None):
     server = ThreadingHTTPServer((host, port), HealthHandler)
     server.daemon_threads = True
+    server.readiness_check = (
+        database_is_ready if readiness_check is None else readiness_check
+    )
     return server
 
 

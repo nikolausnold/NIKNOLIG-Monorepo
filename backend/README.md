@@ -1,6 +1,7 @@
 # Gemeinsame Backend-Grundlage
 
-**Status: Health-only-Laufzeit und Verträge, lokal isoliert, nicht produktionsfreigegeben.**
+**Status: Health-only-Laufzeit mit optionaler PostgreSQL-Bereitschaftsprüfung,
+lokal isoliert, nicht produktionsfreigegeben.**
 
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
 Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt ausschließlich
@@ -15,14 +16,21 @@ Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 - [`openapi.yaml`](openapi.yaml): OpenAPI 3.1-Vertrag für nicht-sensitive
   Liveness-/Readiness-Prüfungen und einheitliche Fehlerantworten. Es sind bewusst
   noch keine operativen Geräte-, Profil- oder Pairing-Endpunkte freigegeben.
-- [`app.py`](app.py): lokale Health-only-HTTP-Laufzeit ohne externe
-  Python-Abhängigkeiten. Sie ist kein produktionsgeeigneter API-Server.
+- [`app.py`](app.py): Health-only-HTTP-Laufzeit. Wenn
+  `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER` und
+  `DATABASE_PASSWORD` gesetzt sind, prüft `/health/ready` per authentifizierter
+  Datenbankverbindung `SELECT 1`. Ohne Datenbankkonfiguration bleibt der
+  eigenständige Health-only-Modus verfügbar.
+- [`Dockerfile`](Dockerfile) und [`requirements.txt`](requirements.txt):
+  lokaler API-Container mit festgelegter Psycopg-Version und unprivilegiertem
+  Laufzeitbenutzer.
 - [`migrations/001_initial_contract.sql`](migrations/001_initial_contract.sql):
   vorgeschlagenes relationales Modell für App-Bereiche, Installationen,
   Geräteidentitätsstatus und spätere Zwei-App-Link-Beziehungen. Das Anwenden der
   Migration ist bis zur Architektur-/Security-Freigabe gesperrt.
-- [`compose.yaml`](compose.yaml): ausschließlich lokale PostgreSQL-Entwicklung,
-  an Loopback gebunden und ohne API-Service oder öffentlich erreichbaren Port.
+- [`compose.yaml`](compose.yaml): ausschließlich lokaler API- und
+  PostgreSQL-Stack. Beide Host-Ports sind an Loopback gebunden; die Container
+  kommunizieren über ein isoliertes internes Netzwerk.
 - [`.env.example`](.env.example): Variablennamen ohne eingetragene Credentials.
 - [`contracts/`](contracts/): versionierte, deklarative Entwürfe für
   Gerätewechsel-Zustimmung, minimierte Audit-Ereignisse, Sensor-Capabilities und
@@ -74,21 +82,42 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    Profildaten, Tokens, Schlüssel oder vollständigen Request-Payloads in Logs.
    Aufbewahrung, Löschung, Benutzeridentität und konkrete Nutzdaten sind noch
    nicht fachlich freigegeben.
-6. **Healthchecks:** `/health/live` meldet nur Prozessverfügbarkeit;
-   `/health/ready` meldet die Bereitschaft dieser Health-only-Laufzeit. Es gibt
-   noch keine Produktabhängigkeiten, die geprüft werden könnten. Antworten legen
-   keine Umgebungsvariablen, internen Hosts, Stacktraces oder Datenbankdetails
-   offen.
+6. **Healthchecks:** `/health/live` meldet nur Prozessverfügbarkeit. Mit
+   vollständiger Datenbankkonfiguration führt `/health/ready` eine authentisierte
+   PostgreSQL-Verbindung und `SELECT 1` aus; fehlende oder nicht erreichbare
+   Abhängigkeiten ergeben HTTP 503 mit einer generischen Antwort. Ohne jegliche
+   Datenbankkonfiguration bleibt der lokale, eigenständige Health-only-Modus
+   bereit. Antworten legen keine Umgebungsvariablen, internen Hosts, Stacktraces
+   oder Datenbankdetails offen.
 
 ## Lokale Datenbankumgebung
 
 Docker Compose veröffentlicht PostgreSQL ausschließlich auf
-`127.0.0.1:54329` (konfigurierbar), nutzt ein erforderliches lokales Passwort,
-ein isoliertes internes Compose-Netzwerk und ein lokales benanntes Volume. Es
-gibt keinen API-Container, keine Internetfreigabe und keine produktive
-Konfiguration. `.env` wird lokal aus `.env.example` erstellt und nicht
-eingecheckt. Das Compose-Setup ist nicht für Deployment oder sensible Daten
-bestimmt.
+`127.0.0.1:54329` und die Health-only-API auf `127.0.0.1:8000` (beide
+konfigurierbar). Die API wartet auf den Datenbank-Healthcheck und validiert die
+Verbindung anschließend selbst. API- und Datenbankcontainer laufen in einem
+internen Netzwerk; der API-Container ist schreibgeschützt und unprivilegiert.
+`.env` wird lokal aus `.env.example` erstellt und nicht eingecheckt. Das
+Compose-Setup ist nicht für Deployment oder sensible Daten bestimmt.
+
+Lokalen Wert für `POSTGRES_PASSWORD` in `backend/.env` eintragen und den Stack
+starten:
+
+```sh
+docker compose --env-file backend/.env -f backend/compose.yaml up --build --detach
+curl --fail http://127.0.0.1:8000/health/live
+curl --fail http://127.0.0.1:8000/health/ready
+```
+
+Für einen Stopp ohne Löschen des lokalen Datenbank-Volumes:
+
+```sh
+docker compose --env-file backend/.env -f backend/compose.yaml down
+```
+
+Das lokale Volume hat keine konfigurierte Backup-/Wiederherstellungsprozedur.
+Backups, Restore-Tests, Hochverfügbarkeit, TLS, externe Erreichbarkeit und
+Produktionsbetrieb sind nicht umgesetzt oder validiert.
 
 ## Lokaler Health-Server
 
@@ -100,13 +129,14 @@ python3 backend/app.py
 
 Die Standardbindung ist `127.0.0.1:8000`. `BACKEND_HOST` und `BACKEND_PORT`
 können als Umgebungsvariablen gesetzt werden. Die Anwendung lädt `.env` nicht
-automatisch. `/health/live` und `/health/ready` liefern die vereinbarten
-Statusantworten; andere GET-Pfade geben eine generische 404-Antwort zurück.
-Es gibt keine Anmeldung, Datenbankverbindung, Gerätefunktion oder Produkt-API.
-Die Standardbibliotheks-HTTP-Laufzeit ist nur für lokale Entwicklung und
-Vertragstests gedacht: nicht öffentlich exponieren oder als produktiven
-Internetserver verwenden. Serverplattform, TLS, Authentifizierung, Betrieb und
-Deployment bleiben separat zu konfigurieren und freizugeben.
+automatisch. Ohne gesetzte Datenbankparameter funktionieren die Health-Routen
+im lokalen Health-only-Modus; mit vollständiger `DATABASE_*`-Konfiguration prüft
+Readiness tatsächlich die PostgreSQL-Verbindung. Andere GET-Pfade geben eine
+generische 404-Antwort zurück. Es gibt weiterhin keine Anmeldung, Gerätefunktion
+oder Produkt-API. Die Laufzeit und Compose-Konfiguration sind nur für lokale
+Entwicklung und Vertragstests gedacht: nicht öffentlich exponieren oder als
+produktiven Internetserver verwenden. Serverplattform, TLS, Authentifizierung,
+Betrieb und Deployment bleiben separat zu konfigurieren und freizugeben.
 
 ## SecurityChain-P0 und Freigabe
 
@@ -149,10 +179,12 @@ POSTGRES_PASSWORD=local-only-check docker compose \
   --env-file backend/.env.example -f backend/compose.yaml config --quiet
 ```
 
-Der Datenbankstart verlangt bewusst ein gesetztes lokales Passwort und ist nicht
-Teil der automatischen Tests. Keine der Prüfungen belegt eine operative API,
-sichere Authentifizierung, P0-Freigabe oder Verbindung zwischen zwei physischen
-Geräten.
+Die Python-Tests simulieren den Datenbanktreiber und belegen keinen laufenden
+PostgreSQL-Container. Wenn Docker Compose verfügbar ist, kann der lokale Stack
+zusätzlich mit einem eigens gesetzten lokalen Passwort gestartet und über beide
+Health-Routen geprüft werden. Keine der Prüfungen belegt eine operative
+Produkt-API, sichere Benutzer-/Geräteauthentifizierung, P0-Freigabe oder
+Verbindung zwischen zwei physischen Geräten.
 
 Gerätewechsel-, Sensorverträge, Android API-/Berechtigungsanforderungen und
 Geräteabnahmeplan stehen in

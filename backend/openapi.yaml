@@ -44,7 +44,7 @@ paths:
               example:
                 status: ready
         "503":
-          description: A required dependency is unavailable.
+          description: A configured required dependency is unavailable.
           content:
             application/json:
               schema:
