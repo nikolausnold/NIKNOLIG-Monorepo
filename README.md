@@ -9,7 +9,7 @@ und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
 | Modul | Android `applicationId` | Quellstand |
 | --- | --- | --- |
 | `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG/tree/3c4d6618a61604f6433639151e741371491a5f0d), Commit `3c4d6618a61604f6433639151e741371491a5f0d` |
-| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
+| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
 
 Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
 die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
@@ -126,6 +126,11 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
   Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung
   fehlschlagen, statt vollständige Systemkompatibilität vorzutäuschen.
+  Fehler werden mit Repository-Pfad und Ursache direkt im Actions-Log
+  ausgegeben; der vollständige JSON-Bericht bleibt auch bei Fehlern erhalten.
+  Weiterleitungen werden zum Schutz der Zugangsdaten nicht automatisch verfolgt.
+  Nach einer Repository-Umbenennung muss der verifizierte kanonische Pfad im
+  Register aktualisiert werden; der importierte Quell-Commit bleibt unverändert.
 - Das Artefakt `mobile-contracts-<Commit-SHA>` enthält dieselben OpenAPI- und
   JSON-Verträge für Android und spätere iOS-Verbraucher sowie das Systemregister.
   Neue Repositories müssen ausdrücklich im Register aufgenommen werden.
