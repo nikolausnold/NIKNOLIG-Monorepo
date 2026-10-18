@@ -223,3 +223,85 @@ Authentifizierung und Berechtigungen einer Worker-Anwendung können ohne
 freigegebenen Anwendungscode nicht geprüft oder sicher geändert werden. Kein
 Worker-Code, Token, Zugangsdaten oder Produktions-Secret wurde verändert;
 kein Deployment wurde gestartet.
+
+9. NACHTRAG: WORKER-QUELLZUORDNUNG UND SICHERER HANDOFF (2026-10-18)
+
+UNTERSUCHTE HINWEISE UND ERGEBNIS
+
+Die lokale Git-Historie dieses Checkouts enthält nur zwei sichtbare Commits und
+ist am älteren Commit flach abgeschnitten. Sie enthält keine Worker-Quellen oder
+ältere Branch-Historie, aus der sich ein ursprünglicher Worker-Pfad ableiten
+ließe. Die vorhandenen Integrationsunterlagen nennen
+`nikolausnold/NIKNOLIG` und `nikolausnold/NIKNOLIG-Defense` als behauptete
+Cloudflare-Quell-Repositories, bezeichnen eine Cloudflare-Verbindung aber
+ausdrücklich als nicht bestätigt
+(`docs/MASTER-INTEGRATION-PLAN.md`, Abschnitte 3–4).
+
+Die lesbaren `main`-Stände wurden separat überprüft:
+- `nikolausnold/NIKNOLIG`, Commit
+  `a2298537cf1dbb2ff569a0fd4d268135face09fe`: Android-/Website-Quellen und
+  Workflows für Android sowie GitHub Pages. Das dort vorhandene
+  `backend/server.py` ist ein Python-HTTP-Server für einen Sandbox-Zustand,
+  kein Cloudflare-Worker. Die Suche nach Wrangler-Konfigurationen und deren
+  Dateihistorie ergab keinen Worker-Nachweis.
+- `nikolausnold/NIKNOLIG-Defense`, Commit
+  `5f0f385089bc27347eacd282c13a546eb4511da2`: getrennte Android-/Website-Quellen
+  und Workflows für Android sowie GitHub Pages. Kein Worker-Entrypoint oder
+  Wrangler-Konfigurationsnachweis in Dateisuche oder geprüfter Historie.
+- `nikolausnold/Elektro-Engel-` ist bei GitHub als leeres Repository ohne
+ `main`-Referenz zurückgekommen; es kann keine Worker-Quelle belegen.
+- Die übrigen bei der GitHub-Kontosuche sichtbaren iOS-Repositories zeigen
+ Swift- bzw. App-/Website-Strukturen. Die Code-Suche fand in den sichtbaren
+ Repositories keinen Wrangler-Worker-Quellstand. Diese Aussage umfasst keine
+ privaten oder nicht zugänglichen Repositories.
+
+Damit lässt sich aus Belegen kein tatsächlicher Quellpfad und auch kein
+autoritativer Repository-Ort für einen der beiden Worker festlegen. Die
+Produktgrenzen sprechen für getrennte NIKNOLIG- und Defense-Zuordnungen, sind
+aber keine Freigabe, Code aus diesen Repositories zu übernehmen oder neue
+Worker-Verzeichnisse anzulegen. GitHub-Pages-Deployments sind kein
+Cloudflare-Worker-Nachweis.
+
+GETRENNTER SICHERHEITSSTATUS
+
+- NIKNOLIG-Worker: kein identifizierter Quellstand. Authentifizierungsverfahren,
+  Rollen/Scopes, Bindings, Fehlerbehandlung und zugehörige Tests sind nicht
+  prüfbar.
+- NIKNOLIG-Defense-Worker: kein identifizierter Quellstand. Authentifizierung,
+  Berechtigungen, Fehlerbehandlung und Tests sind unabhängig davon ebenfalls
+  nicht prüfbar. Es wird keine gemeinsame Authentifizierung oder Worker-
+  Implementierung mit NIKNOLIG unterstellt.
+
+KONKRETER HANDOFF, BEVOR INTEGRIERT ODER GETESTET WERDEN KANN
+
+Für jeden Worker getrennt wird vom zuständigen Quellcode-Eigentümer benötigt:
+1. Kanonische Repository-URL und freigegebener Branch/Commit-SHA.
+2. Tatsächlicher relativer Pfad von Entrypoint, Build-/Paketmanifest und
+   Worker-Konfiguration sowie der beabsichtigte Worker-Name und die Umgebung.
+3. Redigierter Cloudflare-Projektnachweis, der die Zuordnung von Repository,
+   Branch, Pfad, Worker und Umgebung bestätigt. Keine Tokens, Secret-Werte,
+   Kontokennungen oder Zugangsdaten senden.
+4. Vertrag der verwendeten Bindings/Secret-Namen (nur Namen und Zweck),
+   erlaubte Identitäts-/Rollen-/Scopes sowie erwartete Fehlercodes.
+5. Offline-Test- und Build-Befehle bzw. Quelltests, einschließlich
+   Negativtests für fehlende/ungültige Authentifizierung und unzureichende
+   Berechtigungen. Tests müssen externe Aufrufe mocken und dürfen keine echten
+   Produktions-Secrets benötigen.
+
+Nach Freigabe ist der sichere Weg, exakt den bezeichneten Quellcommit samt
+bestehender Worker-Konfiguration in den vom Eigentümer bestätigten Produkt-
+Quellort zu übernehmen, beide Worker getrennt zu halten und ihre vorhandenen
+Tests/Builds ohne Produktionszugriffe auszuführen. Erst danach können
+Repository- und Workflow-Änderungen anhand des tatsächlichen Paketmanifests,
+Buildbefehls, Pfads und Secret-Vertrags festgelegt werden. Es wurden keine
+Pfade, Worker-Implementierungen oder CI-Befehle erfunden.
+
+TESTS UND BLOCKER
+
+Kein Worker-Build und keine Worker-Tests ausgeführt: Quellcode, Testkonfiguration
+und Buildmanifest beider Worker fehlen im Monorepo und wurden auch in den
+geprüften öffentlichen Kandidaten nicht gefunden. Android-, Python-Backend- und
+Tooling-Tests würden diesen Worker-Nachweis nicht ersetzen und wurden für diese
+Berichtsänderung nicht wiederholt. Offen bleiben die kanonischen Quellen,
+Commit-/Pfadzuordnung, Cloudflare-Zuordnung sowie getrennte Auth-/Scope- und
+Offline-Testverträge. Keine Secrets geändert, keine Deployments gestartet.
