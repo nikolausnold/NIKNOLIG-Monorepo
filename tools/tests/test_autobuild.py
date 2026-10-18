@@ -1,3 +1,5 @@
+import subprocess
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -48,6 +50,28 @@ class AutobuildTests(unittest.TestCase):
         ):
             with self.subTest(check=check):
                 self.assertIn(check, workflow)
+
+    def test_inventory_observation_failure_warns_but_other_errors_stop_build(self):
+        workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
+        inventory_step = workflow.split(
+            "      - name: Check registered system repositories\n", 1
+        )[1].split("      - name:", 1)[0]
+        self.assertIn("shell: bash", inventory_step)
+        self.assertNotIn("continue-on-error:", inventory_step)
+        script = textwrap.dedent(inventory_step.split("        run: |\n", 1)[1])
+        for status in (0, 1, 2, 3, 127):
+            with self.subTest(status=status):
+                result = subprocess.run(
+                    ["bash", "-e", "-o", "pipefail", "-c",
+                     f"python3() {{ return {status}; }}\n" + script],
+                    capture_output=True, text=True, check=False,
+                )
+                self.assertEqual(0 if status == 1 else status, result.returncode)
+                if status == 1:
+                    self.assertIn("::warning::Repository inventory is incomplete", result.stdout)
+                    self.assertIn("system-update-report", result.stdout)
+                else:
+                    self.assertNotIn("::warning::", result.stdout)
 
 
 if __name__ == "__main__":
