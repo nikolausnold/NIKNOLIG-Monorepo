@@ -2,6 +2,7 @@ import copy
 import json
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from tools.evolution_engine import (
     BacklogError,
@@ -51,6 +52,31 @@ class EvolutionEngineTests(unittest.TestCase):
         modified["ideas"][0]["evidence"][0]["excerpt"] = "invented repository finding"
         with self.assertRaisesRegex(BacklogError, "does not match cited lines"):
             validate_backlog(modified, ROOT)
+
+    def test_shifted_workflow_citation_requires_refreshed_line_numbers(self):
+        idea = copy.deepcopy(next(
+            idea for idea in self.backlog["ideas"]
+            if idea["id"] == "run-contract-tests-in-ci"
+        ))
+        citation = idea["evidence"][0]
+        idea["evidence"] = [citation]
+        backlog = {"schemaVersion": 1, "ideas": [idea]}
+        workflow = (ROOT / citation["path"]).read_text(encoding="utf-8")
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / citation["path"]
+            source.parent.mkdir(parents=True)
+            source.write_text(workflow, encoding="utf-8")
+            validate_backlog(backlog, root)
+
+            source.write_text("\n" + workflow, encoding="utf-8")
+            with self.assertRaisesRegex(BacklogError, "does not match cited lines"):
+                validate_backlog(backlog, root)
+
+            citation["startLine"] += 1
+            citation["endLine"] += 1
+            self.assertEqual([idea], validate_backlog(backlog, root))
 
     def test_private_or_external_evidence_paths_are_rejected(self):
         for path in ("/etc/passwd", "../outside.md", "backend/.env"):
