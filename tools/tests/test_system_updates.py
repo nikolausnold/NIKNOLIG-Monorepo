@@ -4,7 +4,7 @@ import json
 import os
 import unittest
 import urllib.error
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import MagicMock, patch
 
 from tools.system_updates import (
@@ -31,6 +31,7 @@ class SystemUpdatesTests(unittest.TestCase):
         self.assertTrue(DEFAULT_REGISTRY.is_absolute())
         sources = {entry["id"]: entry for entry in self.entries}
         self.assertEqual("nikolausnold/NIKNOLIG-Monorepo", sources["monorepo"]["repository"])
+        self.assertEqual("nikolausnold/NIKNOLIG-Defense-Website-", sources["niknolig-defense"]["repository"])
         self.assertEqual("3c4d6618a61604f6433639151e741371491a5f0d", sources["niknolig"]["baseline"])
         self.assertEqual("5f0f385089bc27347eacd282c13a546eb4511da2", sources["niknolig-defense"]["baseline"])
         self.assertEqual("pending", sources["ios"]["kind"])
@@ -150,6 +151,23 @@ class SystemUpdatesTests(unittest.TestCase):
                 reader.head("nikolausnold/NIKNOLIG")
             self.assertNotIn("test-token", str(caught.exception))
 
+    def test_redirect_diagnostic_requires_registry_fix_without_exposing_location(self):
+        reader = GitHubReader("test-token")
+        reader.opener = MagicMock()
+        for code in (301, 302, 303, 307, 308):
+            reader.opener.open.side_effect = urllib.error.HTTPError(
+                "https://api.github.com", code, "test-token",
+                {"Location": "https://evil.example/test-token"}, None,
+            )
+            with self.subTest(code=code), self.assertRaises(InventoryError) as caught:
+                reader.head("nikolausnold/NIKNOLIG")
+            self.assertIn(f"GitHub HTTP {code}", str(caught.exception))
+            self.assertIn("redirects are disabled", str(caught.exception))
+            self.assertIn("update the registry", str(caught.exception))
+            self.assertNotIn("test-token", str(caught.exception))
+            self.assertNotIn("evil.example", str(caught.exception))
+        self.assertEqual(5, reader.opener.open.call_count)
+
     def test_api_rejects_bad_payloads_and_unsafe_repository_before_request(self):
         reader = GitHubReader()
         reader.opener = MagicMock()
@@ -170,32 +188,50 @@ class SystemUpdatesTests(unittest.TestCase):
 
     def run_cli(self, side_effect, arguments=None):
         output = io.StringIO()
+        errors = io.StringIO()
         with patch.dict(os.environ, {"GITHUB_SHA": LOCAL}, clear=True), \
                 patch("tools.system_updates.GitHubReader.head", side_effect=side_effect), \
-                redirect_stdout(output):
+                redirect_stdout(output), redirect_stderr(errors):
             exit_code = main(arguments or [])
-        return exit_code, output.getvalue()
+        return exit_code, output.getvalue(), errors.getvalue()
 
     def test_cli_emits_complete_json_and_failure_exit_code(self):
-        code, output = self.run_cli([("main", HEAD), InventoryError("unavailable"), ("main", HEAD)])
+        code, output, errors = self.run_cli([("main", HEAD), InventoryError("unavailable"), ("main", HEAD)])
         self.assertEqual(1, code)
         report = json.loads(output)
         self.assertEqual(4, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][1]["status"])
-        code, output = self.run_cli([("main", HEAD)] * 3)
+        self.assertIn("Repository inventory failed for nikolausnold/NIKNOLIG: unavailable", errors)
+        code, output, errors = self.run_cli([("main", HEAD)] * 3)
         self.assertEqual(0, code)
+        self.assertEqual("", errors)
         self.assertEqual(["ios"], json.loads(output)["pending_configuration"])
 
     def test_cli_output_file_and_unwritable_output_fallback(self):
         with patch("tools.system_updates.Path.write_text") as write:
-            code, output = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
+            code, output, _ = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
             self.assertEqual(0, code)
             self.assertEqual("", output)
             self.assertEqual(4, len(json.loads(write.call_args.args[0])["repositories"]))
         with patch("tools.system_updates.Path.write_text", side_effect=PermissionError):
-            code, output = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
+            code, output, _ = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
             self.assertEqual(2, code)
             self.assertTrue(json.loads(output)["all_configured_repositories_checked"])
+
+    def test_cli_file_report_failure_is_visible_in_logs_and_checks_remaining_repositories(self):
+        with patch("tools.system_updates.Path.write_text") as write:
+            code, output, errors = self.run_cli(
+                [("main", HEAD), ("main", HEAD), InventoryError("GitHub HTTP 301; repository not checked")],
+                ["--output", "inventory.json"],
+            )
+        self.assertEqual(1, code)
+        self.assertEqual("", output)
+        self.assertIn("nikolausnold/NIKNOLIG-Defense-Website-: GitHub HTTP 301", errors)
+        report = json.loads(write.call_args.args[0])
+        self.assertFalse(report["all_configured_repositories_checked"])
+        self.assertEqual("not_checked", report["repositories"][2]["status"])
+        self.assertIsNone(report["repositories"][2]["changed"])
+        self.assertEqual("not_configured", report["repositories"][3]["status"])
 
     def test_invalid_registry_emits_failure_without_network(self):
         for content in ('{"version":1,"version":1,"repositories":[]}', "not JSON", "{}"):

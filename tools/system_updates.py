@@ -16,6 +16,7 @@ import http.client
 import json
 import os
 import re
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -108,6 +109,11 @@ class GitHubReader:
             return result
         except urllib.error.HTTPError as exc:
             # Never echo exception URLs, response bodies, headers, or credentials.
+            if exc.code in (301, 302, 303, 307, 308):
+                raise InventoryError(
+                    f"GitHub HTTP {exc.code}; repository not checked; redirects are disabled; "
+                    "verify the canonical repository path and update the registry"
+                ) from None
             raise InventoryError(f"GitHub HTTP {exc.code}; repository not checked") from None
         except (OSError, urllib.error.URLError, http.client.HTTPException, ValueError):
             raise InventoryError("GitHub response unavailable or invalid; repository not checked") from None
@@ -187,6 +193,10 @@ def main(argv=None):
         entries = validate_registry(data)
         report = build_report(entries, GitHubReader(os.environ.get("GITHUB_TOKEN")),
                               os.environ.get("GITHUB_SHA"))
+        for result in report["repositories"]:
+            if result["status"] == "not_checked":
+                print(f"Repository inventory failed for {result['repository']}: {result['reason']}",
+                      file=sys.stderr)
         exit_code = 0 if report["all_configured_repositories_checked"] else 1
     except InventoryError as exc:
         report = {"version": 1, "mode": "read_only_inventory", "status": "invalid_input",
