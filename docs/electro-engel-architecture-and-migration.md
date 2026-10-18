@@ -139,3 +139,10 @@ optional; die strukturellen Invarianten verwenden die Python-Standardbibliothek.
 Bis zur erfüllten Extraktionsreife und separaten Freigabe bleiben
 SecurityChain-P0-Grenzen, Nutzerzustimmung, die getrennten Android-Apps und der
 Status „keine produktive Laufzeitintegration“ unverändert.
+
+Die Prüfung des im Integrationsauftrag benannten Quellprojekts ergab am
+2026-10-18: `nikolausnold/Elektro-Engel` war über GitHub nicht lesbar (HTTP 404);
+das ähnlich benannte `nikolausnold/Elektro-Engel-` ist leer (HTTP 409). Es wurde
+daher keine Implementierung übernommen. Einzelheiten und der belegte
+Monorepo-Bestand stehen in
+[`electro-engel-source-inventory.md`](electro-engel-source-inventory.md).
