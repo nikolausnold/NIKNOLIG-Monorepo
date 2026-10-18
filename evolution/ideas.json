@@ -36,7 +36,7 @@
         {
           "path": "README.md",
           "startLine": 60,
-          "endLine": 62,
+          "endLine": 65,
           "excerpt": "In den importierten\nQuellständen sind keine Android-Testquellen vorhanden; deshalb wird kein\nAndroid-Testtask behauptet.",
           "state": "hypothesis"
         }
@@ -87,7 +87,7 @@
         {
           "path": "backend/README.md",
           "startLine": 143,
-          "endLine": 144,
+          "endLine": 147,
           "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und\ndie Health-only-Laufzeit.",
           "state": "verified"
         }
