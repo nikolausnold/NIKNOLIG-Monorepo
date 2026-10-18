@@ -19,30 +19,28 @@ function environment(app, assets) {
 }
 
 test("serves assets only in the configured app area and adds security headers", async () => {
-  const requested = [];
-  const assets = {
-    async fetch(request) {
-      requested.push(request);
-      return new Response("public page", {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      });
-    },
-  };
-
   for (const app of ["niknolig", "niknolig-defense"]) {
+    let requested;
+    const assets = {
+      async fetch(request) {
+        requested = request;
+        return new Response(`${app} public page`, {
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+      },
+    };
     const { response, entries } = await captureLogs(() =>
       worker.fetch(new Request("https://example.test/index.html"), environment(app, assets)),
     );
 
-    assert.equal(await response.text(), "public page");
+    assert.equal(await response.text(), `${app} public page`);
+    assert.equal(requested.url, "https://example.test/index.html");
     assert.equal(response.headers.get("X-Content-Type-Options"), "nosniff");
     assert.equal(response.headers.get("X-Frame-Options"), "DENY");
     assert.match(response.headers.get("Content-Security-Policy"), /frame-ancestors 'none'/);
     assert.deepEqual(entries[0].app, app);
     assert.equal(entries[0].status, 200);
   }
-
-  assert.equal(requested.length, 2);
 });
 
 test("HEAD responses do not include an asset body", async () => {
@@ -106,7 +104,7 @@ test("asset failures return a generic response and logs exclude request data", a
     requestId: entries[0].requestId,
   });
   assert.equal(entries[0].event, "asset_error");
-  assert.equal(JSON.stringify(entries), JSON.stringify(entries).replace(/do-not-log|sensitive internal detail/, ""));
+  assert.doesNotMatch(JSON.stringify(entries), /do-not-log|sensitive internal detail/);
   assert.equal("url" in entries[0], false);
   assert.equal("headers" in entries[0], false);
 });
