@@ -63,7 +63,10 @@ class EvolutionEngineTests(unittest.TestCase):
                     target.parent.mkdir(parents=True, exist_ok=True)
                     text = (ROOT / path).read_text(encoding="utf-8")
                     if path in ("README.md", "backend/README.md"):
-                        text = "\n\n\n" + text
+                        text = (
+                            "\n" * (evidence["startLine"] - 1 + 3)
+                            + evidence["excerpt"] + "\n"
+                        )
                     target.write_text(text, encoding="utf-8")
 
             ideas = validate_backlog(self.backlog, root)
