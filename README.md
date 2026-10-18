@@ -46,7 +46,7 @@ Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
 ## Build und Prüfung
 
-Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 8.13 (über den
+Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 9.8.1 (über den
 mitgelieferten Wrapper).
 
 Beide APKs unabhängig im selben Build aufbauen:
