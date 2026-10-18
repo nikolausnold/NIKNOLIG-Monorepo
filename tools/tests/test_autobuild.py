@@ -6,6 +6,23 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class AutobuildTests(unittest.TestCase):
+    def test_android_build_uses_compatible_agp_and_gradle_with_builtin_kotlin(self):
+        settings = (ROOT / "settings.gradle.kts").read_text()
+        wrapper = (ROOT / "gradle/wrapper/gradle-wrapper.properties").read_text()
+        self.assertIn('id("com.android.application") version "9.4.1"', settings)
+        self.assertIn(
+            r"distributionUrl=https\://services.gradle.org/distributions/gradle-9.8.1-bin.zip",
+            wrapper,
+        )
+        for path in (
+            "settings.gradle.kts",
+            "build.gradle.kts",
+            "apps/niknolig/build.gradle.kts",
+            "apps/niknolig-defense/build.gradle.kts",
+        ):
+            with self.subTest(path=path):
+                self.assertNotIn("org.jetbrains.kotlin.android", (ROOT / path).read_text())
+
     def test_release_only_signs_successful_trusted_main_build_commit(self):
         workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
         for guard in (
