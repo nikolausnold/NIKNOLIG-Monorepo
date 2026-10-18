@@ -144,7 +144,7 @@ class SystemUpdatesTests(unittest.TestCase):
         self.assertIsNone(report["repositories"][0]["changed"])
         self.assertEqual("not_available", report["repositories"][0]["local_reference_status"])
         self.assertEqual("checked", report["repositories"][2]["status"])
-        self.assertEqual("baseline_required", report["repositories"][3]["status"])
+        self.assertEqual("empty", report["repositories"][3]["status"])
 
     def test_invalid_local_sha_fails_before_network(self):
         reader = MagicMock()
