@@ -46,7 +46,7 @@ Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
 ## Build und Prüfung
 
-Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 8.13 (über den
+Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 9.8.1 (über den
 mitgelieferten Wrapper).
 
 Beide APKs unabhängig im selben Build aufbauen:
@@ -208,3 +208,9 @@ Aktivierung in einer Woche.** Die tatsächliche Anbindung benötigt anschließen
    App-Identitäten, Signierung, Datenschutzangaben und TestFlight-Prüfungen
    benötigt. Da hier kein iOS-App-Projekt existiert, erzeugt dieser Workflow
    weder ein iOS-Archiv noch einen iOS-Storeupload.
+
+### Kotlin im Android-Build
+
+AGP 9.4.1 stellt Kotlin direkt bereit. Das zusätzliche Plugin
+`org.jetbrains.kotlin.android` darf weder im Root-Projekt noch in den beiden
+App-Modulen angewendet werden.
