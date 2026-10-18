@@ -1,0 +1,35 @@
+name: Worker foundation checks
+
+on:
+  push:
+    paths:
+      - "workers/**"
+      - ".github/workflows/worker-ci.yml"
+  pull_request:
+    paths:
+      - "workers/**"
+      - ".github/workflows/worker-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  worker-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: workers
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: workers/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

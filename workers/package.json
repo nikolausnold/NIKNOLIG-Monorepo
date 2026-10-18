@@ -1,0 +1,12 @@
+{
+  "name": "niknolig-worker-foundation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "build": "wrangler deploy --dry-run --env niknolig-preview && wrangler deploy --dry-run --env niknolig-defense-preview"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.1"
+  }
+}
