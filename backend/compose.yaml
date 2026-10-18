@@ -5,6 +5,7 @@ services:
       context: .
     environment:
       BACKEND_API_ENABLED: ${BACKEND_API_ENABLED:-false}
+      BACKEND_ALLOW_INSECURE_LOCAL: "true"
       PGHOST: postgres
       PGPORT: "5432"
       PGDATABASE: ${POSTGRES_DB:-niknolig_local}
@@ -27,7 +28,10 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - backend-internal
+      backend-internal: {}
+      api-edge:
+        gw_priority: 1
+        priority: 1000
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
@@ -51,8 +55,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-niknolig_local}
       POSTGRES_USER: ${POSTGRES_USER:-niknolig_local}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-54329}:5432"
     healthcheck:
       test:
         - CMD-SHELL
@@ -68,6 +70,7 @@ services:
     restart: unless-stopped
 
 networks:
+  api-edge:
   backend-internal:
     internal: true
 

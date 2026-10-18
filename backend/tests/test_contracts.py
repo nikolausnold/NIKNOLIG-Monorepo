@@ -43,7 +43,8 @@ class BackendContractTests(unittest.TestCase):
 
     def test_compose_is_loopback_only_and_requires_local_password(self):
         compose = (BACKEND / "compose.yaml").read_text(encoding="utf-8")
-        self.assertIn("127.0.0.1:${POSTGRES_PORT:-54329}:5432", compose)
+        self.assertIn("127.0.0.1:${BACKEND_PORT:-8000}:8000", compose)
+        self.assertNotIn(":5432\"", compose)
         self.assertIn("${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD", compose)
         self.assertIn("internal: true", compose)
         self.assertIn("pg_isready", compose)
@@ -52,6 +53,7 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("PGHOST: postgres", compose)
         self.assertIn('PGPORT: "5432"', compose)
         self.assertIn("- backend-internal", compose)
+        self.assertIn("gw_priority: 1", compose)
         self.assertIn("BACKEND_API_ENABLED:-false", compose)
 
     def test_example_configuration_contains_no_password_value(self):

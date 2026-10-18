@@ -1,9 +1,9 @@
 # Android-/iOS-Architektur und Integrationsplan
 
-**Status:** Architektur- und Vertragsplanung. Keine iOS-App, kein neuer
-API-Endpunkt, kein produktiver Backend-Dienst und keine Änderung an den
-separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein verbindliches
-Stop-Gate.
+**Status:** Architektur mit lokal testbarer, standardmäßig gesperrter
+Backend-Referenz-API. Keine iOS-App, keine Live-Clientanbindung, kein produktiver
+Dienst und keine Änderung an separaten App-Repositories oder App-Identitäten.
+SecurityChain P0 bleibt ein verbindliches Stop-Gate.
 
 ## 1. Bestand: wiederverwenden statt duplizieren
 
@@ -16,12 +16,12 @@ bleiben in ihrer Zuständigkeit unverändert. Dieses Dokument autorisiert keine
 
 | Bestehende Quelle | Tatsächlicher Umfang | Grenze |
 | --- | --- | --- |
-| `backend/openapi.yaml` | OpenAPI 3.1 mit nicht-sensitiven Health-Routen und einem stabilen Fehlercode-Katalog | Keine App-, Geräte-, Profil-, Authentifizierungs- oder Synchronisations-API ist implementiert oder freigegeben. |
+| `backend/openapi.yaml` | OpenAPI 3.1 mit Health, Auth-Prüfung/Logout und eigenen Geräteinstallationen | Referenzstandard deaktiviert; keine produktive Freigabe, Tokenausstellung, Profile, Sync oder Pairing. |
 | `backend/contracts/device-consent-v1.schema.json` | Geräte- und zweckgebundener Zustimmungsentwurf | Ein gültiges JSON-Objekt beweist weder Identität noch Berechtigung. |
 | `backend/contracts/consent-audit-event-v1.schema.json` | Minimierte Metadaten für Consent-Ereignisse | Keine Nachrichten-, Sensor- oder sonstigen Nutzdaten. |
 | `backend/contracts/sensor-capability-v1.schema.json` und `sensor-summary-v1.schema.json` | Laufzeitfähigkeit und abgeleitete Sensordaten | Deklarative Verträge, keine Sensor-Runtime und keine Übertragungsfreigabe. |
-| `backend/migrations/001_initial_contract.sql` | Vorschlag für App-Bereiche, Installationen und Geräte-Link-Lifecycle | Nicht angewendet; ein Link verleiht keine appübergreifende Aktionserlaubnis. |
-| `backend/tests/test_contracts.py` | Statische Invarianten und optionale JSON-Schema-2020-12-Validierung | Kein Authentifizierungs-, Server-, Plattform- oder Geräteintegrationstest. |
+| `backend/migrations/001_initial_contract.sql`, `002_backend_api.sql` | Installationen, öffentliche Schlüssel, Challenge-/Revocation-/Ratenlimitpersistenz | Nur isoliert lokal zu testen; kein produktiver Migrationslauf; Links verleihen keine Rechte. |
+| `backend/tests/test_contracts.py`, `test_api.py` | Vertragsinvarianten, API-Negativfälle und isolierte DB-Tests | Keine echte OAuth-Anmeldung, mobile oder physische Geräteabnahme. |
 
 Die Fehlercodes in OpenAPI und ihre HTTP-Zuordnung sind in
 [`backend/README.md`](../backend/README.md) dokumentiert. Das Elektro-Engel-
@@ -67,13 +67,15 @@ und keine eigene Sicherheitsdomäne.
 
 ### Authentifizierung und Autorisierung
 
-Der bestehende Bearer-Scheme-Eintrag ist nur eine Reservierung; es gibt keinen
-Token-Aussteller, Login, Auth-Middleware oder produktiven API-Server. Für eine
-spätere Freigabe gelten mindestens diese Entwurfsanforderungen:
+Die Referenz validiert RS256-Access-Tokens mit `typ=at+jwt`, Pflichtclaims und
+maximal 900 Sekunden Laufzeit, app-spezifischer Audience und persistenter Sperre.
+Sie stellt keine Tokens aus und implementiert keinen Login. Der vorhandene
+Aussteller und mobile PKCE-Flow bleiben zu bestätigen. Für eine Freigabe gelten:
 
 1. Zugriffsnachweise sind kurzlebig, widerrufbar und an Aussteller,
    Zielgruppe, App-Bereich, Installation und minimale Aktion gebunden. Token-
-   Format, Aussteller, Anmeldung und Erneuerung bleiben bis zur Freigabe offen.
+   Anmeldung, Erneuerung und installationsgebundene Produkt-Aktionsnachweise
+   bleiben freizugeben; die Referenz gewährt nur eigene Geräteverwaltung.
 2. Jede Serveroperation autorisiert die konkrete Kombination aus Akteur,
    App-Bereich, Ressource, Aktion, Zielinstallation, Zweck und aktivem Consent.
    Besitz eines gültigen Tokens, eines Geräteschlüssels oder eines Links allein
@@ -89,13 +91,15 @@ spätere Freigabe gelten mindestens diese Entwurfsanforderungen:
 
 ### Datenmodell und API-Fehler
 
-Das einzige vorhandene relationale Modell ist der nicht angewendete Vorschlag
-in `backend/migrations/001_initial_contract.sql`: `device_installations`
+Die ursprüngliche Grundlage in `backend/migrations/001_initial_contract.sql`
+und die additive API-Migration 002 sind nicht produktiv angewendet:
+`device_installations`
 bindet eine Installation an `app_area`, einen undurchsichtigen Principal-
 Verweis und einen öffentlichen Schlüsselfingerabdruck samt Identitätsstatus.
 `device_links` hält zwei Installationen und ihren Status/Ablaufzeitpunkt fest.
-Es enthält keine privaten Schlüssel, Nutzdaten oder automatische
-Aktionsfreigabe. Es gibt noch kein persistentes Produktprofil-, Nachrichten-
+002 ergänzt öffentliche P-256-Schlüssel, einmalige Besitz-Challenges, Sperren,
+Ratenlimits und Schema-Version. Keine privaten Schlüssel oder automatische
+Aktionsfreigabe. Es gibt kein persistentes Produktprofil-, Nachrichten-
 oder Sync-Modell.
 
 Gemeinsame API-Fehler verwenden die vorhandenen maschinenlesbaren Codes:
@@ -259,3 +263,47 @@ Backend-Betrieb, Plattform-Mindestversionen, Apple-/Android-Berechtigungs-
 details, Sensor-Gerätematrix und Retention. Keine dieser Entscheidungen wird
 durch Architekturtext oder ein valides Schema genehmigt. Bei nicht erfüllter
 oder nicht belegbarer Freigabe gilt fail closed.
+
+## 8. Konkrete Vorbereitung für getrennte Android-/iOS-Clients
+
+Der verbindliche Referenzumfang steht in
+[`backend/openapi.yaml`](../backend/openapi.yaml), Konfiguration und Betrieb in
+[`backend/README.md`](../backend/README.md). Es werden weder ein gemeinsames
+mobiles SDK noch neue OAuth-Clients/Secrets oder Bundle-IDs angelegt.
+
+| Grenze | Android | iOS |
+| --- | --- | --- |
+| App-Identität | `com.niknolig.app` und `com.niknolig.defense` unverändert | bestehende/freizugebende getrennte Bundle-/Signing-Identitäten, keine IDs erfinden |
+| Login | Systembrowser, vorhandene app-eigene OAuth-Registrierung, PKCE S256 | ASWebAuthenticationSession, vorhandene app-eigene Registrierung, PKCE S256 |
+| Tokens | pro App private OS-geschützte Ablage, kein Export/Backup/Log | pro App Keychain, keine gemeinsame Access Group, keine Synchronisierung zwischen Apps |
+| Geräteschlüssel | P-256 im Android Keystore, wenn unterstützt hardwaregebunden | P-256 in Keychain/Secure Enclave, wenn unterstützt nicht exportierbar |
+| Transport | ausschließlich freigegebene HTTPS-Basis-URL; keine Trust-all-/Cleartext-Ausnahme | HTTPS/ATS ohne pauschale Ausnahme, normale Zertifikatsprüfung |
+| Isolation | eigene Installation, Audience, Token und Redirect-URI je App | eigene Installation, Audience, Token und Redirect-URI je App |
+
+1. Vorhandenen Issuer und Claim-Mapping bestätigen: `iss`, `aud`, `sub`, `iat`,
+   `exp`, `jti`, `app_area`, `scope`, RS256 und `typ=at+jwt`.
+   API lehnt ID-Tokens und die andere App-Audience ab. Login/Refresh laufen nur
+   beim Anbieter; `POST /v1/auth/logout` sperrt nur das aktuelle Access-Token.
+   Provider-Logout/Refresh-Revocation separat berücksichtigen.
+2. Client konfiguriert den festen eigenen `X-App-Area` und Bearer-Header;
+   keine Credentials aus der anderen App verwenden. `GET /v1/auth/session`
+   prüft die Verbindung ohne Tokenrückgabe. Tokens niemals in URLs setzen.
+3. Eigenen öffentlichen P-256-Schlüssel als PEM SubjectPublicKeyInfo mit einer
+   installationsspezifischen UUID registrieren. Zustand bleibt zunächst `pending`;
+   Namen, UUID und bloßer HTTP-Erfolg beweisen keinen Gerätebesitz.
+4. Challenge anfordern; exakte UTF-8-`message` mit ECDSA-SHA256 signieren.
+   Standard-Base64 der ASN.1-DER-Signatur zusammen mit `challengeId` senden.
+   Kein Raw-`r||s`, keine eigene Normalisierung des Textes. Schlüssel bleibt lokal.
+   Ablauf nach 120 Sekunden, einmaliger Versuch; neue Challenge ersetzt die alte.
+5. 401/403/Replay/Widerruf stoppen den Vorgang und verwerfen betroffenen
+   Sitzungszustand; kein automatisches Wiederholen sensibler Aktionen und
+   keine Offline-Queue. Timeouts und Größenlimits explizit behandeln.
+6. Vor Live-Anbindung getrennte Plattformtests für gültigen Zugriff,
+   falsche Audience/App, fehlenden Scope, abgelaufenes/widerrufenes Token,
+   fremdes Gerät, ungültige Signatur, Replay, Ablauf und Gerätewiderruf.
+   Bestehende App-IDs, Releases und Installationen müssen unverändert bleiben.
+
+Besitzprüfung ist keine Attestierung, gegenseitige Peer-Authentifizierung,
+Consent- oder Sensorfreigabe. Die entsprechenden Schnittstellen bleiben
+nicht implementiert und damit fail closed. Kein Client wurde hier live
+verbunden, gebaut oder auf einem physischen Gerät getestet.

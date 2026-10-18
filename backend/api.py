@@ -10,16 +10,32 @@ from functools import wraps
 from urllib.parse import urlsplit
 
 import jwt
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from flask import Flask, g, jsonify, request
 from werkzeug.exceptions import HTTPException
 
-from backend.store import Conflict, Denied, NotFound, PostgresStore, RateLimited, Unavailable, digest
+if __package__:
+    from .store import Conflict, Denied, NotFound, PostgresStore, RateLimited, Unavailable, digest
+else:
+    from store import Conflict, Denied, NotFound, PostgresStore, RateLimited, Unavailable, digest
 
 
 SCOPES = frozenset(("auth:read", "auth:revoke", "devices:read", "devices:write"))
 AREAS = {"niknolig": "AUTH_AUDIENCE_NIKNOLIG", "niknolig-defense": "AUTH_AUDIENCE_DEFENSE"}
+ERROR_MESSAGES = {
+    "AUTHENTICATION_REQUIRED": "Authentication is required.",
+    "AUTHENTICATION_INVALID": "Authentication is invalid.",
+    "AUTHORIZATION_DENIED": "Operation is not authorized.",
+    "APP_AREA_MISMATCH": "App area is not authorized.",
+    "VALIDATION_FAILED": "Request validation failed.",
+    "RATE_LIMITED": "Request rate limit exceeded.",
+    "CONFLICT": "Resource conflicts with an existing record.",
+    "NOT_FOUND": "Resource was not found.",
+    "SERVICE_UNAVAILABLE": "Service is temporarily unavailable.",
+    "INTERNAL_ERROR": "An internal error occurred.",
+}
 
 
 class APIError(Exception):
@@ -38,7 +54,7 @@ def _uuid(value):
             raise ValueError()
         return uuid.UUID(value)
     except (ValueError, AttributeError):
-        raise APIError(400, "invalid_request") from None
+        raise APIError(400, "VALIDATION_FAILED") from None
 
 
 def _object(pairs):
@@ -52,14 +68,19 @@ def _object(pairs):
 
 def _body(fields):
     if request.mimetype != "application/json":
-        raise APIError(415, "unsupported_media_type")
+        raise APIError(415, "VALIDATION_FAILED")
     try:
         value = json.loads(request.get_data(), object_pairs_hook=_object)
-    except (ValueError, UnicodeDecodeError):
-        raise APIError(400, "invalid_request") from None
+    except (ValueError, UnicodeDecodeError, RecursionError):
+        raise APIError(400, "VALIDATION_FAILED") from None
     if not isinstance(value, dict) or set(value) != set(fields):
-        raise APIError(400, "invalid_request")
+        raise APIError(400, "VALIDATION_FAILED")
     return value
+
+
+def _empty_body():
+    if request.get_data():
+        _body(())
 
 
 def create_app(config=None, store=None):
@@ -71,10 +92,11 @@ def create_app(config=None, store=None):
         AUTH_ISSUER=os.getenv("AUTH_ISSUER", ""),
         AUTH_AUDIENCE_NIKNOLIG=os.getenv("AUTH_AUDIENCE_NIKNOLIG", ""),
         AUTH_AUDIENCE_DEFENSE=os.getenv("AUTH_AUDIENCE_DEFENSE", ""),
-        DATABASE_DSN=os.getenv("DATABASE_DSN", ""),
+        DATABASE_DSN=None,
         MAX_CONTENT_LENGTH=16 * 1024,
         DEBUG=False,
         PROPAGATE_EXCEPTIONS=False,
+        PROVIDE_AUTOMATIC_OPTIONS=False,
     )
     if config:
         app.config.update(config)
@@ -98,13 +120,17 @@ def create_app(config=None, store=None):
         verification_key = serialization.load_pem_public_key(key_bytes)
         if not isinstance(verification_key, rsa.RSAPublicKey) or verification_key.key_size < 2048:
             raise ValueError()
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError, AttributeError, UnsupportedAlgorithm):
         verification_key = None
 
     @app.before_request
     def request_context():
         # Never reflect caller-controlled identifiers or trust forwarded headers.
         g.request_id = str(uuid.uuid4())
+        if request.path.startswith("/v1/") and (
+            not _enabled(app.config["BACKEND_API_ENABLED"]) or verification_key is None
+        ):
+            raise APIError(503, "SERVICE_UNAVAILABLE")
 
     @app.after_request
     def security_headers(response):
@@ -114,7 +140,9 @@ def create_app(config=None, store=None):
         return response
 
     def error(status, code):
-        return jsonify(error={"code": code, "requestId": g.request_id}), status
+        return jsonify(error={
+            "code": code, "message": ERROR_MESSAGES[code], "requestId": g.request_id,
+        }), status
 
     @app.errorhandler(APIError)
     def api_error(exc):
@@ -122,52 +150,56 @@ def create_app(config=None, store=None):
 
     @app.errorhandler(Unavailable)
     def unavailable(_exc):
-        return error(503, "unavailable")
+        return error(503, "SERVICE_UNAVAILABLE")
 
     @app.errorhandler(Conflict)
     def conflict(_exc):
-        return error(409, "conflict")
+        return error(409, "CONFLICT")
 
     @app.errorhandler(NotFound)
     def not_found(_exc):
-        return error(404, "not_found")
+        return error(404, "NOT_FOUND")
 
     @app.errorhandler(Denied)
     def denied(_exc):
-        return error(403, "forbidden")
+        return error(403, "AUTHORIZATION_DENIED")
 
     @app.errorhandler(RateLimited)
     def rate_limited(_exc):
-        response, status = error(429, "rate_limited")
+        response, status = error(429, "RATE_LIMITED")
         response.headers["Retry-After"] = "60"
         return response, status
 
     @app.errorhandler(HTTPException)
     def http_error(exc):
-        codes = {400: "invalid_request", 404: "not_found", 405: "method_not_allowed",
-                 413: "request_too_large", 415: "unsupported_media_type"}
-        return error(exc.code, codes.get(exc.code, "invalid_request"))
+        code = "NOT_FOUND" if exc.code == 404 else "VALIDATION_FAILED"
+        response, status = error(exc.code, code)
+        if exc.code == 405:
+            response.headers["Allow"] = ", ".join(exc.valid_methods or ())
+        return response, status
 
     @app.errorhandler(Exception)
     def unexpected(_exc):
         # Deliberately no exception/payload logging: DB errors may contain values.
-        return error(500, "internal_error")
+        return error(500, "INTERNAL_ERROR")
 
     def protected(scope):
         def decorate(function):
             @wraps(function)
             def wrapped(*args, **kwargs):
                 if not _enabled(app.config["BACKEND_API_ENABLED"]) or verification_key is None:
-                    raise APIError(503, "unavailable")
+                    raise APIError(503, "SERVICE_UNAVAILABLE")
                 if not request.is_secure and not _enabled(app.config["BACKEND_ALLOW_INSECURE_LOCAL"]):
-                    raise APIError(400, "https_required")
-                area = request.headers.get("X-App-Area", "")
-                if area not in AREAS:
-                    raise APIError(401, "unauthorized")
+                    raise APIError(400, "VALIDATION_FAILED")
                 authorization = request.headers.get("Authorization", "")
+                if not authorization:
+                    raise APIError(401, "AUTHENTICATION_REQUIRED")
                 if (not authorization.startswith("Bearer ") or len(authorization) > 8199
                         or len(authorization.split()) != 2):
-                    raise APIError(401, "unauthorized")
+                    raise APIError(401, "AUTHENTICATION_INVALID")
+                area = request.headers.get("X-App-Area", "")
+                if area not in AREAS:
+                    raise APIError(403, "APP_AREA_MISMATCH")
                 token = authorization[7:]
                 try:
                     header = jwt.get_unverified_header(token)
@@ -175,12 +207,13 @@ def create_app(config=None, store=None):
                         raise ValueError()
                     claims = jwt.decode(
                         token, verification_key, algorithms=["RS256"],
-                        issuer=app.config["AUTH_ISSUER"], audience=app.config[AREAS[area]],
-                        options={"require": ["iss", "aud", "sub", "exp", "iat", "jti", "app_area", "scope"],
-                                 "strict_aud": True},
+                        issuer=app.config["AUTH_ISSUER"], audience=audiences,
+                        options={"require": ["iss", "aud", "sub", "exp", "iat", "jti", "app_area", "scope"]},
                         leeway=0,
                     )
-                    if (claims["app_area"] != area
+                    if (claims["app_area"] not in AREAS
+                            or not isinstance(claims["aud"], str)
+                            or claims["aud"] != app.config[AREAS[claims["app_area"]]]
                             or any(type(claims[c]) is not int for c in ("iat", "exp"))
                             or claims["exp"] <= claims["iat"]
                             or claims["exp"] - claims["iat"] > 900
@@ -193,11 +226,13 @@ def create_app(config=None, store=None):
                     if len(scopes) != len(set(scopes)) or not set(scopes) <= SCOPES:
                         raise ValueError()
                 except (jwt.PyJWTError, ValueError, TypeError, KeyError):
-                    raise APIError(401, "unauthorized") from None
+                    raise APIError(401, "AUTHENTICATION_INVALID") from None
+                if claims["app_area"] != area:
+                    raise APIError(403, "APP_AREA_MISMATCH")
                 token_hash = digest(claims["iss"], claims["jti"])
                 authority.authorize(token_hash, area, claims["sub"])
                 if scope not in scopes:
-                    raise APIError(403, "forbidden")
+                    raise APIError(403, "AUTHORIZATION_DENIED")
                 g.area, g.principal, g.scopes = area, claims["sub"], sorted(scopes)
                 g.token_hash, g.expires = token_hash, claims["exp"]
                 return function(*args, **kwargs)
@@ -206,24 +241,24 @@ def create_app(config=None, store=None):
 
     @app.get("/health/live")
     def live():
-        return jsonify(status="ok")
+        return jsonify(status="live")
 
     @app.get("/health/ready")
     def ready():
         if (not _enabled(app.config["BACKEND_API_ENABLED"]) or verification_key is None
                 or not authority.ready()):
-            raise APIError(503, "unavailable")
+            raise APIError(503, "SERVICE_UNAVAILABLE")
         return jsonify(status="ready")
 
     @app.get("/v1/auth/session")
     @protected("auth:read")
     def session():
-        return jsonify(principal=g.principal, appArea=g.area, scopes=g.scopes)
+        return jsonify(principal=g.principal, appArea=g.area, scopes=g.scopes, expiresAt=g.expires)
 
     @app.post("/v1/auth/logout")
     @protected("auth:revoke")
     def logout():
-        _body(())
+        _empty_body()
         authority.logout(g.token_hash, g.expires)
         return "", 204
 
@@ -240,6 +275,11 @@ def create_app(config=None, store=None):
         try:
             if not isinstance(body["publicKey"], str) or len(body["publicKey"]) > 2048:
                 raise ValueError()
+            lines = body["publicKey"].strip().splitlines()
+            if (len(lines) < 3 or lines[0] != "-----BEGIN PUBLIC KEY-----"
+                    or lines[-1] != "-----END PUBLIC KEY-----"):
+                raise ValueError()
+            base64.b64decode("".join(lines[1:-1]), validate=True)
             key = serialization.load_pem_public_key(body["publicKey"].encode("ascii"))
             if not isinstance(key, ec.EllipticCurvePublicKey) or not isinstance(key.curve, ec.SECP256R1):
                 raise ValueError()
@@ -251,8 +291,8 @@ def create_app(config=None, store=None):
                 serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo,
             ))
             fingerprint = fingerprint_hash.finalize().hex()
-        except (ValueError, TypeError, UnicodeError):
-            raise APIError(400, "invalid_request") from None
+        except (ValueError, TypeError, UnicodeError, UnsupportedAlgorithm):
+            raise APIError(400, "VALIDATION_FAILED") from None
         result = authority.register(g.area, g.principal, installation_id, public_key, fingerprint)
         return jsonify(result), 201
 
@@ -264,12 +304,13 @@ def create_app(config=None, store=None):
     @app.delete("/v1/devices/<device_id>")
     @protected("devices:write")
     def revoke(device_id):
-        return jsonify(authority.revoke(g.area, g.principal, _uuid(device_id)))
+        authority.revoke(g.area, g.principal, _uuid(device_id))
+        return "", 204
 
     @app.post("/v1/devices/<device_id>/challenge")
     @protected("devices:write")
     def challenge(device_id):
-        _body(())
+        _empty_body()
         return jsonify(authority.challenge(g.area, g.principal, _uuid(device_id))), 201
 
     @app.post("/v1/devices/<device_id>/verify")
@@ -281,8 +322,10 @@ def create_app(config=None, store=None):
             if not isinstance(body["signature"], str) or len(body["signature"]) > 144:
                 raise ValueError()
             signature = base64.b64decode(body["signature"], validate=True)
+            if base64.b64encode(signature).decode("ascii") != body["signature"]:
+                raise ValueError()
         except (ValueError, binascii.Error):
-            raise APIError(400, "invalid_request") from None
+            raise APIError(400, "VALIDATION_FAILED") from None
         return jsonify(authority.verify(
             g.area, g.principal, _uuid(device_id), challenge_id, signature,
         ))

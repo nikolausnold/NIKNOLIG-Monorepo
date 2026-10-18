@@ -76,11 +76,15 @@ Weitere Inventur- und Cloudflare-Nachweise stehen im
 ## Gemeinsame Backend-Verträge
 
 [`backend/`](backend/README.md) enthält einen lokalen, nicht produktionsfreigegebenen
-Vertragsentwurf mit getrennten App-Bereichen, OpenAPI-Health-/Fehlerverträgen,
-provisorischer Datenbankmigration, loopback-isolierter PostgreSQL-Compose-
-Konfiguration und statischen Vertragstests. Es gibt noch keinen API-Server oder
-eine App-Anbindung. Die operative Geräteintegration bleibt bis zur dokumentierten
+Vertrag mit getrennten App-Bereichen sowie eine standardmäßig gesperrte
+WSGI-Referenz-API für Tokenprüfung, Autorisierung und eigene Installationen.
+PostgreSQL bleibt im internen Compose-Netz, die optionale API wird nur auf
+Loopback veröffentlicht. Es gibt keine Live-App-Anbindung oder Tokenausstellung.
+Die operative Geräteintegration bleibt bis zur dokumentierten
 SecurityChain-P0-Freigabe gesperrt.
+Die [Betreiberanleitung](backend/README.md#hetzner-ubuntu-sichere-deployment-anleitung-für-den-betreiber)
+beschreibt Konfiguration, Migrationen, Healthchecks und Rollback; es wurde
+kein Deployment und keine produktive Migration durchgeführt.
 
 Die Gerätewechsel-, Sensor- und Android-Abnahmeplanung ist in
 [`docs/electro-engel-multidevice-sensors.md`](docs/electro-engel-multidevice-sensors.md)

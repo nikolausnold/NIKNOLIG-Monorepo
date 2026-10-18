@@ -3,8 +3,10 @@
 BEGIN;
 
 ALTER TABLE device_installations ADD COLUMN public_key TEXT;
-ALTER TABLE device_installations ADD CONSTRAINT device_public_key_required
-    CHECK (public_key IS NOT NULL OR identity_state <> 'verified');
+-- Existing fingerprint-only records remain readable, but cannot create a
+-- possession challenge until an explicitly approved key-migration flow exists.
+ALTER TABLE device_installations ADD CONSTRAINT device_public_key_size
+    CHECK (public_key IS NULL OR length(public_key) <= 2048);
 
 CREATE TABLE backend_schema_migrations (
     version TEXT PRIMARY KEY,

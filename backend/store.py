@@ -6,6 +6,7 @@ cannot race. The caller must supply an already authenticated principal.
 """
 
 import hashlib
+import os
 import secrets
 import uuid
 from datetime import datetime, timezone
@@ -56,7 +57,7 @@ def device_json(row):
         "id": str(row["id"]),
         "installationId": str(row["installation_reference"]),
         "appArea": row["app_area"],
-        "state": row["identity_state"],
+        "identityState": row["identity_state"],
         "createdAt": timestamp(row["created_at"]),
         "verifiedAt": timestamp(row["verified_at"]),
         "revokedAt": timestamp(row["revoked_at"]),
@@ -64,19 +65,31 @@ def device_json(row):
 
 
 class PostgresStore:
-    def __init__(self, dsn, principal_limit=60, global_limit=6000):
+    def __init__(self, dsn=None, principal_limit=60, global_limit=6000):
         self.dsn = dsn
         self.principal_limit = principal_limit
         self.global_limit = global_limit
 
     def _connect(self):
-        if not self.dsn:
-            raise Unavailable()
+        options = {
+            "connect_timeout": 3, "row_factory": dict_row,
+            "options": "-c statement_timeout=3000 -c lock_timeout=3000",
+        }
         try:
-            return psycopg.connect(
-                self.dsn, connect_timeout=3, row_factory=dict_row,
-                options="-c statement_timeout=5000 -c lock_timeout=3000",
-            )
+            if self.dsn:
+                return psycopg.connect(self.dsn, **options)
+            # Runtime credentials are explicit: never fall back to a libpq
+            # OS-user/default-database identity or a Compose bootstrap role.
+            parameters = {
+                "host": os.getenv("PGHOST") or "127.0.0.1",
+                "port": os.getenv("PGPORT") or "54329",
+                "dbname": os.getenv("PGDATABASE", ""),
+                "user": os.getenv("PGUSER", ""),
+                "password": os.getenv("PGPASSWORD", ""),
+            }
+            if not all(parameters[key] for key in ("dbname", "user", "password")):
+                raise Unavailable()
+            return psycopg.connect(**parameters, **options)
         except psycopg.Error:
             raise Unavailable() from None
 
