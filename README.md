@@ -125,7 +125,14 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   Der Eintrag `niknolig-defense-ios` verweist mit `related_to` auf
   `niknolig-defense`, die
   [Defense-Website](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-).
-  Diese Zuordnung wird im Inventarbericht mitgeführt; sie richtet weder
+  Ebenso verweist `niknolig-ios`
+  ([NIKNOLIG-iOS](https://github.com/nikolausnold/NIKNOLIG-iOS-))
+  mit `related_to` auf `niknolig`
+  ([NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG)).
+  Dieses Repository enthält sowohl die Website (`index.html`, `styles.css`)
+  als auch die Android-Quellen (`app/`); ein doppelter Website-Eintrag ist
+  deshalb nicht nötig. Die bestehenden Quellstand-Baselines bleiben erhalten.
+  Beide Zuordnungen werden im Inventarbericht mitgeführt; dies richtet weder
   Synchronisation, gemeinsame Zugangsdaten, externe Builds noch eine
   Website-/App-Laufzeitverbindung ein und bestätigt keine native iOS-App.
   Der allgemeine iOS-Anschluss (`ios`) bleibt separat offen.

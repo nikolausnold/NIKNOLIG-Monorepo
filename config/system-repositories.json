@@ -31,6 +31,13 @@
       "repository": "nikolausnold/NIKNOLIG-Defense-iOS-",
       "baseline": "1100ed6e1f636c296747d4c2bc628a78c99975d2",
       "related_to": "niknolig-defense"
+    },
+    {
+      "id": "niknolig-ios",
+      "kind": "external",
+      "repository": "nikolausnold/NIKNOLIG-iOS-",
+      "baseline": "ff77f13d01df26a2e4749d061a9ec6e9b05528d8",
+      "related_to": "niknolig"
     }
   ]
 }
