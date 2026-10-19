@@ -1,0 +1,12 @@
+<resources>
+    <string name="support_flow_description">AI assistance first, then email to the operator if help is unavailable. This preview has no AI connection yet. No requests are collected or forwarded automatically.</string>
+    <string name="support_ai_not_checked">1 · AI availability\nFirst check whether AI support is configured.</string>
+    <string name="support_check_ai">Check AI availability</string>
+    <string name="support_ai_unavailable">2 · Personal help\nNo AI service is configured. AI cannot answer questions here yet. You can prepare an email instead – only with your confirmation.</string>
+    <string name="support_escalate">No AI help: prepare email</string>
+    <string name="support_escalation_title">Contact personal support?</string>
+    <string name="support_escalation_consent">Recipient: %1$s\n\nThis only opens a draft in your email app. Requests, learning profiles and conversations are not included. Describe your issue there yourself, without passwords, payment details or sensitive information. You review and send the email yourself.</string>
+    <string name="support_email_draft">Open email app</string>
+    <string name="support_email_manual">No email app found. You can write to %1$s yourself.</string>
+    <string name="support_close">Back to NIKNOLIG Defense</string>
+</resources>

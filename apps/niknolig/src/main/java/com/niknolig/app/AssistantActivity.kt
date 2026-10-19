@@ -20,6 +20,10 @@ class AssistantActivity : Activity() {
             startActivity(Intent(this, LearningProfileActivity::class.java))
         }
 
+        findViewById<Button>(R.id.assistant_support_button).setOnClickListener {
+            startActivity(Intent(this, SupportActivity::class.java))
+        }
+
         val requestInput = findViewById<EditText>(R.id.assistant_request_input)
         val requestStatus = findViewById<TextView>(R.id.assistant_request_status)
         findViewById<Button>(R.id.assistant_request_button).setOnClickListener {
