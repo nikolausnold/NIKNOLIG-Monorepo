@@ -6,10 +6,18 @@ und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
 
 ## Android-Module
 
-| Modul | Android `applicationId` | Quellstand |
+| Modul | Android `applicationId` | Android-Quelle |
 | --- | --- | --- |
 | `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG/tree/3c4d6618a61604f6433639151e741371491a5f0d), Commit `3c4d6618a61604f6433639151e741371491a5f0d` |
-| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
+| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | Vom Maintainer benannt: [`-niknolig-defense`](https://github.com/nikolausnold/-niknolig-defense); aktuell nicht über die GitHub-API lesbar, daher kein verifizierter Upstream-Baseline-Commit |
+
+Die Defense-Website ist ein eigenes Repository: [NIKNOLIG-Defense-Website-](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-).
+Der zuletzt erfolgreiche Pages-Deploy lief auf Commit
+`5f0f385089bc27347eacd282c13a546eb4511da2` am 19. Oktober 2026. Die GitHub-Pages-
+Adresse lautet **[https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/](https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/)**.
+Der iOS-Anschluss ist separat unter
+[NIKNOLIG-Defense-iOS-](https://github.com/nikolausnold/NIKNOLIG-Defense-iOS-);
+dieses Monorepo hostet keine Website und konfiguriert keine eigene Domain.
 
 Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
 die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.

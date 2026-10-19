@@ -18,6 +18,19 @@ als bestätigt behandelt. Die folgende Monorepo-Integration ändert weder die
 Quell-Repositories noch Websites oder Deployments und genehmigt keinen
 Produktivzugriff.
 
+### Nachtrag zur Defense-Quellzuordnung (2026-10-19)
+
+Der Maintainer bestätigt `-niknolig-defense` als Android-App-Repository. Der
+GitHub-API-Aufruf lieferte dafür HTTP 404; Repository und Baseline sind daher
+nicht unabhängig verifizierbar und bleiben im Systemregister als ausstehend.
+Die Defense-Website ist davon getrennt: [`NIKNOLIG-Defense-Website-`](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-)
+hat einen erfolgreichen GitHub-Pages-Deploy auf Commit
+`5f0f385089bc27347eacd282c13a546eb4511da2`; die Website-Adresse ist
+[`https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/`](https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/).
+Das iOS-Repository [`NIKNOLIG-Defense-iOS-`](https://github.com/nikolausnold/NIKNOLIG-Defense-iOS-)
+ist ebenfalls separat. Diese Zuordnung ändert oder erstellt keine externen
+Repositories, Pages-Einstellungen oder benutzerdefinierten Domains.
+
 ## Aktueller Monorepo-Integrationsstand
 
 Die Android-Projekte sind als unabhängige Gradle-Module `:niknolig` und

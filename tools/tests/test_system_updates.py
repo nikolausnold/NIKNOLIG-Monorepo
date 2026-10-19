@@ -27,12 +27,19 @@ class SystemUpdatesTests(unittest.TestCase):
         self.registry = json.loads(DEFAULT_REGISTRY.read_text(encoding="utf-8"))
         self.entries = validate_registry(self.registry)
 
-    def test_curated_registry_has_known_sources_and_explicit_pending_ios(self):
+    def test_curated_registry_separates_defense_android_website_and_pending_ios(self):
         self.assertTrue(DEFAULT_REGISTRY.is_absolute())
         sources = {entry["id"]: entry for entry in self.entries}
         self.assertEqual("nikolausnold/NIKNOLIG-Monorepo", sources["monorepo"]["repository"])
         self.assertEqual("3c4d6618a61604f6433639151e741371491a5f0d", sources["niknolig"]["baseline"])
-        self.assertEqual("5f0f385089bc27347eacd282c13a546eb4511da2", sources["niknolig-defense"]["baseline"])
+        self.assertEqual("pending", sources["niknolig-defense-android"]["kind"])
+        self.assertIsNone(sources["niknolig-defense-android"]["repository"])
+        self.assertEqual(
+            "nikolausnold/NIKNOLIG-Defense-Website-",
+            sources["niknolig-defense-website"]["repository"],
+        )
+        self.assertEqual("5f0f385089bc27347eacd282c13a546eb4511da2",
+                         sources["niknolig-defense-website"]["baseline"])
         self.assertEqual("pending", sources["ios"]["kind"])
         self.assertIsNone(sources["ios"]["repository"])
 
@@ -61,7 +68,7 @@ class SystemUpdatesTests(unittest.TestCase):
             lambda data: data.update(repositories=[]),
             lambda data: data["repositories"].pop(0),
             lambda data: data["repositories"][0].update(repository="nikolausnold/other"),
-            lambda data: data["repositories"][3].update(repository="nikolausnold/fake-ios"),
+            lambda data: data["repositories"][4].update(repository="nikolausnold/fake-ios"),
             lambda data: data["repositories"][1].update(kind="automatic"),
         ]
         for mutation in mutations:
@@ -75,16 +82,20 @@ class SystemUpdatesTests(unittest.TestCase):
             "id": "future-app", "kind": "external",
             "repository": "nikolausnold/Future-App", "baseline": HEAD,
         })
-        self.assertEqual(5, len(validate_registry(self.registry)))
+        self.assertEqual(6, len(validate_registry(self.registry)))
 
-    def test_report_compares_external_only_and_exposes_pending_ios(self):
+    def test_report_compares_external_sources_and_exposes_pending_apps(self):
         reader = MagicMock()
         baseline = self.entries[1]["baseline"]
         reader.head.side_effect = [("main", HEAD), ("release", baseline), ("main", HEAD)]
         report = build_report(self.entries, reader, LOCAL)
-        local, unchanged, changed, ios = report["repositories"]
+        rows = {entry["id"]: entry for entry in report["repositories"]}
         self.assertTrue(report["all_configured_repositories_checked"])
-        self.assertEqual(["ios"], report["pending_configuration"])
+        self.assertEqual(["niknolig-defense-android", "ios"], report["pending_configuration"])
+        local = rows["monorepo"]
+        unchanged = rows["niknolig"]
+        changed = rows["niknolig-defense-website"]
+        ios = rows["ios"]
         self.assertEqual(LOCAL, local["local_build_sha"])
         self.assertEqual(HEAD, local["observed_sha"])
         self.assertIsNone(local["changed"])
@@ -100,11 +111,11 @@ class SystemUpdatesTests(unittest.TestCase):
         reader.head.side_effect = [InventoryError("GitHub HTTP 404"), ("main", HEAD), ("main", HEAD)]
         report = build_report(self.entries, reader)
         self.assertFalse(report["all_configured_repositories_checked"])
-        self.assertEqual(4, len(report["repositories"]))
+        self.assertEqual(5, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][0]["status"])
         self.assertIsNone(report["repositories"][0]["changed"])
         self.assertEqual("not_available", report["repositories"][0]["local_reference_status"])
-        self.assertEqual("checked", report["repositories"][2]["status"])
+        self.assertEqual("checked", report["repositories"][3]["status"])
 
     def test_invalid_local_sha_fails_before_network(self):
         reader = MagicMock()
@@ -180,18 +191,19 @@ class SystemUpdatesTests(unittest.TestCase):
         code, output = self.run_cli([("main", HEAD), InventoryError("unavailable"), ("main", HEAD)])
         self.assertEqual(1, code)
         report = json.loads(output)
-        self.assertEqual(4, len(report["repositories"]))
+        self.assertEqual(5, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][1]["status"])
         code, output = self.run_cli([("main", HEAD)] * 3)
         self.assertEqual(0, code)
-        self.assertEqual(["ios"], json.loads(output)["pending_configuration"])
+        self.assertEqual(["niknolig-defense-android", "ios"],
+                         json.loads(output)["pending_configuration"])
 
     def test_cli_output_file_and_unwritable_output_fallback(self):
         with patch("tools.system_updates.Path.write_text") as write:
             code, output = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
             self.assertEqual(0, code)
             self.assertEqual("", output)
-            self.assertEqual(4, len(json.loads(write.call_args.args[0])["repositories"]))
+            self.assertEqual(5, len(json.loads(write.call_args.args[0])["repositories"]))
         with patch("tools.system_updates.Path.write_text", side_effect=PermissionError):
             code, output = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
             self.assertEqual(2, code)
