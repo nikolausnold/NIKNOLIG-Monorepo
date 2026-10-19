@@ -9,8 +9,8 @@ Farbe, sondern auch durch Formen, Produktzeichen und Einstieg:
 | Merkmal | NIKNOLIG | NIKNOLIG Defense |
 | --- | --- | --- |
 | Charakter | Persönliche Assistenz | Strukturierte Übersicht und Support |
-| Hintergrund | Dunkelgrün `#0C1110` | Graphit `#10151D` |
-| Flächen | `#131A17` | `#192330` |
+| Hintergrund | Dunkelgrün `#101A14` | Graphit `#10151D` |
+| Flächen | `#1B2A20` | `#192330` |
 | Akzent | Limette `#C8F169` | Eisblau `#72C7F5` |
 | Formen | Weiche Karten mit 20-dp-Rundungen | Konturierte Panels mit 4-dp-Rundungen |
 | Produktzeichen | Orbitales N | Geometrische Schild-/N-Kontur |
