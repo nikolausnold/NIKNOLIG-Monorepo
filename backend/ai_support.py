@@ -159,6 +159,7 @@ class LocalQuotas:
         self.limits = limits
         self._lock = threading.Lock()
         self._rates = {}
+        self._minute = None
         self._day = None
         self._apps = {}
         self._calls = 0
@@ -171,11 +172,13 @@ class LocalQuotas:
             # Never roll a daily budget backwards if the wall clock regresses.
             if self._day is None or day > self._day:
                 self._day, self._apps, self._calls = day, {}, 0
+            if self._minute is None or minute > self._minute:
+                self._minute = minute
+            minute = self._minute
             self._rates = {key: value for key, value in self._rates.items()
                            if value[0] >= minute}
             key = (principal.app, principal.subject)
             rate = self._rates.get(key, (minute, 0))
-            minute = max(minute, rate[0])
             count = rate[1]
             used, calls = self._apps.get(principal.app, (0, 0))
             if (request_id in self._reservations or

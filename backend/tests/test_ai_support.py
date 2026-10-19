@@ -346,6 +346,23 @@ class SupportServiceTests(unittest.TestCase):
 
         self.assertEqual([200, 200, 200, 200, 200, 429, 429], statuses)
 
+    def test_interleaved_principals_cannot_reopen_an_older_rate_bucket(self):
+        service, auth, _, _ = local_service(
+            limits=Limits(calls_per_minute=1))
+        principal = auth.principal
+        auth.principal = replace(principal, subject="principal-a")
+        timestamps = iter((59.98, 60.01, 59.99, 60.02))
+        service.clock = lambda: next(timestamps)
+
+        statuses = [service.handle(auth.authorization, payload())[0]]
+        auth.principal = replace(principal, subject="principal-b")
+        statuses.append(service.handle(auth.authorization, payload())[0])
+        auth.principal = replace(principal, subject="principal-a")
+        statuses.append(service.handle(auth.authorization, payload())[0])
+        statuses.append(service.handle(auth.authorization, payload())[0])
+
+        self.assertEqual([200, 200, 200, 429], statuses)
+
     def test_token_budget_reserves_full_input_and_output_before_dispatch(self):
         reservation = (len(payload()["prompt"].encode()) +
                        len(SYSTEM_PROMPT.encode()) + 64 + MAX_OUTPUT_TOKENS)

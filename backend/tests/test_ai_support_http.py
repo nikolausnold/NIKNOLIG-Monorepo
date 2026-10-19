@@ -122,6 +122,24 @@ class SupportHTTPTests(unittest.TestCase):
                     b"Content-Length: 2\r\n" + content_type + b"\r\n{}")
                 self.assertEqual(400, status)
 
+    def test_equivalent_utf8_json_content_types_are_accepted(self):
+        for content_type in ("application/json;charset=utf-8",
+                             'application/json; charset="utf-8"'):
+            with self.subTest(content_type=content_type):
+                status, _, _ = self.post(extra={"Content-Type": content_type})
+                self.assertEqual(200, status)
+        self.assertEqual(2, len(self.provider.calls))
+
+    def test_duplicate_or_unsupported_content_type_parameters_are_rejected(self):
+        for content_type in (
+                "application/json; charset=utf-8; charset=utf-8",
+                "application/json; charset=latin-1",
+                "application/json; profile=other"):
+            with self.subTest(content_type=content_type):
+                status, _, _ = self.post(extra={"Content-Type": content_type})
+                self.assertEqual(400, status)
+        self.assertFalse(self.provider.calls)
+
     def test_oversized_body_is_rejected_before_read(self):
         status, body = self.raw(
             b"POST /v1/ai/support HTTP/1.1\r\nHost: localhost\r\n"

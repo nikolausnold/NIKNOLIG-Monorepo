@@ -1,3 +1,4 @@
+from email.message import Message
 import json
 import os
 import time
@@ -22,6 +23,20 @@ def _unique_json_object(pairs):
 
 def _reject_json_constant(value):
     raise ValueError("Non-JSON constant")
+
+
+def _is_supported_content_type(value):
+    parsed = Message()
+    parsed["Content-Type"] = value
+    params = parsed.get_params()
+    if (parsed.get_content_type() != "application/json" or not params or
+            params[0][0].lower() != "application/json"):
+        return False
+    parameters = params[1:]
+    return (not parameters or
+            len(parameters) == 1 and parameters[0][0].lower() == "charset" and
+            isinstance(parameters[0][1], str) and
+            parameters[0][1].lower() == "utf-8")
 
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -61,8 +76,7 @@ class HealthHandler(BaseHTTPRequestHandler):
                 len(lengths[0]) > 8 or
                 len(self.headers.get_all("Authorization", [])) > 1 or
                 len(self.headers.get_all("Content-Type", [])) != 1 or
-                self.headers["Content-Type"].lower() not in
-                ("application/json", "application/json; charset=utf-8") or
+                not _is_supported_content_type(self.headers["Content-Type"]) or
                 self.headers.get_all("Content-Encoding")):
             self._send_json(*error_response(400, "VALIDATION_FAILED"))
             return
