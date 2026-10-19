@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
 }
 
 val updateVersionCode = providers.environmentVariable("NIKNOLIG_VERSION_CODE").orNull?.let {
