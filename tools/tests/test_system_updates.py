@@ -32,9 +32,59 @@ class SystemUpdatesTests(unittest.TestCase):
         sources = {entry["id"]: entry for entry in self.entries}
         self.assertEqual("nikolausnold/NIKNOLIG-Monorepo", sources["monorepo"]["repository"])
         self.assertEqual("3c4d6618a61604f6433639151e741371491a5f0d", sources["niknolig"]["baseline"])
+        self.assertEqual("nikolausnold/NIKNOLIG-Defense-Website-", sources["niknolig-defense"]["repository"])
         self.assertEqual("5f0f385089bc27347eacd282c13a546eb4511da2", sources["niknolig-defense"]["baseline"])
         self.assertEqual("pending", sources["ios"]["kind"])
         self.assertIsNone(sources["ios"]["repository"])
+        self.assertEqual("external", sources["niknolig-defense-ios"]["kind"])
+        self.assertEqual("nikolausnold/NIKNOLIG-Defense-iOS-", sources["niknolig-defense-ios"]["repository"])
+        self.assertEqual("1100ed6e1f636c296747d4c2bc628a78c99975d2", sources["niknolig-defense-ios"]["baseline"])
+        self.assertEqual("niknolig-defense", sources["niknolig-defense-ios"]["related_to"])
+        self.assertEqual("nikolausnold/NIKNOLIG", sources["niknolig"]["repository"])
+        self.assertEqual("external", sources["niknolig-ios"]["kind"])
+        self.assertEqual("nikolausnold/NIKNOLIG-iOS-", sources["niknolig-ios"]["repository"])
+        self.assertEqual("ff77f13d01df26a2e4749d061a9ec6e9b05528d8", sources["niknolig-ios"]["baseline"])
+        self.assertEqual("niknolig", sources["niknolig-ios"]["related_to"])
+
+    def test_relationship_rejects_unknown_self_pending_local_and_invalid_targets(self):
+        for target in ("missing", "niknolig-ios", "ios", "monorepo", None, [], {}):
+            data = copy.deepcopy(self.registry)
+            data["repositories"][-1]["related_to"] = target
+            with self.subTest(target=target), self.assertRaises(InventoryError):
+                validate_registry(data)
+        for index in (0, 3):
+            data = copy.deepcopy(self.registry)
+            data["repositories"][index]["related_to"] = "niknolig-defense"
+            with self.subTest(index=index), self.assertRaises(InventoryError):
+                validate_registry(data)
+
+    def test_legacy_registry_without_relationships_remains_valid(self):
+        self.registry["repositories"].pop()
+        self.registry["repositories"].pop()
+        self.assertEqual(4, len(validate_registry(self.registry)))
+
+    def test_defense_relationship_survives_ios_failure_and_is_not_a_success_claim(self):
+        reader = MagicMock()
+        reader.head.side_effect = [("main", HEAD)] * 3 + [InventoryError("GitHub HTTP 404"),
+                                                        ("main", HEAD)]
+        report = build_report(self.entries, reader)
+        defense_ios = report["repositories"][4]
+        self.assertEqual("niknolig-defense", defense_ios["related_to"])
+        self.assertEqual("not_checked", defense_ios["status"])
+        self.assertIsNone(defense_ios["changed"])
+        self.assertFalse(report["all_configured_repositories_checked"])
+
+    def test_niknolig_relationship_survives_ios_failure_without_affecting_defense(self):
+        reader = MagicMock()
+        reader.head.side_effect = [("main", HEAD)] * 4 + [InventoryError("GitHub HTTP 404")]
+        report = build_report(self.entries, reader)
+        sources = {entry["id"]: entry for entry in report["repositories"]}
+        self.assertEqual("niknolig", sources["niknolig-ios"]["related_to"])
+        self.assertEqual("not_checked", sources["niknolig-ios"]["status"])
+        self.assertIsNone(sources["niknolig-ios"]["changed"])
+        self.assertEqual("checked", sources["niknolig-defense-ios"]["status"])
+        self.assertEqual("niknolig-defense", sources["niknolig-defense-ios"]["related_to"])
+        self.assertFalse(report["all_configured_repositories_checked"])
 
     def test_registry_rejects_untrusted_paths_and_malformed_baselines(self):
         for repository in (
@@ -75,14 +125,16 @@ class SystemUpdatesTests(unittest.TestCase):
             "id": "future-app", "kind": "external",
             "repository": "nikolausnold/Future-App", "baseline": HEAD,
         })
-        self.assertEqual(5, len(validate_registry(self.registry)))
+        self.assertEqual(7, len(validate_registry(self.registry)))
 
     def test_report_compares_external_only_and_exposes_pending_ios(self):
         reader = MagicMock()
         baseline = self.entries[1]["baseline"]
-        reader.head.side_effect = [("main", HEAD), ("release", baseline), ("main", HEAD)]
+        reader.head.side_effect = [("main", HEAD), ("release", baseline), ("main", HEAD),
+                                 ("main", self.entries[4]["baseline"]),
+                                 ("main", self.entries[5]["baseline"])]
         report = build_report(self.entries, reader, LOCAL)
-        local, unchanged, changed, ios = report["repositories"]
+        local, unchanged, changed, ios, defense_ios, niknolig_ios = report["repositories"]
         self.assertTrue(report["all_configured_repositories_checked"])
         self.assertEqual(["ios"], report["pending_configuration"])
         self.assertEqual(LOCAL, local["local_build_sha"])
@@ -93,14 +145,22 @@ class SystemUpdatesTests(unittest.TestCase):
         self.assertIn("no update adopted", report["semantics"]["changed"])
         self.assertEqual("not_configured", ios["status"])
         self.assertIsNone(ios["changed"])
-        self.assertEqual(3, reader.head.call_count)
+        self.assertEqual("checked", defense_ios["status"])
+        self.assertFalse(defense_ios["changed"])
+        self.assertEqual("niknolig-defense", defense_ios["related_to"])
+        self.assertEqual("checked", niknolig_ios["status"])
+        self.assertFalse(niknolig_ios["changed"])
+        self.assertEqual("niknolig", niknolig_ios["related_to"])
+        self.assertEqual(5, reader.head.call_count)
+        reader.head.assert_any_call("nikolausnold/NIKNOLIG-Defense-iOS-")
+        reader.head.assert_any_call("nikolausnold/NIKNOLIG-iOS-")
 
     def test_failure_does_not_skip_remaining_repositories_or_claim_unchanged(self):
         reader = MagicMock()
-        reader.head.side_effect = [InventoryError("GitHub HTTP 404"), ("main", HEAD), ("main", HEAD)]
+        reader.head.side_effect = [InventoryError("GitHub HTTP 404")] + [("main", HEAD)] * 4
         report = build_report(self.entries, reader)
         self.assertFalse(report["all_configured_repositories_checked"])
-        self.assertEqual(4, len(report["repositories"]))
+        self.assertEqual(6, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][0]["status"])
         self.assertIsNone(report["repositories"][0]["changed"])
         self.assertEqual("not_available", report["repositories"][0]["local_reference_status"])
@@ -177,23 +237,24 @@ class SystemUpdatesTests(unittest.TestCase):
         return exit_code, output.getvalue()
 
     def test_cli_emits_complete_json_and_failure_exit_code(self):
-        code, output = self.run_cli([("main", HEAD), InventoryError("unavailable"), ("main", HEAD)])
+        code, output = self.run_cli([("main", HEAD), InventoryError("unavailable"),
+                                    ("main", HEAD), ("main", HEAD), ("main", HEAD)])
         self.assertEqual(1, code)
         report = json.loads(output)
-        self.assertEqual(4, len(report["repositories"]))
+        self.assertEqual(6, len(report["repositories"]))
         self.assertEqual("not_checked", report["repositories"][1]["status"])
-        code, output = self.run_cli([("main", HEAD)] * 3)
+        code, output = self.run_cli([("main", HEAD)] * 5)
         self.assertEqual(0, code)
         self.assertEqual(["ios"], json.loads(output)["pending_configuration"])
 
     def test_cli_output_file_and_unwritable_output_fallback(self):
         with patch("tools.system_updates.Path.write_text") as write:
-            code, output = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
+            code, output = self.run_cli([("main", HEAD)] * 5, ["--output", "inventory.json"])
             self.assertEqual(0, code)
             self.assertEqual("", output)
-            self.assertEqual(4, len(json.loads(write.call_args.args[0])["repositories"]))
+            self.assertEqual(6, len(json.loads(write.call_args.args[0])["repositories"]))
         with patch("tools.system_updates.Path.write_text", side_effect=PermissionError):
-            code, output = self.run_cli([("main", HEAD)] * 3, ["--output", "inventory.json"])
+            code, output = self.run_cli([("main", HEAD)] * 5, ["--output", "inventory.json"])
             self.assertEqual(2, code)
             self.assertTrue(json.loads(output)["all_configured_repositories_checked"])
 

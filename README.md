@@ -120,8 +120,23 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   und GitHub Actions als Pull Requests vor. Diese durchlaufen den Autobuild;
   es gibt keinen automatischen Merge und keine ungeprüfte Quellcodeübernahme.
 - Das [Systemregister](config/system-repositories.json) erfasst dieses
-  Monorepo, die bekannten NIKNOLIG-/Defense-Quellen und den noch offenen
-  iOS-Anschluss. Auf `main` prüft der Autobuild die registrierten Repositories
+  Monorepo, die bekannten NIKNOLIG-/Defense-Quellen und
+  [Defense-iOS](https://github.com/nikolausnold/NIKNOLIG-Defense-iOS-).
+  Der Eintrag `niknolig-defense-ios` verweist mit `related_to` auf
+  `niknolig-defense`, die
+  [Defense-Website](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-).
+  Ebenso verweist `niknolig-ios`
+  ([NIKNOLIG-iOS](https://github.com/nikolausnold/NIKNOLIG-iOS-))
+  mit `related_to` auf `niknolig`
+  ([NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG)).
+  Dieses Repository enthält sowohl die Website (`index.html`, `styles.css`)
+  als auch die Android-Quellen (`app/`); ein doppelter Website-Eintrag ist
+  deshalb nicht nötig. Die bestehenden Quellstand-Baselines bleiben erhalten.
+  Beide Zuordnungen werden im Inventarbericht mitgeführt; dies richtet weder
+  Synchronisation, gemeinsame Zugangsdaten, externe Builds noch eine
+  Website-/App-Laufzeitverbindung ein und bestätigt keine native iOS-App.
+  Der allgemeine iOS-Anschluss (`ios`) bleibt separat offen.
+  Auf `main` prüft der Autobuild die registrierten Repositories
   lesend über die GitHub-API. Der commitbezogene `system-update-report` zeigt
   Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
   Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung

@@ -6,6 +6,7 @@ External changed means SHA inequality, not ancestry or update safety. The local
 GITHUB_SHA is the build reference (possibly a PR merge); its remote default
 branch head is informational and is deliberately never compared with that SHA.
 Pending entries (including iOS) are explicit onboarding gaps, not checked repos.
+Optional related_to IDs document repository relationships, not runtime links.
 Exit 0 means all configured repos were observed, not that all platforms are set
 up or builds passed. Exit 1 means an observation failed; 2 means invalid input
 or an unwritable report. Reports are still emitted on observation/input failure.
@@ -43,8 +44,10 @@ def validate_registry(data):
     ids, repositories = set(), set()
     local_count = 0
     for entry in entries:
-        if not isinstance(entry, dict) or set(entry) != {"id", "kind", "repository", "baseline"}:
-            raise InventoryError("Each entry requires id, kind, repository, baseline only")
+        required = {"id", "kind", "repository", "baseline"}
+        if (not isinstance(entry, dict) or not required <= set(entry)
+                or set(entry) - required - {"related_to"}):
+            raise InventoryError("Each entry requires id, kind, repository, baseline; only related_to is optional")
         identifier, kind = entry["id"], entry["kind"]
         repository, baseline = entry["repository"], entry["baseline"]
         if not isinstance(identifier, str) or not IDENTIFIER.fullmatch(identifier) or identifier in ids:
@@ -70,6 +73,15 @@ def validate_registry(data):
             raise InventoryError("External repositories require a full SHA baseline")
     if local_count != 1:
         raise InventoryError("Exactly one local monorepo entry is required")
+    by_id = {entry["id"]: entry for entry in entries}
+    for entry in entries:
+        if "related_to" not in entry:
+            continue
+        target = entry["related_to"]
+        if (entry["kind"] != "external" or not isinstance(target, str)
+                or target == entry["id"] or target not in by_id
+                or by_id[target]["kind"] != "external"):
+            raise InventoryError("related_to must reference another registered external repository")
     return entries
 
 
