@@ -58,9 +58,17 @@ class AppDesignTests(unittest.TestCase):
                 card = ET.parse(resources(app) / "drawable/card_surface.xml").getroot()
                 self.assertEqual("@color/dark_surface", card.find("solid").get(ANDROID + "color"))
                 self.assertEqual("@dimen/panel_radius", card.find("corners").get(ANDROID + "radius"))
-                buttons = ET.parse(resources(app) / "drawable/button_surface.xml")
-                for shape in buttons.iter("shape"):
-                    self.assertEqual("@color/brand_accent", shape.find("solid").get(ANDROID + "color"))
+                buttons = ET.parse(resources(app) / "drawable/button_surface.xml").getroot()
+                button_states = list(buttons)
+                self.assertEqual("false", button_states[0].get(ANDROID + "state_enabled"))
+                for button_state in button_states:
+                    shape = button_state.find("shape")
+                    expected_fill = (
+                        "@color/dark_surface"
+                        if button_state is button_states[0]
+                        else "@color/brand_accent"
+                    )
+                    self.assertEqual(expected_fill, shape.find("solid").get(ANDROID + "color"))
                     self.assertEqual("@dimen/button_radius", shape.find("corners").get(ANDROID + "radius"))
 
     def test_brand_marks_and_assistance_motifs_are_product_local(self):
@@ -110,7 +118,7 @@ class AppDesignTests(unittest.TestCase):
                 style_name = styles["Theme.Niknolig"]["android:buttonStyle"].removeprefix("@style/")
                 button = styles[style_name]
                 self.assertEqual("@drawable/button_surface", button["android:background"])
-                self.assertEqual("@color/on_accent", button["android:textColor"])
+                self.assertEqual("@color/button_text", button["android:textColor"])
                 self.assertEqual("false", button["android:textAllCaps"])
                 self.assertEqual("false", button["android:singleLine"])
                 self.assertEqual("@null", button["android:stateListAnimator"])
@@ -119,6 +127,30 @@ class AppDesignTests(unittest.TestCase):
                     height = values(app, "dimens.xml")[height.removeprefix("@dimen/")]
                 self.assertTrue(height.endswith("dp"))
                 self.assertGreaterEqual(float(height.removesuffix("dp")), 48)
+
+    def test_button_text_colors_match_enabled_and_disabled_backgrounds(self):
+        for app in APPS:
+            with self.subTest(app=app):
+                button_text = ET.parse(resources(app) / "color/button_text.xml").getroot()
+                states = list(button_text)
+                self.assertEqual("false", states[0].get(ANDROID + "state_enabled"))
+                self.assertEqual("@color/text_secondary", states[0].get(ANDROID + "color"))
+                self.assertEqual("@color/on_accent", states[1].get(ANDROID + "color"))
+                colors = values(app, "colors.xml")
+                self.assertGreaterEqual(
+                    contrast(
+                        resolve_color(colors, "text_secondary"),
+                        resolve_color(colors, "dark_surface"),
+                    ),
+                    4.5,
+                )
+                self.assertGreaterEqual(
+                    contrast(
+                        resolve_color(colors, "on_accent"),
+                        resolve_color(colors, "brand_accent"),
+                    ),
+                    4.5,
+                )
 
     def test_layout_buttons_do_not_override_accessible_theme_constraints(self):
         for app in APPS:
