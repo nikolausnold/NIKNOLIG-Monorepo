@@ -38,7 +38,7 @@ bleiben und keine alte Referenz wieder Gold darstellt.
 ## Änderungsgrenze und nächste Integration
 
 Die Website-Quellen liegen in den separaten Repositories
-`nikolausnold/NIKNOLIG` und `nikolausnold/NIKNOLIG-Defense`; sie wurden für
+`nikolausnold/NIKNOLIG` und `nikolausnold/NIKNOLIG-Defense-website-`; sie wurden für
 diesen Abgleich nur gelesen und nicht verändert. Die gemeinsamen visuellen
 Tokens sollten dort bei späteren Designänderungen mit den Werten oben
 abgeglichen werden. Die Android-Anpassungen bleiben auf die getrennten Module

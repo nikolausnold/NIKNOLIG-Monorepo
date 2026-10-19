@@ -30,7 +30,7 @@ und deaktivierten Backups bleiben bestehen.
 
 Die `app/`-Git-Trees der geprüften Quell-Commits
 `nikolausnold/NIKNOLIG@3c4d6618a61604f6433639151e741371491a5f0d` und
-`nikolausnold/NIKNOLIG-Defense@5f0f385089bc27347eacd282c13a546eb4511da2`
+`nikolausnold/NIKNOLIG-Defense-website-@5f0f385089bc27347eacd282c13a546eb4511da2`
 haben denselben Tree-Hash (`72ba65da7e3603fabf0938e6a6a254aa09dadb52`).
 Damit ist nur dieselbe Android-Vorschau in zwei getrennten App-Sandboxes
 nachgewiesen, keine Defense-spezifische Runtime oder Sicherheitsfunktion. Die
@@ -81,7 +81,7 @@ nichts geklont:
 | Quelle | `main`-Revision | Geprüfte Struktur und Inhalte | Status / Grenzen |
 | --- | --- | --- | --- |
 | [nikolausnold/NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG) | `3c4d6618a61604f6433639151e741371491a5f0d` | README; Android-Gerüst mit Gradle-Wrapper, `app/`, `app/src/main/AndroidManifest.xml`; statische Website mit `index.html` und `styles.css`; Android-Build- und GitHub-Pages-Workflows. | README beschreibt eine frühe Vorschau. BLE, Gerätevertrauen, Sicherheitsfreigaben und produktive Funktionen seien noch nicht implementiert. |
-| [nikolausnold/NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense) | `5f0f385089bc27347eacd282c13a546eb4511da2` | README; Android-Gerüst mit Gradle-Wrapper, `app/`, `app/src/main/AndroidManifest.xml`; eigene statische Website mit `index.html` und `styles.css`; Android-Build- und GitHub-Pages-Workflows. | README/Website beschreiben die App und Defense als in Entwicklung; sie belegen keine produktive Sicherheitsintegration. |
+| [nikolausnold/NIKNOLIG-Defense-website-](https://github.com/nikolausnold/NIKNOLIG-Defense-website-) | `5f0f385089bc27347eacd282c13a546eb4511da2` | README; Android-Gerüst mit Gradle-Wrapper, `app/`, `app/src/main/AndroidManifest.xml`; eigene statische Website mit `index.html` und `styles.css`; Android-Build- und GitHub-Pages-Workflows. | README/Website beschreiben die App und Defense als in Entwicklung; sie belegen keine produktive Sicherheitsintegration. |
 
 Beide geprüften Upstream-App-Gradle-Konfigurationen verwenden weiterhin
 `com.niknolig.app` als Namespace und `applicationId`. Das wäre für parallele
@@ -117,8 +117,10 @@ gemeinsame Runtime oder einen systemübergreifenden Datenaustausch mit Defense.
 Ebenso verlinkt die NIKNOLIG-Website
 ein Defense-Ziel mit dem Repository-Pfad `nikolausnold/-NIKNOLIG-Defense`
 (führender Bindestrich); das tatsächlich geprüfte Repository heißt
-`nikolausnold/NIKNOLIG-Defense` ohne diesen Bindestrich. Der Link muss vor
-öffentlicher Nutzung geprüft und gegebenenfalls separat korrigiert werden.
+`nikolausnold/NIKNOLIG-Defense` ohne diesen Bindestrich. Beim Audit hieß das
+geprüfte Repository so; es heißt inzwischen
+`nikolausnold/NIKNOLIG-Defense-website-`. Der Link muss vor öffentlicher
+Nutzung geprüft und gegebenenfalls separat korrigiert werden.
 
 ## 2. Zielarchitektur – Vorschlag unter Vorbehalt
 
@@ -146,7 +148,7 @@ keine implementierte Architektur:
 | Repository | Vorgesehene Rolle laut Auftrag | Verifizierter Inhalt / Status |
 | --- | --- | --- |
 | `nikolausnold/NIKNOLIG` | Hauptsystem und behauptete bestehende Cloudflare-Quelle | `main` ist lesbar; Android-Gerüst und GitHub-Pages-Website nachgewiesen. Cloudflare-Verbindung nicht bestätigt. |
-| `nikolausnold/NIKNOLIG-Defense` | Getrenntes Sicherheitssystem und behauptete bestehende Cloudflare-Quelle | `main` ist lesbar; Android-Gerüst und GitHub-Pages-Website nachgewiesen. Cloudflare-Verbindung nicht bestätigt. |
+| `nikolausnold/NIKNOLIG-Defense-website-` | Getrenntes Sicherheitssystem und behauptete bestehende Cloudflare-Quelle | `main` ist lesbar; Android-Gerüst und GitHub-Pages-Website nachgewiesen. Cloudflare-Verbindung nicht bestätigt. |
 | `nikolausnold/NIKNOLIG-Monorepo` | Integrations-, Dokumentations- und Prüfungsbasis; laut Auftrag keine Cloudflare-Worker-Quelle | Im geprüften Branch README, Audit-Workflow und dieser Plan; keine Anwendungsintegration. |
 | Elektro-Engel | Systemfunktion des NIKNOLIG-Systems; keine eigene App oder Repository | Lokale Assistenzoberfläche und Lernprofil in NIKNOLIG; keine KI-/Backend-, Geräte- oder Defense-Integration nachgewiesen. |
 
@@ -163,8 +165,8 @@ betreffen **GitHub Actions/GitHub Pages**, nicht Cloudflare:
 | NIKNOLIG | [Erfolgreicher Android-Build](https://github.com/nikolausnold/NIKNOLIG/actions/runs/38383624857) auf `main` bei `3c4d6618a61604f6433639151e741371491a5f0d` | Android-Build-Workflow auf dieser Revision. Kein Store- oder Cloudflare-Release. |
 | NIKNOLIG | [Deploy website #4](https://github.com/nikolausnold/NIKNOLIG/actions/runs/38316422738), erfolgreich auf Commit `81e30ffbc279b370974bccf995105b68b040a59c` | GitHub-Pages-Deployment der Website auf einem älteren Commit als das aktuelle `main`. |
 | NIKNOLIG | [GitHub Pre-release `13.10.2026`](https://github.com/nikolausnold/NIKNOLIG/releases) | Ein als Pre-release markiertes GitHub-Release existiert; kein Cloudflare- oder Android-Produktionsnachweis. |
-| NIKNOLIG Defense | [Erfolgreicher Android-Build](https://github.com/nikolausnold/NIKNOLIG-Defense/actions/runs/38328310272) auf `main` bei `5f0f385089bc27347eacd282c13a546eb4511da2` | Android-Build-Workflow auf dieser Revision. Kein Store- oder Cloudflare-Release. |
-| NIKNOLIG Defense | [Deploy website #3](https://github.com/nikolausnold/NIKNOLIG-Defense/actions/runs/38328310314), erfolgreich auf `main` bei `5f0f385089bc27347eacd282c13a546eb4511da2` | GitHub-Pages-Deployment der Website auf dieser Revision. |
+| NIKNOLIG Defense | [Erfolgreicher Android-Build](https://github.com/nikolausnold/NIKNOLIG-Defense-website-/actions/runs/38328310272) auf `main` bei `5f0f385089bc27347eacd282c13a546eb4511da2` | Android-Build-Workflow auf dieser Revision. Kein Store- oder Cloudflare-Release. |
+| NIKNOLIG Defense | [Deploy website #3](https://github.com/nikolausnold/NIKNOLIG-Defense-website-/actions/runs/38328310314), erfolgreich auf `main` bei `5f0f385089bc27347eacd282c13a546eb4511da2` | GitHub-Pages-Deployment der Website auf dieser Revision. |
 | Monorepo | [Read-only Audit #10](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38524704790), erfolgreich auf `main` bei `2caa4098abf8a6464c21720383b7f47289b5be98` | Nur den manuellen Monorepo-Inventurworkflow; keine Anwendung, Cloudflare-Verbindung oder Deployment. |
 
 ### GitHub-Pages- und Navigationsprüfung (2026-10-15)
@@ -176,7 +178,7 @@ tatsächlichen URLs:
 | Website | Pages-URL und letzter erfolgreicher Deploy | Abgleich mit Quellstand |
 | --- | --- | --- |
 | NIKNOLIG | [`https://nikolausnold.github.io/NIKNOLIG/`](https://nikolausnold.github.io/NIKNOLIG/); [Deploy #4](https://github.com/nikolausnold/NIKNOLIG/actions/runs/38316422738), `81e30ffbc279b370974bccf995105b68b040a59c` | `main` steht inzwischen auf `3c4d6618a61604f6433639151e741371491a5f0d`; die Website ist nicht auf dem aktuellen `main`-Stand deployed. |
-| NIKNOLIG Defense | [`https://nikolausnold.github.io/NIKNOLIG-Defense/`](https://nikolausnold.github.io/NIKNOLIG-Defense/); [Deploy #3](https://github.com/nikolausnold/NIKNOLIG-Defense/actions/runs/38328310314), `5f0f385089bc27347eacd282c13a546eb4511da2` | Der erfolgreiche Deploy-Commit entspricht dem abgefragten aktuellen `main`-Commit. |
+| NIKNOLIG Defense | [`https://nikolausnold.github.io/NIKNOLIG-Defense/`](https://nikolausnold.github.io/NIKNOLIG-Defense/); [Deploy #3](https://github.com/nikolausnold/NIKNOLIG-Defense-website-/actions/runs/38328310314), `5f0f385089bc27347eacd282c13a546eb4511da2` | Der erfolgreiche Deploy-Commit entspricht dem abgefragten `main`-Commit zum Auditzeitpunkt. |
 
 Der NIKNOLIG-Quellstand bei `main` enthält in `index.html` den Link
 `https://github.com/nikolausnold/-NIKNOLIG-Defense/tree/main`. Dieser Link führt
