@@ -3,7 +3,7 @@
 build/
 .kotlin/
 /backend/.env
-/backend/**/__pycache__/
+__pycache__/
 
 # Local configuration file (sdk path, etc)
 local.properties
