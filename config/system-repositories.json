@@ -24,6 +24,13 @@
       "kind": "pending",
       "repository": null,
       "baseline": null
+    },
+    {
+      "id": "niknolig-defense-ios",
+      "kind": "external",
+      "repository": "nikolausnold/NIKNOLIG-Defense-iOS-",
+      "baseline": "1100ed6e1f636c296747d4c2bc628a78c99975d2",
+      "related_to": "niknolig-defense"
     }
   ]
 }
