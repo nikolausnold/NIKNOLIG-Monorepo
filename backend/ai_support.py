@@ -174,7 +174,9 @@ class LocalQuotas:
             self._rates = {key: value for key, value in self._rates.items()
                            if value[0] >= minute}
             key = (principal.app, principal.subject)
-            count = self._rates.get(key, (minute, 0))[1]
+            rate = self._rates.get(key, (minute, 0))
+            minute = max(minute, rate[0])
+            count = rate[1]
             used, calls = self._apps.get(principal.app, (0, 0))
             if (request_id in self._reservations or
                     count >= self.limits.calls_per_minute or

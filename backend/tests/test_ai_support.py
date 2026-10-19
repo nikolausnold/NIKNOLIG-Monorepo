@@ -334,6 +334,18 @@ class SupportServiceTests(unittest.TestCase):
         self.assertEqual(200, service.handle(auth.authorization, payload())[0])
         self.assertEqual(2 * used, service.quotas._apps["niknolig"][0])
 
+    def test_out_of_order_timestamps_do_not_reopen_the_rate_limit(self):
+        service, auth, _, _ = local_service()
+        timestamps = iter((60.01, 59.99, 60.02, 60.02, 60.02, 60.02, 60.02))
+        service.clock = lambda: next(timestamps)
+
+        statuses = [
+            service.handle(auth.authorization, payload())[0]
+            for _ in range(7)
+        ]
+
+        self.assertEqual([200, 200, 200, 200, 200, 429, 429], statuses)
+
     def test_token_budget_reserves_full_input_and_output_before_dispatch(self):
         reservation = (len(payload()["prompt"].encode()) +
                        len(SYSTEM_PROMPT.encode()) + 64 + MAX_OUTPUT_TOKENS)
