@@ -53,6 +53,11 @@ Eskalationskriterien. Es wurde kein Modell angebunden und kein Schlüssel im
 Android-Client hinterlegt. Der Health-only-Backend-Status und SecurityChain-P0
 werden durch diese Oberfläche nicht aufgehoben.
 
+Die [Backend-Vorbereitung](../backend/README.md#ki-support-vorbereitete-schnittstelle-keine-betriebsfreigabe)
+ergänzt nun eine gesperrte Provider-Schnittstelle mit Mock-Tests, nicht eine
+aktive KI-Verbindung der Apps. Anbieter-/Kostenfreigabe und mobile Integration
+stehen weiterhin aus; die lokale Support-Oberfläche bleibt unverändert.
+
 ## Funktions- und Plattformgrenzen
 
 - Die lokale Elektro-Engel-Assistenzvorschau bleibt NIKNOLIG-spezifisch;
