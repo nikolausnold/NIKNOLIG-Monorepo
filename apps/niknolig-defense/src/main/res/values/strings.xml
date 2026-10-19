@@ -14,6 +14,12 @@
     <string name="support_email_subject">Technische Supportanfrage – NIKNOLIG Defense</string>
     <string name="support_email_body">Bitte beschreibe dein technisches Problem. Sende keine Passwörter oder Zahlungsdaten.</string>
     <string name="support_email_unavailable">Keine E-Mail-App auf diesem Gerät gefunden.</string>
+    <string name="system_links_heading">NIKNOLIG-SYSTEM</string>
+    <string name="niknolig_website_button">NIKNOLIG-Website öffnen</string>
+    <string name="niknolig_defense_website_button">NIKNOLIG Defense Website öffnen</string>
+    <string name="niknolig_website_url">https://nikolausnold.github.io/NIKNOLIG/</string>
+    <string name="niknolig_defense_website_url">https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/</string>
+    <string name="website_unavailable">Kein Browser zum Öffnen der Website gefunden.</string>
     <string name="demo_notice">Vorschau – noch keine Geräteverbindung, Sicherheitsfreigabe oder produktive Funktion.</string>
     <string name="learning_profile_button">Lernprofil und Datenschutz</string>
     <string name="learning_profile_title">Lernprofil</string>

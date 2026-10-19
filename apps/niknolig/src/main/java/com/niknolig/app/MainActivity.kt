@@ -17,12 +17,28 @@ class MainActivity : Activity() {
             openTechnicalSupportEmail()
         }
 
+        findViewById<Button>(R.id.niknolig_website_button).setOnClickListener {
+            openWebsite(R.string.niknolig_website_url)
+        }
+
+        findViewById<Button>(R.id.niknolig_defense_website_button).setOnClickListener {
+            openWebsite(R.string.niknolig_defense_website_url)
+        }
+
         findViewById<Button>(R.id.learning_profile_button).setOnClickListener {
             startActivity(Intent(this, LearningProfileActivity::class.java))
         }
 
         findViewById<Button>(R.id.assistant_button).setOnClickListener {
             startActivity(Intent(this, AssistantActivity::class.java))
+        }
+    }
+
+    private fun openWebsite(urlResource: Int) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(urlResource))))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.website_unavailable, Toast.LENGTH_LONG).show()
         }
     }
 

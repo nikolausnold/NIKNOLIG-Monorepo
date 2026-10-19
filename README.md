@@ -20,9 +20,29 @@ und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
 
 Der zuletzt nachgewiesene Defense-Pages-Deploy lief am 19. Oktober 2026 auf
 Commit `5f0f385089bc27347eacd282c13a546eb4511da2`.
-Der iOS-Anschluss ist separat unter
-[NIKNOLIG-Defense-iOS-](https://github.com/nikolausnold/NIKNOLIG-Defense-iOS-);
-dieses Monorepo hostet keine Website und konfiguriert keine eigene Domain.
+
+## Systemverbindungen
+
+| Bereich | NIKNOLIG | NIKNOLIG Defense |
+| --- | --- | --- |
+| Android-App | [`apps/niknolig`](https://github.com/nikolausnold/NIKNOLIG-Monorepo/tree/main/apps/niknolig) in diesem Monorepo; upstream [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG) | [`apps/niknolig-defense`](https://github.com/nikolausnold/NIKNOLIG-Monorepo/tree/main/apps/niknolig-defense) in diesem Monorepo; das vom Maintainer benannte Android-Upstream-Repository ist derzeit nicht verifizierbar |
+| Website | [NIKNOLIG](https://nikolausnold.github.io/NIKNOLIG/) · [Quell-Repository](https://github.com/nikolausnold/NIKNOLIG) | [NIKNOLIG Defense](https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/) · [Quell-Repository](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-) |
+| iOS-App-Projekt | [`apps/niknolig-ios`](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo/tree/main/apps/niknolig-ios) | [`apps/niknolig-defense-ios`](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo/tree/main/apps/niknolig-defense-ios) |
+| Build/Validierung | [Android-Build](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/android-build.yml) · [iOS-Validierung](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo/actions/workflows/ios-validation.yml) | [Android-Build](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/android-build.yml) · [iOS-Validierung](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo/actions/workflows/ios-validation.yml) |
+
+Beide Android-Apps bieten Links zu beiden offiziellen Websites; sie öffnen sich
+im externen Browser. Die iOS-Projekte stehen im gemeinsamen
+[NIKNOLIG-iOS-Monorepo](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo).
+Gemeinsame, derzeit nicht produktionsfreigegebene Schnittstellenentwürfe liegen
+unter [`backend/`](backend/README.md). Das Verknüpfen der Informationsseiten
+schafft weder App-zu-App-Kommunikation noch gemeinsamen Datenzugriff; Apps,
+Installationen, Sicherheitsbereiche und Releases bleiben getrennt.
+
+**Noch offene Website-Navigation:** Die Website-Quellen liegen in den beiden
+verlinkten externen Repositories und wurden hier nicht geändert. Die NIKNOLIG-
+Website verlinkt derzeit auf eine alte Defense-URL; die Defense-Website hat
+derzeit keinen Rücklink zur NIKNOLIG-Website. App-Store-Installationslinks sind
+nicht eingetragen, da keine Store-Veröffentlichungen belegt sind.
 
 Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
 die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
