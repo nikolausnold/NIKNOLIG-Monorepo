@@ -16,14 +16,14 @@
     {
       "id": "niknolig-defense",
       "kind": "external",
-      "repository": "nikolausnold/NIKNOLIG-Defense",
+      "repository": "nikolausnold/NIKNOLIG-Defense-Website-",
       "baseline": "5f0f385089bc27347eacd282c13a546eb4511da2"
     },
     {
       "id": "ios",
-      "kind": "pending",
-      "repository": null,
-      "baseline": null
+      "kind": "external",
+      "repository": "nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo",
+      "baseline": "afe4f5a3f0b84500437484a3bf0b3976d7b99e58"
     }
   ]
 }

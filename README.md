@@ -9,7 +9,7 @@ und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
 | Modul | Android `applicationId` | Quellstand |
 | --- | --- | --- |
 | `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG/tree/3c4d6618a61604f6433639151e741371491a5f0d), Commit `3c4d6618a61604f6433639151e741371491a5f0d` |
-| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
+| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
 
 Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
 die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
@@ -99,10 +99,14 @@ Das Soll-Konzept für getrennte Gründerrollen und app-spezifische Konten steht 
 Es wurden keine Konten angelegt; die produktive Rollenvergabe bleibt bis zur
 SecurityChain-P0-Freigabe gesperrt.
 
-Die plattformübergreifende Vertragsarchitektur, Android-/iOS-Grenzen und der
-Integrationsplan für spätere separate iOS-Repositories stehen in
+Die plattformübergreifende Vertragsarchitektur, Android-/iOS-Grenzen und
+Integrationsplanung stehen in
 [`docs/mobile-cross-platform-architecture.md`](docs/mobile-cross-platform-architecture.md).
-Es werden keine iOS-Repositories oder produktiven APIs angelegt.
+Die nativen iOS-Apps liegen im separaten
+[NIKNOLIG-iOS-Monorepo](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo)
+mit getrennten App-Projekten für NIKNOLIG und Defense. Dieses Android-Monorepo
+inventarisiert den Quellstand, baut oder verbindet die iOS-Apps aber nicht.
+Produktive APIs und Laufzeitverbindungen bleiben P0-blockiert.
 
 Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
 [`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
@@ -120,8 +124,10 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   und GitHub Actions als Pull Requests vor. Diese durchlaufen den Autobuild;
   es gibt keinen automatischen Merge und keine ungeprüfte Quellcodeübernahme.
 - Das [Systemregister](config/system-repositories.json) erfasst dieses
-  Monorepo, die bekannten NIKNOLIG-/Defense-Quellen und den noch offenen
-  iOS-Anschluss. Auf `main` prüft der Autobuild die registrierten Repositories
+  Monorepo, die NIKNOLIG-/Defense-Quellen und das native iOS-Monorepo. Der
+  Defense-Eintrag verwendet den verifizierten kanonischen Repository-Pfad nach
+  der Umbenennung; die importierte Baseline bleibt erhalten. Auf `main` prüft
+  der Autobuild die registrierten Repositories
   lesend über die GitHub-API. Der commitbezogene `system-update-report` zeigt
   Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
   Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung

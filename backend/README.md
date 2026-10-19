@@ -123,13 +123,13 @@ Entscheidungen. Bei fehlender Prüfung gilt fail closed.
 ## Integration in den separaten App-Repositories
 
 Die Quell-Repositories `nikolausnold/NIKNOLIG` und
-`nikolausnold/NIKNOLIG-Defense` wurden nicht geändert. Nach Freigabe müssen
+`nikolausnold/NIKNOLIG-Defense-Website-` wurden nicht geändert. Nach Freigabe müssen
 Änderungen getrennt und unabhängig reviewed werden:
 
 | App-Repository | Vorgesehene Dateien / Schnittstellen | Abhängigkeit / Gate |
 | --- | --- | --- |
 | `nikolausnold/NIKNOLIG` | `app/build.gradle.kts` (geprüfte HTTP-/TLS-Clientabhängigkeit), `app/src/main/AndroidManifest.xml` (nur freigegebene Netzwerkrechte), `app/src/main/java/com/niknolig/app/` (eigener API-Client und app-spezifische Authentifizierung), `app/src/main/res/values/strings.xml` (Zustimmungs-/Fehlertexte), `app/src/test/` und `app/src/androidTest/` (Vertrag, Ablehnung, Widerruf) | Eigener App-Bereich `niknolig`; API-Client aus dem freigegebenen Vertrag generieren oder dagegen testen. Keine Defense-Credentials oder gemeinsamen Laufzeitrechte. |
-| `nikolausnold/NIKNOLIG-Defense` | `app/build.gradle.kts` (separat geprüfte Clientabhängigkeit), `app/src/main/AndroidManifest.xml` (nur freigegebene Netzwerkrechte), `app/src/main/java/com/niknolig/defense/` (eigener API-Client und app-spezifische Authentifizierung), `app/src/main/res/values/strings.xml` (Zustimmungs-/Fehlertexte), `app/src/test/` und `app/src/androidTest/` (Vertrag, Ablehnung, Widerruf) | Eigener App-Bereich `niknolig-defense`; niemals das NIKNOLIG-Token oder dessen Installationsidentität wiederverwenden. |
+| `nikolausnold/NIKNOLIG-Defense-Website-` | `app/build.gradle.kts` (separat geprüfte Clientabhängigkeit), `app/src/main/AndroidManifest.xml` (nur freigegebene Netzwerkrechte), `app/src/main/java/com/niknolig/defense/` (eigener API-Client und app-spezifische Authentifizierung), `app/src/main/res/values/strings.xml` (Zustimmungs-/Fehlertexte), `app/src/test/` und `app/src/androidTest/` (Vertrag, Ablehnung, Widerruf) | Eigener App-Bereich `niknolig-defense`; niemals das NIKNOLIG-Token oder dessen Installationsidentität wiederverwenden. |
 
 Für beide Apps müssen zusätzlich Backend-Basis-URL pro Build-Variante, TLS-
 Vertrauensregeln, Authentifizierung/Tokenbezug, Datenschutztexte und

@@ -1,9 +1,12 @@
 # Android-/iOS-Architektur und Integrationsplan
 
-**Status:** Architektur- und Vertragsplanung. Keine iOS-App, kein neuer
-API-Endpunkt, kein produktiver Backend-Dienst und keine Änderung an den
-separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein verbindliches
-Stop-Gate.
+**Status:** Architektur- und Vertragsplanung. Native iOS-App-Projekte für
+NIKNOLIG und Defense existieren im separaten
+[NIKNOLIG-iOS-Monorepo](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo)
+in getrennten App-Verzeichnissen. Dieses Dokument autorisiert keine Änderungen
+dort oder in den separaten Android-Quell-Repositories. Es gibt keinen neuen
+API-Endpunkt oder produktiven Backend-Dienst; SecurityChain P0 bleibt ein
+verbindliches Stop-Gate.
 
 ## 1. Bestand: wiederverwenden statt duplizieren
 
@@ -229,26 +232,26 @@ Kein neues Repository wird im Rahmen dieser Vorbereitung erstellt.
    Monorepo-Module behalten Ownership und App-Identität. Eine spätere Anbindung
    wird von den zuständigen Teams separat geplant, reviewed und freigegeben;
    dieses Dokument ändert sie nicht.
-5. **iOS-Repository NIKNOLIG-iOS:** Erst nach Freigabe separat erstellen. Es
-   enthält NIKNOLIG-Oberfläche, eigenes Bundle-/Signing-/Release-Setup,
-   App-scoped Authentifizierung und iOS-Adapter. Es konsumiert ausschließlich
-   die genehmigten gemeinsamen Verträge; kein Defense-Schlüssel, keine
-   Android-Runtime und kein impliziter Elektro-Engel-Berechtigungsbereich.
-6. **iOS-Repository NIKNOLIG-Defense-iOS:** Ebenfalls separat und mit eigenem
-   Bundle, Signing, Release, Identität, Authentifizierung und Test-/Consent-
-   Fluss. Keine gemeinsame App-Sandbox, Credentials oder implizite Rechte mit
-   NIKNOLIG-iOS oder den Android-Apps.
+5. **Bestehendes iOS-Monorepo abgleichen:** Die getrennten NIKNOLIG- und
+   Defense-App-Projekte liegen im bestehenden
+   `nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo`. Vor weiteren Änderungen
+   müssen Zuständigkeit, App-Identitäten und der Ziel-Repositoryzuschnitt mit
+   den Verantwortlichen abgeglichen werden. Keine automatische Aufteilung oder
+   gemeinsame Laufzeit wird durch diesen Plan freigegeben.
+6. **iOS unabhängig integrieren:** Beide iOS-App-Projekte behalten eigene
+   Bundle-, Signing-, Release-, Identitäts- und Test-/Consent-Grenzen. Sie
+   konsumieren ausschließlich freigegebene gemeinsame Verträge; keine
+   Defense-Schlüssel, Android-Runtime oder implizite Elektro-Engel-Rechte.
 7. **Parität und Übergang:** Für jeden iOS-Verbraucher Schema-/Fehler-Fixtures,
    App-Bereich, Widerruf, Permission-Nein/Widerruf und Release-Artefakte
    verifizieren. Verträge werden nur nach einer dokumentierten Consumer-
    Migration und Kompatibilitätsprüfung ausgebaut oder abgekündigt.
 
-Technisch sinnvoll werden getrennte iOS-Repositories, wenn Verantwortliche,
-Bundle-IDs, Signierung, Releasezyklen und unabhängige Wartung feststehen und
-die gemeinsamen Verträge versioniert, automatisiert geprüft und von Android
-und Backend konsumiert werden. Davor vermeidet ein Vertragsinventar im
-Monorepo unnötige Duplikation. Produktive Umsetzung bleibt unabhängig davon
-SecurityChain-P0-blockiert.
+Der bestehende iOS-Monorepo-Ansatz und die geplante Trennung in separate
+Repositories müssen anhand von Verantwortlichkeiten, Bundle-IDs, Signierung,
+Releasezyklen und unabhängiger Wartung entschieden werden. Diese Entscheidung
+ändert weder App-Identitäten noch die Vertragsquelle. Produktive Umsetzung
+bleibt unabhängig davon SecurityChain-P0-blockiert.
 
 ## 7. Offene Entscheidungen und Stop-Gate
 
