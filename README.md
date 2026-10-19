@@ -11,10 +11,15 @@ und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
 | `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG/tree/3c4d6618a61604f6433639151e741371491a5f0d), Commit `3c4d6618a61604f6433639151e741371491a5f0d` |
 | `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | Vom Maintainer benannt: [`-niknolig-defense`](https://github.com/nikolausnold/-niknolig-defense); aktuell nicht über die GitHub-API lesbar, daher kein verifizierter Upstream-Baseline-Commit |
 
-Die Defense-Website ist ein eigenes Repository: [NIKNOLIG-Defense-Website-](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-).
-Der zuletzt erfolgreiche Pages-Deploy lief auf Commit
-`5f0f385089bc27347eacd282c13a546eb4511da2` am 19. Oktober 2026. Die GitHub-Pages-
-Adresse lautet **[https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/](https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/)**.
+## Websites
+
+| Produkt | Website | Quell-Repository |
+| --- | --- | --- |
+| NIKNOLIG | [https://nikolausnold.github.io/NIKNOLIG/](https://nikolausnold.github.io/NIKNOLIG/) | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG) |
+| NIKNOLIG Defense | [https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/](https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/) | [NIKNOLIG-Defense-Website-](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-) |
+
+Der zuletzt nachgewiesene Defense-Pages-Deploy lief am 19. Oktober 2026 auf
+Commit `5f0f385089bc27347eacd282c13a546eb4511da2`.
 Der iOS-Anschluss ist separat unter
 [NIKNOLIG-Defense-iOS-](https://github.com/nikolausnold/NIKNOLIG-Defense-iOS-);
 dieses Monorepo hostet keine Website und konfiguriert keine eigene Domain.

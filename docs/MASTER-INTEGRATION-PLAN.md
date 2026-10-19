@@ -31,6 +31,20 @@ Das iOS-Repository [`NIKNOLIG-Defense-iOS-`](https://github.com/nikolausnold/NIK
 ist ebenfalls separat. Diese Zuordnung ändert oder erstellt keine externen
 Repositories, Pages-Einstellungen oder benutzerdefinierten Domains.
 
+### Bestätigte Website-Adressen (2026-10-19)
+
+Der Auftraggeber hat die kanonischen Website-Adressen bestätigt:
+
+| Produkt | Website | Quell-Repository |
+| --- | --- | --- |
+| NIKNOLIG | [`https://nikolausnold.github.io/NIKNOLIG/`](https://nikolausnold.github.io/NIKNOLIG/) | [`nikolausnold/NIKNOLIG`](https://github.com/nikolausnold/NIKNOLIG) |
+| NIKNOLIG Defense | [`https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/`](https://nikolausnold.github.io/NIKNOLIG-Defense-Website-/) | [`nikolausnold/NIKNOLIG-Defense-Website-`](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-) |
+
+Die am 15.10.2026 festgehaltene `NIKNOLIG-Defense/`-Pages-Adresse ist damit
+als historische Inventurnotiz zu verstehen, nicht als aktuelle Defense-URL.
+Die beiden genannten Websites bleiben getrennt von den jeweiligen mobilen
+Apps; ihre Live-Erreichbarkeit wurde in diesem Monorepo nicht erneut geprüft.
+
 ## Aktueller Monorepo-Integrationsstand
 
 Die Android-Projekte sind als unabhängige Gradle-Module `:niknolig` und
