@@ -32,6 +32,7 @@ class SystemUpdatesTests(unittest.TestCase):
         sources = {entry["id"]: entry for entry in self.entries}
         self.assertEqual("nikolausnold/NIKNOLIG-Monorepo", sources["monorepo"]["repository"])
         self.assertEqual("3c4d6618a61604f6433639151e741371491a5f0d", sources["niknolig"]["baseline"])
+        self.assertEqual("nikolausnold/NIKNOLIG-Defense-Website-", sources["niknolig-defense"]["repository"])
         self.assertEqual("5f0f385089bc27347eacd282c13a546eb4511da2", sources["niknolig-defense"]["baseline"])
         self.assertEqual("pending", sources["ios"]["kind"])
         self.assertIsNone(sources["ios"]["repository"])
@@ -139,6 +140,7 @@ class SystemUpdatesTests(unittest.TestCase):
         self.assertTrue(any(isinstance(handler, NoRedirect) for handler in reader.opener.handlers))
         reader.opener = MagicMock()
         for error in (
+            urllib.error.HTTPError("https://api.github.com", 301, "Moved Permanently", {}, None),
             urllib.error.HTTPError("https://evil.example/test-token", 302, "test-token", {}, None),
             urllib.error.HTTPError("https://api.github.com", 403, "test-token", {}, None),
             urllib.error.HTTPError("https://api.github.com", 404, "test-token", {}, None),
