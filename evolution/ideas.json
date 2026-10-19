@@ -35,8 +35,8 @@
       "evidence": [
         {
           "path": "README.md",
-          "startLine": 68,
-          "endLine": 70,
+          "startLine": 73,
+          "endLine": 75,
           "excerpt": "In den importierten\nQuellständen sind keine Android-Testquellen vorhanden; deshalb wird kein\nAndroid-Testtask behauptet.",
           "state": "hypothesis"
         }
