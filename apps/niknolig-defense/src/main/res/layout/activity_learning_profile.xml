@@ -64,7 +64,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_small"
-                android:background="@drawable/card_surface"
                 android:gravity="top|start"
                 android:hint="@string/session_summary_hint"
                 android:inputType="textCapSentences|textMultiLine"

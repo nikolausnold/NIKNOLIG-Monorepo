@@ -111,10 +111,19 @@ class AppDesignTests(unittest.TestCase):
     def test_theme_buttons_have_accessible_wrapping_and_dark_accent_text(self):
         for app in APPS:
             with self.subTest(app=app):
+                theme_resources = resources(app)
+                base_themes = ET.parse(theme_resources / "values/themes.xml").getroot()
                 styles = {
                     style.get("name"): {item.get("name"): item.text for item in style}
-                    for style in ET.parse(resources(app) / "values/themes.xml").getroot()
+                    for style in base_themes
                 }
+                api_27_themes = ET.parse(theme_resources / "values-v27/themes.xml").getroot()
+                api_27_style = next(style for style in api_27_themes if style.get("name") == "Theme.Niknolig")
+                self.assertNotIn("android:windowLightNavigationBar", styles["Theme.Niknolig"])
+                self.assertEqual(
+                    "false",
+                    next(item.text for item in api_27_style if item.get("name") == "android:windowLightNavigationBar"),
+                )
                 style_name = styles["Theme.Niknolig"]["android:buttonStyle"].removeprefix("@style/")
                 button = styles[style_name]
                 self.assertEqual("@drawable/button_surface", button["android:background"])
@@ -127,6 +136,18 @@ class AppDesignTests(unittest.TestCase):
                     height = values(app, "dimens.xml")[height.removeprefix("@dimen/")]
                 self.assertTrue(height.endswith("dp"))
                 self.assertGreaterEqual(float(height.removesuffix("dp")), 48)
+
+    def test_text_inputs_keep_theme_input_indicators(self):
+        layouts = {
+            "niknolig": ("activity_assistant.xml", "activity_learning_profile.xml"),
+            "niknolig-defense": ("activity_learning_profile.xml",),
+        }
+        for app, layout_names in layouts.items():
+            for layout_name in layout_names:
+                layout = resources(app) / "layout" / layout_name
+                for input_view in ET.parse(layout).iter("EditText"):
+                    with self.subTest(app=app, layout=layout_name, input=input_view.get(ANDROID + "id")):
+                        self.assertIsNone(input_view.get(ANDROID + "background"))
 
     def test_button_text_colors_match_enabled_and_disabled_backgrounds(self):
         for app in APPS:
