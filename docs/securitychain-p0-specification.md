@@ -1,6 +1,6 @@
 # SecurityChain-P0 – verbindlicher Sicherheitsstandard (Reviewentwurf)
 
-**Status:** Reviewentwurf, Version 0.1; noch nicht genehmigt oder produktiv
+**Status:** Reviewentwurf, Version 0.2; noch nicht genehmigt oder produktiv
 verbindlich
 
 **Geltung nach Freigabe:** Sicherheitsgate für NIKNOLIG, NIKNOLIG Defense,
@@ -456,6 +456,11 @@ Unabhängigkeit und Freigabeprozess sind **OFFEN**. Freigabe einer App erteilt
 keine Freigabe der anderen App.
 
 ## 11. Versionierung und Änderungssteuerung
+
+| Version | Status | Änderung |
+| --- | --- | --- |
+| 0.1 | Reviewentwurf, nicht genehmigt | Initialer SecurityChain-P0-Entwurf |
+| 0.2 | Reviewentwurf, nicht genehmigt | Consent-Audit-Pflichtmetadaten und unbesetzte Entscheidungsfunktionen präzisiert; keine Freigabe oder Änderung der Implementierungsgrenzen |
 
 Diese Datei ist ein Reviewentwurf. Reviewkommentare und Entscheidungen müssen
 als nachvollziehbare Änderung mit Versions-/Änderungshistorie, betroffenen
