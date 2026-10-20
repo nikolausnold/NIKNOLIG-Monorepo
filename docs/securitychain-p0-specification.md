@@ -1,6 +1,6 @@
 # SecurityChain-P0 – verbindlicher Sicherheitsstandard (Reviewentwurf)
 
-**Status:** Reviewentwurf, Version 0.2; noch nicht genehmigt oder produktiv
+**Status:** Reviewentwurf, Version 0.3; noch nicht genehmigt oder produktiv
 verbindlich
 
 **Geltung nach Freigabe:** Sicherheitsgate für NIKNOLIG, NIKNOLIG Defense,
@@ -46,6 +46,33 @@ Zugriffskontrolle und standardmäßige Sperre. Produktive Login-, Geräte-,
 Pairing- und Produkt-APIs existieren nicht. Eine vorhandene API-Fläche oder ein
 lokaler Test belegt weder Betriebsfreigabe noch P0-Konformität oder eine
 Sicherheitsfreigabe.
+
+### Produktionsfunktionen – aktueller Bestand
+
+Die folgenden Punkte sind Bestandsfeststellungen, keine Implementierungs- oder
+Freigabeaussage:
+
+- **Token-Ausstellung und produktive Authentifizierung:** Es gibt keinen
+  Identitätsanbieter, Login-/Token-Aussteller oder produktiven Token-Validator.
+  Der lokale Support-Testendpunkt verwendet standardmäßig einen Authenticator,
+  der alle Anfragen ablehnt; injizierbare Testimplementierungen ersetzen keine
+  produktive Authentifizierung.
+- **Geräteidentität:** Es gibt keine Registrierungs-API, Challenge-Prüfung,
+  Geräte-/Installationsschlüsselverwaltung oder Peer-Authentifizierung. Die
+  SQL-Migration ist ein nicht angewendeter Entwurf.
+- **Autorisierung:** Es gibt keine produktive, allgemeine serverseitige
+  Policy-Durchsetzung für Produktoperationen. Lokale Support-Testlogik prüft
+  injizierte Testprinzipale und App-/Feature-Bereiche, ist aber kein produktives
+  Identitäts- oder Autorisierungssystem.
+- **Backend-Infrastruktur:** Die HTTP-Laufzeit ist lokale Entwicklung ohne
+  TLS, Datenbankanbindung, Produkt-API oder Deployment-Konfiguration. Compose
+  beschreibt nur eine lokale Datenbank. Produktionsbetrieb, Schlüssel-/Secret-
+  Verwaltung, Monitoring, Backup und Incident-Verfahren sind nicht eingerichtet.
+
+Alle diese Funktionen bleiben blockiert, bis die einschlägigen Entscheidungen
+dieses Dokuments freigegeben und Umsetzung sowie Abnahme nachgewiesen sind.
+Weder die Vorschläge unten noch die vorhandenen Verträge erlauben einen
+Produktivbetrieb.
 
 ## 2. Threat Model und Vertrauensgrenzen
 
@@ -447,6 +474,28 @@ wo mehrere Funktionen betroffen sind, sind alle erforderlichen Freigaben nötig.
 | D-11 | Backend-Betrieb, API-Basis/Trust, Monitoring, Incident-Kontakt, Backup/Restore und Rollback. | Backend-Betriebs-/Security-Verantwortliche und Produktverantwortliche |
 | D-12 | Unabhängige Prüfer, technische Abnahmeverantwortliche und Release-/Produktverantwortliche je App. | Unabhängige Prüfer sowie jeweilige Produkt-, Plattform- und Release-Verantwortliche |
 
+### Vorschläge zur Entscheidung – keine Zustimmung
+
+Die Vorschläge dienen der strukturierten Entscheidung und setzen keine
+Entscheidung voraus. „Technisch aus dem Repository beantwortbar“ benennt nur
+den belegbaren Ist-Zustand; Ziel-/Policy-Entscheidungen benötigen weiterhin
+ausdrückliche Freigabe.
+
+| ID | Konkreter Vorschlag und Begründung | Risiken / offene Folgen | Erforderliche ausdrückliche Freigabe |
+| --- | --- | --- | --- |
+| **D-01** | **Repository-Fakt:** NIKNOLIG und Defense sind getrennte Sicherheitsbereiche; Produkt-APIs fehlen. **Vorschlag:** Bis zur Festlegung pro App keine Produktdaten oder Geräteaktionen freigeben und keine Cross-App-Rechte zulassen. Pro App eine konkrete Allowlist für Akteure, Daten, Zwecke, Aktionen und Richtung beschließen. | Ohne fachlichen Umfang kann weder Autorisierung noch Consent korrekt spezifiziert werden; ein zu weiter Umfang schafft unnötige Daten- und Berechtigungsrisiken. | Produktverantwortliche beider Apps jeweils für ihren Scope; Security und Datenschutz für betroffene Daten-/Aktionsklassen. |
+| **D-02** | **Repository-Fakt:** Kein IdP, Login oder produktiver Token-Aussteller ist vorhanden. **Vorschlag:** Einen etablierten OIDC-kompatiblen Identitätsanbieter evaluieren; getrennte App-Scopes und kurzlebige, widerrufbare Zugangsnachweise mit serverseitiger Prüfung vorsehen. Admins sollen phishing-resistente MFA verwenden, sofern Recovery und unterstützte Clients dies sicher tragen. Noch keinen Anbieter oder Tokenvertrag festlegen. | Anbieterabhängigkeit, Verfügbarkeit, Datenschutz/Region, Wiederherstellung und MFA-Verlust; ein Tokenformat allein bindet keine Geräteidentität. | Produkt- und Security-Verantwortliche sowie Identitäts-/Backend-Verantwortliche; Datenschutz/Betreiber für Anbieter, Datenregion und Betrieb. |
+| **D-03** | **Repository-Fakt:** Es gibt keine Installation-Registrierung oder Schlüsselprüfung. **Vorschlag:** Je App-Installation einen Geräteschlüssel lokal erzeugen und OS-geschützt halten; Registrierung erst nach authentisiertem, frischem Challenge-/Signatur-Nachweis erlauben. Attestierung nur ergänzend nach Kompatibilitäts- und Privacy-Prüfung. | Hardware-Backing und Attestierung sind nicht überall verfügbar oder gleichwertig; Neuinstallation, Backup/Restore und Gerätewechsel können legitime Nutzer aussperren. | Security sowie Android-, iOS- und Backend-Verantwortliche; Produktverantwortliche für Registrierung und Recovery. |
+| **D-04** | **Vorschlag:** Keine eigene Kryptografie oder selbst entworfene Authentifizierungsprotokolle. Für Konto-/API-Authentifizierung und Geräte-Peer-Nachweis etablierte, gewartete Verfahren vergleichen und erst nach unabhängiger Prüfung jeweils einen versionierten Vertrag auswählen. TLS allein nicht als Geräteidentität werten. | Standardprotokolle lösen nicht automatisch App-Scope, Zustimmung, Widerruf oder Gerätebindung; Fehlkonfiguration und Versionswechsel bleiben Risiken. | Unabhängiger Security-Reviewer und technische Verantwortliche für Backend sowie alle betroffenen Plattformen; Produktfreigabe für Auswirkungen auf Nutzerabläufe. |
+| **D-05** | **Vorschlag:** Schlüssel lokal in Android Keystore beziehungsweise Apple Keychain/Secure Enclave erzeugen, sofern die geprüfte Plattform das unterstützt; private Schlüssel nie exportieren. Verlust, Kompromiss, Neuinstallation oder nicht verifizierbare Wiederherstellung führen zur Sperrung und frischen Registrierung statt Vertrauensübernahme. | Unterschiede zwischen OS-Versionen und Hardware; Recovery kann zu Daten-/Kontoverlust führen. TTL, Rotation und Attestierungsanforderungen sind weiterhin zu entscheiden. | Security- und jeweilige Plattform-/Identitätsverantwortliche; Produktverantwortliche für Recovery und Nutzerfolgen. |
+| **D-06** | **Vorschlag:** Für sensible Online-Aktionen Widerruf serverseitig prüfen und bei nicht erreichbarer/unklarer Entscheidung fail closed; keine sensible Offline-Warteschlange. Einen messbaren maximalen Widerrufs-SLA erst nach Festlegung von Token-/Sitzungsmodell und Betriebsfähigkeit festsetzen. | Strenges Fail-closed-Verhalten kann bei Backend-Ausfällen Funktionen blockieren; ein zu großzügiger SLA lässt widerrufene Rechte zu lange wirksam. | Security-, Backend-Betriebs- und Identitätsverantwortliche; Produktverantwortliche für Verfügbarkeit und Nutzerfolgen. |
+| **D-07** | **Repository-Fakt:** Kein Transport ist implementiert oder freigegeben. **Vorschlag:** Vorerst keinen Geräte-Transport anbieten; BLE bleibt ausdrücklich deaktiviert. Nach D-01 und Threat-Model-Prüfung Kandidaten anhand der Geräte-/OS-Matrix vergleichen und nur eine separat freigegebene Option umsetzen. | Verzögert Gerätefunktionen; spätere Transportwahl kann Gerätekompatibilität, Berechtigungen und Hintergrundverhalten begrenzen. | Produkt- und Security-Verantwortliche sowie betroffene Plattformverantwortliche; BLE benötigt die separat dokumentierte Freigabe aus Abschnitt 6. |
+| **D-08** | **Vorschlag:** Eine unterstützte Geräte-/OS-Matrix vor Implementierung festlegen, nur tatsächlich benötigte OS-Berechtigungen anfordern und Ablehnung/Widerruf als Stop behandeln. Keine Mindestversion oder Sensorfähigkeit aus den aktuellen Vorschau-Apps ableiten. | Eine enge Matrix schließt Geräte aus; eine breite Matrix erhöht Test- und Supportaufwand und kann Sicherheitsfunktionen einschränken. | Android-/iOS- und Produktverantwortliche; Security für Schlüssel-/Berechtigungsannahmen. |
+| **D-09** | **Vorschlag:** Zustimmung ist aktiv, verständlich, zweck-, daten-, akteurs- und zielbezogen, befristet und widerrufbar. Ohne gültige Zustimmung keine betreffende Erhebung oder Aktion; erneute Zustimmung bei relevantem Zweck-/Zielwechsel. Texte, Laufzeiten und Löschfolgen nicht vorab festlegen. | Zu häufige Zustimmungsabfragen beeinträchtigen Nutzbarkeit; zu breite oder dauerhaft gespeicherte Zustimmung erhöht Datenschutz- und Missbrauchsrisiken. | Produkt- und Datenschutzverantwortliche sowie technische Verantwortliche; Rechts-/Datenschutzprüfung der Texte und Zwecke. |
+| **D-10** | **Vorschlag:** Vor Freigabe ein Dateninventar mit Zweck, Region, Zugriff, Aufbewahrung und Löschung erstellen. Bis dahin keine unnötigen Nutzinhalte oder Sensorrohwerte speichern; Audit nur mit minimalen, genehmigten Metadaten. | Unbekannte Rechtsgrundlage, falsche Region oder zu lange Aufbewahrung kann rechtliche und Vertrauensrisiken verursachen; zu geringe Auditdaten können Vorfallklärung erschweren. | Datenschutz-/Rechtsverantwortliche, Backend-Betreiber sowie jeweilige Produktverantwortliche. |
+| **D-11** | **Repository-Fakt:** Es gibt nur lokale Laufzeit-/Compose-Konfiguration, keine Produktivumgebung. **Vorschlag:** Keine Produktionsbereitstellung. Vor einer späteren Auswahl Betriebsmodell, Datenregion, TLS/Trust, Zugriffstrennung, Secret-Verwaltung, Monitoring, Backup/Restore, Incident-Verantwortung und Verfügbarkeitsziele dokumentieren; Anbieter erst danach auswählen. | Nicht definierte Zuständigkeiten oder Betriebsziele gefährden Verfügbarkeit, Widerruf und Vorfallreaktion; konkrete Kosten und Regionsgrenzen sind noch unbekannt. | Backend-Betrieb und Security; Produktverantwortliche für Verfügbarkeit; Datenschutz/Recht für Datenregion und Aufbewahrung. |
+| **D-12** | **Vorschlag:** Für jede App eigene benannte Produkt-/Release-Verantwortliche und Plattformverantwortliche festlegen; eine unabhängige, nicht an der Implementierung beteiligte Security-Prüfung verlangen. Signoffs an exakte Spezifikations-, Commit- und Release-Version binden. Bis dahin keine P0-Erfüllung erklären. | Unabhängige Prüfer und Stellvertretungen müssen verfügbar sein; unklare Rollen können Freigaben blockieren oder Interessenkonflikte erzeugen. | Betreiber benennt Personen/Rollen; jeweilige Produkt- und Release-Verantwortliche, Android-/iOS-/Backend-Verantwortliche und unabhängiger Security-Reviewer bestätigen ihren Scope. |
+
 Vor einer späteren Verbindlichkeit sind mindestens zu dokumentieren: Freigabe
 des NIKNOLIG-Produktverantwortlichen, des NIKNOLIG-Defense-Verantwortlichen für
 ihren Scope, eines unabhängigen Security-Reviewers, der Datenschutz-/Rechts-
@@ -461,6 +510,7 @@ keine Freigabe der anderen App.
 | --- | --- | --- |
 | 0.1 | Reviewentwurf, nicht genehmigt | Initialer SecurityChain-P0-Entwurf |
 | 0.2 | Reviewentwurf, nicht genehmigt | Consent-Audit-Pflichtmetadaten und unbesetzte Entscheidungsfunktionen präzisiert; keine Freigabe oder Änderung der Implementierungsgrenzen |
+| 0.3 | Reviewentwurf, nicht genehmigt | Nicht bindende Vorschläge, Begründungen, Risiken und Freigaben für D-01 bis D-12 ergänzt; fehlende Produktionsfunktionen ausdrücklich dokumentiert |
 
 Diese Datei ist ein Reviewentwurf. Reviewkommentare und Entscheidungen müssen
 als nachvollziehbare Änderung mit Versions-/Änderungshistorie, betroffenen
