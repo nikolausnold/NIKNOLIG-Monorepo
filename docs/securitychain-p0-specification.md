@@ -1,9 +1,11 @@
 # SecurityChain-P0 – verbindlicher Sicherheitsstandard (Reviewentwurf)
 
 **Status:** Reviewentwurf, Version 0.1; noch nicht genehmigt oder produktiv
-verbindlich  
+verbindlich
+
 **Geltung nach Freigabe:** Sicherheitsgate für NIKNOLIG, NIKNOLIG Defense,
-künftige iOS-Clients, Backend und jede Geräte-/Datenverbindung  
+künftige iOS-Clients, Backend und jede Geräte-/Datenverbindung
+
 **Aktueller Effekt:** Keine Implementierungs-, Konto-, Transport-, Daten- oder
 Produktivfreigabe. Bis zur schriftlichen Freigabe gelten alle bestehenden
 Sicherheitsgrenzen und Stop-Gates unverändert.
@@ -438,6 +440,21 @@ Verwandte Bestandsdokumente:
 - [Gerätewechsel- und Sensorverträge](electro-engel-multidevice-sensors.md)
 - [Backend-Grundlage und bestehende Sicherheitsgrenzen](../backend/README.md)
 - [Getrennte Gründerrollen und Kontoanforderungen](founder-roles-and-account-requirements.md)
+- [Master-Integrationsplan: Sicherheit und Datenschutz](MASTER-INTEGRATION-PLAN.md#6-sicherheit-und-datenschutzrisiken)
+
+### Rückverfolgbarkeit der Anforderungen
+
+| Themen im Entwurf | Bestehende Grundlage |
+| --- | --- |
+| App-Grenzen, P0-Blockade, Transport-/Geräteabnahme | [Geräteverbindungs-Sicherheitsdesign](device-link-security-design.md) |
+| Authentifizierung, Autorisierung, API-/Plattformgrenzen und Vertragsprüfungen | [Android-/iOS-Architektur](mobile-cross-platform-architecture.md) und [Backend-Grundlage](../backend/README.md) |
+| Threat Model, Consent, Geräteidentität, Widerruf, Sensor-/Datengrenzen und physische Tests | [Gerätewechsel- und Sensorverträge](electro-engel-multidevice-sensors.md) |
+| Getrennte Admin-Rollen, MFA-Ziel, Dual-Control, Recovery und Audit-Metadaten | [Gründerrollen und Kontoanforderungen](founder-roles-and-account-requirements.md) |
+| Geheimnisse, minimale Logs, Datenschutzfreigabe und Produktionsänderungs-Gates | [Master-Integrationsplan](MASTER-INTEGRATION-PLAN.md#6-sicherheit-und-datenschutzrisiken) |
+
+Die Tabellenzuordnung dokumentiert Herkunft und Abgleich, nicht die Übernahme
+unbestätigter Entscheidungen als geltende Policy. Konkrete offene Werte bleiben
+in Abschnitt 10 zu entscheiden.
 
 Diese Spezifikation ist keine Rechtsberatung, Zertifizierung,
 Penetrationstestbestätigung oder Freigabe für produktive Nutzung.
