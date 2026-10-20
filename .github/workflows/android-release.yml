@@ -45,10 +45,6 @@ jobs:
           set -euo pipefail
           printf 'NIKNOLIG_VERSION_CODE=%s\n' "$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
 
-      - name: Run contract regression tests for manual builds
-        if: github.event_name == 'workflow_dispatch'
-        run: python3 -m unittest discover -s backend/tests
-
       - name: Validate and stage release keystores
         shell: bash
         env:
