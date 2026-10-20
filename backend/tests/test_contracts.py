@@ -153,6 +153,54 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("NIKNOLIG-Abhängigkeiten im Core", architecture)
         self.assertIn("python3 -m unittest discover -s backend/tests", architecture)
 
+    def test_security_decision_matrix_covers_all_decisions_without_closing_them(self):
+        specification = (
+            BACKEND.parent / "docs/securitychain-p0-specification.md"
+        ).read_text(encoding="utf-8")
+        section = specification.split(
+            "## 10. Offene Entscheidungen und menschliche Freigaben", 1
+        )[1].split("## 11. Versionierung und Änderungssteuerung", 1)[0]
+        rows = [
+            [cell.strip() for cell in line.strip().strip("|").split("|")]
+            for line in section.splitlines()
+            if line.startswith("| D-")
+        ]
+        expected_ids = {f"D-{number:02}" for number in range(1, 13)}
+        self.assertEqual(expected_ids, {row[0] for row in rows})
+        self.assertEqual(len(expected_ids), len(rows))
+        statuses = {
+            "TECHNISCH NACHGEWIESEN",
+            "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "BLOCKIERT / NACHWEIS FEHLT",
+        }
+        for row in rows:
+            with self.subTest(decision=row[0]):
+                self.assertEqual(7, len(row))
+                self.assertIn(row[1], statuses)
+                self.assertTrue(all(row[2:]))
+        self.assertIn(
+            "Keine D-01–D-12-Entscheidung ist durch diese Bestandsprüfung geschlossen.",
+            section,
+        )
+        self.assertIn("BLE bleibt deaktiviert", section)
+        self.assertIn(
+            "eine iOS-Implementierung noch eine Validierung",
+            section,
+        )
+
+    def test_current_android_ble_and_ios_boundaries_are_explicit(self):
+        root = BACKEND.parent
+        for app in ("niknolig", "niknolig-defense"):
+            manifest = (
+                root / "apps" / app / "src/main/AndroidManifest.xml"
+            ).read_text(encoding="utf-8")
+            with self.subTest(app=app):
+                self.assertNotIn("<uses-permission", manifest)
+                self.assertNotIn("BLUETOOTH", manifest.upper())
+        apps = root / "apps"
+        self.assertFalse(list(apps.rglob("*.swift")))
+        self.assertFalse(list(root.rglob("*.xcodeproj")))
+
     @unittest.skipIf(
         Draft202012Validator is None,
         "jsonschema is optional; structural assertions still run",
