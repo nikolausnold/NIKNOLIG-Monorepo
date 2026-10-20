@@ -9,18 +9,26 @@ class AutobuildTests(unittest.TestCase):
     def test_release_only_signs_successful_trusted_main_build_commit(self):
         workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
         for guard in (
-            "workflows: [\"Android apps build\"]",
+            "workflows: [\"Android apps build\", \"Backend contracts and tooling\"]",
             "github.event.workflow_run.conclusion == 'success'",
             "github.event.workflow_run.head_repository.full_name == github.repository",
             "github.event.workflow_run.head_branch == 'main'",
             'fromJSON(\'["push", "schedule", "workflow_dispatch"]\')',
             "ref: ${{ github.event.workflow_run.head_sha || github.sha }}",
+            "actions: read",
+            "for workflow in android-build.yml backend-contracts.yml; do",
+            'run.get("head_sha") == release_sha',
+            'run.get("conclusion") == "success"',
             "environment: android-release",
             "persist-credentials: false",
             "1000 + GITHUB_RUN_NUMBER",
         ):
             with self.subTest(guard=guard):
                 self.assertIn(guard, workflow)
+        self.assertLess(
+            workflow.index("- name: Verify validation results for release commit"),
+            workflow.index("- name: Validate and stage release keystores"),
+        )
         self.assertNotIn("pull_request_target", workflow)
 
     def test_both_apps_keep_local_versions_and_validate_update_versions(self):

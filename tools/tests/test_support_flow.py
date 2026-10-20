@@ -33,6 +33,10 @@ class SupportFlowTests(unittest.TestCase):
             with self.subTest(app=app):
                 main = ROOT / "apps" / app / "src/main"
                 layout = ET.parse(main / "res/layout/activity_support.xml")
+                self.assertEqual(
+                    "true",
+                    layout.getroot().get(ANDROID + "fitsSystemWindows"),
+                )
                 button = next(
                     item for item in layout.iter("Button")
                     if item.get(ANDROID + "id") == "@+id/support_escalate"
