@@ -183,7 +183,10 @@ class BackendContractTests(unittest.TestCase):
             section,
         )
         self.assertIn("BLE bleibt deaktiviert", section)
-        self.assertIn("keine iOS-Implementierung noch eine Validierung", section)
+        self.assertIn(
+            "eine iOS-Implementierung noch eine Validierung",
+            section,
+        )
 
     def test_current_android_ble_and_ios_boundaries_are_explicit(self):
         root = BACKEND.parent
