@@ -1,7 +1,7 @@
 # Android-/iOS-Architektur und Integrationsplan
 
-**Status:** Architektur- und Vertragsplanung. Keine iOS-App, kein neuer
-API-Endpunkt, kein produktiver Backend-Dienst und keine Änderung an den
+**Status:** Architekturplanung und gesperrte KI-Support-Vorbereitung. Keine iOS-App,
+kein freigegebener API-Endpunkt oder produktiver Dienst und keine Änderung an den
 separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein verbindliches
 Stop-Gate.
 
@@ -21,7 +21,7 @@ bleiben in ihrer Zuständigkeit unverändert. Dieses Dokument autorisiert keine
 | `backend/contracts/consent-audit-event-v1.schema.json` | Minimierte Metadaten für Consent-Ereignisse | Keine Nachrichten-, Sensor- oder sonstigen Nutzdaten. |
 | `backend/contracts/sensor-capability-v1.schema.json` und `sensor-summary-v1.schema.json` | Laufzeitfähigkeit und abgeleitete Sensordaten | Deklarative Verträge, keine Sensor-Runtime und keine Übertragungsfreigabe. |
 | `backend/migrations/001_initial_contract.sql` | Vorschlag für App-Bereiche, Installationen und Geräte-Link-Lifecycle | Nicht angewendet; ein Link verleiht keine appübergreifende Aktionserlaubnis. |
-| `backend/tests/test_contracts.py` | Statische Invarianten und optionale JSON-Schema-2020-12-Validierung | Kein Authentifizierungs-, Server-, Plattform- oder Geräteintegrationstest. |
+| `backend/tests/test_contracts.py` | Statische Invarianten und optionale JSON-Schema-2020-12-Validierung | Zusätzliche KI-Mock-/HTTP-Tests sind keine Plattform-/Geräte- oder Produktivabnahme. |
 
 Die Fehlercodes in OpenAPI und ihre HTTP-Zuordnung sind in
 [`backend/README.md`](../backend/README.md) dokumentiert. Das Elektro-Engel-
@@ -37,6 +37,18 @@ Identitäts-/Login-Fluss und Synchronisationsregeln. Diese dürfen erst nach
 fachlicher und Security-Freigabe als neue versionierte Verträge ergänzt werden.
 Elektro-Engel ist aktuell eine NIKNOLIG-Systemfunktion, kein dritter App-Bereich
 und keine eigene Sicherheitsdomäne.
+
+**KI-Support-Vorbereitung:** `backend/ai-support.openapi.yaml` ergänzt separat
+einen standardmäßig gesperrten serverseitigen Support-Vertrag.
+`backend/ai_support.py` bereitet austauschbare Provider, Zugriffskontrolle,
+Limits und Audit für lokale Mock-Tests vor; kein produktiver Identity-Provider
+oder KI-Transport wird aktiviert. `backend/openapi.yaml` bleibt der
+Health-Vertrag. [Backend-Konfiguration, Kosten und Freigabefolge](../backend/README.md#ki-support-vorbereitete-schnittstelle-keine-betriebsfreigabe)
+sind zentral dokumentiert. Die Android-Clients bleiben unverändert lokal;
+separate iOS-Clients werden nicht angelegt. Beide Plattformen benötigen später
+eigene App-Identitäten und Credentials, denselben versionierten Support-Vertrag
+und einen verständlichen Offline-/Nichtverfügbarkeitszustand ohne Auto-Retry
+oder automatische E-Mail-Übermittlung.
 
 ## 2. Gemeinsame Vertrags- und Backend-Architektur
 

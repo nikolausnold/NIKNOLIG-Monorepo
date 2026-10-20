@@ -112,7 +112,11 @@ Builds, Netzwerkzugriffe oder Deployments vor.
 ## Automatische Updates und Autobuild
 
 - Bei Push und Pull Request sowie montags um 04:23 UTC und manuell laufen
-  gemeinsame Vertrags-/Tooltests und der Build beider getrennten Android-Apps.
+  getrennte Workflows: [`Android apps build`](.github/workflows/android-build.yml)
+  baut und prüft ausschließlich die beiden Android-APKs;
+  [`Backend contracts and tooling`](.github/workflows/backend-contracts.yml)
+  führt Backend-Vertrags-/Tooltests und den Systemregister-Check aus. Es gibt
+  derzeit keine Android-Testquellen und kein iOS-Projekt in diesem Repository.
   Der Zeitplan wird erst nach Übernahme auf den Default-Branch aktiv; GitHub
   kann geplante Läufe verzögern oder bei inaktiven öffentlichen Repositories
   deaktivieren.
@@ -126,11 +130,12 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   Änderungen gegenüber den eingetragenen Quellständen; er importiert sie nicht.
   Nicht erreichbare/private Quellen ohne Leserecht lassen die Prüfung
   fehlschlagen, statt vollständige Systemkompatibilität vorzutäuschen.
-- Das Artefakt `mobile-contracts-<Commit-SHA>` enthält dieselben OpenAPI- und
-  JSON-Verträge für Android und spätere iOS-Verbraucher sowie das Systemregister.
-  Neue Repositories müssen ausdrücklich im Register aufgenommen werden.
-  Andere Repositories werden weder verändert noch ferngesteuert gebaut;
-  ein erfolgreicher Monorepo-Build bestätigt nicht deren Builds oder Integration.
+- Das Artefakt `mobile-contracts-<Commit-SHA>` wird vom Backend-Vertragsworkflow
+  veröffentlicht. Es enthält OpenAPI-/JSON-Verträge für Android und spätere
+  iOS-Verbraucher sowie das Systemregister. Neue Repositories müssen ausdrücklich
+  im Register aufgenommen werden. Andere Repositories werden weder verändert
+  noch ferngesteuert gebaut; erfolgreiche Monorepo-Workflows bestätigen nicht
+  deren Builds oder Integration.
 - Nach einem erfolgreichen `main`-Autobuild aus Push, Zeitplan oder manuellem
   Start erzeugt [Preparing release APKs](.github/workflows/android-release.yml)
   automatisch signierte APKs **genau des geprüften Commits**. PR-Builds und

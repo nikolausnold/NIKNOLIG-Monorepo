@@ -10,13 +10,20 @@
         android:orientation="vertical"
         android:padding="@dimen/screen_padding">
 
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="@dimen/space_small"
+            android:contentDescription="@null"
+            android:src="@drawable/niknolig_mark" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:accessibilityHeading="true"
             android:text="@string/learning_profile_title"
             android:textColor="@color/text_primary"
-            android:textSize="28sp"
+            android:textSize="24sp"
             android:textStyle="bold" />
 
         <TextView
@@ -31,7 +38,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_large"
-            android:background="@color/dark_surface"
+            android:background="@drawable/card_surface"
             android:orientation="vertical"
             android:padding="@dimen/card_padding">
 
@@ -57,12 +64,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_small"
+                android:background="@drawable/card_surface"
                 android:gravity="top|start"
                 android:hint="@string/session_summary_hint"
                 android:inputType="textCapSentences|textMultiLine"
                 android:maxLength="500"
                 android:minHeight="96dp"
-                android:padding="@dimen/space_small"
+                android:padding="@dimen/space_medium"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_secondary" />
 
@@ -87,7 +95,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_large"
-            android:background="@color/dark_surface"
+            android:background="@drawable/card_surface"
             android:orientation="vertical"
             android:padding="@dimen/card_padding">
 
@@ -113,7 +121,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_large"
-            android:background="@color/dark_surface"
+            android:background="@drawable/card_surface"
             android:orientation="vertical"
             android:padding="@dimen/card_padding">
 
@@ -139,6 +147,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_medium"
+                android:minHeight="@dimen/touch_target"
                 android:text="@string/learning_opt_in" />
         </LinearLayout>
 
@@ -146,7 +155,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_large"
-            android:background="@color/dark_surface"
+            android:background="@drawable/card_surface"
             android:orientation="vertical"
             android:padding="@dimen/card_padding">
 
@@ -169,18 +178,21 @@
                     android:id="@+id/response_style_concise"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:minHeight="@dimen/touch_target"
                     android:text="@string/response_style_concise" />
 
                 <RadioButton
                     android:id="@+id/response_style_step_by_step"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:minHeight="@dimen/touch_target"
                     android:text="@string/response_style_step_by_step" />
 
                 <RadioButton
                     android:id="@+id/response_style_detailed"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:minHeight="@dimen/touch_target"
                     android:text="@string/response_style_detailed" />
             </RadioGroup>
 
@@ -197,7 +209,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_large"
-            android:background="@color/dark_surface"
+            android:background="@drawable/card_surface"
             android:orientation="vertical"
             android:padding="@dimen/card_padding">
 

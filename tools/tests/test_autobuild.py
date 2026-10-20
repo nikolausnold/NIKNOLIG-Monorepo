@@ -34,7 +34,7 @@ class AutobuildTests(unittest.TestCase):
                 self.assertIn('versionName = updateVersionCode?.let { "0.1.$it" } ?: "0.1.0"', build)
 
     def test_autobuild_checks_tools_and_exports_shared_contracts(self):
-        workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
+        workflow = (ROOT / ".github/workflows/backend-contracts.yml").read_text()
         for check in (
             'cron: "23 4 * * 1"',
             "python3 -m unittest discover -s backend/tests",
@@ -48,6 +48,15 @@ class AutobuildTests(unittest.TestCase):
         ):
             with self.subTest(check=check):
                 self.assertIn(check, workflow)
+
+    def test_android_build_does_not_run_backend_or_tooling_tests(self):
+        for workflow_name in ("android-build.yml", "android-release.yml"):
+            workflow = (ROOT / ".github/workflows" / workflow_name).read_text()
+            with self.subTest(workflow=workflow_name):
+                self.assertNotIn("python3 -m unittest", workflow)
+                self.assertNotIn("tools.system_updates", workflow)
+        build_workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
+        self.assertIn("./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug", build_workflow)
 
 
 if __name__ == "__main__":
