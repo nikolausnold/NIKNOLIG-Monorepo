@@ -110,15 +110,18 @@ Deployment bleiben separat zu konfigurieren und freizugeben.
 
 ## SecurityChain-P0 und Freigabe
 
-Im geprüften Repository liegt keine normative SecurityChain-P0-Fassung mit
-prüfbaren Muss-/Abbruchkriterien. Daher wird keine P0-Konformität behauptet.
+Der Reviewentwurf
+[`docs/securitychain-p0-specification.md`](../docs/securitychain-p0-specification.md)
+fasst vorgeschlagene Muss-/Abbruchkriterien zusammen. Er ist nicht genehmigt
+oder normativ wirksam; daher wird keine P0-Konformität behauptet.
 **Produktive Geräteintegration und die operative API bleiben BLOCKED**, bis
 mindestens die verbindlichen P0-Kriterien, Bedrohungsmodell, Daten-/Aktionsumfang,
 Rollen, Identitäts-/Authentifizierungsverfahren, Transport, Widerruf,
 Aufbewahrung und Abnahmekriterien schriftlich von den Verantwortlichen
 freigegeben und überprüfbar getestet sind. Die SQL-Modelle und zukünftigen
 Routen in dieser Grundlage sind Vorschläge, keine Freigabe dieser offenen
-Entscheidungen. Bei fehlender Prüfung gilt fail closed.
+Entscheidungen. Bei fehlender Prüfung gilt fail closed. Der Reviewentwurf
+überschreibt keine bestehenden Sicherheitsregeln.
 
 ## Integration in den separaten App-Repositories
 
