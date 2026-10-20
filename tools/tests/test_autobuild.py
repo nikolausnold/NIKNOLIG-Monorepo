@@ -17,6 +17,8 @@ class AutobuildTests(unittest.TestCase):
             "ref: ${{ github.event.workflow_run.head_sha || github.sha }}",
             "actions: read",
             "for workflow in android-build.yml backend-contracts.yml; do",
+            'repos/$GITHUB_REPOSITORY/actions/runs"',
+            'run.get("path") == workflow_path',
             'run.get("head_sha") == release_sha',
             'run.get("conclusion") == "success"',
             "environment: android-release",
@@ -25,6 +27,7 @@ class AutobuildTests(unittest.TestCase):
         ):
             with self.subTest(guard=guard):
                 self.assertIn(guard, workflow)
+        self.assertNotIn("/actions/workflows/$workflow/runs", workflow)
         self.assertLess(
             workflow.index("- name: Verify validation results for release commit"),
             workflow.index("- name: Validate and stage release keystores"),
