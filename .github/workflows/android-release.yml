@@ -40,7 +40,7 @@ jobs:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
-          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs" \
+          runs="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs" \
             -f "head_sha=$RELEASE_SHA" -f per_page=100)"
           for workflow in android-build.yml backend-contracts.yml; do
             if ! python3 -c '
