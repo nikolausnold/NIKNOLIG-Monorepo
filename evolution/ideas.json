@@ -86,8 +86,8 @@
         },
         {
           "path": "backend/README.md",
-          "startLine": 178,
-          "endLine": 179,
+          "startLine": 181,
+          "endLine": 182,
           "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und\ndie Health-only-Laufzeit.",
           "state": "verified"
         }

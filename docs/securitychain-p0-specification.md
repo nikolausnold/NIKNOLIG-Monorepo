@@ -309,6 +309,17 @@ Sensorrohwerte oder unnötigen personenbezogenen Inhalte. Zugriff,
 Manipulationsschutz, Aufbewahrung und Löschung der Audit-Daten sind vor
 Inbetriebnahme zu genehmigen.
 
+Für einen ausdrücklich freigegebenen Consent-Audit-Datensatz müssen zusätzlich
+die Pflichtfelder des versionierten Audit-Vertrags erhalten bleiben,
+insbesondere `contractVersion`, `eventId`, `eventType`, `consentId`,
+Akteur-/Zielinstallationsreferenz und App-Bereich, `purposeCode`, `occurredAt`
+und `correlationId` (derzeit
+[`consent-audit-event-v1.schema.json`](../backend/contracts/consent-audit-event-v1.schema.json)).
+Die Freigabe muss deren Identifizierbarkeit, Zugriff und Aufbewahrung bewerten.
+Der Vertrag autorisiert selbst keine Protokollierung; sind Pflichtfelder nicht
+vertretbar, muss der Audit-Vertrag versioniert angepasst werden, bevor er
+verwendet wird. Weitere Nutzdaten oder Freitext bleiben ausgeschlossen.
+
 ### Fehler und Verfügbarkeit
 
 Fehlerantworten MÜSSEN stabilen maschinenlesbaren Codes folgen und dürfen keine
@@ -416,22 +427,25 @@ folgenden Nachweise vorliegen:
 ## 10. Offene Entscheidungen und menschliche Freigaben
 
 Jeder Punkt ist ein Blocker bis zur dokumentierten Entscheidung. Eine
-ausbleibende Antwort ist keine Zustimmung.
+ausbleibende Antwort ist keine Zustimmung. Die Tabelle nennt die erforderliche
+Entscheidungsfunktion, nicht bereits benannte oder zustimmende Personen. Rollen
+müssen für den jeweiligen Scope ausdrücklich besetzt und dokumentiert werden;
+wo mehrere Funktionen betroffen sind, sind alle erforderlichen Freigaben nötig.
 
-| ID | Offene Entscheidung / erforderlicher Nachweis |
-| --- | --- |
-| D-01 | Verbindlicher Produktzweck, Akteure, Datenklassen, erlaubte Aktionen und Datenrichtungen je App. |
-| D-02 | Login-/Identitätsanbieter, Identitätsprüfung, Nutzer-/Adminrollen, MFA-Verfahren und Recovery. |
-| D-03 | Registrierung/Verifikation von App-Installationen, Peer-Vertrauen und Zuordnung zu Nutzerkonto/App-Scope. |
-| D-04 | Geprüftes Authentifizierungs-/Sitzungsprotokoll, Algorithmen/Parameter, Versionierung und Kryptografie-Review. |
-| D-05 | Hardware-Backing/Attestierung, Schlüsselrotation, Ablauf, Recovery, Neuinstallation und Verlust-/Kompromissverfahren. |
-| D-06 | Token-/Sitzungslaufzeiten, Reauthentifizierungsereignisse und messbarer Widerrufs-SLA. |
-| D-07 | Erlaubte Transportoptionen und Plattform-/Gerätematrix. BLE nur mit eigener dokumentierter Freigabe gemäß Abschnitt 6. |
-| D-08 | OS-Mindestversionen, Berechtigungen, Hintergrundverhalten und je App benötigte Hardwarefähigkeiten. |
-| D-09 | Consent-Texte, Dauer, Erneuerung, Widerruf und Löschverhalten je Zweck/Datenklasse. |
-| D-10 | Rechtsgrundlage/Datenschutzverantwortung, Datenregion, Aufbewahrungs- und Löschfristen sowie Audit-Zugriffsrollen. |
-| D-11 | Backend-Betrieb, API-Basis/Trust, Monitoring, Incident-Kontakt, Backup/Restore und Rollback. |
-| D-12 | Unabhängige Prüfer, technische Abnahmeverantwortliche und Release-/Produktverantwortliche je App. |
+| ID | Offene Entscheidung / erforderlicher Nachweis | Erforderliche Entscheidungsfunktion (Person noch zu benennen) |
+| --- | --- | --- |
+| D-01 | Verbindlicher Produktzweck, Akteure, Datenklassen, erlaubte Aktionen und Datenrichtungen je App. | Produktverantwortliche von NIKNOLIG und NIKNOLIG Defense, jeweils nur für ihren Scope |
+| D-02 | Login-/Identitätsanbieter, Identitätsprüfung, Nutzer-/Adminrollen, MFA-Verfahren und Recovery. | Produkt- und Security-Verantwortliche; Identitäts-/Backend-Verantwortliche für die technische Ausgestaltung |
+| D-03 | Registrierung/Verifikation von App-Installationen, Peer-Vertrauen und Zuordnung zu Nutzerkonto/App-Scope. | Security- sowie jeweilige Android-/iOS-/Backend-Verantwortliche |
+| D-04 | Geprüftes Authentifizierungs-/Sitzungsprotokoll, Algorithmen/Parameter, Versionierung und Kryptografie-Review. | Unabhängige Security-Prüfung und technische Verantwortliche der betroffenen Plattformen/des Backends |
+| D-05 | Hardware-Backing/Attestierung, Schlüsselrotation, Ablauf, Recovery, Neuinstallation und Verlust-/Kompromissverfahren. | Security- und jeweilige Plattform-/Identitätsverantwortliche |
+| D-06 | Token-/Sitzungslaufzeiten, Reauthentifizierungsereignisse und messbarer Widerrufs-SLA. | Security-, Identitäts- und Backend-Betriebsverantwortliche |
+| D-07 | Erlaubte Transportoptionen und Plattform-/Gerätematrix. BLE nur mit eigener dokumentierter Freigabe gemäß Abschnitt 6. | Produkt- und Security-Verantwortliche sowie betroffene Plattformverantwortliche; BLE benötigt separate Freigabe |
+| D-08 | OS-Mindestversionen, Berechtigungen, Hintergrundverhalten und je App benötigte Hardwarefähigkeiten. | Jeweilige Android-/iOS- und Produktverantwortliche |
+| D-09 | Consent-Texte, Dauer, Erneuerung, Widerruf und Löschverhalten je Zweck/Datenklasse. | Produkt- und Datenschutzverantwortliche sowie betroffene technische Verantwortliche |
+| D-10 | Rechtsgrundlage/Datenschutzverantwortung, Datenregion, Aufbewahrungs- und Löschfristen sowie Audit-Zugriffsrollen. | Datenschutz-/Rechtsverantwortliche und Backend-Betriebsverantwortliche |
+| D-11 | Backend-Betrieb, API-Basis/Trust, Monitoring, Incident-Kontakt, Backup/Restore und Rollback. | Backend-Betriebs-/Security-Verantwortliche und Produktverantwortliche |
+| D-12 | Unabhängige Prüfer, technische Abnahmeverantwortliche und Release-/Produktverantwortliche je App. | Unabhängige Prüfer sowie jeweilige Produkt-, Plattform- und Release-Verantwortliche |
 
 Vor einer späteren Verbindlichkeit sind mindestens zu dokumentieren: Freigabe
 des NIKNOLIG-Produktverantwortlichen, des NIKNOLIG-Defense-Verantwortlichen für
