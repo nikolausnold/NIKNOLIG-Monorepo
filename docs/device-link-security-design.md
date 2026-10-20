@@ -20,9 +20,10 @@ Wiederverbindungsimplementierung nach.
 ## 2. Vor Implementierungsbeginn erforderliche Freigaben
 
 1. Die verbindliche SecurityChain-P0-Version und ihre Muss-/Abbruchkriterien
-   müssen als freigegebener Nachweis vorliegen. In den derzeit geprüften
-   Repository-Dateien ist keine konkrete SecurityChain-P0-Spezifikation
-   dokumentiert. Bei fehlender oder nicht erfüllter Vorgabe gilt **fail closed**.
+   müssen als freigegebener Nachweis vorliegen. Der neue
+   [SecurityChain-P0-Reviewentwurf](securitychain-p0-specification.md) ist noch
+   nicht genehmigt und kein Freigabenachweis. Bei fehlender oder nicht erfüllter
+   Vorgabe gilt **fail closed**.
 2. Fachverantwortliche müssen Zweck, zulässige Daten, erlaubte Aktionen,
    Rollen beider Geräte, Nutzerzustimmung, Widerruf, Offlineverhalten und
    Aufbewahrung freigeben. Defense erhält keine Rechte über einen pauschalen
