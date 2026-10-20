@@ -40,10 +40,12 @@ keine Rechte.
 
 Der Repository-Bestand ist kein produktives Sicherheitssystem: Die Android-Apps
 haben keine Geräteverbindung oder Pairing-Laufzeit; iOS-Apps sind nicht
-vorhanden. Das Backend ist derzeit eine lokale Health-Laufzeit mit
-deklarativen Vertragsentwürfen; produktive Login-, Geräte-, Pairing- und
-Produkt-APIs existieren nicht. Ein gültiges Schema, erfolgreicher Build oder
-lokaler Test belegt weder P0-Konformität noch eine Sicherheitsfreigabe.
+vorhanden. Das Backend bietet lokal Health-Routen und den standardmäßig
+gesperrten `POST /v1/ai/support`-Testendpunkt; lokale Tests prüfen Mock-Erfolg,
+Zugriffskontrolle und standardmäßige Sperre. Produktive Login-, Geräte-,
+Pairing- und Produkt-APIs existieren nicht. Eine vorhandene API-Fläche oder ein
+lokaler Test belegt weder Betriebsfreigabe noch P0-Konformität oder eine
+Sicherheitsfreigabe.
 
 ## 2. Threat Model und Vertrauensgrenzen
 
@@ -238,11 +240,14 @@ Autorisierung und darf nicht als vorhandene Fähigkeit vorausgesetzt werden.
   Recovery MUSS die Installation gesperrt, die betroffene Sitzung beendet und
   das zugehörige Credential/Peer-Pairing widerrufen werden. Recovery darf
   Identitätsprüfung, App-Scope, MFA oder Zustimmung nicht herabstufen.
-- Erneute Authentifizierung und Autorisierungsprüfung sind mindestens nach
+- Vor der Ausführung jeder sensiblen Aktion MUSS eine erneute Authentifizierung
+  erfolgen. Eine bestehende Sitzung oder ein vorheriger Consent darf diese
+  Prüfung nicht überspringen.
+- Erneute Authentifizierung und Autorisierungsprüfung sind zusätzlich nach
   Ablauf, Wiederverbindung, Prozess-/App-Neustart, Geräte-/Schlüsselwechsel,
-  Scope-Wechsel, Widerruf, sensibler Aktion und sicherheitsrelevantem
-  Berechtigungswechsel erforderlich. Eine bestehende Sitzung oder ein
-  vorheriger Consent darf diese Prüfungen nicht überspringen.
+  Scope-Wechsel, Widerruf und sicherheitsrelevantem Berechtigungswechsel
+  erforderlich. Diese Lebenszyklusprüfungen ersetzen nicht die Prüfung vor
+  einer sensiblen Aktion.
 - Widerrufsverteilung, maximale Durchsetzungsverzögerung, Offline-Verhalten und
   Recovery-Freigabe sind **OFFEN**. Ohne erreichbare und gültige
   Widerrufsentscheidung dürfen keine neuen sensiblen Aktionen ausgeführt
@@ -323,7 +328,7 @@ Schreib-, Geräte- oder Sensoraktionen.
 | **Android – NIKNOLIG** | Eigene App-/Installationsidentität, OS-geschützte Schlüssel und eigene Credentials. Nur einzeln genehmigte Manifest-/Laufzeitrechte; Zustimmung und Permission bei Zweck-/Zielwechsel erneut prüfen. Defense-Daten und -Credentials bleiben unzugänglich. |
 | **Android – NIKNOLIG Defense** | Vollständig eigener Authentifizierungs-, Schlüssel-, Consent-, Release- und Audit-Scope. Kein NIKNOLIG-Token, Schlüssel, Shared-Preferences, impliziter Link oder Elektro-Engel-Recht. Berechtigungen und Aktionen sind unabhängig zu genehmigen. |
 | **iOS – NIKNOLIG und künftig Defense** | Keine bestehende iOS-Runtime voraussetzen. Jede künftige App erhält eigene Bundle-/App-Identität, Credentials, Keychain/Secure-Enclave-Integration, Berechtigungsdialoge, Consent, Release- und Testfreigabe. Getrennte Apps teilen weder Schlüssel noch Sitzungen. Plattformparität ist durch dieselben versionierten Verträge und Negativfälle zu belegen. |
-| **Backend** | Der aktuelle Health-only-Stand ist kein Produktiv-API- oder Auth-System. Vor Betrieb: versionierte API, TLS-/Vertrauensregeln, serverseitige Autorisierung je Operation, token- und install-scope, Widerruf, Rate-/Payload-Limits, minimiertes Audit, sichere Fehler und Betriebs-/Incident-Verantwortung freigeben. Keine App erhält Datenbankzugriff. |
+| **Backend** | Lokal existieren Health-Routen und der standardmäßig gesperrte `POST /v1/ai/support`-Testendpunkt; Tests verwenden lokale Mocks. Das ist keine Betriebsfreigabe und kein Produktiv-API- oder Auth-System. Vor Betrieb: versionierte API, TLS-/Vertrauensregeln, serverseitige Autorisierung je Operation, token- und install-scope, Widerruf, Rate-/Payload-Limits, minimiertes Audit, sichere Fehler und Betriebs-/Incident-Verantwortung freigeben. Keine App erhält Datenbankzugriff. |
 | **NIKNOLIG Defense (Produkt-/Sicherheitsdomäne)** | Keine impliziten Rechte aus NIKNOLIG, gemeinsamem Backend, Person, Gerät, Link oder Core. Jede bereichsübergreifende Daten- oder Aktionsbeziehung benötigt einen ausdrücklich genehmigten Zweck, beide betroffenen App-Scopes und unabhängige Tests; andernfalls ist sie ausgeschlossen. |
 
 Für iOS gibt es derzeit weder App noch Implementierung. Für beide Android-Apps
@@ -338,7 +343,15 @@ Testidentitäten. Keine produktiven Schlüssel, Tokens, Nutzerdaten oder
 kostenpflichtigen Dienste. Testnachweise werden Build/Commit, Vertragsversion,
 Geräte-/OS-Version und Prüfer zugeordnet und redigiert aufbewahrt.
 
-### Automatisierte Prüfungen – Pflicht vor jeder Implementierungsfreigabe
+### Vorgelagerte Freigabe von Spezifikation und Testplan
+
+Vor Implementierungsbeginn müssen die konkrete Spezifikationsversion und der
+dazugehörige Testplan geprüft und schriftlich freigegeben sein. Dafür sind keine
+bestandenen Implementierungs- oder Gerätetests vorausgesetzt. Das bestehende
+P0-Stop-Gate bleibt bis zu dieser Freigabe und den weiteren offenen
+Produkt-/Sicherheitsentscheidungen bestehen.
+
+### Automatisierte Prüfungen – Nach Implementierung als Nachweis für P0-Konformität
 
 1. **Verträge und Versionen:** Gemeinsame gültige/ungültige Fixtures gegen
    Backend, Android und iOS; unbekannte kritische Versionen/Felder,
@@ -359,6 +372,10 @@ Geräte-/OS-Version und Prüfer zugeordnet und redigiert aufbewahrt.
 6. **Grenzen:** Je App isolierte Credentials/Sandboxes und gezielte
    Cross-App-Negativtests. Keine automatisierte Prüfung darf geheime oder
    produktive Credentials benötigen.
+
+Diese Prüfungen und die nachfolgende Plattform-/Geräteabnahme sind Nachweise
+für P0-Konformität und Voraussetzung für Produkt-/Releasefreigabe; sie sind
+keine Voraussetzung für den vorgelagerten Implementierungsbeginn.
 
 ### Plattform- und physische Abnahme
 
