@@ -20,5 +20,8 @@
         <activity
             android:name=".AssistantActivity"
             android:exported="false" />
+        <activity
+            android:name=".SupportActivity"
+            android:exported="false" />
     </application>
 </manifest>

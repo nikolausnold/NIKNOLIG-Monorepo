@@ -1,10 +1,10 @@
 # Gemeinsame Backend-Grundlage
 
-**Status: Health-only-Laufzeit und Verträge, lokal isoliert, nicht produktionsfreigegeben.**
+**Status: Health-Laufzeit und gesperrte KI-Support-Vorbereitung, lokal, nicht produktionsfreigegeben.**
 
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
-Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt ausschließlich
-nicht-sensitive Health-Routen bereit; Produkt-, Authentifizierungs-, Geräte- und
+Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt Health-Routen
+und einen standardmäßig gesperrten KI-Support-Testendpunkt bereit. Login-, Geräte-,
 Pairing-APIs, App-Clients, produktive Endpunkte und eine Cloudflare-/Deployment-
 Konfiguration existieren nicht. NIKNOLIG und NIKNOLIG Defense bleiben getrennte
 Sicherheits- und Release-Domänen; gemeinsame Verträge verleihen keine Rechte.
@@ -15,7 +15,7 @@ Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 - [`openapi.yaml`](openapi.yaml): OpenAPI 3.1-Vertrag für nicht-sensitive
   Liveness-/Readiness-Prüfungen und einheitliche Fehlerantworten. Es sind bewusst
   noch keine operativen Geräte-, Profil- oder Pairing-Endpunkte freigegeben.
-- [`app.py`](app.py): lokale Health-only-HTTP-Laufzeit ohne externe
+- [`app.py`](app.py): lokale Health-/KI-Vorbereitungs-Laufzeit ohne externe
   Python-Abhängigkeiten. Sie ist kein produktionsgeeigneter API-Server.
 - [`migrations/001_initial_contract.sql`](migrations/001_initial_contract.sql):
   vorgeschlagenes relationales Modell für App-Bereiche, Installationen,
@@ -102,7 +102,7 @@ Die Standardbindung ist `127.0.0.1:8000`. `BACKEND_HOST` und `BACKEND_PORT`
 können als Umgebungsvariablen gesetzt werden. Die Anwendung lädt `.env` nicht
 automatisch. `/health/live` und `/health/ready` liefern die vereinbarten
 Statusantworten; andere GET-Pfade geben eine generische 404-Antwort zurück.
-Es gibt keine Anmeldung, Datenbankverbindung, Gerätefunktion oder Produkt-API.
+Es gibt keine Anmeldung, Datenbankverbindung, Gerätefunktion oder freigegebene Produkt-API.
 Die Standardbibliotheks-HTTP-Laufzeit ist nur für lokale Entwicklung und
 Vertragstests gedacht: nicht öffentlich exponieren oder als produktiven
 Internetserver verwenden. Serverplattform, TLS, Authentifizierung, Betrieb und
@@ -138,11 +138,46 @@ diesem lokalen Compose-Setup als Produktionskonfiguration übernommen werden.
 Keine App-Repositories, URLs, Berechtigungen, Abhängigkeiten oder Workflows
 werden durch dieses Monorepo automatisch geändert.
 
+## Hetzner-Verbindung: offene Voraussetzungen
+
+In diesem Repository gibt es weder eine bestätigte Hetzner-Adresse noch
+DNS-/TLS-Konfiguration, einen produktiv betriebenen API-Endpunkt oder Android-
+API-Clients. Die Health-only-Laufzeit oben ist lokal und kein Serverziel für
+Apps. Deshalb sind weder eine Basis-URL noch Zugangsdaten, Netzwerkrechte oder
+produktive HTTP-Aufrufe hinterlegt. Eine Adresse oder ein Endpunkt wird nicht
+angenommen oder erfunden.
+
+Vor einer Android-Verbindung müssen die Verantwortlichen mindestens liefern und
+freigeben:
+
+1. Die kanonische HTTPS-Basis-URL des Hetzner-Servers, verwaltete DNS-Auflösung,
+   TLS-Zertifikatskette/-Erneuerung und die festgelegten Client-
+   Vertrauensregeln; kein HTTP-Fallback.
+2. Eine bereitgestellte, versionierte Produkt-API mit freigegebenen OpenAPI-
+   Operationen, Datenumfang und Fehlerantworten. Die vorhandenen Health-Routen
+   implementieren keine Produktfunktion.
+3. Die normative SecurityChain-P0-Fassung, Bedrohungsmodell und schriftliche
+   Produkt-/Security-Freigabe, einschließlich App-Bereich, Nutzer-/Installations-
+   Identität, widerrufbarer Token-Ausgabe/-Erneuerung und Schlüsselrichtlinie.
+4. Einen freigegebenen Test-/Staging-Endpunkt und nicht-produktive Testidentitäten
+   für Negativ-, Ablauf-, Widerrufs-, TLS- und Timeouttests; keine produktiven
+   Tokens in Builds oder Tests.
+5. Pro Android-App die genehmigte, zur Build-Variante passende Serveradresse,
+   Token-Bezugs-/Speicherregeln (OS-geschützt und getrennt je App) sowie
+   verbindliche Verbindungs-/Lese-Timeoutwerte und Abbruch-/Fehlerverhalten.
+6. Betriebsverantwortung beim Serverbetreiber: Deployment-/Rollbackverfahren,
+   Monitoring, Zertifikats- und Schlüsselrotation sowie erreichbarer
+   Incident-Kontakt.
+
+Erst danach können die Apps unabhängig und gegen den freigegebenen Vertrag
+integriert und getestet werden. Bis dahin bleibt die Verbindung fail closed;
+es wird kein Serverzugriff vorgetäuscht.
+
 ## Verifikation und nächste Schritte
 
 `python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und
-die Health-only-Laufzeit. Sofern Docker Compose installiert ist, kann die lokale
-Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:
+die Health-only-Laufzeit. Zusätzlich werden KI-Mocks geprüft. Die lokale
+Compose-Konfiguration kann mit diesem Platzhalter syntaktisch geprüft werden:
 
 ```sh
 POSTGRES_PASSWORD=local-only-check docker compose \
@@ -172,3 +207,194 @@ abgleichen; Identitätsanbieter, Schlüsselrichtlinie, Serverplattform und
 Betriebsverantwortung auswählen; dann OpenAPI/Schema versionieren und
 Implementierung, Negativtests und unabhängige Sicherheitsprüfung freigeben.
 Bei nicht abgedeckten Sicherheitsentscheidungen hier anhalten.
+
+## KI-Support: vorbereitete Schnittstelle, keine Betriebsfreigabe
+
+`ai_support.py` trennt die Provider-Schnittstelle vom lokalen HTTP-Endpunkt
+`POST /v1/ai/support` und von Authentifizierung, Autorisierung und Kontingenten.
+Der separate Vertrag `ai-support.openapi.yaml` ist eine lokale Vorbereitung,
+kein veröffentlichter Dienst. `openapi.yaml` bleibt der unveränderte
+Health-Vertrag. Der Standardstart aktiviert keinen Provider; Umgebungsvariablen
+können weder einen Provider noch einen kostenpflichtigen Dienst freischalten.
+Tests injizieren ausschließlich lokale Mocks. Es gibt keine echten
+Provider-Aufrufe, neuen Tokens, Konten, Deployments oder Abonnements.
+
+### Architektur und Sicherheitsgrenzen
+
+- Ein gemeinsames Provider-Protokoll erlaubt später den Austausch des Anbieters,
+  ohne einen Provider-Schlüssel oder dessen SDK in die Apps aufzunehmen.
+- Der vorbereitete Cloudflare-Adapter verwendet ausschließlich einen injizierten
+  Transport. Ein authentifizierter Netzwerktransport wird **nicht** mitgeliefert.
+  Anbieter, Modell und Provider-Ziel sind keine frei wählbaren Request-Felder.
+- Der Authenticator muss eine serverseitig verifizierte, aktive, nicht
+  abgelaufene Identität mit App-Bereich und minimalen Berechtigungen liefern.
+  Der Standard verweigert Zugriff; Test-Authentifizierung ist kein Login-System
+  und darf nicht als Produktivauthentifizierung übernommen werden.
+- NIKNOLIG und Defense haben getrennte Autorisierung und Kontingente.
+  Elektro-Engel ist eine Funktion innerhalb von `niknolig`, kein dritter
+  App-Bereich und kein Weg zu Defense-Rechten.
+- Anbieter- und Kostenfreigabe sind getrennte Gates. Offline-Modus und Kill
+  Switch sperren neue Aufrufe. Ein Kill Switch kann bereits beim Anbieter
+  laufende Verarbeitung nicht rückwirkend ungeschehen machen.
+- Größenbegrenzungen, Output-Limit, begrenzte Aufrufe und vorab reservierte
+  Tokenkontingente begrenzen Missbrauch. Fehlgeschlagene beziehungsweise unklare
+  Provider-Aufrufe dürfen kein unbegrenztes kostenloses Wiederholen ermöglichen.
+- Audit-Ereignisse enthalten nur minimierte Betriebsmetadaten; keine Prompts,
+  Antworten, Bearer-Tokens, Profile oder E-Mail-Adressen. Ein ausgefallener
+  verpflichtender Audit-Sink darf keine neuen Provider-Aufrufe erlauben.
+- Modelltext ist nicht vertrauenswürdig: als reiner Text anzeigen, keine
+  HTML-Ausführung, Tools, Steuerbefehle, Berechtigungsentscheidungen oder
+  autonome Aktionen daraus ableiten.
+
+Die lokalen In-Memory-Limits und Mock-Audits sind **kein verteilter, persistenter
+Abrechnungsschutz**: Neustarts und weitere Instanzen erfordern vor Freigabe
+einen atomaren, gemeinsamen Kontingentspeicher, persistente Tages-/Monatsbudgets,
+Audit-Retention und überwachte Betriebsgrenzen. Token sind nicht pauschal
+Neurons oder USD. Ein Modellwechsel verlangt neue Preis-/Budgetprüfung.
+Der Standardbibliotheksserver ist kein produktionsfähiger Internetserver.
+
+Konfiguration erfolgt derzeit nur durch explizite Python-Abhängigkeitsinjektion
+im lokalen Testaufbau, nicht durch ein Dashboard oder einen aktivierbaren
+Produktionsschalter:
+
+| Baustein | Lokale Konfiguration / Grenze |
+| --- | --- |
+| `RuntimeControls` | `enabled`, `provider_approved`, `cost_approved` müssen wahr sein; `offline` oder `killed` sperren; Standard verweigert |
+| `Authenticator` / `Principal` | Verifizierter `subject`, `app`, `permissions`, Ablaufzeit und aktiver Status; `ai:support` bzw. `ai:electro-engel` separat |
+| `Provider` / `CloudflareWorkersAI` | Austauschbares `generate`-Protokoll; Cloudflare nur mit injiziertem `WorkersAITransport`, ohne mitgelieferten Netzwerkzugang |
+| `AuditSink` | Verpflichtender injizierter Metadaten-Sink; Standard nicht verfügbar und damit sperrend |
+| `Limits` / `QuotaStore` / `LocalQuotas` | Austauschbarer Kontingentspeicher; lokal Standard 5 Aufrufe je Minute/Principal/App, 20.000 reservierte Tokens und 50 Aufrufe je App/UTC-Tag, global 80/Tag, 2 gleichzeitige Aufrufe; maximal 1.024 aktive Principal-Einträge |
+| Größen / Timeout | Maximal 2.048 UTF-8-Bytes Prompt, 1.024 UTF-8-Bytes Antwort, 256 Output-Tokens; HTTP-Body maximal 8.192 Bytes mit 2 Sekunden Lesefrist; Adapter fordert 5 Sekunden Transporttimeout an |
+
+Der Input wird konservativ nach UTF-8-Bytes einschließlich Systemtext und
+Framing reserviert, nicht nach der unsicheren Faustregel „vier Zeichen je
+Token“. Lokale Limits sind Test-/Vorbereitungswerte und **keine genehmigten
+Produktionsbudgets**. Der injizierte echte Transport muss Timeout,
+Antwortgrößen, festen Provider-Host und Abbruch später selbst erzwingen; der
+Protokollparameter allein unterbricht keinen beliebigen blockierenden Code.
+Lokale Audit-Ereignisse erfassen akzeptierte Reservierungen, Provider-Ergebnisse
+und nachträgliche Gate-Sperren. Frühe Ablehnungen wegen Authentifizierung,
+Validierung, Autorisierung, Rate/Budget oder anfänglicher Deaktivierung sind
+noch nicht im Audit erfasst. Das ist keine vollständige produktive
+Security-Überwachung. Vor Freigabe sind diese Ablehnungen, Proxy-/WAF-Signale
+und Manipulationsschutz ohne Inhalte/Secrets verbindlich festzulegen.
+
+### Cloudflare Workers AI: bevorzugter Kandidat, noch nicht freigegeben
+
+Workers AI passt als austauschbarer serverseitiger Textprovider. Zwei spätere
+Betriebsvarianten sind zu unterscheiden:
+
+| Variante | Benötigt nach ausdrücklicher Freigabe | Nicht in dieser Änderung |
+| --- | --- | --- |
+| Bestehendes Python-Backend → Workers AI REST | Cloudflare-Konto, Account-ID, accountbeschränkter API-Token mit Workers AI Read/Edit, serverseitiger Secret Store, fester HTTPS-Transport mit Timeout und ohne Redirects | Kein Token erstellt, kein echter Transport oder REST-Aufruf |
+| Separater Cloudflare Worker mit AI-Binding | Freigegebener Worker und `AI`-Binding; Modellaufruf serverseitig über `env.AI.run` ohne Provider-Token im Mobilclient | Kein Worker-Gerüst, Binding, Wrangler-Deployment oder Dienst aktiviert |
+
+Ein neuer Worker ist keine Voraussetzung für die Vorbereitung des vorhandenen
+Python-Backends. Authentifizierung, atomare Limits und Audit gelten für beide
+Varianten. Cloudflare-Konto/Account-ID beweisen nicht die Identität eines
+App-Nutzers. Nötig bleibt ein eigener freigegebener Identity-Provider mit
+Aussteller-/Audience-Prüfung, kurzen Laufzeiten und Widerruf.
+
+Datenschutzfreigabe muss Datenarten, Einwilligung/Rechtsgrundlage, Region,
+Auftragsverarbeitung, Modelllizenz und Löschfristen festlegen. Cloudflare
+beschreibt für normale zustandslose Workers-AI-Inferenz keine Nutzung der
+Inhalte zum Training und keine dauerhafte Inhaltsaufbewahrung; Ausnahmen für
+gesetzliche Pflichten und zustandsbehaftete Funktionen bleiben bestehen.
+AI-Gateway-Logging/Caching, eigene Logs und Speicher können Inhalte gesondert
+speichern und bleiben ohne gesonderte Freigabe aus.
+
+### Kosten: Quellenstand 19.10.2026, USD
+
+Offizielle Dokumentation wurde aus dem öffentlichen Repository
+[`cloudflare/cloudflare-docs`](https://github.com/cloudflare/cloudflare-docs)
+gelesen, da die direkte Dokumentationsdomain in dieser Umgebung nicht
+auflösbar war. Dies ist eine Tarifrecherche, kein Zugriff auf ein Betreiberkonto
+oder eine Rechnung. Preise können sich ändern; vor Freigabe erneut bestätigen.
+
+| Posten | Verifizierter veröffentlichter Tarif | Bedeutung |
+| --- | --- | --- |
+| Workers AI Free | 10.000 Neurons pro Tag ohne Gebühr; Reset 00:00 UTC | Keine Übertragung ungenutzter Tagesfreimengen; Konto-Freimenge nicht pro App einplanen |
+| Workers AI Paid | 0,011 USD je 1.000 Neurons oberhalb der täglichen Freimenge | Paid-Plan für Überschreitung erforderlich; manche Modelle benötigen gesondert eine Zahlungsmethode |
+| Modellbeispiel `@cf/meta/llama-3.1-8b-instruct-fp8-fast` | 0,045 USD/Million Input-Tokens; 0,384 USD/Million Output-Tokens | Nur Rechenbeispiel, keine Modellfreigabe oder Qualitätszusage |
+| Workers Paid | Mindestens 5 USD/Monat je Account | Zusätzlich zur KI-Nutzung; kein neues Abonnement abgeschlossen |
+| Worker Standard Requests/CPU | 10 Mio. Requests und 30 Mio. CPU-ms/Monat enthalten; danach 0,30 USD/Mio. Requests und 0,02 USD/Mio. CPU-ms | Nur relevant bei gewähltem Worker-Betrieb; Logs/Speicher/andere Dienste separat kalkulieren |
+
+Beispiel ohne Freimengenabzug: 1.000 Anfragen mit jeweils 1.000 Input- und
+300 Output-Tokens beim genannten Beispielmodell ergeben rechnerisch
+0,045 + 0,1152 = **0,1602 USD reine Inferenz**. Das ist keine Gesamtrechnung:
+Tagesverteilung, tatsächliche Tokens, Neuronabrechnung, Grundgebühren,
+Betriebsdienste, Steuern und Währungsumrechnung sind zusätzlich zu beachten.
+Die Tagesfreimenge darf nicht als garantiertes kostenloses Produktionsbudget
+verstanden werden.
+
+**Durch diese Vorbereitung verursachte Provider-Nutzung: 0 Aufrufe,
+0 neu aktivierte kostenpflichtige Dienste, 0 USD neue Inferenzkosten.**
+Bestehende Betreiberkosten sind ohne Konto-/Rechnungszugriff unbekannt; sie
+werden nicht als null behauptet. Betreiber muss ein konkretes Tages- und
+Monatsbudget in Währung sowie Schwellen/Abbruchregeln ausdrücklich genehmigen.
+Billing-Alarme allein ersetzen keine harte Anwendungssperre.
+
+Quellen und abgerufene Datei-SHAs:
+
+- [Workers AI Pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/),
+  [Quelldatei](https://github.com/cloudflare/cloudflare-docs/blob/main/src/content/docs/workers-ai/platform/pricing.mdx),
+  `2c2059a4388ff25082f590e1430adad229a16d90`.
+- [Workers Pricing](https://developers.cloudflare.com/workers/platform/pricing/),
+  [Quelldatei](https://github.com/cloudflare/cloudflare-docs/blob/main/src/content/docs/workers/platform/pricing.mdx),
+  `c512de77f0f3af922f568949feb67d5a40a3e56a`.
+- [REST-Voraussetzungen](https://developers.cloudflare.com/workers-ai/get-started/rest-api/),
+  `d686c618f11ab679ce6d6404d634022a515a1f18`;
+  [AI-Binding](https://developers.cloudflare.com/workers-ai/configuration/bindings/),
+  `51750be8e394b6810f6845ed2b22d2356ebc5647`.
+- [Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/),
+  `8e6772ef74d2c123213f42954fa056026476efdb`.
+
+### Konten, Konfiguration und Freigabefolge
+
+1. Betreiber prüft vorhandenes [Cloudflare-Konto](https://dash.cloudflare.com/)
+   und [Workers-AI-Bereich](https://dash.cloudflare.com/?to=/:account/ai/workers-ai),
+   ohne jetzt Tarif, Credits oder Modelle zu aktivieren. Ein Apple- oder
+   Google-Konto ist für die serverseitigen Mock-Tests nicht erforderlich.
+2. Anbieter, konkrete Modellversion, Lizenz/Datenschutz und Datenfluss
+   schriftlich genehmigen. Kosten separat mit Preisstand, Tages-/Monatslimit,
+   verantwortlicher Person und Abbruchverfahren genehmigen.
+3. Serverhosting/TLS, Identity-Provider, getrennte App-Audiences/Berechtigungen,
+   Secret Store, verteilte Kontingente und verpflichtenden Audit-Sink freigeben.
+   Die Test-Injektionen ersetzen keine dieser Betriebsentscheidungen.
+4. Erst nach dieser Freigabe den echten Transport implementieren und prüfen;
+   Account-ID, Secret-Referenz oder Binding, Modell-Allowlist, Timeout,
+   Payload-/Output-Grenzen, Rate Limits und Budget explizit konfigurieren.
+   Keine Secrets in Git, Apps, URLs oder Logs. Keine globale Admin-Berechtigung.
+5. Kill Switch und Offline-Verhalten testen; Last-/Negativtests zunächst mit
+   Mock. Echte kostenpflichtige Smoke-Tests nur nach zusätzlicher ausdrücklicher
+   Ausgabenfreigabe, niemals automatisch in CI.
+6. P0-/Security-/Produktabnahme abschließen, danach kontrollierten Rollout und
+   Monitoring erlauben. Rücknahme: neue Aufrufe sperren, Provider-Zugang
+   widerrufen, unbekannte In-Flight-Kosten konservativ verbuchen.
+
+### Android, iOS und Offline-Fallback
+
+Android behält zwei getrennte Module, Installationen und später eigene
+API-Clients/Anmeldedaten. Die vorhandene `SupportActivity` ist weiterhin lokal
+und wird hier **nicht** mit dem Backend verbunden; keine Netzwerkberechtigung
+wird hinzugefügt. Elektro-Engel verwendet später ausschließlich explizite
+NIKNOLIG-Berechtigungen.
+
+Es gibt in diesem Monorepo keine iOS-Implementierung. Die separat geplanten
+iOS-Apps konsumieren später denselben Support-Vertrag, aber mit eigenen
+Bundle-IDs, App-Audiences und Keychain-Zugangsdaten. Keine gemeinsamen Android-
+Tokens, kein iOS-Scaffolding, keine Freigabe von App-Store-/Apple-Diensten.
+Siehe [plattformübergreifende Architektur](../docs/mobile-cross-platform-architecture.md).
+
+Bei offline/gesperrt/nicht freigegeben/Timeout/Anbieterausfall muss der Client
+verständlich „KI-Unterstützung derzeit nicht verfügbar“ anzeigen. Keine erfundene
+Antwort, keine Offline-Warteschlange oder automatischen Wiederholungen.
+Eine unklare Modellantwort ist kein Beweis für Lösung oder Sicherheit.
+`escalationRequired=false` bedeutet nur, dass kein technischer Eskalationsgrund
+erkannt wurde, nicht „gelöst“ oder „hilfreich“. Eine semantische Erkennung
+„KI weiß nicht weiter“ ist noch nicht implementiert; eine Nutzeroption für
+ungelöste Fälle bleibt vor der mobilen Integration festzulegen.
+Persönliche Hilfe bleibt eine bewusste Eskalation mit Empfänger-/Datenprüfung;
+kein automatischer E-Mail-Versand und kein ungefragtes Mitsenden von Verlauf,
+Profilen oder sensiblen Daten. Verfügbarkeits- und Kostenfehler sind kein Anlass,
+Authentifizierung oder Berechtigungen zu umgehen.

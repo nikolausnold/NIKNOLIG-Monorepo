@@ -1,12 +1,51 @@
+from email.message import Message
 import json
 import os
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import uuid4
+
+from ai_support import SupportService, error_response
+
+
+MAX_SUPPORT_BODY_BYTES = 8192
+SUPPORT_READ_TIMEOUT_SECONDS = 2.0
+
+
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate JSON field")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value):
+    raise ValueError("Non-JSON constant")
+
+
+def _is_supported_content_type(value):
+    parsed = Message()
+    parsed["Content-Type"] = value
+    params = parsed.get_params()
+    if (parsed.get_content_type() != "application/json" or not params or
+            params[0][0].lower() != "application/json"):
+        return False
+    parameters = params[1:]
+    return (not parameters or
+            len(parameters) == 1 and parameters[0][0].lower() == "charset" and
+            isinstance(parameters[0][1], str) and
+            parameters[0][1].lower() == "utf-8")
 
 
 class HealthHandler(BaseHTTPRequestHandler):
     server_version = "NIKNOLIGBackend"
     sys_version = ""
+
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(SUPPORT_READ_TIMEOUT_SECONDS)
 
     def do_GET(self):
         path = self.path.partition("?")[0]
@@ -26,6 +65,62 @@ class HealthHandler(BaseHTTPRequestHandler):
                 },
             )
 
+    def do_POST(self):
+        self.close_connection = True
+        if self.path != "/v1/ai/support":
+            self._send_json(*error_response(404, "NOT_FOUND"))
+            return
+        lengths = self.headers.get_all("Content-Length", [])
+        if (self.headers.get_all("Transfer-Encoding") or len(lengths) != 1 or
+                not lengths[0].isascii() or not lengths[0].isdigit() or
+                len(lengths[0]) > 8 or
+                len(self.headers.get_all("Authorization", [])) > 1 or
+                len(self.headers.get_all("Content-Type", [])) != 1 or
+                not _is_supported_content_type(self.headers["Content-Type"]) or
+                self.headers.get_all("Content-Encoding")):
+            self._send_json(*error_response(400, "VALIDATION_FAILED"))
+            return
+        length = int(lengths[0])
+        if length > MAX_SUPPORT_BODY_BYTES:
+            self._send_json(*error_response(413, "PAYLOAD_TOO_LARGE"))
+            return
+        try:
+            deadline = time.monotonic() + SUPPORT_READ_TIMEOUT_SECONDS
+            chunks, remaining = [], length
+            while remaining:
+                timeout = deadline - time.monotonic()
+                if timeout <= 0:
+                    raise TimeoutError("Body deadline expired")
+                self.connection.settimeout(timeout)
+                chunk = self.rfile.read1(remaining)
+                if not chunk:
+                    raise ValueError("Incomplete body")
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+            payload = json.loads(
+                raw.decode("utf-8"),
+                object_pairs_hook=_unique_json_object,
+                parse_constant=_reject_json_constant,
+            )
+            if type(payload) is not dict:
+                raise ValueError("JSON object required")
+        except TimeoutError:
+            self._send_json(*error_response(408, "REQUEST_TIMEOUT"))
+            return
+        except (ValueError, UnicodeError, RecursionError):
+            self._send_json(*error_response(400, "VALIDATION_FAILED"))
+            return
+        finally:
+            self.connection.settimeout(SUPPORT_READ_TIMEOUT_SECONDS)
+        try:
+            response = self.server.support_service.handle(
+                self.headers.get("Authorization"), payload
+            )
+        except Exception:
+            response = error_response(503, "SERVICE_UNAVAILABLE", escalate=True)
+        self._send_json(*response)
+
     def _send_json(self, status, body):
         encoded = json.dumps(body, separators=(",", ":")).encode("utf-8")
         self.send_response(status)
@@ -40,8 +135,10 @@ class HealthHandler(BaseHTTPRequestHandler):
         return
 
 
-def create_server(host, port):
+def create_server(host, port, *, support_service=None):
     server = ThreadingHTTPServer((host, port), HealthHandler)
+    # Injection is for local preparation tests; main has no enabling path.
+    server.support_service = support_service or SupportService()
     server.daemon_threads = True
     return server
 
