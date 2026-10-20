@@ -496,6 +496,22 @@ ausdrückliche Freigabe.
 | **D-11** | **Repository-Fakt:** Es gibt nur lokale Laufzeit-/Compose-Konfiguration, keine Produktivumgebung. **Vorschlag:** Keine Produktionsbereitstellung. Vor einer späteren Auswahl Betriebsmodell, Datenregion, TLS/Trust, Zugriffstrennung, Secret-Verwaltung, Monitoring, Backup/Restore, Incident-Verantwortung und Verfügbarkeitsziele dokumentieren; Anbieter erst danach auswählen. | Nicht definierte Zuständigkeiten oder Betriebsziele gefährden Verfügbarkeit, Widerruf und Vorfallreaktion; konkrete Kosten und Regionsgrenzen sind noch unbekannt. | Backend-Betrieb und Security; Produktverantwortliche für Verfügbarkeit; Datenschutz/Recht für Datenregion und Aufbewahrung. |
 | **D-12** | **Vorschlag:** Für jede App eigene benannte Produkt-/Release-Verantwortliche und Plattformverantwortliche festlegen; eine unabhängige, nicht an der Implementierung beteiligte Security-Prüfung verlangen. Signoffs an exakte Spezifikations-, Commit- und Release-Version binden. Bis dahin keine P0-Erfüllung erklären. | Unabhängige Prüfer und Stellvertretungen müssen verfügbar sein; unklare Rollen können Freigaben blockieren oder Interessenkonflikte erzeugen. | Betreiber benennt Personen/Rollen; jeweilige Produkt- und Release-Verantwortliche, Android-/iOS-/Backend-Verantwortliche und unabhängiger Security-Reviewer bestätigen ihren Scope. |
 
+### Technisch beantwortbar versus menschliche Entscheidung
+
+Aus dem Repository lässt sich der **Ist-Zustand** feststellen: keine Produkt-
+Authentifizierung oder Token-Ausstellung (D-02), keine Geräte-Registrierung und
+Schlüsselprüfung (D-03), kein freigegebener Transport (D-07) und keine
+Produktionsinfrastruktur (D-11). Für D-01 ist technisch belegbar, dass die Apps
+getrennte Bereiche sind und Produkt-APIs fehlen; zulässige Zwecke, Daten und
+Aktionen sind keine Codefrage. Bei D-04 bis D-06 und D-08 bis D-10 kann Copilot
+technische Optionen, Kompatibilität, Tests und Auswirkungen aufbereiten, aber
+keine Protokoll-/Risikopolitik, Betriebs-SLA, unterstützte Produktmatrix,
+Zustimmung, Rechtsgrundlage, Datenregion oder Aufbewahrung festlegen. Für D-12
+kann Copilot Nachweise und Checks vorbereiten, aber keine unabhängigen Prüfer
+oder verantwortlichen Personen ernennen. Alle D-01 bis D-12 bleiben deshalb
+Freigabepunkte; technische Bestandsfeststellungen schließen keine Entscheidung
+ab.
+
 Vor einer späteren Verbindlichkeit sind mindestens zu dokumentieren: Freigabe
 des NIKNOLIG-Produktverantwortlichen, des NIKNOLIG-Defense-Verantwortlichen für
 ihren Scope, eines unabhängigen Security-Reviewers, der Datenschutz-/Rechts-
