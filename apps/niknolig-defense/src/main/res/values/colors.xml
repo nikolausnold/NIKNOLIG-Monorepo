@@ -1,9 +1,11 @@
 <resources>
-    <color name="dark_background">#0C1110</color>
-    <color name="dark_surface">#131A17</color>
-    <color name="brand_accent">#C8F169</color>
+    <color name="dark_background">#10151D</color>
+    <color name="dark_surface">#192330</color>
+    <color name="brand_accent">#72C7F5</color>
     <color name="gold">@color/brand_accent</color>
-    <color name="active_green">#A6CF4D</color>
-    <color name="text_primary">#F3F4EF</color>
-    <color name="text_secondary">#A0AAA2</color>
+    <color name="active_green">@color/brand_accent</color>
+    <color name="text_primary">#EDF4FA</color>
+    <color name="text_secondary">#AFBECD</color>
+    <color name="on_accent">#101C29</color>
+    <color name="panel_outline">#35475C</color>
 </resources>

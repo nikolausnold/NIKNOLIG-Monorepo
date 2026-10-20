@@ -1,0 +1,82 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/dark_background"
+    android:fillViewport="true">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="@dimen/screen_padding">
+        <ImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:contentDescription="@null"
+            android:src="@drawable/support_avatar" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:accessibilityHeading="true"
+            android:text="@string/brand_name"
+            android:textColor="@color/brand_accent"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:accessibilityHeading="true"
+            android:text="@string/support_heading"
+            android:textColor="@color/text_primary"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:text="@string/support_flow_description"
+            android:textColor="@color/text_secondary"
+            android:textSize="16sp" />
+        <TextView
+            android:id="@+id/support_ai_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_large"
+            android:accessibilityLiveRegion="polite"
+            android:background="@drawable/card_surface"
+            android:padding="@dimen/card_padding"
+            android:text="@string/support_ai_not_checked"
+            android:textColor="@color/text_primary"
+            android:textSize="18sp" />
+        <Button
+            android:id="@+id/support_check_ai"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:minHeight="48dp"
+            android:text="@string/support_check_ai" />
+        <Button
+            android:id="@+id/support_escalate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:minHeight="48dp"
+            android:text="@string/support_escalate"
+            android:visibility="gone" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:text="@string/support_payment_notice"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp" />
+        <Button
+            android:id="@+id/support_close"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_large"
+            android:minHeight="48dp"
+            android:text="@string/support_close" />
+    </LinearLayout>
+</ScrollView>

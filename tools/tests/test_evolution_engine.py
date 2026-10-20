@@ -52,6 +52,16 @@ class EvolutionEngineTests(unittest.TestCase):
         with self.assertRaisesRegex(BacklogError, "does not match cited lines"):
             validate_backlog(modified, ROOT)
 
+    def test_existing_excerpt_outside_cited_line_range_is_rejected(self):
+        modified = copy.deepcopy(self.backlog)
+        citation = modified["ideas"][0]["evidence"][0]
+        source = (ROOT / citation["path"]).read_text(encoding="utf-8")
+        self.assertIn(citation["excerpt"], source)
+        citation["startLine"] = 1
+        citation["endLine"] = 1
+        with self.assertRaisesRegex(BacklogError, "does not match cited lines"):
+            validate_backlog(modified, ROOT)
+
     def test_private_or_external_evidence_paths_are_rejected(self):
         for path in ("/etc/passwd", "../outside.md", "backend/.env"):
             modified = copy.deepcopy(self.backlog)
