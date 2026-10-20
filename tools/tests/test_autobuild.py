@@ -17,6 +17,7 @@ class AutobuildTests(unittest.TestCase):
             "ref: ${{ github.event.workflow_run.head_sha || github.sha }}",
             "actions: read",
             "for workflow in android-build.yml backend-contracts.yml; do",
+            'gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs"',
             'repos/$GITHUB_REPOSITORY/actions/runs"',
             'run.get("path") == workflow_path',
             'run.get("head_sha") == release_sha',
