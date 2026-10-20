@@ -3,12 +3,13 @@ name: Preparing release APKs
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Android apps build"]
+    workflows: ["Android apps build", "Backend contracts and tooling"]
     branches: [main]
     types: [completed]
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: android-release
@@ -32,6 +33,37 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
+
+      - name: Verify validation results for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          for workflow in android-build.yml backend-contracts.yml; do
+            runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs" \
+              -f "head_sha=$RELEASE_SHA" -f per_page=100)"
+            if ! python3 -c '
+          import json
+          import sys
+
+          release_sha = sys.argv[1]
+          workflow_runs = json.load(sys.stdin).get("workflow_runs", [])
+          valid_events = {"push", "schedule", "workflow_dispatch"}
+          if not any(
+              run.get("head_sha") == release_sha
+              and run.get("head_branch") == "main"
+              and run.get("status") == "completed"
+              and run.get("conclusion") == "success"
+              and run.get("event") in valid_events
+              for run in workflow_runs
+          ):
+              raise SystemExit(1)
+          ' "$RELEASE_SHA" <<< "$runs"; then
+              echo "::error::No successful $workflow validation found for $RELEASE_SHA on main"
+              exit 1
+            fi
+          done
 
       - name: Set up Java
         uses: actions/setup-java@v5
