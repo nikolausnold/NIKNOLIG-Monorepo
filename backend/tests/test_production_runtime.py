@@ -150,12 +150,23 @@ class ProductionRuntimeTests(unittest.TestCase):
             for result in pending:
                 self.assertEqual(503, result.result()[0])
 
-    def test_no_ai_product_or_documentation_routes_even_with_enabling_environment(self):
+    def test_automatic_documentation_is_intentionally_disabled(self):
+        self.assertIsNone(production_app.docs_url)
+        self.assertIsNone(production_app.redoc_url)
+        self.assertIsNone(production_app.openapi_url)
+
+        for path in ("/docs", "/redoc", "/openapi.json"):
+            with self.subTest(path=path):
+                status, body = self.request(path)
+                self.assertEqual(404, status)
+                self.assertEqual("NOT_FOUND", body["error"]["code"])
+        self.factory.assert_not_called()
+
+    def test_no_ai_or_product_routes_even_with_enabling_environment(self):
         with patch.dict(os.environ, {"AI_ENABLED": "true", "SUPPORT_ENABLED": "true"}):
             for path, method in (
                 ("/v1/ai/support", "POST"), ("/v1/devices", "GET"),
-                ("/v1/pairing", "POST"), ("/docs", "GET"),
-                ("/openapi.json", "GET"), ("/health/ready/", "GET"),
+                ("/v1/pairing", "POST"), ("/health/ready/", "GET"),
                 ("/health/live", "POST"),
             ):
                 with self.subTest(path=path, method=method):
