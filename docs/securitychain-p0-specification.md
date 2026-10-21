@@ -616,6 +616,7 @@ Verwandte Bestandsdokumente:
 - [Android-/iOS-Architektur und Integrationsplan](mobile-cross-platform-architecture.md)
 - [Gerätewechsel- und Sensorverträge](electro-engel-multidevice-sensors.md)
 - [Backend-Grundlage und bestehende Sicherheitsgrenzen](../backend/README.md)
+- [Gesamtstatus und Freigaberegister D-01 bis D-12](securitychain-d01-d12-abschlussstatus.md)
 - [Getrennte Gründerrollen und Kontoanforderungen](founder-roles-and-account-requirements.md)
 - [Master-Integrationsplan: Sicherheit und Datenschutz](MASTER-INTEGRATION-PLAN.md#6-sicherheit-und-datenschutzrisiken)
 
