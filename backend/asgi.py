@@ -1,5 +1,7 @@
 """Production health-only ASGI runtime. No auth, pairing, product or AI enabling path."""
 
+import json
+import sys
 from uuid import uuid4
 
 from fastapi import FastAPI
@@ -11,6 +13,16 @@ from migrate import check_ready_async
 
 
 HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+
+
+def _log_readiness_failure():
+    try:
+        sys.stderr.write(json.dumps({
+            "event": "health_readiness_failed",
+            "status": 503,
+        }, separators=(",", ":")) + "\n")
+    except (OSError, ValueError):
+        pass
 
 
 def error(status, code, message):
@@ -49,6 +61,7 @@ def create_app(*, readiness_probe=None):
         try:
             await probe(check_ready_async)
         except Exception:
+            _log_readiness_failure()
             return error(503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable.")
         return JSONResponse({"status": "ready"}, headers=HEADERS)
 

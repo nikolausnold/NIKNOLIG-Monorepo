@@ -294,13 +294,15 @@ Berechtigungen oder Workflows geändert.
 
 ### D-11 – Backend-Betrieb
 
-- **Ist-Zustand:** Das Backend ist eine lokale Health-/Vorbereitungs-Laufzeit;
-  Standardbindung ist `127.0.0.1` und Deployment/TLS/Betriebsverfahren fehlen
-  ([`backend/README.md`](../backend/README.md#L93-L109);
-  [`backend/app.py`](../backend/app.py#L146-L164)).
-  `/health/ready` prüft keine Produktabhängigkeit
-  ([`backend/app.py`](../backend/app.py#L50-L56)); Compose bindet die Datenbank
-  an Loopback ([`compose.yaml`](../backend/compose.yaml#L1-L26)).
+- **Ist-Zustand:** `app.py` ist lokale Vorbereitung; `asgi.py` und eine
+  getrennte Health-only-Produktions-Compose-Konfiguration existieren, jedoch ist
+  kein Serverdeployment nachgewiesen. `/health/ready` prüft PostgreSQL und
+  Migrationen; `/health/live` prüft nur den Prozess
+  ([`backend/README.md`](../backend/README.md#L413-L430);
+  [`backend/asgi.py`](../backend/asgi.py#L43-L55);
+  [`compose.production.yaml`](../backend/compose.production.yaml#L1-L115)).
+  Die lokale Datenbankdatei bleibt loopbackgebunden
+  ([`compose.yaml`](../backend/compose.yaml#L1-L26)).
 - **Fehlende Entscheidung:** Betreiber und Verantwortlichkeiten, Datenregion,
   Verfügbarkeit, TLS-/Trust-Regeln, Secret-Verwaltung, Monitoring,
   Backup/Restore, Incident-/Kontaktweg, Rollback, Kosten und Umgang mit
