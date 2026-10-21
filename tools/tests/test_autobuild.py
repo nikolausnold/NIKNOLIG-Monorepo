@@ -70,6 +70,19 @@ class AutobuildTests(unittest.TestCase):
         build_workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
         self.assertIn("./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug", build_workflow)
 
+    def test_android_client_reports_are_preserved_without_claiming_missing_test_success(self):
+        workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
+        evidence = workflow.split("- name: Preserve backend client test evidence", 1)[1].split(
+            "- name: Verify package identities", 1
+        )[0]
+        self.assertIn("if: always()", evidence)
+        self.assertIn("android-health-client-tests-${{ github.sha }}", evidence)
+        self.assertIn("if-no-files-found: warn", evidence)
+        self.assertIn("retention-days: 7", evidence)
+        for app in ("niknolig", "niknolig-defense"):
+            self.assertIn(f"apps/{app}/build/test-results/testDebugUnitTest/*.xml", evidence)
+            self.assertIn(f"apps/{app}/build/reports/tests/testDebugUnitTest/**", evidence)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -419,6 +419,13 @@ und Schema-Invarianten. Fehlende Verbindung, Migration oder Schema-Drift liefern
 eine nicht-sensitive 503-Antwort. Alle Antworten erhalten `Cache-Control:
 no-store` und `X-Content-Type-Options: nosniff`. KI-Support, Login, Pairing und
 Produkt-Routen sind dort nicht registriert, auch nicht durch Umgebungsflags.
+Die asynchrone Readiness-Prüfung hat eine gemeinsame clientseitige Frist von
+4 Sekunden für Verbindungsaufbau und sämtliche Abfragen. Bei Fristablauf wird
+die Verbindung lokal geschlossen, bevor die Abfrage abgebrochen wird; auch eine
+bereits aufgebaute, danach stumme TCP-Verbindung blockiert Liveness nicht.
+Constraints werden samt zugehöriger Tabelle, Typ und Definition geprüft
+(einschließlich beider Produkt-Primärschlüssel), Indizes samt Tabelle,
+Eindeutigkeit, Schlüsselspalten und Teilindex-Prädikat.
 
 ```sh
 python3 -m pip install -r backend/requirements.txt
@@ -442,6 +449,10 @@ Kein automatisches Downgrade oder Löschen vorhandener Daten wird durchgeführt.
 Integrationstests laufen zusätzlich bei `BACKEND_TEST_DATABASE_URL`; sie
 löschen das `public`-Schema und verlangen deshalb ausdrücklich eine wegwerfbare
 Testdatenbank mit Namenssuffix `_backend_test`, niemals eine Betriebsdatenbank.
+Da auch Rollenregressionen geprüft werden, muss die gesamte PostgreSQL-Instanz
+isoliert und wegwerfbar sein. Ein lokaler TCP-Proxy simuliert nach erfolgreicher
+Datenbankanmeldung einen vollständigen Antwortausfall; der Test prüft 503,
+Verbindungsschließung und gleichzeitig weiterhin erfolgreiche Liveness-Abfragen.
 
 `compose.yaml` bleibt lokal unverändert. `compose.production.yaml` ist eine
 **eigenständige**, nicht damit zu kombinierende Konfiguration:
@@ -486,6 +497,13 @@ am Migrations-Ledger, keine Produkt-Datenrechte. Der Proxy verwendet TLS
 1.2/1.3, HSTS und ausschließlich Health-GET-Routen. Zertifikatserneuerung,
 Secret-Rotation (bei bestehendem Volume einschließlich PostgreSQL-Rollen),
 Backups/Wiederherstellung, Host-Härtung und Monitoring bleiben Betreiberaufgaben.
+Die Migration verweigert bereits vorhandene Health-Rollen mit unerwarteten
+Grants (auch Spalten-/Grant-Option-Rechten), Objektbesitz, Rollenmitgliedschaften
+oder privilegierten Rollenattributen, statt deren Rechte stillschweigend zu
+übernehmen. Betreiber müssen solche Abweichungen gesondert bereinigen.
+Der Passwortvergleich nutzt das tatsächlich von libpq aufgelöste
+Migrationspasswort, auch bei `DATABASE_URL` oder `PGPASSWORD`, nicht nur die
+Secret-Datei.
 Image-Digests und sämtliche Python-Versionen sind festgeschrieben und müssen
 kontrolliert auf Sicherheitsupdates geprüft werden.
 

@@ -68,6 +68,80 @@ Es wurde kein fremder Host als Produktionsziel angenommen oder kontaktiert.
 
 ## Prüfung und Aussagekraft
 
+### PR #118: erneute Ausführungsprüfung
+
+Die PR-Workflows [Android #765](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39586752214)
+und [Backend #110](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39586752108)
+haben `action_required`, nicht einen ausgeführten Buildfehler. Die Actions-API
+meldet jeweils **null Jobs**; deshalb existieren dort noch keine Test-/Buildlogs.
+Eine Betreiberfreigabe ist erforderlich, bevor diese Checks Nachweise liefern.
+
+Die lokale Diagnose grenzt den Android-Fehler auf den Repositoryzugriff ein:
+
+```sh
+curl --head --location --max-time 20 \
+  https://maven.google.com/com/android/tools/build/gradle/8.11.1/gradle-8.11.1.pom
+./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug \
+  :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon --info
+```
+
+Der offizielle Google-Maven-Endpunkt antwortet mit `301` auf
+`https://dl.google.com/dl/android/maven2/...`; der Zielhost ist in der
+Agent-Umgebung nicht auflösbar (`curl: (6) Could not resolve host: dl.google.com`).
+Maven Central liefert für Kotlin `2.2.21` dagegen HTTP `200`, die
+Gradle-Distribution `8.14.6` ist über ihre offizielle Downloadkette erreichbar.
+Der frühere main-Build #762 hatte AGP bereits aufgelöst und erreichte die
+Modulskript-Kompilierung. Zusätzlich bestätigt der erfolgreiche
+[main-Build #761](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39581246830)
+auf `3b60d62` beide Debug-APKs samt Paket-/Signaturprüfung mit genau AGP
+`8.11.1`, Kotlin `2.2.21` und Gradle `8.14.6`. Das belegt die Verfügbarkeit
+dieser Versionen, **nicht** einen erfolgreichen Build des aktuellen PR-Stands.
+Deshalb ist kein Versionswechsel als vermeintliche
+Behebung dieses Zugriffsfehlers vorgenommen worden. Keine fremden Mirrors,
+DNS-/Firewall-Umgehungen oder abgeschwächte TLS-Prüfungen werden eingeführt.
+Die Freigabe von Google Maven beziehungsweise ein freigegebener CI-Lauf bleibt
+für Android-Nachweise erforderlich; dies ist unabhängig vom Produktionsserver.
+
+Der erneute kombinierte Build-/Unit-Test-Aufruf endete nach 28 Sekunden mit
+dem nicht auflösbaren AGP-Plugin, bevor eine App kompiliert wurde. Die CI
+archiviert jetzt vorhandene JUnit-XML-/HTML-Berichte beider Health-Clients mit
+Commit-SHA für sieben Tage, auch bei Testfehlern. Fehlende Berichte werden
+nicht als bestandene Tests gewertet. Die aktualisierte Tooling-Suite besteht
+mit **48 Tests**; daraus folgt kein bestandener Android-Build.
+
+**Externe Produktionsbereitstellung:** Ein vom Betreiber bestätigtes,
+zugängliches Serverziel einschließlich Domain, DNS und vertrauenswürdiger
+TLS-Konfiguration wurde weiterhin nicht bereitgestellt. Ohne dieses konkrete
+Ziel sind DNS-, Zertifikats-, HTTPS-Health- und echte Android-Server-Prüfungen
+nicht ausführbar. Der vorhandene Deploymentweg wird weiterverwendet; eine
+zusätzliche Implementierung oder eine erfundene Serveradresse ersetzt diese
+Voraussetzung nicht.
+
+### PR #118: behobene Backend-Review-Befunde
+
+- Beide inline definierten Primärschlüssel des vorgeschlagenen Produktschemas
+  werden nach dessen separat freigegebener Anwendung ebenfalls geprüft.
+- Katalogprüfungen vergleichen Tabellenzuordnung, Typ und Definition der
+  Constraints sowie Tabellenzuordnung, Eindeutigkeit, Spalten und Prädikat der
+  Indizes. Gleichnamige `CHECK (true)`-/Index-Ersatzobjekte bestehen nicht mehr.
+- Die Health-Rolle darf nicht das effektive libpq-Migratorpasswort verwenden,
+  auch nicht bei Konfiguration über `DATABASE_URL` oder `PGPASSWORD`.
+- Bereits vorhandene überprivilegierte Health-Rollen werden bei unerwarteten
+  Rechten, Eigentum oder Rollenmitgliedschaften abgelehnt, nicht stillschweigend
+  zu einer vermeintlich schreibgeschützten Rolle erklärt.
+- Die asynchrone Readiness besitzt eine clientseitige Gesamtfrist von vier
+  Sekunden. Eine nach Verbindungsaufbau nicht mehr antwortende Datenbank führt
+  zu `503`; die lokale Verbindung wird vor der Aufgabenstornierung geschlossen.
+  Die Liveness bleibt unabhängig ausführbar.
+
+**Neue Nachweise:** 107 Backend-Tests gegen PostgreSQL 17.9 bestanden;
+zusätzlich 34 Laufzeit-/Datenbanktests gegen PostgreSQL 16.15 bestanden.
+Enthalten sind echte blockierte, bereits aufgebaute Datenbankverbindungen,
+gleichzeitige Liveness sowie Primärschlüssel-, Definitions-, Index-,
+Passwortquellen- und überprivilegierte Rollenregressionen. Diese lokalen
+Prüfungen belegen weiterhin keine öffentliche HTTPS-Produktionsverbindung.
+Die zuvor genannten 95 Tests sind die ältere Prüfung vor diesen Review-Fixes.
+
 Die gezielten Android-Client-Unit-Tests verwenden simulierte HTTPS-Verbindungen
 und prüfen Pfad, HTTPS-Vorgabe, Timeouts, Redirect-Ablehnung und Fehlerantworten.
 Sie belegen keine echte TLS-Verbindung. `python3 -m unittest discover -s

@@ -1,12 +1,15 @@
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
 import socket
+import select
 import sys
 import threading
 import time
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -26,8 +29,8 @@ from asgi import create_app
 class ProductionRuntimeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.factory = MagicMock()
-        cls.application = create_app(connection_factory=cls.factory)
+        cls.factory = AsyncMock()
+        cls.application = create_app(readiness_probe=cls.factory)
         cls.socket = socket.socket()
         cls.socket.bind(("127.0.0.1", 0))
         cls.url = f"http://127.0.0.1:{cls.socket.getsockname()[1]}"
@@ -55,6 +58,7 @@ class ProductionRuntimeTests(unittest.TestCase):
 
     def setUp(self):
         self.factory.reset_mock(side_effect=True)
+        self.factory.return_value = None
 
     def request(self, path, method="GET"):
         try:
@@ -72,10 +76,8 @@ class ProductionRuntimeTests(unittest.TestCase):
         self.factory.assert_not_called()
 
     def test_readiness_checks_database_and_migration_invariants(self):
-        with patch("asgi.check_ready") as check:
-            self.assertEqual((200, {"status": "ready"}), self.request("/health/ready"))
-            check.assert_called_once_with(self.factory.return_value.__enter__.return_value)
-        self.factory.return_value.__exit__.assert_called()
+        self.assertEqual((200, {"status": "ready"}), self.request("/health/ready"))
+        self.factory.assert_awaited_once_with(migrate.check_ready_async)
 
     def test_unavailable_database_returns_generic_503(self):
         self.factory.side_effect = psycopg.OperationalError("password and internal address")
@@ -87,11 +89,27 @@ class ProductionRuntimeTests(unittest.TestCase):
 
     def test_missing_or_invalid_migration_returns_generic_503(self):
         for failure in (psycopg.errors.UndefinedTable("ledger"), RuntimeError("schema drift")):
-            with self.subTest(failure=type(failure).__name__), patch("asgi.check_ready", side_effect=failure):
+            with self.subTest(failure=type(failure).__name__):
+                self.factory.side_effect = failure
                 status, body = self.request("/health/ready")
                 self.assertEqual(503, status)
                 self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
                 self.assertNotIn(str(failure), json.dumps(body))
+
+    def test_liveness_remains_responsive_during_concurrent_readiness_timeouts(self):
+        async def stalled(check):
+            await asyncio.sleep(0.3)
+            raise TimeoutError("private database")
+
+        self.factory.side_effect = stalled
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            pending = [pool.submit(self.request, "/health/ready") for _ in range(12)]
+            time.sleep(0.05)
+            started = time.monotonic()
+            self.assertEqual((200, {"status": "live"}), self.request("/health/live"))
+            self.assertLess(time.monotonic() - started, 0.25)
+            for result in pending:
+                self.assertEqual(503, result.result()[0])
 
     def test_no_ai_product_or_documentation_routes_even_with_enabling_environment(self):
         with patch.dict(os.environ, {"AI_ENABLED": "true", "SUPPORT_ENABLED": "true"}):
@@ -116,9 +134,12 @@ class MigrationUnitTests(unittest.TestCase):
         def execute(statement, parameters=None):
             cursor = MagicMock()
             if statement == "SELECT 1":
-                cursor.fetchone.return_value = (1,)
-            elif "SELECT count(*) FROM pg_constraint" in statement:
-                cursor.fetchone.return_value = (2,)
+                cursor.fetchall.return_value = [(1,)]
+            elif "pg_get_constraintdef" in statement:
+                cursor.fetchall.return_value = [
+                    (table, name, kind, definition)
+                    for (table, name), (kind, definition) in migrate.LEDGER_CONSTRAINTS.items()
+                ]
             elif "SELECT version, checksum" in statement:
                 cursor.fetchall.return_value = records
             elif "SELECT name, to_regclass" in statement:
@@ -150,10 +171,12 @@ class MigrationUnitTests(unittest.TestCase):
             migrate.check_ready(self.connection(applied=True))
 
     def test_health_and_migration_passwords_must_differ(self):
-        with patch.dict(os.environ, {"PGPASSWORD_FILE": "admin-secret"}), patch(
-            "database.read_secret", return_value="same-test-value",
-        ), self.assertRaisesRegex(ValueError, "must differ"):
-            migrate._configure_health_role(MagicMock(), "health-secret")
+        connection = MagicMock()
+        connection.info.password = "same-test-value"
+        with patch("database.read_secret", return_value="same-test-value"), self.assertRaisesRegex(
+            ValueError, "must differ",
+        ):
+            migrate._configure_health_role(connection, "health-secret")
 
     def test_migrate_defaults_to_baseline_and_takes_transaction_lock(self):
         connection = self.connection()
@@ -180,6 +203,60 @@ class MigrationUnitTests(unittest.TestCase):
             self.assertEqual(3, connect.call_args.kwargs["connect_timeout"])
             self.assertIn("statement_timeout=2000", connect.call_args.kwargs["options"])
             self.assertEqual("test-only", connect.call_args.kwargs["password"])
+
+    def test_effective_password_uses_url_env_and_file_override(self):
+        from urllib.parse import urlencode
+        url = "postgresql://admin@localhost/db?" + urlencode({"password": "url-value"})
+        cases = [
+            ({"DATABASE_URL": url}, "url-value"),
+            ({"PGHOST": "localhost", "PGUSER": "admin", "PGDATABASE": "db",
+              "PGPASSWORD": "env-value"}, "env-value"),
+            ({"DATABASE_URL": url,
+              "PGPASSWORD_FILE": "mock-only"}, "file-value"),
+        ]
+        for environment, expected in cases:
+            with self.subTest(environment=environment), patch.dict(os.environ, environment, clear=True), patch(
+                "database.read_secret", return_value="file-value",
+            ):
+                dsn, kwargs = database.connection_parameters()
+                from psycopg.conninfo import conninfo_to_dict, make_conninfo
+                resolved = conninfo_to_dict(make_conninfo(dsn, **kwargs))
+                self.assertEqual(expected, resolved.get("password", os.environ.get("PGPASSWORD")))
+
+
+class AsyncDeadlineTests(unittest.IsolatedAsyncioTestCase):
+    async def test_deadline_closes_connection_before_cancelling_stalled_query(self):
+        connection = AsyncMock()
+        order = []
+
+        async def close():
+            order.append("closed")
+
+        async def stalled(conn):
+            try:
+                await asyncio.Event().wait()
+            finally:
+                order.append("cancelled")
+
+        connection.close.side_effect = close
+        with patch("database.connection_parameters", return_value=("", {})), patch(
+            "database.psycopg.AsyncConnection.connect", return_value=connection,
+        ), patch("database.READINESS_TIMEOUT", 0.05):
+            started = time.monotonic()
+            with self.assertRaises(TimeoutError):
+                await database.probe(stalled)
+            self.assertLess(time.monotonic() - started, 0.5)
+        self.assertEqual(["closed", "cancelled"], order)
+
+    async def test_deadline_also_bounds_connection_establishment(self):
+        async def stalled(*args, **kwargs):
+            await asyncio.Event().wait()
+
+        with patch("database.connection_parameters", return_value=("", {})), patch(
+            "database.psycopg.AsyncConnection.connect", side_effect=stalled,
+        ), patch("database.READINESS_TIMEOUT", 0.05):
+            with self.assertRaises(TimeoutError):
+                await database.probe(migrate.check_ready_async)
 
 
 class DeploymentTests(unittest.TestCase):
@@ -275,6 +352,76 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "ledger invariants"):
             migrate.check_ready(self.connection)
 
+    def test_both_inline_product_primary_keys_are_required(self):
+        migrate.migrate(self.connection, approve_contract=True)
+        for table in ("device_installations", "device_links"):
+            with self.subTest(table=table), self.connection.transaction(force_rollback=True):
+                self.connection.execute(f"ALTER TABLE {table} DROP CONSTRAINT {table}_pkey")
+                with self.assertRaisesRegex(RuntimeError, "constraints"):
+                    migrate.check_ready(self.connection)
+
+    def test_same_named_replacement_constraints_fail_closed(self):
+        migrate.migrate(self.connection, approve_contract=True)
+        replacements = [
+            ("backend_schema_migrations", "backend_schema_migrations_checksum_check", "CHECK (true)"),
+            ("backend_schema_migrations", "backend_schema_migrations_pkey", "CHECK (true)"),
+            ("backend_schema_migrations", "backend_schema_migrations_pkey", "PRIMARY KEY (checksum)"),
+            ("device_installations", "device_installations_pkey", "CHECK (true)"),
+            ("device_links", "device_links_pkey", "PRIMARY KEY (first_device_id)"),
+            ("device_installations", "device_installations_area_installation_unique",
+             "UNIQUE (installation_reference)"),
+            ("device_links", "device_links_first_device_area",
+             "FOREIGN KEY (first_device_id, first_app_area) REFERENCES device_installations(id, app_area) ON DELETE CASCADE"),
+        ]
+        replacements += [
+            (table, name, "CHECK (true)")
+            for (table, name), (kind, _) in migrate.CONTRACT_CONSTRAINTS.items() if kind == "c"
+        ]
+        for table, name, definition in replacements:
+            with self.subTest(constraint=name, replacement=definition), self.connection.transaction(force_rollback=True):
+                self.connection.execute(f"ALTER TABLE {table} DROP CONSTRAINT {name}")
+                self.connection.execute(f"ALTER TABLE {table} ADD CONSTRAINT {name} {definition}")
+                with self.assertRaises(RuntimeError):
+                    migrate.check_ready(self.connection)
+                with self.assertRaises(RuntimeError):
+                    migrate.migrate(self.connection)
+        migrate.check_ready(self.connection)
+
+    def test_wrong_constraint_owner_and_unvalidated_checks_fail_closed(self):
+        migrate.migrate(self.connection, approve_contract=True)
+        for replacement in (
+            "ALTER TABLE device_installations ADD CONSTRAINT device_links_distinct_devices CHECK (true)",
+            "ALTER TABLE device_links ADD CONSTRAINT device_links_distinct_devices CHECK (first_device_id <> second_device_id) NOT VALID",
+        ):
+            with self.subTest(replacement=replacement), self.connection.transaction(force_rollback=True):
+                self.connection.execute("ALTER TABLE device_links DROP CONSTRAINT device_links_distinct_devices")
+                self.connection.execute(replacement)
+                with self.assertRaisesRegex(RuntimeError, "constraints"):
+                    migrate.check_ready(self.connection)
+
+    def test_same_named_replacement_indexes_fail_closed(self):
+        migrate.migrate(self.connection, approve_contract=True)
+        name = "device_installations_area_fingerprint_unique"
+        replacements = [
+            f"CREATE INDEX {name} ON device_installations(app_area, public_key_fingerprint) WHERE public_key_fingerprint IS NOT NULL",
+            f"CREATE UNIQUE INDEX {name} ON device_installations(public_key_fingerprint, app_area) WHERE public_key_fingerprint IS NOT NULL",
+            f"CREATE UNIQUE INDEX {name} ON device_installations(app_area, public_key_fingerprint)",
+            f"CREATE UNIQUE INDEX {name} ON device_installations(app_area, public_key_fingerprint) WHERE public_key_fingerprint IS NULL",
+            f"CREATE UNIQUE INDEX {name} ON device_links(first_app_area, first_device_id) WHERE first_device_id IS NOT NULL",
+            f"CREATE UNIQUE INDEX {name} ON device_installations(app_area, public_key_fingerprint) INCLUDE (id) WHERE public_key_fingerprint IS NOT NULL",
+            f"CREATE UNIQUE INDEX {name} ON device_installations(app_area, public_key_fingerprint COLLATE \"C\") WHERE public_key_fingerprint IS NOT NULL",
+            f"CREATE UNIQUE INDEX {name} ON device_installations(app_area, public_key_fingerprint bpchar_pattern_ops) WHERE public_key_fingerprint IS NOT NULL",
+            f"CREATE UNIQUE INDEX {name} ON device_installations(app_area DESC, public_key_fingerprint) WHERE public_key_fingerprint IS NOT NULL",
+            f"CREATE UNIQUE INDEX {name} ON device_installations(app_area, public_key_fingerprint) NULLS NOT DISTINCT WHERE public_key_fingerprint IS NOT NULL",
+        ]
+        for replacement in replacements:
+            with self.subTest(replacement=replacement), self.connection.transaction(force_rollback=True):
+                self.connection.execute(f"DROP INDEX {name}")
+                self.connection.execute(replacement)
+                with self.assertRaisesRegex(RuntimeError, "indexes"):
+                    migrate.check_ready(self.connection)
+        migrate.check_ready(self.connection)
+
     def test_contract_failure_rolls_back_sql_and_history(self):
         migrate.migrate(self.connection)
         original = migrate.migration_text
@@ -301,6 +448,163 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             self.connection.execute("SET LOCAL ROLE backend_health")
             with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                 self.connection.execute("DELETE FROM backend_schema_migrations")
+
+    def test_async_health_role_readiness_accepts_valid_schema_and_rejects_drift(self):
+        from psycopg.conninfo import make_conninfo
+        with patch("database.read_secret", return_value="integration-test-only"):
+            migrate.migrate(self.connection, approve_contract=True, health_secret_path="mock-only")
+        dsn = make_conninfo(
+            os.environ["BACKEND_TEST_DATABASE_URL"], user="backend_health",
+            **{"password": "integration-test-only"},
+        )
+        with patch.dict(os.environ, {"DATABASE_URL": dsn, "PGPASSWORD_FILE": ""}):
+            asyncio.run(database.probe(migrate.check_ready_async))
+            self.connection.execute(
+                "ALTER TABLE backend_schema_migrations DROP CONSTRAINT backend_schema_migrations_checksum_check, "
+                "ADD CONSTRAINT backend_schema_migrations_checksum_check CHECK (true)"
+            )
+            with self.assertRaisesRegex(RuntimeError, "ledger invariants"):
+                asyncio.run(database.probe(migrate.check_ready_async))
+
+    def test_existing_overprivileged_health_role_is_rejected_atomically(self):
+        with patch("database.read_secret", return_value="integration-test-only"):
+            migrate.migrate(self.connection, approve_contract=True, health_secret_path="mock-only")
+        mutations = [
+            "GRANT UPDATE ON backend_schema_migrations TO backend_health",
+            "GRANT UPDATE (checksum) ON backend_schema_migrations TO backend_health",
+            "GRANT SELECT ON device_installations TO backend_health",
+            "GRANT SELECT ON backend_schema_migrations TO backend_health WITH GRANT OPTION",
+            "ALTER TABLE backend_schema_migrations OWNER TO backend_health",
+            "ALTER TABLE device_installations OWNER TO backend_health",
+            "GRANT pg_read_all_data TO backend_health",
+            "GRANT backend_health TO postgres",
+            "ALTER ROLE backend_health BYPASSRLS",
+            "ALTER ROLE backend_health SUPERUSER",
+            "ALTER ROLE backend_health SET search_path = public",
+            "GRANT UPDATE ON backend_schema_migrations TO PUBLIC",
+            "GRANT UPDATE (checksum) ON backend_schema_migrations TO PUBLIC",
+            "GRANT SELECT (id) ON device_installations TO PUBLIC",
+            "GRANT CREATE ON SCHEMA public TO PUBLIC",
+        ]
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), self.connection.transaction(force_rollback=True):
+                self.connection.execute(mutation)
+                with patch("database.read_secret", return_value="integration-test-only"), self.assertRaisesRegex(
+                    RuntimeError, "health role|Health role",
+                ):
+                    migrate.migrate(self.connection, health_secret_path="mock-only")
+        with patch("database.read_secret", return_value="integration-test-only"):
+            migrate.migrate(self.connection, health_secret_path="mock-only")
+
+    def test_effective_migration_password_cannot_be_reused_for_health(self):
+        from psycopg.conninfo import conninfo_to_dict
+        from urllib.parse import urlencode
+        params = conninfo_to_dict(os.environ["BACKEND_TEST_DATABASE_URL"])
+        password = self.connection.info.password
+        environments = [
+            {"DATABASE_URL": "postgresql:///?" + urlencode({**params, "password": password})},
+            {"PGHOST": params["host"], "PGPORT": params.get("port", "5432"),
+             "PGDATABASE": params["dbname"], "PGUSER": params["user"], "PGPASSWORD": password},
+            {"DATABASE_URL": "postgresql:///?" + urlencode({**params, "password": "not-the-real-password"}),
+             "PGPASSWORD_FILE": "mock-only"},
+        ]
+        for index, environment in enumerate(environments):
+            with self.subTest(source=index), patch.dict(os.environ, environment, clear=True), patch(
+                "database.read_secret", return_value=password,
+            ):
+                with database.connect() as connection, self.assertRaisesRegex(ValueError, "must differ"):
+                    migrate._configure_health_role(connection, "mock-health-only")
+
+    def test_established_blackholed_query_has_client_deadline_and_live_stays_responsive(self):
+        migrate.migrate(self.connection)
+        params = self.connection.info.get_parameters()
+        upstream = (params["host"], int(params["port"]))
+        listener = socket.socket()
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        listener.settimeout(3)
+        blackhole = threading.Event()
+        stopped = threading.Event()
+        failures = []
+
+        def proxy():
+            try:
+                with listener.accept()[0] as client, socket.create_connection(upstream, timeout=3) as server:
+                    while not stopped.is_set():
+                        readable, _, _ = select.select([client, server], [], [], 0.05)
+                        for source in readable:
+                            data = source.recv(65536)
+                            if not data:
+                                return
+                            if not blackhole.is_set():
+                                (server if source is client else client).sendall(data)
+            except Exception as failure:
+                if not stopped.is_set():
+                    failures.append(failure)
+
+        proxy_thread = threading.Thread(target=proxy, daemon=True)
+        proxy_thread.start()
+        connections = []
+
+        async def probe(check):
+            async def drop_then_check(connection):
+                connections.append(connection)
+                blackhole.set()
+                await check(connection)
+            await database.probe(drop_then_check)
+
+        app_socket = socket.socket()
+        app_socket.bind(("127.0.0.1", 0))
+        url = f"http://127.0.0.1:{app_socket.getsockname()[1]}"
+        server = uvicorn.Server(uvicorn.Config(create_app(readiness_probe=probe), log_level="critical", access_log=False))
+        app_thread = threading.Thread(target=server.run, kwargs={"sockets": [app_socket]}, daemon=True)
+        from psycopg.conninfo import make_conninfo
+        dsn = make_conninfo(
+            os.environ["BACKEND_TEST_DATABASE_URL"], host="127.0.0.1",
+            port=listener.getsockname()[1], sslmode="disable",
+        )
+
+        def ready():
+            try:
+                return urlopen(url + "/health/ready", timeout=3).status
+            except HTTPError as response:
+                with response:
+                    self.assertNotIn("database", response.read().decode())
+                    return response.code
+
+        try:
+            with patch.dict(os.environ, {"DATABASE_URL": dsn, "PGPASSWORD_FILE": ""}), patch(
+                "database.READINESS_TIMEOUT", 0.5,
+            ):
+                app_thread.start()
+                for _ in range(100):
+                    if server.started:
+                        break
+                    time.sleep(0.02)
+                self.assertTrue(server.started)
+                started = time.monotonic()
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    result = pool.submit(ready)
+                    self.assertTrue(blackhole.wait(2), "real database connection was not established")
+                    live_started = time.monotonic()
+                    for _ in range(5):
+                        with urlopen(url + "/health/live", timeout=1) as response:
+                            self.assertEqual({"status": "live"}, json.load(response))
+                    self.assertLess(time.monotonic() - live_started, 0.4)
+                    self.assertEqual(503, result.result(timeout=2))
+                self.assertLess(time.monotonic() - started, 1.5)
+                self.assertTrue(connections[0].closed)
+        finally:
+            server.should_exit = True
+            if app_thread.ident is not None:
+                app_thread.join(5)
+            app_socket.close()
+            stopped.set()
+            listener.close()
+            proxy_thread.join(5)
+        self.assertFalse(app_thread.is_alive())
+        self.assertFalse(proxy_thread.is_alive())
+        self.assertEqual([], failures)
 
 
 if __name__ == "__main__":

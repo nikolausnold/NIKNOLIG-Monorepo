@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import os
 from pathlib import Path
-import re
 
 from psycopg import sql
 
@@ -15,6 +14,66 @@ MIGRATIONS = Path(__file__).resolve().parent / "migrations"
 BASELINE = "000_health_runtime"
 CONTRACT = "001_initial_contract"
 LOCK_ID = 723046110
+
+# PostgreSQL's canonical deparser output, not constraint names alone. Relation
+# identity, type, validation and deferrability are checked separately below.
+LEDGER_CONSTRAINTS = {
+    ("backend_schema_migrations", "backend_schema_migrations_pkey"):
+        ("p", "PRIMARY KEY (version)"),
+    ("backend_schema_migrations", "backend_schema_migrations_checksum_check"):
+        ("c", "CHECK (checksum ~ '^[0-9a-f]{64}$'::text)"),
+}
+CONTRACT_CONSTRAINTS = {
+    ("device_installations", "device_installations_pkey"): ("p", "PRIMARY KEY (id)"),
+    ("device_installations", "device_installations_area_installation_unique"):
+        ("u", "UNIQUE (app_area, installation_reference)"),
+    ("device_installations", "device_installations_id_area_unique"):
+        ("u", "UNIQUE (id, app_area)"),
+    ("device_installations", "device_installations_principal_not_empty"):
+        ("c", "CHECK (length(btrim(principal_reference)) > 0)"),
+    ("device_installations", "device_installations_fingerprint_format"):
+        ("c", "CHECK (public_key_fingerprint IS NULL OR public_key_fingerprint ~ '^[0-9a-f]{64}$'::text)"),
+    ("device_installations", "device_installations_verified_requires_key"):
+        ("c", "CHECK (identity_state <> 'verified'::device_identity_state OR public_key_fingerprint IS NOT NULL)"),
+    ("device_installations", "device_installations_verified_timestamp"):
+        ("c", "CHECK ((identity_state <> 'verified'::device_identity_state OR verified_at IS NOT NULL) AND (identity_state <> 'pending'::device_identity_state OR verified_at IS NULL))"),
+    ("device_installations", "device_installations_revoked_timestamp"):
+        ("c", "CHECK ((identity_state = 'revoked'::device_identity_state) = (revoked_at IS NOT NULL))"),
+    ("device_links", "device_links_pkey"): ("p", "PRIMARY KEY (id)"),
+    ("device_links", "device_links_distinct_devices"):
+        ("c", "CHECK (first_device_id <> second_device_id)"),
+    ("device_links", "device_links_distinct_app_areas"):
+        ("c", "CHECK (first_app_area <> second_app_area)"),
+    ("device_links", "device_links_first_device_area"):
+        ("f", "FOREIGN KEY (first_device_id, first_app_area) REFERENCES device_installations(id, app_area) ON DELETE RESTRICT"),
+    ("device_links", "device_links_second_device_area"):
+        ("f", "FOREIGN KEY (second_device_id, second_app_area) REFERENCES device_installations(id, app_area) ON DELETE RESTRICT"),
+    ("device_links", "device_links_expiry_after_creation"):
+        ("c", "CHECK (expires_at > created_at)"),
+    ("device_links", "device_links_activation_timestamp"):
+        ("c", "CHECK (state <> 'active'::device_link_state OR activated_at IS NOT NULL)"),
+    ("device_links", "device_links_revocation_timestamp"):
+        ("c", "CHECK (state <> 'revoked'::device_link_state OR revoked_at IS NOT NULL)"),
+}
+CONTRACT_INDEXES = {
+    "device_installations_area_fingerprint_unique":
+        ("device_installations", True, ["app_area", "public_key_fingerprint"],
+         "(public_key_fingerprint IS NOT NULL)"),
+    "device_links_first_device_idx": ("device_links", False, ["first_device_id"], None),
+    "device_links_second_device_idx": ("device_links", False, ["second_device_id"], None),
+}
+INDEX_SEMANTICS = """
+    AND NOT i.indnullsnotdistinct
+    AND NOT EXISTS (
+        SELECT 1 FROM unnest(
+            i.indkey::smallint[], i.indcollation::oid[],
+            i.indclass::oid[], i.indoption::smallint[]
+        ) AS key(attnum, coll_oid, opclass_oid, options)
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = key.attnum
+        JOIN pg_opclass op ON op.oid = key.opclass_oid
+        WHERE key.coll_oid <> a.attcollation OR NOT op.opcdefault OR key.options <> 0
+    )
+"""
 
 
 def migration_text(version):
@@ -37,20 +96,40 @@ def _check_records(records):
         raise RuntimeError("Unknown, incomplete or changed migration history")
 
 
-def _check_contract_invariants(connection, applied):
-    rows = connection.execute(
+def _constraint_checks(expected, message):
+    rows = yield (
+        "SELECT r.relname, c.conname, c.contype, pg_get_constraintdef(c.oid, true) "
+        "FROM pg_constraint c JOIN pg_class r ON r.oid = c.conrelid "
+        "JOIN pg_namespace n ON n.oid = r.relnamespace "
+        "LEFT JOIN pg_index i ON i.indexrelid = c.conindid "
+        "WHERE n.nspname = 'public' AND c.convalidated "
+        "AND NOT c.condeferrable AND NOT c.condeferred "
+        "AND (c.contype <> 'c' OR NOT c.connoinherit) "
+        "AND r.relkind = 'r' AND "
+        "(c.contype NOT IN ('p', 'u') OR "
+        "(i.indrelid = r.oid AND i.indisunique AND i.indisvalid AND i.indisready "
+        "AND i.indimmediate AND i.indpred IS NULL AND i.indexprs IS NULL "
+        + INDEX_SEMANTICS + "))"
+    )
+    actual = {(table, name): (kind, definition) for table, name, kind, definition in rows}
+    if any(actual.get(key) != value for key, value in expected.items()):
+        raise RuntimeError(message)
+
+
+def _contract_checks(applied):
+    rows = yield (
         "SELECT name, to_regclass('public.' || name) IS NOT NULL FROM "
         "(VALUES ('device_installations'), ('device_links')) AS objects(name)"
-    ).fetchall()
+    )
     if [exists for _, exists in rows] != [applied, applied]:
         raise RuntimeError("Product schema does not match migration history")
-    enums = connection.execute(
+    enums = yield (
         "SELECT t.typname, array_agg(e.enumlabel ORDER BY e.enumsortorder) "
         "FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace "
         "JOIN pg_enum e ON e.enumtypid = t.oid WHERE n.nspname = 'public' "
         "AND t.typname IN ('app_area', 'device_identity_state', 'device_link_state') "
         "GROUP BY t.typname ORDER BY t.typname"
-    ).fetchall()
+    )
     expected_enums = [
         ("app_area", ["niknolig", "niknolig-defense"]),
         ("device_identity_state", ["pending", "verified", "revoked"]),
@@ -60,55 +139,145 @@ def _check_contract_invariants(connection, applied):
         raise RuntimeError("Product enum invariants do not match migration history")
     if not applied:
         return
-    required = set(re.findall(r"\bCONSTRAINT\s+(\w+)", migration_text(CONTRACT)))
-    constraints = connection.execute(
-        "SELECT c.conname FROM pg_constraint c JOIN pg_class r ON r.oid = c.conrelid "
-        "JOIN pg_namespace n ON n.oid = r.relnamespace WHERE n.nspname = 'public' "
-        "AND r.relname IN ('device_installations', 'device_links') AND c.convalidated"
-    ).fetchall()
-    if not required.issubset({name for name, in constraints}):
-        raise RuntimeError("Required contract constraints are missing or unvalidated")
-    indexes = connection.execute(
-        "SELECT r.relname FROM pg_index i JOIN pg_class r ON r.oid = i.indexrelid "
-        "JOIN pg_namespace n ON n.oid = r.relnamespace "
-        "WHERE n.nspname = 'public' AND i.indisvalid AND i.indisready"
-    ).fetchall()
-    required_indexes = set(re.findall(r"\bCREATE (?:UNIQUE )?INDEX\s+(\w+)", migration_text(CONTRACT)))
-    if not required_indexes.issubset({name for name, in indexes}):
-        raise RuntimeError("Required contract indexes are missing or invalid")
+    yield from _constraint_checks(CONTRACT_CONSTRAINTS, "Required contract constraints have drifted")
+    indexes = yield (
+        "SELECT idx.relname, tab.relname, i.indisunique, "
+        "ARRAY(SELECT pg_get_indexdef(i.indexrelid, k, true) "
+        "FROM generate_series(1, i.indnkeyatts) k ORDER BY k), "
+        "pg_get_expr(i.indpred, i.indrelid) "
+        "FROM pg_index i JOIN pg_class idx ON idx.oid = i.indexrelid "
+        "JOIN pg_class tab ON tab.oid = i.indrelid "
+        "JOIN pg_namespace n ON n.oid = idx.relnamespace "
+        "JOIN pg_namespace tn ON tn.oid = tab.relnamespace "
+        "JOIN pg_am am ON am.oid = idx.relam "
+        "WHERE n.nspname = 'public' AND tn.nspname = 'public' "
+        "AND tab.relkind = 'r' AND am.amname = 'btree' "
+        "AND i.indisvalid AND i.indisready AND i.indimmediate "
+        "AND i.indnatts = i.indnkeyatts AND i.indexprs IS NULL"
+        + INDEX_SEMANTICS
+    )
+    actual = {name: (table, unique, columns, predicate)
+              for name, table, unique, columns, predicate in indexes}
+    if any(actual.get(name) != value for name, value in CONTRACT_INDEXES.items()):
+        raise RuntimeError("Required contract indexes have drifted")
+
+
+def _readiness_checks():
+    if (yield "SELECT 1") != [(1,)]:
+        raise RuntimeError("Database probe failed")
+    records = yield "SELECT version, checksum FROM public.backend_schema_migrations ORDER BY version"
+    _check_records(records)
+    yield from _constraint_checks(LEDGER_CONSTRAINTS, "Migration ledger invariants have drifted")
+    yield from _contract_checks(len(records) == 2)
+
+
+def _run_checks(connection, checks):
+    rows = None
+    while True:
+        try:
+            query = checks.send(rows)
+        except StopIteration:
+            return
+        rows = connection.execute(query).fetchall()
+
+
+def _check_contract_invariants(connection, applied):
+    _run_checks(connection, _contract_checks(applied))
 
 
 def check_ready(connection):
-    if connection.execute("SELECT 1").fetchone() != (1,):
-        raise RuntimeError("Database probe failed")
-    records = _records(connection)
-    _check_records(records)
-    constraints = connection.execute(
-        "SELECT count(*) FROM pg_constraint WHERE conrelid = "
-        "'public.backend_schema_migrations'::regclass AND convalidated AND "
-        "conname IN ('backend_schema_migrations_pkey', "
-        "'backend_schema_migrations_checksum_check')"
-    ).fetchone()
-    if constraints != (2,):
-        raise RuntimeError("Migration ledger invariants are missing")
-    _check_contract_invariants(connection, len(records) == 2)
+    _run_checks(connection, _readiness_checks())
+
+
+async def check_ready_async(connection):
+    checks = _readiness_checks()
+    rows = None
+    while True:
+        try:
+            query = checks.send(rows)
+        except StopIteration:
+            return
+        cursor = await connection.execute(query)
+        rows = await cursor.fetchall()
+
+
+def _check_health_role(connection):
+    unsafe = connection.execute("""
+        SELECT EXISTS (
+            SELECT 1 FROM pg_roles r WHERE r.rolname = 'backend_health' AND (
+                r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication
+                OR r.rolbypassrls
+                OR EXISTS (SELECT 1 FROM pg_auth_members m
+                           WHERE m.member = r.oid OR m.roleid = r.oid)
+                OR EXISTS (SELECT 1 FROM pg_db_role_setting s WHERE s.setrole = r.oid)
+                OR EXISTS (
+                    SELECT 1 FROM pg_shdepend d
+                    WHERE d.refclassid = 'pg_authid'::regclass AND d.refobjid = r.oid
+                    AND NOT (
+                        d.deptype = 'a' AND d.objsubid = 0 AND (
+                            (d.classid = 'pg_database'::regclass
+                             AND d.objid = (SELECT oid FROM pg_database
+                                           WHERE datname = current_database()))
+                            OR (d.dbid = (SELECT oid FROM pg_database
+                                          WHERE datname = current_database()) AND (
+                                (d.classid = 'pg_class'::regclass
+                                 AND d.objid = 'public.backend_schema_migrations'::regclass)
+                                OR (d.classid = 'pg_namespace'::regclass
+                                    AND d.objid = 'public'::regnamespace)
+                            ))
+                        )
+                    )
+                )
+            )
+        ) OR EXISTS (
+            SELECT 1 FROM (
+                SELECT 'SELECT' AS allowed, relacl AS acl FROM pg_class
+                WHERE oid = 'public.backend_schema_migrations'::regclass
+                UNION ALL
+                SELECT 'USAGE', nspacl FROM pg_namespace WHERE nspname = 'public'
+                UNION ALL
+                SELECT 'CONNECT', datacl FROM pg_database WHERE datname = current_database()
+            ) objects CROSS JOIN LATERAL aclexplode(objects.acl) a
+            JOIN pg_roles r ON r.oid = a.grantee
+            WHERE r.rolname = 'backend_health'
+              AND (a.privilege_type <> objects.allowed OR a.is_grantable)
+        )
+    """).fetchone()[0]
+    if unsafe:
+        raise RuntimeError("Existing health role has unexpected privileges, ownership or memberships")
+    # PUBLIC grants are inherited even by NOINHERIT roles.
+    if connection.execute("""
+        SELECT has_schema_privilege('backend_health', 'public', 'CREATE')
+        OR EXISTS (
+            SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+            AND (
+                has_table_privilege('backend_health', c.oid, 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+                OR has_any_column_privilege('backend_health', c.oid, 'INSERT,UPDATE,REFERENCES')
+                OR (c.oid <> 'public.backend_schema_migrations'::regclass
+                    AND has_any_column_privilege('backend_health', c.oid, 'SELECT'))
+            )
+        )
+    """).fetchone()[0]:
+        raise RuntimeError("Health role has unexpected effective schema or table privileges")
 
 
 def _configure_health_role(connection, secret_path):
     if not secret_path:
         return
     password = database.read_secret(secret_path)
-    admin_secret = os.environ.get("PGPASSWORD_FILE")
-    if admin_secret and password == database.read_secret(admin_secret):
+    # libpq has already resolved keyword overrides, URL, environment and passfile.
+    if password == connection.info.password:
         raise ValueError("Health and migration database credentials must differ")
     role = sql.Identifier("backend_health")
     if not connection.execute(
         "SELECT 1 FROM pg_roles WHERE rolname = 'backend_health'"
     ).fetchone():
         connection.execute(sql.SQL("CREATE ROLE {}").format(role))
+    _check_health_role(connection)
     connection.execute(
         sql.SQL("ALTER ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
-                "NOREPLICATION NOINHERIT PASSWORD {}").format(
+                "NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD {}").format(
                     role, sql.Literal(password)
                 )
     )

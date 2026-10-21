@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 import database
-from migrate import check_ready
+from migrate import check_ready_async
 
 
 HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
@@ -21,11 +21,11 @@ def error(status, code, message):
     )
 
 
-def create_app(*, connection_factory=None):
+def create_app(*, readiness_probe=None):
     application = FastAPI(
         docs_url=None, redoc_url=None, openapi_url=None, redirect_slashes=False,
     )
-    factory = connection_factory if connection_factory is not None else database.connect
+    probe = readiness_probe if readiness_probe is not None else database.probe
 
     @application.middleware("http")
     async def no_store(request, call_next):
@@ -41,14 +41,13 @@ def create_app(*, connection_factory=None):
         return error(404, "NOT_FOUND", "Resource was not found.")
 
     @application.get("/health/live")
-    def live():
+    async def live():
         return JSONResponse({"status": "live"}, headers=HEADERS)
 
     @application.get("/health/ready")
-    def ready():
+    async def ready():
         try:
-            with factory() as connection:
-                check_ready(connection)
+            await probe(check_ready_async)
         except Exception:
             return error(503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable.")
         return JSONResponse({"status": "ready"}, headers=HEADERS)
