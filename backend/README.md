@@ -419,8 +419,11 @@ Verbindung mit `SELECT 1`, bekannte Migrationen samt SHA-256 und Schema-
 Invarianten. Fehlende Verbindung, Migration oder Schema-Drift liefern eine
 nicht-sensitive 503-Antwort. Alle Antworten erhalten `Cache-Control: no-store`
 und `X-Content-Type-Options: nosniff`. Die ASGI-Laufzeit registriert ausschließlich
-Health-Routen; KI-Support, Login, Pairing und Produkt-Routen werden dort nicht
-aktiviert, auch nicht durch Umgebungsflags.
+Health-Routen; FastAPI Swagger/ReDoc und `/openapi.json` sind ausdrücklich
+deaktiviert, und der Caddy-Reverse-Proxy leitet ausschließlich die Health-Pfade
+weiter. [`openapi.yaml`](openapi.yaml) ist ein versionierter Vertrag, kein
+bereitgestellter HTTP-Endpunkt. KI-Support, Login, Pairing und Produkt-Routen
+werden dort nicht aktiviert, auch nicht durch Umgebungsflags.
 Die asynchrone Readiness-Prüfung hat eine gemeinsame clientseitige Frist von
 4 Sekunden für Verbindungsaufbau und sämtliche Abfragen. Bei Fristablauf wird
 die Verbindung lokal geschlossen, bevor die Abfrage abgebrochen wird; auch eine
