@@ -74,6 +74,15 @@ class ProductionRuntimeTests(unittest.TestCase):
             health_routes,
         )
 
+    def test_production_api_service_builds_and_runs_the_exported_asgi_app(self):
+        dockerfile = (BACKEND / "Dockerfile").read_text()
+        compose = (BACKEND / "compose.production.yaml").read_text()
+        self.assertIn("COPY asgi.py", dockerfile)
+        self.assertIn('CMD ["uvicorn", "asgi:app"', dockerfile)
+        self.assertIn("api:", compose)
+        self.assertIn("build:", compose)
+        self.assertIn("context: .", compose)
+
     def request(self, path, method="GET"):
         try:
             response = urlopen(Request(self.url + path, method=method), timeout=5)
