@@ -543,41 +543,119 @@ Serverzugang liegen weiterhin **keine entfernten HTTPS-/DNS-Nachweise** vor.
 
 ### Datenbanksicherung und kontrollierte Rücknahme
 
-Vor jedem Schema-/Imagewechsel eine konsistente Sicherung in einem geschützten,
-verschlüsselten Speicher **außerhalb von Git** erstellen und ihre
-Wiederherstellbarkeit in einer separaten isolierten PostgreSQL-Instanz prüfen:
+Es wurden keine produktiven Daten und kein Backup dieses Servers gelesen oder
+gesichert. Für einen späteren Betreiberlauf muss der Sicherungspfad in einem
+geschützten Verzeichnis **außerhalb von Git** liegen; ein genehmigter
+Aufbewahrungszeitraum und -umfang ist vor Aktivierung noch durch den Betreiber
+und Datenschutzverantwortliche festzulegen. Diese Runbook-Anleitung erfindet
+keine Retention-Policy.
 
-```sh
+Der folgende Bash-Ablauf verlangt `age` und einen freigegebenen öffentlichen
+age-Empfänger. Er verschlüsselt den `pg_dump`-Stream direkt, setzt enge
+Dateirechte und erzeugt das endgültige Backup erst nach erfolgreichem Dump und
+Verschlüsselung. Zugangsdaten oder private Schlüssel dürfen nicht als Argument
+oder Log ausgegeben werden:
+
+```bash
+set -o pipefail
 umask 077
-: "${BACKUP_FILE:?Set a new protected backup file path outside Git}"
-test ! -e "$BACKUP_FILE" && (
-  set -C
-  docker compose -f backend/compose.production.yaml exec -T postgres \
-    pg_dump -U backend_migrator -d niknolig_health --format=custom \
-    > "$BACKUP_FILE"
-)
+: "${BACKUP_FILE:?Set a new .age path in a protected directory outside Git}"
+: "${BACKUP_RECIPIENT:?Set the approved age public recipient}"
+command -v age >/dev/null
+test ! -e "$BACKUP_FILE"
+temporary=$(mktemp "${BACKUP_FILE}.tmp.XXXXXX")
+trap 'rm -f -- "$temporary"' EXIT
+docker compose -f backend/compose.production.yaml exec -T postgres \
+  pg_dump -U backend_migrator -d niknolig_health --format=custom \
+  | age --encrypt --recipient "$BACKUP_RECIPIENT" > "$temporary"
+chmod 600 "$temporary"
+ln "$temporary" "$BACKUP_FILE"
+rm -f -- "$temporary"
+trap - EXIT
 ```
 
-Ein fehlgeschlagener Dump ist keine Sicherung; unvollständige Dateien gesondert
-kennzeichnen und nicht für Restore freigeben. Aufbewahrung, Zugriffsschutz,
-Prüfsumme, PostgreSQL-Version und zugehörige Image-Digests dokumentieren.
-Rollen-/Berechtigungsdefinitionen separat sichern; Passwort-Hashes und
-Secret-Dateien sind sensible Betriebsdaten und gehören nicht in Git oder Logs.
-Keine laufenden PostgreSQL-Datendateien ungeprüft kopieren; ein Volume-Snapshot
-benötigt ein geeignetes konsistentes Sicherungsverfahren.
+Bei Fehlern ist die temporäre Datei keine Sicherung und wird entfernt. Nie
+überschreiben oder unverschlüsselte Zwischenstände hinterlassen. Protokolliere
+nur Backup-ID, Zeitpunkt, Hash der Ciphertext-Datei, PostgreSQL-Version und
+verwendete Image-Digests. Rollen-/Berechtigungsdefinitionen sind separat zu
+sichern; Passwort-Hashes und Secret-Dateien gehören nicht in dieses Backup, Git
+oder Logs. Keine laufenden PostgreSQL-Datendateien ungeprüft kopieren; ein
+Volume-Snapshot benötigt ein eigenes konsistentes Verfahren.
 
-Rollback zuerst durch Sperren des öffentlichen Zugangs und Stoppen von
+Ein Restore-Test ist ausschließlich in einer neuen, isolierten, wegwerfbaren
+Testinstanz und mit dem genehmigten age-Identitätsschlüssel zulässig. Erst
+Authentizität und Lesbarkeit des Archivs prüfen:
+
+```bash
+age --decrypt --identity "$AGE_IDENTITY_FILE" "$BACKUP_FILE" \
+  | pg_restore --list > /dev/null
+```
+
+Danach darf in diesem Runbook nur eine lokale, isolierte Testdatenbank mit dem
+Suffix `_restore_test` als Ziel verwendet werden. `RESTORE_DATABASE_URL` enthält
+keine Passwörter; Zugangsdaten kommen ausschließlich aus einem geschützten
+`PGPASSFILE`. Prüfe das Ziel unabhängig, bevor du den Restore startest:
+
+```bash
+: "${RESTORE_DATABASE_URL:?Set a non-secret local test-database URI}"
+: "${PGPASSFILE:?Set a protected PostgreSQL passfile}"
+test -f "$PGPASSFILE"
+[[ "$RESTORE_DATABASE_URL" =~ ^postgres(ql)?://([^:/@]+@)?(127\.0\.0\.1|localhost)(:[0-9]+)?/[^/?#]+_restore_test$ ]]
+age --decrypt --identity "$AGE_IDENTITY_FILE" "$BACKUP_FILE" \
+  | pg_restore --exit-on-error --no-owner --no-privileges \
+      --dbname="$RESTORE_DATABASE_URL"
+```
+
+Es wird bewusst kein `--clean` verwendet. Der Betreiber muss vorab bestätigen,
+dass die Testdatenbank neu und leer sowie von Produktion isoliert ist; niemals
+Produktionsdaten überschreiben oder löschen. Prüfe danach Tabellen,
+Migration-Prüfsummen, Readiness sowie Anwendungsinvarianten und dokumentiere
+Ergebnis, Image-/PostgreSQL-Version, Zeitpunkt und redigierte Fehler. Keine
+produktive Wiederherstellung wurde hier ausgeführt; ohne freigegebene
+Testinstanz liegt kein Restore-Testnachweis vor.
+
+Rollback zuerst durch einen autorisierten Betreiber und nach freigegebenem
+Incident-Ablauf über Sperren des öffentlichen Zugangs und Stoppen von
 `proxy`/`api` einleiten. Bei unverändert kompatiblem Schema das zuvor verifizierte,
 immutable API-Image verwenden und Readiness/HTTPS erneut prüfen. Der
 Migrationsrunner führt bewusst **keine Down-Migration** aus. Bei Datenbank- oder
-Schema-Rücknahme die geprüfte Sicherung mit `pg_restore --exit-on-error`
-ausschließlich in eine **neue isolierte** Datenbank wiederherstellen, Rollen
-und separate Secrets kontrolliert provisionieren und Migration-Prüfsummen
-gegen das dazugehörige freigegebene Image prüfen. Vor dem Umschalten sowohl
-Readiness als auch den externen HTTPS-Probeaufruf erfolgreich abschließen.
-Das ursprüngliche Volume bis zur bestätigten Wiederherstellung erhalten;
-niemals `docker compose down --volumes` als Rollback verwenden.
-`001_initial_contract.sql` bleibt auch bei Recovery ohne tatsächliche separate
-Freigabe gesperrt. Wiederanlauf, Datenverlustfenster und Freigabe liegen in
-Betreiberverantwortung; dieser Text behauptet keinen ausgeführten Restore-Test
-einer Produktionsdatenbank.
+Schema-Rücknahme ausschließlich den getesteten Restore-Ablauf gegen eine neue
+isolierte Datenbank verwenden; Migration-Prüfsummen müssen zum zugehörigen
+freigegebenen Image passen. Das ursprüngliche Volume bis zur bestätigten
+Wiederherstellung erhalten; niemals `docker compose down --volumes` als
+Rollback verwenden. `001_initial_contract.sql` bleibt ohne separate Freigabe
+gesperrt. Wiederanlauf, Datenverlustfenster und Freigabe liegen beim Betreiber.
+
+### Monitoring- und Incident-Verfahren (nicht aktiv überwacht)
+
+Compose prüft PostgreSQL und der API-Container fragt `/health/ready` ab; die
+API protokolliert Readiness-Fehler als JSON-Ereignis ohne Fehlerdetails,
+Credentials, Requestdaten oder interne Adressen. `/health/live` prüft nur den
+Prozess. Diese lokalen Healthchecks sind keine externe Überwachung: Es sind
+keine Alarmierung, Bereitschaft, Incident-Kontakt oder automatische
+Wiederherstellung nachgewiesen.
+
+Bei einer Störung soll ein autorisierter Betreiber:
+
+1. Zeitpunkt, betroffene Komponente und beobachteten Health-Status festhalten;
+   `live=200` bei `ready=503` weist auf fehlende Datenbank-/Migrationsbereitschaft
+   hin, nicht auf eine erfolgreiche Wiederherstellung.
+2. Containerzustand, PostgreSQL-Health, Konfigurationsversion und redigierte
+   Containerlogs prüfen. Keine Secret-Dateien, vollständigen Umgebungsvariablen,
+   Tokens oder ungeprüften Rohlogs weitergeben.
+3. Auswirkungen und Datenintegrität bewerten, den zuständigen Betriebs- und
+   Security-Kontakt informieren und Änderungen/Deployment stoppen, bis die
+   Ursache geklärt ist.
+4. Nur nach Incident-Freigabe den kontrollierten Wiederanlauf ausführen:
+   Datenbankverfügbarkeit und Migrationen verifizieren, API-Readiness prüfen,
+   anschließend den öffentlichen HTTPS-Endpunkt ohne Redirects und ohne
+   Zertifikatsprüfung zu umgehen testen. Keine produktive Datenbank per Restore
+   überschreiben.
+5. Ereignis, Maßnahmen, Ergebnis und offene Folgearbeiten datensparsam
+   dokumentieren. Keine Verfügbarkeits- oder Alarmierungszusage aus einem
+   erfolgreichen CI-Test ableiten.
+
+Das Verfahren ist dokumentiert, aber mangels benanntem Betreiber,
+Incident-Kontakt und Testumgebung nicht praktisch geübt. Externe
+Alarmierung/Monitoring, RTO/RPO, Datenverlustfenster und Aufbewahrungsdauer
+bleiben unbestätigt.
