@@ -25,6 +25,8 @@ class AutobuildTests(unittest.TestCase):
             "github.event.workflow_run.head_repository.full_name == github.repository",
             "github.event.workflow_run.head_branch == 'main'",
             'fromJSON(\'["push", "schedule", "workflow_dispatch"]\')',
+            "vars.NIKNOLIG_BACKEND_URL != ''",
+            "vars.NIKNOLIG_DEFENSE_BACKEND_URL != ''",
             "ref: ${{ github.event.workflow_run.head_sha || github.sha }}",
             "actions: read",
             "for workflow in android-build.yml backend-contracts.yml; do",
