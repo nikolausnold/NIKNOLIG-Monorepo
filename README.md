@@ -67,9 +67,9 @@ Beide APKs unabhängig im selben Build aufbauen:
 
 Der Workflow
 [`Android apps build`](.github/workflows/android-build.yml) baut beide Apps,
-prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
-Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
-Android-Testtask behauptet.
+prüft ihre APK-IDs und verifiziert die APK-Signaturen. Zusätzlich laufen
+die Android-Health-Client-Unit-Tests beider Module. Sie verwenden simulierte
+HTTPS-Verbindungen und ersetzen keinen realen Server- oder Gerätetest.
 
 ## Read-only Audit
 
@@ -123,10 +123,10 @@ Builds, Netzwerkzugriffe oder Deployments vor.
 
 - Bei Push und Pull Request sowie montags um 04:23 UTC und manuell laufen
   getrennte Workflows: [`Android apps build`](.github/workflows/android-build.yml)
-  baut und prüft ausschließlich die beiden Android-APKs;
+  baut und prüft beide Android-APKs sowie ihre Health-Client-Unit-Tests;
   [`Backend contracts and tooling`](.github/workflows/backend-contracts.yml)
   führt Backend-Vertrags-/Tooltests und den Systemregister-Check aus. Es gibt
-  derzeit keine Android-Testquellen und kein iOS-Projekt in diesem Repository.
+  weiterhin kein iOS-Projekt in diesem Repository.
   Der Zeitplan wird erst nach Übernahme auf den Default-Branch aktiv; GitHub
   kann geplante Läufe verzögern oder bei inaktiven öffentlichen Repositories
   deaktivieren.
