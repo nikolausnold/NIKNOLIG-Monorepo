@@ -129,8 +129,11 @@ private class ReadyResponseJsonParser(private val text: String) {
 
     private fun parseUnicodeEscape(): Char {
         require(position + 4 <= text.length)
-        val codeUnit = text.substring(position, position + 4).toIntOrNull(16)
-            ?: error("Invalid JSON unicode escape")
+        val digits = text.substring(position, position + 4)
+        require(digits.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
+            "Invalid JSON unicode escape"
+        }
+        val codeUnit = digits.toInt(16)
         position += 4
         return codeUnit.toChar()
     }

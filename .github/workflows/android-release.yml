@@ -131,6 +131,8 @@ jobs:
       - name: Assemble both signed release APKs and store bundles
         shell: bash
         env:
+          NIKNOLIG_BACKEND_URL: ${{ vars.NIKNOLIG_BACKEND_URL }}
+          NIKNOLIG_DEFENSE_BACKEND_URL: ${{ vars.NIKNOLIG_DEFENSE_BACKEND_URL }}
           NIKNOLIG_RELEASE_STORE_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_STORE_PASSWORD }}
           NIKNOLIG_RELEASE_KEY_ALIAS: niknolig
           NIKNOLIG_RELEASE_KEY_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_KEY_PASSWORD }}

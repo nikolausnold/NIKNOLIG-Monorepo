@@ -62,6 +62,9 @@ class BackendHealthClientTest {
         val escaped = BackendHealthClient("https://api.example.test") {
             FakeHttpsConnection(it, 200, """{"status":"re\u0061dy"}""")
         }.check()
+        val signedEscape = BackendHealthClient("https://api.example.test") {
+            FakeHttpsConnection(it, 200, """{"status":"re\u+061dy"}""")
+        }.check()
         val verticalTab = BackendHealthClient("https://api.example.test") {
             FakeHttpsConnection(it, 200, "\u000B{\"status\":\"ready\"}")
         }.check()
@@ -73,6 +76,7 @@ class BackendHealthClientTest {
         }.check()
 
         assertEquals(BackendHealthResult.Ready, escaped)
+        assertEquals(BackendHealthResult.InvalidResponse, signedEscape)
         assertEquals(BackendHealthResult.InvalidResponse, verticalTab)
         assertEquals(BackendHealthResult.InvalidResponse, extraProperty)
         assertEquals(BackendHealthResult.InvalidResponse, trailingContent)
