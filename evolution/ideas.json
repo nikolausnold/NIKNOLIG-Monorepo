@@ -188,15 +188,15 @@
       "evidence": [
         {
           "path": "docs/electro-engel-multidevice-sensors.md",
-          "startLine": 13,
-          "endLine": 17,
+          "startLine": 24,
+          "endLine": 28,
           "excerpt": "Die aktuellen Android-Manifeste enthalten keine Kamera-, Mikrofon-, Standort-,\nBluetooth- oder Netzwerkberechtigungen. NIKNOLIG zeigt den Assistenten lokal;\ndie Anfrage wird lokal dargestellt und nicht übertragen.",
           "state": "verified"
         },
         {
           "path": "docs/electro-engel-multidevice-sensors.md",
-          "startLine": 101,
-          "endLine": 102,
+          "startLine": 112,
+          "endLine": 112,
           "excerpt": "Android hat keine universelle LiDAR-Gerätegarantie/API im bestehenden Vertrag.",
           "state": "verified"
         }
