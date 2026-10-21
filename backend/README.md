@@ -464,6 +464,84 @@ docker compose -f backend/compose.production.yaml config --quiet
 docker compose -f backend/compose.production.yaml up --build -d
 ```
 
+### Falsches oder veraltetes Container-Image sicher ersetzen
+
+Der vorliegende ASGI-Einstiegspunkt registriert `GET /health/live` und
+`GET /health/ready`; das Backend-Image kopiert `asgi.py` und startet
+`uvicorn asgi:app`. Die Routen `/health`, `/db/health` und `/projects...`
+gehören nicht zu dieser Implementierung. Meldet ein Hetzner-Container stattdessen
+diese Routen und 404 für die beiden ASGI-Health-Pfade, läuft dort nicht das aus
+diesem Quellstand gebaute Backend-Image. PR #123 prüfte zuvor die Registrierung
+der Routen, nicht die Identität eines entfernten Containers. Ohne dessen
+Image-ID, Startbefehl und Compose-Projekt lässt sich nicht unterscheiden, ob
+ein veraltetes Image, ein anderes Compose-Projekt oder ein fremder Dienst
+abgefragt wurde.
+
+Nach Merge dieser Korrektur darf ein autorisierter Betreiber auf dem Server
+zuerst nur Zustand und laufenden Befehl prüfen. Zugangsdaten, vollständige
+Umgebungen oder Secret-Inhalte nicht ausgeben:
+
+```sh
+cd /opt/nold/backend
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Command}}'
+docker compose -f compose.production.yaml ps --all
+container=$(docker compose -f compose.production.yaml ps -q api)
+test -n "$container"
+docker inspect --format '{{.Config.Image}} {{.Image}} {{json .Config.Cmd}}' "$container"
+```
+
+Die folgenden Befehle setzen voraus, dass `/opt/nold/backend` der saubere
+Checkout auf `main` ist, die Korrektur bereits gemergt wurde, die nötigen
+Security-/Betriebsfreigaben vorliegen und die bestätigten Host-/Secret-Variablen
+sowie Dateien bereits geschützt provisioniert sind. Andernfalls hier stoppen;
+keine Werte erfinden oder Secrets neu erzeugen. Der autorisierte Betreiber
+aktualisiert die Revision fast-forward-only und verwendet das **definierte
+Compose-Projekt**. Nicht `docker compose down`, `down --volumes` oder ein
+alternatives Projekt/Service-Namen verwenden:
+
+```sh
+cd /opt/nold/backend
+test "$(git branch --show-current)" = main
+test -z "$(git status --porcelain)"
+git pull --ff-only origin main
+docker compose -f compose.production.yaml config --quiet
+docker compose -f compose.production.yaml build api
+docker compose -f compose.production.yaml up --no-build -d
+docker compose -f compose.production.yaml ps
+```
+
+Die tatsächlichen Compose-Services heißen `preflight`, `postgres`, `migrate`,
+`api` und `proxy`. `api` baut das Backend-Image; `up --no-build -d` startet die notwendigen
+Abhängigkeiten und ersetzt Container bei geändertem Image, ohne das
+`postgres-data`-Volume zu löschen. Bei fehlgeschlagenem Preflight oder
+Migrationsjob nicht fortfahren oder Datenbank-/Rollenänderungen manuell
+erzwingen. Vorherige Images und das Datenbankvolume für einen autorisierten
+Rollback erhalten.
+
+Anschließend die Routen direkt im API-Container gegen dessen Loopback-Port
+prüfen; das veröffentlicht weder PostgreSQL noch Port 8000:
+
+```sh
+docker compose -f compose.production.yaml exec -T api python -c '
+import json
+from urllib.request import urlopen
+for path, expected in (("/health/live", {"status": "live"}),
+                       ("/health/ready", {"status": "ready"})):
+    with urlopen("http://127.0.0.1:8000" + path, timeout=6) as response:
+        body = json.load(response)
+        print(f"{path}: HTTP {response.status} {body}")
+        if response.status != 200 or body != expected:
+            raise SystemExit(1)
+'
+```
+
+Danach `/health/live` und `/health/ready` zusätzlich mit dem unten beschriebenen
+zertifikatsprüfenden HTTPS-Aufruf vom freigegebenen Clientnetz prüfen. Ein
+externes 404 nach erfolgreichen direkten API-Checks weist auf Proxy-/DNS-
+Zuordnung oder einen anderen öffentlichen Dienst hin; nicht durch Freigabe von
+Port 8000 oder PostgreSQL umgehen. Kein Deployment wurde mit dieser Anleitung
+ausgeführt oder als erfolgreich bestätigt.
+
 Vorher müssen Betreiber `BACKEND_HOSTNAME` auf ihren tatsächlich bestätigten
 öffentlichen DNS-Namen und `BACKEND_HOSTNAME_CONFIRMED` ausdrücklich auf
 denselben Namen setzen. Es gibt keinen Default; IPs, lokale und reservierte
