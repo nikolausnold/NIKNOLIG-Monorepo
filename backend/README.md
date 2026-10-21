@@ -483,6 +483,7 @@ Umgebungen oder Secret-Inhalte nicht ausgeben:
 
 ```sh
 cd /opt/nold/backend
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Command}}'
 docker compose -f compose.production.yaml ps --all
 container=$(docker compose -f compose.production.yaml ps -q api)
 test -n "$container"
