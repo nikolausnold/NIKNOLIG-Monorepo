@@ -8,6 +8,17 @@ Application IDs, Sicherheitsdomänen und Releases. Dieses Dokument und
 Defense keine impliziten Elektro-Engel-Rechte. Es wurden keine Sensoren
 abgefragt, Geräte gekoppelt oder Nutzerdaten erfasst.
 
+**Produktgrenze gemäß bestätigtem D-01-Auftrag (21.10.2026):** NIKNOLIG umfasst
+allgemeine Systemfunktionen; Defense zusätzliche Sicherheits- und
+Notfallfunktionen. Infrastruktur-Erkennung und Reparaturhinweise durch
+Elektro-Engel ausschließlich in Defense; keine Infrastruktur-Erkennung in der
+normalen NIKNOLIG-App. Die folgenden Sensor-/Geräteentwürfe sind weder eine
+Ausweitung dieses Umfangs noch eine Zugriffserlaubnis. Insbesondere gestatten
+sie der normalen App keine Infrastruktur-Erkennung über ein anderes Gerät.
+[D-01-Prüfprotokoll](securitychain-p0-specification.md#d-01-prüfprotokoll-bestätigte-produktgrenzen-und-offene-detailfreigaben):
+Konkrete Datenzugriffe, Berechtigungen, automatische Aktionen und Datenschutz
+bleiben offen. D-01 ist nicht abgeschlossen; alle Stop-Gates gelten weiter.
+
 ## Vorhandener Stand und Verträge
 
 Die aktuellen Android-Manifeste enthalten keine Kamera-, Mikrofon-, Standort-,
@@ -159,13 +170,15 @@ aktuellen App-/Gradle-/Manifestpfade sind `app/build.gradle.kts`,
 `app/src/main/AndroidManifest.xml`, `app/src/main/java/`, `app/src/main/res/`,
 `app/src/test/` und `app/src/androidTest/`.
 
-- **NIKNOLIG:** eigener Adapter/Consent-UI unter
+- **NIKNOLIG:** ausschließlich nach Freigabe allgemeiner Systemfunktionen,
+  keine Infrastruktur-Erkennung; eigener Adapter/Consent-UI unter
   `app/src/main/java/com/niknolig/app/`, UI-Texte in
   `app/src/main/res/values/strings.xml`, nur einzeln freigegebene
   Sensor-/Netzwerkrechte in Manifest und abhängige Runtime in
   `app/build.gradle.kts`. Assistenten-Daten bleiben ohne zweckgebundenen Grant
   lokal.
-- **NIKNOLIG Defense:** getrennte Implementierung/Consent-UI unter
+- **NIKNOLIG Defense:** Infrastruktur-Erkennung und Reparaturhinweise nur hier
+  und erst nach eigener Detailfreigabe; getrennte Implementierung/Consent-UI unter
   `app/src/main/java/com/niknolig/defense/`, eigene UI-Texte, Manifestrechte,
   Adapter, Tests, Identität und Credentials. Kein Austausch privater App-Daten
   oder NIKNOLIG-Credentials.

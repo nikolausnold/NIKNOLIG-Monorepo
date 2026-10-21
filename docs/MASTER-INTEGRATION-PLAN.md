@@ -18,6 +18,17 @@ als bestätigt behandelt. Die folgende Monorepo-Integration ändert weder die
 Quell-Repositories noch Websites oder Deployments und genehmigt keinen
 Produktivzugriff.
 
+**Produktabgrenzung ergänzt am 21.10.2026:** NIKNOLIG: allgemeine
+Systemfunktionen. Defense: zusätzliche Sicherheits- und Notfallfunktionen,
+einschließlich Elektro-Engels Infrastruktur-Erkennung und Reparaturhinweisen
+ausschließlich in Defense. Keine Infrastruktur-Erkennung in der normalen
+NIKNOLIG-App. Das präzisiert den Zielumfang, nicht die historische Inventur
+oder den implementierten Bestand. Das
+[D-01-Prüfprotokoll](securitychain-p0-specification.md#d-01-prüfprotokoll-bestätigte-produktgrenzen-und-offene-detailfreigaben)
+führt Datenzugriffe, Berechtigungen, automatische Aktionen und Datenschutz
+ausdrücklich als offen; D-01 bleibt ohne vollständige Bestätigungen offen.
+D-02 bis D-12 und sämtliche technischen Stop-Gates bleiben unverändert.
+
 ## Aktueller Monorepo-Integrationsstand
 
 Die Android-Projekte sind als unabhängige Gradle-Module `:niknolig` und

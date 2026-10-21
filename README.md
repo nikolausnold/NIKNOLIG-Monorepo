@@ -31,6 +31,16 @@ werden nicht übertragen oder automatisch beantwortet; Geräteerkennung,
 Verbindungen und Steuerbefehle sind nicht verfügbar. Es gibt keine gemeinsame
 Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
+**Bestätigte Produktgrenzen (D-01, 21.10.2026):** NIKNOLIG umfasst allgemeine
+Systemfunktionen; NIKNOLIG Defense zusätzliche Sicherheits- und Notfallfunktionen.
+Elektro-Engels Infrastruktur-Erkennung und Reparaturhinweise gehören
+ausschließlich zu Defense. Keine Infrastruktur-Erkennung in der normalen
+NIKNOLIG-App; die dort vorhandene lokale Assistenzvorschau ist davon getrennt.
+Das ist keine Implementierungs- oder Datenfreigabe.
+[D-01-Prüfprotokoll und offene Detailentscheidungen](docs/securitychain-p0-specification.md#d-01-prüfprotokoll-bestätigte-produktgrenzen-und-offene-detailfreigaben)
+dokumentieren den Funktionsumfang beider Apps und die fehlenden Bestätigungen;
+D-01 ist noch nicht abgeschlossen, D-02 bis D-12 bleiben unverändert offen.
+
 ## Sicherheits- und Integrationsgrenzen
 
 - Kein App-Modul hängt vom jeweils anderen ab; es gibt keine gemeinsame
