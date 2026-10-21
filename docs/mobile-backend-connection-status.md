@@ -21,6 +21,13 @@ URL, Antwortinhalt noch Exceptions und senden keine Credentials oder Nutzdaten.
 Für Health-Checks wird keine Authentifizierung benötigt; dies implementiert
 keinen Login oder Zugriff auf geschützte Funktionen.
 
+Beide Manifeste verbieten Klartextverkehr ausdrücklich. Die Verbindung kann
+nach Fehlern oder Netzwerkwechsel erneut geprüft werden; während einer Anfrage
+ist die Prüftaste deaktiviert. Debug-CI übernimmt jetzt wie Release-CI die
+getrennten Repository-Variablen `NIKNOLIG_BACKEND_URL` und
+`NIKNOLIG_DEFENSE_BACKEND_URL`. Ohne bestätigte Werte bleibt der Zustand
+„nicht konfiguriert“; es wird kein Ersatzserver gewählt.
+
 ## URL-Konfiguration und vorhandene Routen
 
 - [`backend/openapi.yaml`](../backend/openapi.yaml) enthält als Server
@@ -60,9 +67,30 @@ und prüfen Pfad, HTTPS-Vorgabe, Timeouts, Redirect-Ablehnung und Fehlerantworte
 Sie belegen keine echte TLS-Verbindung. `python3 -m unittest discover -s
 backend/tests` prüft den Backendvertrag und startet für Health-Tests einen
 temporären lokalen HTTP-Server; ein bestandener Test ist weder HTTPS- noch
-Deploymentnachweis. Android-Debug-Builds konnten in dieser Umgebung nicht
-durchgeführt werden: Gradle löste Android-Gradle-Plugin 8.11.1 aus den
-konfigurierten Repositories nicht auf. Für iOS wurde kein Build durchgeführt.
+Deploymentnachweis. Der gezielte gemeinsame Aufruf der beiden Android-Debug-
+Builds und Unit-Tests in dieser Umgebung scheiterte vor der Projektkonfiguration:
+Android-Gradle-Plugin 8.11.1 wurde aus Google/Maven/Plugin Portal nicht aufgelöst.
+Deshalb wird hier kein erfolgreicher Android-Build oder APK behauptet. Die
+CI führt die vorhandenen Client-Unit-Tests nun ausdrücklich zusätzlich aus.
+Für iOS wurde kein Build durchgeführt.
+
+### Tatsächliche CI-Fehler auf dem gemergten Stand `837c404`
+
+- [Android #762](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39584444860):
+  `java.net.URI` und `java.net.InetAddress` wurden in beiden Gradle-Kotlin-Skripten
+  vom `java`-DSL-Namen überschattet (`Unresolved reference: net` und Folgefehler).
+  Explizite Imports beheben diese Ursache; Release-URL-Prüfungen bleiben bestehen.
+- [Backend/Tooling #107](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39584444630):
+  sechs veraltete Support-Assertions erwarteten keine Netzwerkberechtigung,
+  den alten `aiUnavailable`-Zustand und alte Texte. Vier Evolution-Testfehler
+  entstanden durch verschobene README-Belegzeilen. Die Tests prüfen jetzt
+  ausschließlich INTERNET, Klartextverbot, echte Health-Abfrage, weiter gesperrte
+  KI und bestätigte E-Mail-Entwürfe; die Belege sind aktualisiert.
+  Der anschließend fehlende Systemreport war ein Folgefehler des vorzeitig
+  abgebrochenen Jobs, keine fehlgeschlagene Serverprüfung.
+- Die automatisch nachfolgenden Release-Läufe wurden wegen der fehlgeschlagenen
+  Voraussetzungen übersprungen. Signierung oder Sicherheitsfreigaben wurden
+  nicht umgangen.
 
 ## Konkrete Blocker und nächste Voraussetzungen
 

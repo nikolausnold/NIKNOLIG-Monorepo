@@ -5,7 +5,7 @@
       "id": "accessibility-preview-checklist",
       "title": "Add a focused accessibility review checklist for preview screens",
       "goal": "Make accessibility checks repeatable without claiming current defects.",
-      "rationale": "The repository documents that app test sources are absent; a bounded manual checklist can record evidence before UI behavior changes.",
+      "rationale": "The existing health-client tests simulate HTTPS connections; a bounded manual checklist can separately record accessibility evidence.",
       "successCriteria": [
         "Checklist covers labels, text scaling, contrast, focus/order, and touch targets for each existing screen.",
         "Findings include screen and reproducible steps; no unsupported accessibility claim is recorded."
@@ -37,7 +37,7 @@
           "path": "README.md",
           "startLine": 70,
           "endLine": 72,
-          "excerpt": "In den importierten\nQuellständen sind keine Android-Testquellen vorhanden; deshalb wird kein\nAndroid-Testtask behauptet.",
+          "excerpt": "Zusätzlich laufen\ndie Android-Health-Client-Unit-Tests beider Module. Sie verwenden simulierte\nHTTPS-Verbindungen und ersetzen keinen realen Server- oder Gerätetest.",
           "state": "hypothesis"
         }
       ]
@@ -79,15 +79,15 @@
       "evidence": [
         {
           "path": ".github/workflows/android-build.yml",
-          "startLine": 25,
-          "endLine": 27,
-          "excerpt": "      - name: Assemble both debug APKs\n        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon\n      - name: Verify package identities and APK signatures",
+          "startLine": 28,
+          "endLine": 31,
+          "excerpt": "      - name: Assemble both debug APKs\n        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon\n      - name: Test both backend health clients\n        run: ./gradlew :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon",
           "state": "verified"
         },
         {
           "path": "backend/README.md",
-          "startLine": 181,
-          "endLine": 182,
+          "startLine": 186,
+          "endLine": 187,
           "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und\ndie Health-only-Laufzeit.",
           "state": "verified"
         }

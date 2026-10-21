@@ -1,3 +1,6 @@
+import java.net.InetAddress
+import java.net.URI
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -15,7 +18,7 @@ val backendBaseUrl = providers.gradleProperty("niknoligBackendUrl")
 
 fun validateBackendBaseUrl(value: String) {
     if (value.isEmpty()) return
-    val uri = runCatching { java.net.URI(value) }.getOrNull()
+    val uri = runCatching { URI(value) }.getOrNull()
         ?: error("NIKNOLIG backend URL must be an absolute HTTPS origin.")
     val host = uri.host?.lowercase()?.trimEnd('.')
         ?: error("NIKNOLIG backend URL must include a hostname.")
@@ -32,7 +35,7 @@ fun validateBackendBaseUrl(value: String) {
 fun isLoopbackOrUnspecifiedAddress(host: String): Boolean {
     if (!host.contains(':') && !host.matches(Regex("[0-9.]+"))) return false
     return runCatching {
-        val address = java.net.InetAddress.getByName(host)
+        val address = InetAddress.getByName(host)
         address.isLoopbackAddress || address.isAnyLocalAddress
     }.getOrDefault(true)
 }

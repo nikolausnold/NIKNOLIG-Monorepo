@@ -50,7 +50,7 @@ class SupportActivity : Activity() {
         )
         findViewById<Button>(R.id.support_escalate).visibility =
             if (backendStatus != null) View.VISIBLE else View.GONE
-        checkButton.visibility = if (backendStatus != null) View.GONE else View.VISIBLE
+        checkButton.visibility = View.VISIBLE
     }
 
     private fun checkBackend() {
