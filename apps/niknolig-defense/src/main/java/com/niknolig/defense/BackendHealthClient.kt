@@ -62,7 +62,7 @@ internal class BackendHealthClient(
                     }
                     output.toByteArray().toString(Charsets.UTF_8)
                 }
-                if (READY_BODY.matches(body)) BackendHealthResult.Ready
+                if (ReadyResponseJsonParser(body).isReady()) BackendHealthResult.Ready
                 else BackendHealthResult.InvalidResponse
             }
         } catch (_: SocketTimeoutException) {
@@ -79,6 +79,73 @@ internal class BackendHealthClient(
     private companion object {
         const val TIMEOUT_MILLISECONDS = 5_000
         const val MAX_RESPONSE_BYTES = 4_096
-        val READY_BODY = Regex("""\s*\{\s*"status"\s*:\s*"ready"\s*}\s*""")
+    }
+}
+
+private class ReadyResponseJsonParser(private val text: String) {
+    private var position = 0
+
+    fun isReady(): Boolean = runCatching {
+        skipWhitespace()
+        expect('{')
+        skipWhitespace()
+        val key = parseString()
+        skipWhitespace()
+        expect(':')
+        skipWhitespace()
+        val value = parseString()
+        skipWhitespace()
+        expect('}')
+        skipWhitespace()
+        position == text.length && key == "status" && value == "ready"
+    }.getOrDefault(false)
+
+    private fun parseString(): String {
+        expect('"')
+        val value = StringBuilder()
+        while (position < text.length) {
+            val character = text[position++]
+            when {
+                character == '"' -> return value.toString()
+                character == '\\' -> {
+                    require(position < text.length)
+                    when (val escape = text[position++]) {
+                        '"', '\\', '/' -> value.append(escape)
+                        'b' -> value.append('\b')
+                        'f' -> value.append('\u000C')
+                        'n' -> value.append('\n')
+                        'r' -> value.append('\r')
+                        't' -> value.append('\t')
+                        'u' -> value.append(parseUnicodeEscape())
+                        else -> error("Invalid JSON escape")
+                    }
+                }
+                character < ' ' -> error("Unescaped control character")
+                else -> value.append(character)
+            }
+        }
+        error("Unterminated JSON string")
+    }
+
+    private fun parseUnicodeEscape(): Char {
+        require(position + 4 <= text.length)
+        val codeUnit = text.substring(position, position + 4).toIntOrNull(16)
+            ?: error("Invalid JSON unicode escape")
+        position += 4
+        return codeUnit.toChar()
+    }
+
+    private fun skipWhitespace() {
+        while (position < text.length) {
+            when (text[position]) {
+                ' ', '\t', '\n', '\r' -> position++
+                else -> return
+            }
+        }
+    }
+
+    private fun expect(character: Char) {
+        require(position < text.length && text[position] == character)
+        position++
     }
 }

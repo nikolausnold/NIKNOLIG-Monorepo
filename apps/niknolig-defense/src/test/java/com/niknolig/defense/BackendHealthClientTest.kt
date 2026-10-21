@@ -57,6 +57,27 @@ class BackendHealthClientTest {
         assertEquals(BackendHealthResult.HttpError(401), unauthorized)
     }
 
+    @Test
+    fun parsesEscapedJsonStringsAndRejectsInvalidWhitespaceAndTrailingContent() {
+        val escaped = BackendHealthClient("https://api.example.test") {
+            FakeHttpsConnection(it, 200, """{"status":"re\u0061dy"}""")
+        }.check()
+        val verticalTab = BackendHealthClient("https://api.example.test") {
+            FakeHttpsConnection(it, 200, "\u000B{\"status\":\"ready\"}")
+        }.check()
+        val extraProperty = BackendHealthClient("https://api.example.test") {
+            FakeHttpsConnection(it, 200, """{"status":"ready","extra":true}""")
+        }.check()
+        val trailingContent = BackendHealthClient("https://api.example.test") {
+            FakeHttpsConnection(it, 200, """{"status":"ready"} false""")
+        }.check()
+
+        assertEquals(BackendHealthResult.Ready, escaped)
+        assertEquals(BackendHealthResult.InvalidResponse, verticalTab)
+        assertEquals(BackendHealthResult.InvalidResponse, extraProperty)
+        assertEquals(BackendHealthResult.InvalidResponse, trailingContent)
+    }
+
     private class FakeHttpsConnection(
         url: URL,
         private val status: Int,
