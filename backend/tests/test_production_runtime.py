@@ -97,6 +97,14 @@ class ProductionRuntimeTests(unittest.TestCase):
         self.assertNotIn("password", log.getvalue())
         self.assertNotIn("internal address", log.getvalue())
 
+    def test_readiness_failure_stays_503_if_stderr_is_unavailable(self):
+        self.factory.side_effect = psycopg.OperationalError("private details")
+        with patch("asgi.sys.stderr") as stderr:
+            stderr.write.side_effect = OSError("closed log stream")
+            status, body = self.request("/health/ready")
+        self.assertEqual(503, status)
+        self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
+
     def test_missing_or_invalid_migration_returns_generic_503(self):
         for failure in (psycopg.errors.UndefinedTable("ledger"), RuntimeError("schema drift")):
             with self.subTest(failure=type(failure).__name__):

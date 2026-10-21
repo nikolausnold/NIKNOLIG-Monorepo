@@ -15,6 +15,16 @@ from migrate import check_ready_async
 HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
 
 
+def _log_readiness_failure():
+    try:
+        sys.stderr.write(json.dumps({
+            "event": "health_readiness_failed",
+            "status": 503,
+        }, separators=(",", ":")) + "\n")
+    except (OSError, ValueError):
+        pass
+
+
 def error(status, code, message):
     return JSONResponse(
         status_code=status,
@@ -51,10 +61,7 @@ def create_app(*, readiness_probe=None):
         try:
             await probe(check_ready_async)
         except Exception:
-            sys.stderr.write(json.dumps({
-                "event": "health_readiness_failed",
-                "status": 503,
-            }, separators=(",", ":")) + "\n")
+            _log_readiness_failure()
             return error(503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable.")
         return JSONResponse({"status": "ready"}, headers=HEADERS)
 
