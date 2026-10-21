@@ -659,3 +659,33 @@ Das Verfahren ist dokumentiert, aber mangels benanntem Betreiber,
 Incident-Kontakt und Testumgebung nicht praktisch geübt. Externe
 Alarmierung/Monitoring, RTO/RPO, Datenverlustfenster und Aufbewahrungsdauer
 bleiben unbestätigt.
+
+### Verifizierungsnachweise (21.10.2026)
+
+- Lokal nach Installation der bereits festgeschriebenen `backend/requirements.txt`:
+  `python3 -m unittest discover -s backend/tests` — **111 Tests bestanden,
+  15 übersprungen**. Die übersprungenen PostgreSQL-Integrationstests verlangen
+  eine ausdrücklich wegwerfbare `BACKEND_TEST_DATABASE_URL`; sie liefen lokal
+  nicht.
+- `python3 -m unittest discover -s tools/tests` — **49 Tests bestanden**.
+- `docker compose -f backend/compose.production.yaml config --quiet` —
+  **erfolgreich** mit ausschließlich synthetischen `api.invalid`- und
+  `/tmp`-Werten zur Syntaxprüfung; kein DNS-, TLS-, Server- oder Deploymenttest.
+- PR #121 wurde am 21.10.2026 gemergt
+  ([PR #121](https://github.com/nikolausnold/NIKNOLIG-Monorepo/pull/121)).
+  Die PR-Backend- und Android-Checks waren erfolgreich
+  ([Backend](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39607714188),
+  [Android](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39607714178));
+  die Post-Merge-Läufe auf `main` waren ebenfalls erfolgreich
+  ([Backend](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39608447871),
+  [Android](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39608447921)).
+- Die CI-Läufe für die zusätzlichen Folgeänderungen auf
+  `copilot/boss-auftrag-pr-121` stehen auf `action_required` und enthalten keine
+  Jobs; sie haben diese Folgeänderungen nicht ausgeführt
+  ([Backend](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39609360164),
+  [Android](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39609360102)).
+  Lokale Tests ersetzen diesen noch ausstehenden CI-Lauf nicht.
+
+Die Testresultate belegen weder eine öffentliche HTTPS-Adresse noch einen
+Serverbetrieb, SecurityChain-P0-Freigabe, produktive Backup-Ausführung oder
+Restore-/Incident-Übung.
