@@ -1,0 +1,9 @@
+*
+!requirements.txt
+!asgi.py
+!database.py
+!migrate.py
+!deployment.py
+!healthcheck.py
+!migrations/
+!migrations/*.sql

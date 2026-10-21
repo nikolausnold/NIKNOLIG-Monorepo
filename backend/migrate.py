@@ -83,12 +83,24 @@ def check_ready(connection):
         raise RuntimeError("Database probe failed")
     records = _records(connection)
     _check_records(records)
+    constraints = connection.execute(
+        "SELECT count(*) FROM pg_constraint WHERE conrelid = "
+        "'public.backend_schema_migrations'::regclass AND convalidated AND "
+        "conname IN ('backend_schema_migrations_pkey', "
+        "'backend_schema_migrations_checksum_check')"
+    ).fetchone()
+    if constraints != (2,):
+        raise RuntimeError("Migration ledger invariants are missing")
     _check_contract_invariants(connection, len(records) == 2)
 
 
 def _configure_health_role(connection, secret_path):
     if not secret_path:
         return
+    password = database.read_secret(secret_path)
+    admin_secret = os.environ.get("PGPASSWORD_FILE")
+    if admin_secret and password == database.read_secret(admin_secret):
+        raise ValueError("Health and migration database credentials must differ")
     role = sql.Identifier("backend_health")
     if not connection.execute(
         "SELECT 1 FROM pg_roles WHERE rolname = 'backend_health'"
@@ -97,7 +109,7 @@ def _configure_health_role(connection, secret_path):
     connection.execute(
         sql.SQL("ALTER ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
                 "NOREPLICATION NOINHERIT PASSWORD {}").format(
-                    role, sql.Literal(database.read_secret(secret_path))
+                    role, sql.Literal(password)
                 )
     )
     name = connection.execute("SELECT current_database()").fetchone()[0]

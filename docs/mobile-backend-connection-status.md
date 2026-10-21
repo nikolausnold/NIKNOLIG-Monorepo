@@ -30,9 +30,8 @@ getrennten Repository-Variablen `NIKNOLIG_BACKEND_URL` und
 
 ## URL-Konfiguration und vorhandene Routen
 
-- [`backend/openapi.yaml`](../backend/openapi.yaml) enthält als Server
-  `https://backend.invalid`; die Datei kennzeichnet das ausdrücklich als
-  Platzhalter, nicht als deployten oder freigegebenen Endpunkt.
+- [`backend/openapi.yaml`](../backend/openapi.yaml) ist der Health-Vertrag,
+  kein Nachweis für einen deployten oder freigegebenen Produktionsserver.
 - [`backend/.env.example`](../backend/.env.example) setzt den lokalen
   Health-Server auf `127.0.0.1:8000`.
 - [`backend/ai-support.openapi.yaml`](../backend/ai-support.openapi.yaml) nennt
@@ -50,15 +49,22 @@ getrennten Repository-Variablen `NIKNOLIG_BACKEND_URL` und
 | --- | --- |
 | `GET /health/live` | Lokal in `backend/app.py`; liefert `200` mit `{"status":"live"}`. |
 | `GET /health/ready` | Lokal in `backend/app.py`; liefert `200` mit `{"status":"ready"}`. Prüft keine Produktabhängigkeiten. |
+| `GET /health/live`, `GET /health/ready` in Produktion | `backend/asgi.py`: FastAPI-Liveness und echte PostgreSQL-/Betriebsschema-Prüfung. Readiness liefert bei fehlender Konfiguration, Datenbank oder passender Migration `503 SERVICE_UNAVAILABLE`, nicht `ready`. |
 | `POST /v1/ai/support` | Lokale Vorbereitungsroute. Der Standardstart ist gesperrt und liefert `503 AI_DISABLED`; der Standardauthenticator weist Credentials ab. Kein produktiver Auth-Aussteller, Transport oder deployter Dienst. |
 | Produkt-, Login-, Geräte-, Profil- und Pairing-Routen | Nicht implementiert bzw. nicht freigegeben; nicht vorhandene Pfade liefern lokal `404`. |
 
-Der lokale Server bindet standardmäßig an `127.0.0.1:8000` und verwendet
-`http.server` ohne TLS. [`backend/compose.yaml`](../backend/compose.yaml)
-definiert nur eine lokale PostgreSQL-Entwicklungsdatenbank, keinen API-Service.
-Eine produktive Serverplattform, öffentliche DNS-Adresse, TLS-Zertifikatskette
-oder Deployment-Konfiguration ist hier nicht vorhanden. Deshalb gibt es keine
-echte Produktions-URL, deren DNS, TLS oder Erreichbarkeit geprüft werden könnte.
+Der unveränderte lokale Vorbereitungsserver verwendet `http.server` ohne TLS;
+`backend/compose.yaml` bleibt ausschließlich für lokale Datenbankentwicklung.
+Der zusätzliche Produktionsweg in `backend/compose.production.yaml` umfasst
+FastAPI, PostgreSQL, eine separate Betriebs-Migration und TLS-Terminierung.
+Die vorgeschlagene Geräte-/Pairing-Migration `001_initial_contract.sql` wird
+nicht automatisch ausgeführt. Deployment-Anleitung und Betriebsgrenzen stehen
+in [`backend/README.md`](../backend/README.md).
+
+**Separater HTTPS-Nachweis: NICHT ERBRACHT.** Eine bestätigte Serveradresse,
+Serverzugang und verwaltete TLS-Zertifikate wurden nicht bereitgestellt. Weder
+ein lokaler HTTP-Test noch ein Containerstart oder Build gilt als Ersatz.
+Es wurde kein fremder Host als Produktionsziel angenommen oder kontaktiert.
 
 ## Prüfung und Aussagekraft
 
@@ -73,6 +79,16 @@ Android-Gradle-Plugin 8.11.1 wurde aus Google/Maven/Plugin Portal nicht aufgelö
 Deshalb wird hier kein erfolgreicher Android-Build oder APK behauptet. Die
 CI führt die vorhandenen Client-Unit-Tests nun ausdrücklich zusätzlich aus.
 Für iOS wurde kein Build durchgeführt.
+
+Aktuelle Backend-Prüfung: **95 Tests bestanden**, einschließlich echter,
+isolierter PostgreSQL-Integration für Migrationen, Rollback, Drift und
+eingeschränkte Datenbankrechte. Docker-Image-Build, Compose- und Caddy-
+Konfiguration sowie HTTP-Readiness-Ausfall/Wiederherstellung im Container
+wurden geprüft. Die **47 Tooling-Regressionstests** bestehen ebenfalls.
+Das sind lokale Backend-Nachweise, keine öffentliche HTTPS- oder
+SecurityChain-Freigabe. Die Android-Client-Tests für Redirects, `503`,
+Antwortgrößen, Timeout und TLS-Fehler sind ergänzt, aber lokal wegen der
+genannten AGP-Auflösung nicht ausgeführt.
 
 ### Tatsächliche CI-Fehler auf dem gemergten Stand `837c404`
 
@@ -99,13 +115,13 @@ Für iOS wurde kein Build durchgeführt.
    verwaltetes DNS, gültige TLS-Zertifikatskette und einen erreichbaren
    Test-/Staging-Endpunkt bereitstellen. Die Release-Builds bleiben ohne diese
    konkreten app-scoped URLs absichtlich gesperrt.
-2. Ein deployter API-Dienst fehlt. Der vorhandene Python-Server verwendet
-   `http.server`, bindet lokal und ist ausdrücklich nicht produktionsgeeignet;
-   Compose enthält nur eine lokale Datenbank. Ein Produktionsserver,
-   TLS-Terminierung, Betriebs-/Rollbackkonzept und Deploymentkonfiguration
-   müssen durch den Betreiber freigegeben und bereitgestellt werden. Die Apps
-   können gegen die vorhandenen Health-Routen erst nach diesem Deployment
-   verbunden werden.
+2. Ein deployter API-Dienst fehlt weiterhin; die zuvor fehlende technische
+   Deployment-Konfiguration ist jetzt implementiert. Der Betreiber muss einen
+   freigegebenen Docker-Compose-Server, DNS, Zertifikatskette samt privatem
+   Schlüssel, getrennte Datenbank-Secrets und Serverzugang bereitstellen.
+   Es werden keine kostenpflichtigen Ressourcen erstellt. Erst nach Deployment
+   und externer HTTPS-Prüfung können die bestehenden Android-Clients die echten
+   Health-Routen nachweisbar erreichen.
 3. SecurityChain-P0 sowie die Produkt-/Security-Entscheidungen zu App-Bereichen,
    Identitäten, Authentifizierung, Widerruf und Datenumfang bleiben gemäß
    [`backend/README.md`](../backend/README.md) Freigabevoraussetzungen. Dieser

@@ -1,13 +1,13 @@
 # Gemeinsame Backend-Grundlage
 
-**Status: Health-Laufzeit und gesperrte KI-Support-Vorbereitung, lokal, nicht produktionsfreigegeben.**
+**Status: lokale Vorbereitung und deploybare Health-ASGI-Laufzeit, nicht produktionsfreigegeben.**
 
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
-Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt Health-Routen
-und einen standardmäßig gesperrten KI-Support-Testendpunkt bereit. Die Android-
-Module enthalten inzwischen getrennte Clients ausschließlich für
-`GET /health/ready`; Produkt-, Login-, Geräte- und Pairing-APIs, produktive
-Endpunkte und eine Deployment-Konfiguration existieren nicht. NIKNOLIG und
+Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` dient lokal;
+`asgi.py` prüft echte PostgreSQL- und Migrationsbereitschaft. Android-Module
+enthalten getrennte Clients ausschließlich für `GET /health/ready`.
+Produkt-, Login-, Geräte- und Pairing-APIs bleiben gesperrt. Eine separate
+Deployment-Konfiguration existiert; kein Produktionsziel ist nachgewiesen. NIKNOLIG und
 NIKNOLIG Defense bleiben getrennte Sicherheits- und Release-Domänen; gemeinsame
 Verträge verleihen keine Rechte.
 Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
@@ -17,14 +17,14 @@ Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 - [`openapi.yaml`](openapi.yaml): OpenAPI 3.1-Vertrag für nicht-sensitive
   Liveness-/Readiness-Prüfungen und einheitliche Fehlerantworten. Es sind bewusst
   noch keine operativen Geräte-, Profil- oder Pairing-Endpunkte freigegeben.
-- [`app.py`](app.py): lokale Health-/KI-Vorbereitungs-Laufzeit ohne externe
-  Python-Abhängigkeiten. Sie ist kein produktionsgeeigneter API-Server.
+- [`app.py`](app.py): lokale stdlib-Health-/gesperrte KI-Vorbereitungs-Laufzeit;
+  [`asgi.py`](asgi.py): zusätzliche FastAPI-Health-Laufzeit mit PostgreSQL-Prüfung.
 - [`migrations/001_initial_contract.sql`](migrations/001_initial_contract.sql):
   vorgeschlagenes relationales Modell für App-Bereiche, Installationen,
   Geräteidentitätsstatus und spätere Zwei-App-Link-Beziehungen. Das Anwenden der
   Migration ist bis zur Architektur-/Security-Freigabe gesperrt.
-- [`compose.yaml`](compose.yaml): ausschließlich lokale PostgreSQL-Entwicklung,
-  an Loopback gebunden und ohne API-Service oder öffentlich erreichbaren Port.
+- [`compose.yaml`](compose.yaml): lokale PostgreSQL-Entwicklung, Loopback-only;
+  [`compose.production.yaml`](compose.production.yaml): separates Health-Deployment.
 - [`.env.example`](.env.example): Variablennamen ohne eingetragene Credentials.
 - [`contracts/`](contracts/): versionierte, deklarative Entwürfe für
   Gerätewechsel-Zustimmung, minimierte Audit-Ereignisse, Sensor-Capabilities und
@@ -77,8 +77,8 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    Aufbewahrung, Löschung, Benutzeridentität und konkrete Nutzdaten sind noch
    nicht fachlich freigegeben.
 6. **Healthchecks:** `/health/live` meldet nur Prozessverfügbarkeit;
-   `/health/ready` meldet die Bereitschaft dieser Health-only-Laufzeit. Es gibt
-   noch keine Produktabhängigkeiten, die geprüft werden könnten. Antworten legen
+   `/health/ready` meldet bei `app.py` nur die lokale Bereitschaft; `asgi.py` prüft
+   PostgreSQL/Migrations-Invarianten und liefert bei Ausfall 503. Antworten legen
    keine Umgebungsvariablen, internen Hosts, Stacktraces oder Datenbankdetails
    offen.
 
@@ -87,8 +87,8 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
 Docker Compose veröffentlicht PostgreSQL ausschließlich auf
 `127.0.0.1:54329` (konfigurierbar), nutzt ein erforderliches lokales Passwort,
 ein isoliertes internes Compose-Netzwerk und ein lokales benanntes Volume. Es
-gibt keinen API-Container, keine Internetfreigabe und keine produktive
-Konfiguration. `.env` wird lokal aus `.env.example` erstellt und nicht
+gibt in dieser lokalen Datei keinen API-Container und keine Internetfreigabe.
+`.env` wird lokal aus `.env.example` erstellt und nicht
 eingecheckt. Das Compose-Setup ist nicht für Deployment oder sensible Daten
 bestimmt.
 
@@ -107,8 +107,8 @@ Statusantworten; andere GET-Pfade geben eine generische 404-Antwort zurück.
 Es gibt keine Anmeldung, Datenbankverbindung, Gerätefunktion oder freigegebene Produkt-API.
 Die Standardbibliotheks-HTTP-Laufzeit ist nur für lokale Entwicklung und
 Vertragstests gedacht: nicht öffentlich exponieren oder als produktiven
-Internetserver verwenden. Serverplattform, TLS, Authentifizierung, Betrieb und
-Deployment bleiben separat zu konfigurieren und freizugeben.
+Internetserver verwenden. Die separate ASGI-Konfiguration ersetzt keine
+Produktions-, TLS-, Authentifizierungs- oder Betriebsfreigabe.
 
 ## SecurityChain-P0 und Freigabe
 
@@ -407,3 +407,153 @@ Persönliche Hilfe bleibt eine bewusste Eskalation mit Empfänger-/Datenprüfung
 kein automatischer E-Mail-Versand und kein ungefragtes Mitsenden von Verlauf,
 Profilen oder sensiblen Daten. Verfügbarkeits- und Kostenfehler sind kein Anlass,
 Authentifizierung oder Berechtigungen zu umgehen.
+
+## Ergänzung: deploybare Health-ASGI-Laufzeit (ohne Produktionsfreigabe)
+
+Der unveränderte lokale `app.py` bleibt eine Vorbereitungslaufzeit ohne
+Datenbankverbindung; die zusätzliche Laufzeit `asgi.py` ersetzt ihn nicht
+für lokale Vertragstests. Die ASGI-Laufzeit ergänzt ausschließlich die
+beiden Health-Routen: Liveness benötigt keine Datenbank; Readiness prüft eine
+echte PostgreSQL-Verbindung mit `SELECT 1`, bekannte Migrationen samt SHA-256
+und Schema-Invarianten. Fehlende Verbindung, Migration oder Schema-Drift liefern
+eine nicht-sensitive 503-Antwort. Alle Antworten erhalten `Cache-Control:
+no-store` und `X-Content-Type-Options: nosniff`. KI-Support, Login, Pairing und
+Produkt-Routen sind dort nicht registriert, auch nicht durch Umgebungsflags.
+
+```sh
+python3 -m pip install -r backend/requirements.txt
+# DATABASE_URL oder PGHOST, PGDATABASE, PGUSER und separat bereitgestelltes
+# PGPASSWORD_FILE konfigurieren; keine Credentials in Git oder Shell-History.
+python3 backend/migrate.py
+python3 -m uvicorn asgi:app --app-dir backend --host 127.0.0.1 --port 8000 \
+  --no-proxy-headers --no-server-header --no-access-log
+python3 -m unittest discover -s backend/tests
+```
+
+`migrate.py` initialisiert standardmäßig **nur** das Infrastruktur-Ledger
+`000_health_runtime`; es erstellt keine Produkt-Tabellen. Transaktion, advisory
+lock und Prüfsummen machen Wiederholungen sicher; unbekannte/abweichende
+Versionen und unverbuchte bestehende Produkt-Schemata werden abgelehnt.
+Die vorhandene `001_initial_contract.sql` bleibt unverändert und gesperrt:
+`--approve-contract-schema` darf ausschließlich **nach tatsächlicher separater
+Architektur-/Security-/Datenmodell-Freigabe** verwendet werden. Das Flag ist
+kein Freigabenachweis und wird im Produktions-Compose nicht gesetzt.
+Kein automatisches Downgrade oder Löschen vorhandener Daten wird durchgeführt.
+Integrationstests laufen zusätzlich bei `BACKEND_TEST_DATABASE_URL`; sie
+löschen das `public`-Schema und verlangen deshalb ausdrücklich eine wegwerfbare
+Testdatenbank mit Namenssuffix `_backend_test`, niemals eine Betriebsdatenbank.
+
+`compose.yaml` bleibt lokal unverändert. `compose.production.yaml` ist eine
+**eigenständige**, nicht damit zu kombinierende Konfiguration:
+
+```sh
+docker compose -f backend/compose.production.yaml config --quiet
+docker compose -f backend/compose.production.yaml up --build -d
+```
+
+Vorher müssen Betreiber `BACKEND_HOSTNAME` auf ihren tatsächlich bestätigten
+öffentlichen DNS-Namen und `BACKEND_HOSTNAME_CONFIRMED` ausdrücklich auf
+denselben Namen setzen. Es gibt keinen Default; IPs, lokale und reservierte
+Beispielnamen werden abgelehnt. Außerdem sind ausschließlich lokale Pfade zu
+separat provisionierten Secret-Dateien anzugeben:
+`POSTGRES_PASSWORD_SECRET_FILE`, `HEALTH_PASSWORD_SECRET_FILE`,
+`TLS_CERTIFICATE_FILE` (echte Zertifikatskette mit exaktem Host-SAN) und
+`TLS_PRIVATE_KEY_FILE`. Diese Dateien niemals einchecken; für Container-UID
+10001 lesbar bereitstellen und außerhalb von Git angemessen schützen.
+Passwörter müssen verschieden, nicht leer und einzeilig sein. Compose-Secrets
+auf einem einzelnen Docker-Host sind Dateimounts, kein verschlüsselter Vault.
+Bei dateibasierten Compose-Secrets ist auf `uid`/`gid`/`mode`-Remapping kein
+Verlass: die tatsächlichen Host-Dateirechte müssen bereits UID/GID `10001`
+im nicht privilegierten API-/Migrations-/Preflight-/Proxy-Container Lesezugriff
+geben. Auf einer normalen rootful Docker-Engine eignen sich beispielsweise
+root-eigene Dateien mit Gruppe `10001` und Modus `0640`, ausschließlich in
+einem geschützten Betreiberverzeichnis außerhalb von Git. Das
+PostgreSQL-Image liest sein Secret beim privilegierten Einstieg vor dem
+Benutzerwechsel. Bei rootless Docker oder User-Namespace-Remapping gelten
+andere Host-UIDs/GIDs: die tatsächlich gemappte ID oder eine eng begrenzte ACL
+verwenden und den Lesezugriff vor Deployment im jeweiligen Container prüfen.
+Dateien nicht als Abhilfe weltlesbar machen; private Schlüssel niemals in
+Diagnoselog-Ausgaben ausgeben. Die Container laufen mit numerischer UID/GID
+`10001`, die Docker-Engine muss deshalb nicht im Rootless-Modus laufen.
+
+Der vorgeschaltete Preflight prüft Hostbestätigung, Zertifikatszeitraum,
+exakten SAN und passende Schlüsseldatei; er ersetzt **keine** öffentliche
+Vertrauenskette-/DNS-/Erreichbarkeitsprüfung. Danach laufen der einmalige
+Migrationsjob, die ASGI-API und der HTTPS-Proxy abhängig von erfolgreichen
+Vorprüfungen. PostgreSQL und API veröffentlichen keinen Host-Port; nur HTTPS
+443 wird angeboten. Der Health-Datenbanknutzer hat ausschließlich Leserechte
+am Migrations-Ledger, keine Produkt-Datenrechte. Der Proxy verwendet TLS
+1.2/1.3, HSTS und ausschließlich Health-GET-Routen. Zertifikatserneuerung,
+Secret-Rotation (bei bestehendem Volume einschließlich PostgreSQL-Rollen),
+Backups/Wiederherstellung, Host-Härtung und Monitoring bleiben Betreiberaufgaben.
+Image-Digests und sämtliche Python-Versionen sind festgeschrieben und müssen
+kontrolliert auf Sicherheitsupdates geprüft werden.
+
+**Extern weiterhin BLOCKED:** bestätigter Produktionshostname, Serverzugang,
+DNS-Einrichtung, vertrauenswürdige TLS-Ausstellung und externe TLS-/Firewall-
+Nachweise sowie SecurityChain-P0-/Produkt-/Betriebsfreigaben. Es wurde weder ein
+Produktionsziel angenommen noch ein produktives Deployment nachgewiesen.
+
+### Betreiberprüfung über echtes HTTPS (noch nicht durchgeführt)
+
+Erst nach bestätigter Hostzuordnung, DNS, Firewall und Installation einer
+öffentlich vertrauenswürdigen Zertifikatskette vom vorgesehenen Clientnetz aus
+prüfen. Der folgende Aufruf verwendet ausschließlich den explizit gesetzten
+Betreiberhost, prüft Zertifikatskette und Hostnamen mit dem System-Truststore,
+folgt keinen Weiterleitungen und verlangt exakt HTTP 200:
+
+```sh
+status=$(curl --fail --silent --show-error --no-location \
+  --proto '=https' --max-redirs 0 --connect-timeout 5 --max-time 10 \
+  --output /dev/null --write-out '%{http_code}' \
+  "https://${BACKEND_HOSTNAME:?Set the confirmed real production hostname}/health/ready") \
+  && test "$status" = 200
+```
+
+Analog `/health/live` prüfen. Niemals `-k`/`--insecure`, einen erfundenen Host
+oder eine HTTP-Ausweichadresse verwenden. Ein 200-Ergebnis belegt ausschließlich
+die geprüfte Health-Verbindung zum Prüfzeitpunkt, keine Authentifizierung,
+Geräteintegration, KI- oder P0-Freigabe. Prüfzeitpunkt, Netz, Hostname und
+nicht-sensitive Resultate separat protokollieren. Ohne realen Host und
+Serverzugang liegen weiterhin **keine entfernten HTTPS-/DNS-Nachweise** vor.
+
+### Datenbanksicherung und kontrollierte Rücknahme
+
+Vor jedem Schema-/Imagewechsel eine konsistente Sicherung in einem geschützten,
+verschlüsselten Speicher **außerhalb von Git** erstellen und ihre
+Wiederherstellbarkeit in einer separaten isolierten PostgreSQL-Instanz prüfen:
+
+```sh
+umask 077
+: "${BACKUP_FILE:?Set a new protected backup file path outside Git}"
+test ! -e "$BACKUP_FILE" && (
+  set -C
+  docker compose -f backend/compose.production.yaml exec -T postgres \
+    pg_dump -U backend_migrator -d niknolig_health --format=custom \
+    > "$BACKUP_FILE"
+)
+```
+
+Ein fehlgeschlagener Dump ist keine Sicherung; unvollständige Dateien gesondert
+kennzeichnen und nicht für Restore freigeben. Aufbewahrung, Zugriffsschutz,
+Prüfsumme, PostgreSQL-Version und zugehörige Image-Digests dokumentieren.
+Rollen-/Berechtigungsdefinitionen separat sichern; Passwort-Hashes und
+Secret-Dateien sind sensible Betriebsdaten und gehören nicht in Git oder Logs.
+Keine laufenden PostgreSQL-Datendateien ungeprüft kopieren; ein Volume-Snapshot
+benötigt ein geeignetes konsistentes Sicherungsverfahren.
+
+Rollback zuerst durch Sperren des öffentlichen Zugangs und Stoppen von
+`proxy`/`api` einleiten. Bei unverändert kompatiblem Schema das zuvor verifizierte,
+immutable API-Image verwenden und Readiness/HTTPS erneut prüfen. Der
+Migrationsrunner führt bewusst **keine Down-Migration** aus. Bei Datenbank- oder
+Schema-Rücknahme die geprüfte Sicherung mit `pg_restore --exit-on-error`
+ausschließlich in eine **neue isolierte** Datenbank wiederherstellen, Rollen
+und separate Secrets kontrolliert provisionieren und Migration-Prüfsummen
+gegen das dazugehörige freigegebene Image prüfen. Vor dem Umschalten sowohl
+Readiness als auch den externen HTTPS-Probeaufruf erfolgreich abschließen.
+Das ursprüngliche Volume bis zur bestätigten Wiederherstellung erhalten;
+niemals `docker compose down --volumes` als Rollback verwenden.
+`001_initial_contract.sql` bleibt auch bei Recovery ohne tatsächliche separate
+Freigabe gesperrt. Wiederanlauf, Datenverlustfenster und Freigabe liegen in
+Betreiberverantwortung; dieser Text behauptet keinen ausgeführten Restore-Test
+einer Produktionsdatenbank.
