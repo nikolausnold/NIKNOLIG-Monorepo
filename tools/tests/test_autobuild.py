@@ -6,6 +6,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class AutobuildTests(unittest.TestCase):
+    def test_backend_url_validation_avoids_gradle_java_accessor_shadowing(self):
+        for app in ("niknolig", "niknolig-defense"):
+            build = (ROOT / "apps" / app / "build.gradle.kts").read_text()
+            with self.subTest(app=app):
+                imports, body = build.split("plugins {", 1)
+                self.assertIn("import java.net.URI", imports)
+                self.assertIn("import java.net.InetAddress", imports)
+                self.assertIn("URI(value)", body)
+                self.assertIn("InetAddress.getByName(host)", body)
+                self.assertNotIn("java.net.", body)
+
     def test_release_only_signs_successful_trusted_main_build_commit(self):
         workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
         for guard in (
