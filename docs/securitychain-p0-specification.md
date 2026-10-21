@@ -494,10 +494,21 @@ NIKNOLIG und NIKNOLIG Defense bleiben getrennte Scopes. iOS bleibt eine offene
 Integration; es wird weder eine iOS-Implementierung noch eine Validierung
 behauptet.
 
+**Technischer Abschluss von Abschnitt 10 (20.10.2026):** D-07 ist der einzige
+Punkt mit einem abgeschlossenen technischen Nachweis; BLE bleibt deaktiviert.
+Für D-03 und D-11 fehlen Vertrauens- beziehungsweise Betriebsentscheidungen und
+Nachweise. Ihre Implementierung oder ein produktiver Betrieb würde die
+Freigabegrenzen aus den Abschnitten 8 und 9 verletzen. Für D-01, D-02, D-04 bis
+D-06 sowie D-08 bis D-10 und D-12 sind die in der Matrix benannten
+Produkt-, Sicherheits-, Datenschutz-, Plattform- und Betriebsentscheidungen
+weiterhin erforderlich. Damit ist die technische Bestandsprüfung dieses
+Abschnitts vollständig, nicht aber SecurityChain-P0 freigegeben oder erfüllt.
+
 Der Regressionstest
 `BackendContractTests.test_security_decision_matrix_covers_all_decisions_without_closing_them`
 prüft Vollständigkeit und Klassifikation der zwölf Matrixzeilen. Ein weiterer
-Test prüft die derzeit fehlenden BLE-Berechtigungen und iOS-Projektdateien.
+Test prüft die Statuszuordnung und den technischen Abschluss; ein weiterer
+prüft die derzeit fehlenden BLE-Berechtigungen und iOS-Projektdateien.
 Diese Repository-Invarianten sind keine Tests der Authentifizierung,
 Autorisierung, BLE-Sicherheit, P0-Konformität oder menschlichen Freigabe.
 
@@ -519,6 +530,7 @@ keine Freigabe der anderen App.
 | 0.2 | Reviewentwurf, nicht genehmigt | Consent-Audit-Pflichtmetadaten und unbesetzte Entscheidungsfunktionen präzisiert; keine Freigabe oder Änderung der Implementierungsgrenzen |
 | 0.3 | Reviewentwurf, nicht genehmigt | Nicht bindende Vorschläge, Begründungen, Risiken und Freigaben für D-01 bis D-12 ergänzt; fehlende Produktionsfunktionen ausdrücklich dokumentiert |
 | 0.4 | Reviewentwurf, nicht genehmigt | D-01 bis D-12 mit technischen Bestandsnachweisen, offenen Nachweisen, Risiken, Rollen, Prüfoptionen und nächsten Schritten einzeln klassifiziert; Backend-Regressionstests prüfen Matrixvollständigkeit und BLE-/iOS-Iststand; keine menschliche Freigabe ergänzt |
+| 0.5 | Reviewentwurf, nicht genehmigt | Technischen Abschluss von Abschnitt 10 und weiterhin offene Produkt-/Sicherheits-/Betriebsentscheidungen präzisiert; Regressionstest prüft Statuszuordnung; keine menschliche Freigabe ergänzt |
 
 Diese Datei ist ein Reviewentwurf. Reviewkommentare und Entscheidungen müssen
 als nachvollziehbare Änderung mit Versions-/Änderungshistorie, betroffenen

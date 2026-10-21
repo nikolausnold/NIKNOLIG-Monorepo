@@ -188,6 +188,44 @@ class BackendContractTests(unittest.TestCase):
             section,
         )
 
+    def test_section_10_closeout_preserves_each_open_decision_status(self):
+        specification = (
+            BACKEND.parent / "docs/securitychain-p0-specification.md"
+        ).read_text(encoding="utf-8")
+        section = specification.split(
+            "## 10. Offene Entscheidungen und menschliche Freigaben", 1
+        )[1].split("## 11. Versionierung und Änderungssteuerung", 1)[0]
+        statuses = {
+            "D-01": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-02": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-03": "BLOCKIERT / NACHWEIS FEHLT",
+            "D-04": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-05": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-06": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-07": "TECHNISCH NACHGEWIESEN",
+            "D-08": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-09": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-10": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-11": "BLOCKIERT / NACHWEIS FEHLT",
+            "D-12": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+        }
+        rows = {
+            cells[0]: cells[1]
+            for cells in (
+                [cell.strip() for cell in line.strip().strip("|").split("|")]
+                for line in section.splitlines()
+                if line.startswith("| D-")
+            )
+        }
+        self.assertEqual(statuses, rows)
+        self.assertIn("Technischer Abschluss von Abschnitt 10", section)
+        self.assertIn("D-03 und D-11", section)
+        self.assertIn("nicht aber SecurityChain-P0 freigegeben oder erfüllt", section)
+        self.assertIn(
+            "Keine D-01–D-12-Entscheidung ist durch diese Bestandsprüfung geschlossen.",
+            section,
+        )
+
     def test_current_android_ble_and_ios_boundaries_are_explicit(self):
         root = BACKEND.parent
         for app in ("niknolig", "niknolig-defense"):
