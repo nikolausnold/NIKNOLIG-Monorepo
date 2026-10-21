@@ -1,5 +1,7 @@
 import asyncio
+from contextlib import redirect_stderr
 from concurrent.futures import ThreadPoolExecutor
+import io
 import json
 import os
 from pathlib import Path
@@ -81,11 +83,19 @@ class ProductionRuntimeTests(unittest.TestCase):
 
     def test_unavailable_database_returns_generic_503(self):
         self.factory.side_effect = psycopg.OperationalError("password and internal address")
-        status, body = self.request("/health/ready")
+        log = io.StringIO()
+        with redirect_stderr(log):
+            status, body = self.request("/health/ready")
         self.assertEqual(503, status)
         self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
         self.assertNotIn("password", json.dumps(body))
         self.assertNotIn("internal address", json.dumps(body))
+        self.assertEqual(
+            {"event": "health_readiness_failed", "status": 503},
+            json.loads(log.getvalue()),
+        )
+        self.assertNotIn("password", log.getvalue())
+        self.assertNotIn("internal address", log.getvalue())
 
     def test_missing_or_invalid_migration_returns_generic_503(self):
         for failure in (psycopg.errors.UndefinedTable("ledger"), RuntimeError("schema drift")):

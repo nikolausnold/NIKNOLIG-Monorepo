@@ -1,5 +1,7 @@
 """Production health-only ASGI runtime. No auth, pairing, product or AI enabling path."""
 
+import json
+import sys
 from uuid import uuid4
 
 from fastapi import FastAPI
@@ -49,6 +51,10 @@ def create_app(*, readiness_probe=None):
         try:
             await probe(check_ready_async)
         except Exception:
+            sys.stderr.write(json.dumps({
+                "event": "health_readiness_failed",
+                "status": 503,
+            }, separators=(",", ":")) + "\n")
             return error(503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable.")
         return JSONResponse({"status": "ready"}, headers=HEADERS)
 
