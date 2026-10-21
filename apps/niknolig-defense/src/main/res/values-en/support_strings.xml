@@ -1,8 +1,15 @@
 <resources>
-    <string name="support_flow_description">AI assistance first, then email to the operator if help is unavailable. This preview has no AI connection yet. No requests are collected or forwarded automatically.</string>
-    <string name="support_ai_not_checked">1 · AI availability\nFirst check whether AI support is configured.</string>
-    <string name="support_check_ai">Check AI availability</string>
-    <string name="support_ai_unavailable">2 · Personal help\nNo AI service is configured. AI cannot answer questions here yet. You can prepare an email instead – only with your confirmation.</string>
+    <string name="support_flow_description">Check the backend connection. A health check does not establish AI availability; AI support stays disabled pending security approval. You can then prepare an email if needed.</string>
+    <string name="support_ai_not_checked">1 · Backend connection\nCheck whether the configured backend health endpoint can be reached. This does not enable AI features.</string>
+    <string name="support_check_ai">Check backend connection</string>
+    <string name="support_backend_checking">Checking backend connection …</string>
+    <string name="support_backend_ready">The backend health endpoint returned a valid response. This does not establish AI availability; AI support remains disabled.</string>
+    <string name="support_backend_not_configured">No approved HTTPS backend address is configured in this build. No connection was made.</string>
+    <string name="support_backend_invalid_response">The backend response did not match the expected health contract.</string>
+    <string name="support_backend_timeout">The backend did not respond before the timeout.</string>
+    <string name="support_backend_network_error">The backend could not be reached securely. Check the network and HTTPS certificate.</string>
+    <string name="support_backend_http_error">The backend returned an HTTP error. AI support remains disabled.</string>
+    <string name="support_ai_unavailable">2 · Personal help\nAI support has not been approved and remains disabled. You can prepare an email instead – only with your confirmation.</string>
     <string name="support_escalate">No AI help: prepare email</string>
     <string name="support_escalation_title">Contact personal support?</string>
     <string name="support_escalation_consent">Recipient: %1$s\n\nThis only opens a draft in your email app. Requests, learning profiles and conversations are not included. Describe your issue there yourself, without passwords, payment details or sensitive information. You review and send the email yourself.</string>

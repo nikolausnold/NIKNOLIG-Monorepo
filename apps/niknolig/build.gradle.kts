@@ -1,7 +1,33 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    testImplementation("junit:junit:4.13.2")
 }
+
+val backendBaseUrl = providers.gradleProperty("niknoligBackendUrl")
+    .orElse(providers.environmentVariable("NIKNOLIG_BACKEND_URL"))
+    .orNull
+    ?.trim()
+    .orEmpty()
+
+fun validateBackendBaseUrl(value: String) {
+    if (value.isEmpty()) return
+    val uri = runCatching { java.net.URI(value) }.getOrNull()
+        ?: error("NIKNOLIG backend URL must be an absolute HTTPS origin.")
+    val host = uri.host?.lowercase()?.trimEnd('.')
+        ?: error("NIKNOLIG backend URL must include a hostname.")
+    require(uri.scheme.equals("https", ignoreCase = true) &&
+        uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null &&
+        uri.path in listOf("", "/")
+    ) { "NIKNOLIG backend URL must be an HTTPS origin without credentials, path, query, or fragment." }
+    require(host != "localhost" && !host.endsWith(".localhost") &&
+        host != "backend.invalid" && !host.endsWith(".invalid") &&
+        !host.startsWith("127.") && host != "::1" && host != "[::1]" &&
+        host != "0.0.0.0"
+    ) { "NIKNOLIG backend URL must not use a placeholder or loopback host." }
+}
+
+validateBackendBaseUrl(backendBaseUrl)
 
 val updateVersionCode = providers.environmentVariable("NIKNOLIG_VERSION_CODE").orNull?.let {
     val code = requireNotNull(it.toIntOrNull()) { "Invalid NIKNOLIG_VERSION_CODE" }
@@ -24,6 +50,10 @@ android {
     namespace = "com.niknolig.app"
     compileSdk = 35
     buildToolsVersion = "35.0.0"
+
+    buildFeatures {
+        buildConfig = true
+    }
 
     signingConfigs {
         if (releaseSigningConfigured) {
@@ -48,6 +78,7 @@ android {
         targetSdk = 35
         versionCode = updateVersionCode ?: 1
         versionName = updateVersionCode?.let { "0.1.$it" } ?: "0.1.0"
+        buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
     }
 
     buildTypes {
@@ -56,6 +87,20 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
+    }
+}
+
+val verifyReleaseBackendUrl = tasks.register("verifyReleaseBackendUrl") {
+    doLast {
+        require(backendBaseUrl.isNotEmpty()) {
+            "Set NIKNOLIG_BACKEND_URL or -PniknoligBackendUrl to the approved HTTPS backend origin before building a release."
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name in setOf("preReleaseBuild", "assembleRelease", "bundleRelease", "installRelease")) {
+        dependsOn(verifyReleaseBackendUrl)
     }
 }
 
