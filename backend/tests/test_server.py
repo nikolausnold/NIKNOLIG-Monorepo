@@ -6,18 +6,20 @@ import unittest
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import urlopen
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from app import create_server, main
+from app import _check_readiness, create_server, main
+from migrate import check_ready_async
 
 
 class BackendHealthServerTests(unittest.TestCase):
     def setUp(self):
-        self.server = create_server("127.0.0.1", 0)
+        self.readiness_probe = Mock()
+        self.server = create_server("127.0.0.1", 0, readiness_probe=self.readiness_probe)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         host, port = self.server.server_address
@@ -39,6 +41,28 @@ class BackendHealthServerTests(unittest.TestCase):
                     self.assertEqual("application/json; charset=utf-8", response.headers["Content-Type"])
                     self.assertEqual("no-store", response.headers["Cache-Control"])
                     self.assertEqual(expected, json.load(response))
+        self.readiness_probe.assert_called_once_with()
+
+    def test_readiness_failure_returns_generic_service_unavailable(self):
+        self.readiness_probe.side_effect = RuntimeError("secret database address")
+
+        with self.assertRaises(HTTPError) as raised:
+            urlopen(self.base_url + "/health/ready", timeout=2)
+
+        self.assertEqual(503, raised.exception.code)
+        body = json.load(raised.exception)
+        self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
+        self.assertEqual(
+            "Service is temporarily unavailable.", body["error"]["message"]
+        )
+        self.assertNotIn("secret database address", json.dumps(body))
+        self.assertIn("requestId", body["error"])
+
+    def test_default_readiness_probe_checks_postgres_and_migrations(self):
+        with patch("app.database.probe", new_callable=AsyncMock) as probe:
+            _check_readiness()
+
+        probe.assert_awaited_once_with(check_ready_async)
 
     def test_unsupported_path_returns_generic_not_found_error(self):
         with self.assertRaises(HTTPError) as raised:

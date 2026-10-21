@@ -1,3 +1,4 @@
+import asyncio
 from email.message import Message
 import json
 import os
@@ -6,10 +7,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import uuid4
 
 from ai_support import SupportService, error_response
+import database
+from migrate import check_ready_async
 
 
 MAX_SUPPORT_BODY_BYTES = 8192
 SUPPORT_READ_TIMEOUT_SECONDS = 2.0
+
+
+def _check_readiness():
+    asyncio.run(database.probe(check_ready_async))
 
 
 def _unique_json_object(pairs):
@@ -52,7 +59,21 @@ class HealthHandler(BaseHTTPRequestHandler):
         if path == "/health/live":
             self._send_json(200, {"status": "live"})
         elif path == "/health/ready":
-            self._send_json(200, {"status": "ready"})
+            try:
+                self.server.readiness_probe()
+            except Exception:
+                self._send_json(
+                    503,
+                    {
+                        "error": {
+                            "code": "SERVICE_UNAVAILABLE",
+                            "message": "Service is temporarily unavailable.",
+                            "requestId": str(uuid4()),
+                        }
+                    },
+                )
+            else:
+                self._send_json(200, {"status": "ready"})
         else:
             self._send_json(
                 404,
@@ -135,10 +156,13 @@ class HealthHandler(BaseHTTPRequestHandler):
         return
 
 
-def create_server(host, port, *, support_service=None):
+def create_server(host, port, *, support_service=None, readiness_probe=None):
     server = ThreadingHTTPServer((host, port), HealthHandler)
     # Injection is for local preparation tests; main has no enabling path.
     server.support_service = support_service or SupportService()
+    server.readiness_probe = (
+        _check_readiness if readiness_probe is None else readiness_probe
+    )
     server.daemon_threads = True
     return server
 

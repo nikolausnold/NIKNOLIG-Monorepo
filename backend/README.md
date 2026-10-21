@@ -77,10 +77,10 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    Aufbewahrung, Löschung, Benutzeridentität und konkrete Nutzdaten sind noch
    nicht fachlich freigegeben.
 6. **Healthchecks:** `/health/live` meldet nur Prozessverfügbarkeit;
-   `/health/ready` meldet bei `app.py` nur die lokale Bereitschaft; `asgi.py` prüft
-   PostgreSQL/Migrations-Invarianten und liefert bei Ausfall 503. Antworten legen
-   keine Umgebungsvariablen, internen Hosts, Stacktraces oder Datenbankdetails
-   offen.
+   `/health/ready` prüft bei `app.py` und `asgi.py` PostgreSQL sowie die
+   Migrations-Invarianten und liefert bei fehlender Konfiguration, Ausfall oder
+   Schemaabweichung 503. Antworten legen keine Umgebungsvariablen, internen Hosts,
+   Stacktraces oder Datenbankdetails offen.
 
 ## Lokale Datenbankumgebung
 
@@ -102,9 +102,11 @@ python3 backend/app.py
 
 Die Standardbindung ist `127.0.0.1:8000`. `BACKEND_HOST` und `BACKEND_PORT`
 können als Umgebungsvariablen gesetzt werden. Die Anwendung lädt `.env` nicht
-automatisch. `/health/live` und `/health/ready` liefern die vereinbarten
-Statusantworten; andere GET-Pfade geben eine generische 404-Antwort zurück.
-Es gibt keine Anmeldung, Datenbankverbindung, Gerätefunktion oder freigegebene Produkt-API.
+automatisch. `/health/live` meldet Prozessverfügbarkeit. `/health/ready` erfordert
+eine explizite PostgreSQL-Konfiguration und eine gültige, geprüfte Migration;
+andernfalls antwortet es mit einer generischen 503-Antwort. Andere GET-Pfade geben
+eine generische 404-Antwort zurück. Es gibt keine Anmeldung, Gerätefunktion oder
+freigegebene Produkt-API.
 Die Standardbibliotheks-HTTP-Laufzeit ist nur für lokale Entwicklung und
 Vertragstests gedacht: nicht öffentlich exponieren oder als produktiven
 Internetserver verwenden. Die separate ASGI-Konfiguration ersetzt keine
@@ -410,15 +412,15 @@ Authentifizierung oder Berechtigungen zu umgehen.
 
 ## Ergänzung: deploybare Health-ASGI-Laufzeit (ohne Produktionsfreigabe)
 
-Der unveränderte lokale `app.py` bleibt eine Vorbereitungslaufzeit ohne
-Datenbankverbindung; die zusätzliche Laufzeit `asgi.py` ersetzt ihn nicht
-für lokale Vertragstests. Die ASGI-Laufzeit ergänzt ausschließlich die
-beiden Health-Routen: Liveness benötigt keine Datenbank; Readiness prüft eine
-echte PostgreSQL-Verbindung mit `SELECT 1`, bekannte Migrationen samt SHA-256
-und Schema-Invarianten. Fehlende Verbindung, Migration oder Schema-Drift liefern
-eine nicht-sensitive 503-Antwort. Alle Antworten erhalten `Cache-Control:
-no-store` und `X-Content-Type-Options: nosniff`. KI-Support, Login, Pairing und
-Produkt-Routen sind dort nicht registriert, auch nicht durch Umgebungsflags.
+`app.py` ist eine lokale Vorbereitungslaufzeit; `asgi.py` ist der
+containerisierte FastAPI-Einstiegspunkt. Beide implementieren die Health-Routen:
+Liveness benötigt keine Datenbank; Readiness prüft eine echte PostgreSQL-
+Verbindung mit `SELECT 1`, bekannte Migrationen samt SHA-256 und Schema-
+Invarianten. Fehlende Verbindung, Migration oder Schema-Drift liefern eine
+nicht-sensitive 503-Antwort. Alle Antworten erhalten `Cache-Control: no-store`
+und `X-Content-Type-Options: nosniff`. Die ASGI-Laufzeit registriert ausschließlich
+Health-Routen; KI-Support, Login, Pairing und Produkt-Routen werden dort nicht
+aktiviert, auch nicht durch Umgebungsflags.
 Die asynchrone Readiness-Prüfung hat eine gemeinsame clientseitige Frist von
 4 Sekunden für Verbindungsaufbau und sämtliche Abfragen. Bei Fristablauf wird
 die Verbindung lokal geschlossen, bevor die Abfrage abgebrochen wird; auch eine
@@ -492,7 +494,11 @@ exakten SAN und passende Schlüsseldatei; er ersetzt **keine** öffentliche
 Vertrauenskette-/DNS-/Erreichbarkeitsprüfung. Danach laufen der einmalige
 Migrationsjob, die ASGI-API und der HTTPS-Proxy abhängig von erfolgreichen
 Vorprüfungen. PostgreSQL und API veröffentlichen keinen Host-Port; nur HTTPS
-443 wird angeboten. Der Health-Datenbanknutzer hat ausschließlich Leserechte
+443 wird angeboten. `127.0.0.1:8000` ist daher kein Host-Ziel des
+Produktions-Compose; auf dem Server ist die API intern über den Proxy erreichbar,
+extern ausschließlich über den bestätigten HTTPS-Host. Ein 404 von einem
+Hostdienst auf Port 8000 belegt keinen Fehler der API-Routen und darf nicht durch
+eine öffentliche Portfreigabe umgangen werden. Der Health-Datenbanknutzer hat ausschließlich Leserechte
 am Migrations-Ledger, keine Produkt-Datenrechte. Der Proxy verwendet TLS
 1.2/1.3, HSTS und ausschließlich Health-GET-Routen. Zertifikatserneuerung,
 Secret-Rotation (bei bestehendem Volume einschließlich PostgreSQL-Rollen),
