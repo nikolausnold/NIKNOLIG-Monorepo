@@ -267,7 +267,10 @@ def _configure_health_role(connection, secret_path):
         return
     password = database.read_secret(secret_path)
     # libpq has already resolved keyword overrides, URL, environment and passfile.
-    if password == connection.info.password:
+    admin_password = connection.info.password
+    if not admin_password:
+        raise ValueError("Effective migration database password is unavailable")
+    if password == admin_password:
         raise ValueError("Health and migration database credentials must differ")
     role = sql.Identifier("backend_health")
     if not connection.execute(

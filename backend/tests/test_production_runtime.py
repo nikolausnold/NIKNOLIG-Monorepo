@@ -178,6 +178,17 @@ class MigrationUnitTests(unittest.TestCase):
         ):
             migrate._configure_health_role(connection, "health-secret")
 
+    def test_health_provisioning_fails_before_sql_when_effective_password_is_unavailable(self):
+        for password in (None, ""):
+            with self.subTest(value=password), patch(
+                "database.read_secret", return_value="health-test-value",
+            ):
+                connection = MagicMock()
+                connection.info.password = password
+                with self.assertRaisesRegex(ValueError, "password is unavailable"):
+                    migrate._configure_health_role(connection, "health-secret")
+                connection.execute.assert_not_called()
+
     def test_migrate_defaults_to_baseline_and_takes_transaction_lock(self):
         connection = self.connection()
         migrate.migrate(connection)

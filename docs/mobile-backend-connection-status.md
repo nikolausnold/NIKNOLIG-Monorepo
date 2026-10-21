@@ -134,13 +134,15 @@ Voraussetzung nicht.
   zu `503`; die lokale Verbindung wird vor der Aufgabenstornierung geschlossen.
   Die Liveness bleibt unabhängig ausführbar.
 
-**Neue Nachweise:** 107 Backend-Tests gegen PostgreSQL 17.9 bestanden;
+**Neue Nachweise:** 108 Backend-Tests gegen PostgreSQL 17.9 bestanden;
 zusätzlich 34 Laufzeit-/Datenbanktests gegen PostgreSQL 16.15 bestanden.
 Enthalten sind echte blockierte, bereits aufgebaute Datenbankverbindungen,
 gleichzeitige Liveness sowie Primärschlüssel-, Definitions-, Index-,
 Passwortquellen- und überprivilegierte Rollenregressionen. Diese lokalen
 Prüfungen belegen weiterhin keine öffentliche HTTPS-Produktionsverbindung.
 Die zuvor genannten 95 Tests sind die ältere Prüfung vor diesen Review-Fixes.
+Die abschließende zusätzliche Passwortregression weist auch einen nicht
+verfügbaren effektiven Migratorpasswort-Nachweis vor jeder Rollenänderung zurück.
 
 Die gezielten Android-Client-Unit-Tests verwenden simulierte HTTPS-Verbindungen
 und prüfen Pfad, HTTPS-Vorgabe, Timeouts, Redirect-Ablehnung und Fehlerantworten.
