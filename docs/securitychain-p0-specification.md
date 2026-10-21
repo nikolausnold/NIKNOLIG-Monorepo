@@ -1,6 +1,6 @@
 # SecurityChain-P0 – verbindlicher Sicherheitsstandard (Reviewentwurf)
 
-**Status:** Reviewentwurf, Version 0.3; noch nicht genehmigt oder produktiv
+**Status:** Reviewentwurf, Version 0.6; noch nicht genehmigt oder produktiv
 verbindlich
 
 **Geltung nach Freigabe:** Sicherheitsgate für NIKNOLIG, NIKNOLIG Defense,
@@ -34,7 +34,12 @@ Tests und Freigabe. Der Scope umfasst:
 
 NIKNOLIG und NIKNOLIG Defense sind getrennte Apps, Installationen,
 Application-IDs, Identitäts- und Sicherheitsdomänen. Elektro-Engel ist eine
-NIKNOLIG-Systemfunktion, keine dritte App oder Berechtigungsdomäne. Gemeinsame
+Systemfunktion des NIKNOLIG-Systems, keine dritte App oder Berechtigungsdomäne.
+NIKNOLIG umfasst allgemeine Systemfunktionen; NIKNOLIG Defense zusätzliche
+Sicherheits- und Notfallfunktionen. Elektro-Engels Infrastruktur-Erkennung und
+Reparaturhinweise gehören ausschließlich zu Defense; die normale NIKNOLIG-App
+erhält keine Infrastruktur-Erkennung. Diese bestätigte Produktgrenze ist keine
+Implementierungs- oder Datenfreigabe (siehe D-01 in Abschnitt 10). Gemeinsame
 Schemas oder Bibliotheken begründen keine gemeinsame Identität und gewähren
 keine Rechte.
 
@@ -466,12 +471,13 @@ wo mehrere Funktionen betroffen sind, sind alle erforderlichen Freigaben nötig.
 Der Status bezeichnet den Stand des technischen Nachweises beziehungsweise der
 Entscheidungsvorbereitung, nicht den Abschluss der Entscheidung. Ein technischer
 Nachweis schließt keine menschliche Freigabe ab. Für alle zwölf Punkte fehlen
-weiterhin dokumentierte Freigaben; keine Rolle oder Person wird hier als
-zustimmend angenommen.
+weiterhin vollständige Freigaben. Die ergänzend bestätigte Produktgrenze für
+D-01 vom 21.10.2026 ist unten mit Quelle und verbleibenden Lücken dokumentiert;
+weitergehende Zustimmung einer Rolle oder Person wird nicht angenommen.
 
 | ID | Status | Technischer Ist-Zustand und Nachweis | Fehlender Nachweis | Risiko | Verantwortliche Rolle | Optionen, notwendige Tests und nächster Schritt |
 | --- | --- | --- | --- | --- | --- | --- |
-| D-01 | ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH | Zwei getrennte Android-Module und Application-IDs; Backend nennt `niknolig` und `niknolig-defense`. Die Android-Module haben keine gegenseitige Projektabhängigkeit (`settings.gradle.kts`, beide `apps/*/build.gradle.kts`, `backend/ai_support.py`). | Produktzwecke, Akteure, Daten, erlaubte Aktionen und Richtungen je App sind nicht festgelegt. | Fehlende Grenzen könnten Cross-App-Zugriff oder übermäßige Datenerhebung erlauben. | Produktverantwortliche je App; Security und Datenschutz für betroffene Datenklassen. | Optionen: keine Produktoperationen freigeben, bis je App eine explizite Allowlist beschlossen ist. Tests danach: erlaubte Aktionen positiv sowie falsche App, Aktion, Richtung, Ziel und Ressource negativ prüfen. Nächster Schritt: getrennte, schriftliche Scopes für beide Apps festlegen. |
+| D-01 | ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH | Getrennte Android-Module, Application-IDs und Backend-App-Bereiche ohne gegenseitige Modulabhängigkeit (`settings.gradle.kts`, beide `apps/*/build.gradle.kts`, `backend/ai_support.py`). Produktgrenzen am 21.10.2026 im Korrekturauftrag bestätigt: NIKNOLIG allgemein; Defense zusätzlich Sicherheit/Notfall; Infrastruktur-Erkennung und Reparaturhinweise durch Elektro-Engel ausschließlich in Defense. Detailnachweise siehe D-01-Prüfprotokoll unten. | Konkrete Akteure, Ressourcen, Datenzugriffe, Aktions-Allowlist und Richtungen je App sowie Security-/Datenschutzbestätigung bleiben offen. | Produktgrenze allein könnte fälschlich als Sensor-, Cross-App- oder Automationsfreigabe gelesen werden. | Produktverantwortliche je App; Security und Datenschutz für betroffene Datenklassen. | Bestätigte Produktgrenzen übernehmen, nicht neu entscheiden. Bis zur bestätigten Allowlist keine neuen Produktoperationen freigeben. Tests danach: erlaubte Aktionen positiv sowie falsche App, Aktion, Richtung, Ziel und Ressource negativ prüfen. Nächster Schritt: offene Punkte des D-01-Prüfprotokolls bestätigen lassen. |
 | D-02 | ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH | Kein Login, Identitätsanbieter, produktiver Token-Aussteller oder produktiver Validator. `backend/ai_support.py` verwendet standardmäßig `RejectAllAuthenticator`; injizierte Principals und UUIDs sind lokale Test-Fixtures. | Anbieter, Identitätsprüfung, Rollen, MFA, Recovery und Tokenvertrag fehlen. | Ein selbst gewähltes oder nur syntaktisch geprüftes Token wäre keine Authentifizierung; schwache Recovery kann Konten übernehmen lassen. | Produkt- und Security-Verantwortliche; Identitäts-/Backend-Verantwortliche; Datenschutz/Betreiber für Anbieter und Region. | Optionen erst nach Scope- und Risikoentscheidung vergleichen (z. B. etablierter OIDC-kompatibler Anbieter versus kein Login bis zur Freigabe); keinen Anbieter vorwegnehmen. Tests: fehlend, ungültig, falscher Aussteller/Zielgruppe/Scope, abgelaufen und widerrufen ablehnen; erfolgreiche Prüfung nur mit kontrollierter Testidentität. Nächster Schritt: Anforderungen und Anbieterprüfung freigeben. |
 | D-03 | BLOCKIERT / NACHWEIS FEHLT | Keine Installationsregistrierungs-API, Challenge-/Schlüsselprüfung oder Peer-Authentifizierung. SQL-Datei ist ein ausdrücklich nicht anzuwendender Entwurf; Apps besitzen keine entsprechende Runtime. | Bindung von Nutzer, Installation, App-Scope und Schlüssel sowie Registrierungs-/Recovery-Prozess fehlen. | Gefälschte IDs oder übernommene Schlüssel könnten fremde Geräte legitimieren. | Security-, Android-, iOS- und Backend-Verantwortliche; Produktverantwortliche für Registrierung/Recovery. | Optionen für Besitznachweis und ggf. Attestierung erst plattformübergreifend prüfen. Tests: gefälschte ID, falscher/abgelaufener Challenge, Replay, App-Scope-Wechsel und nicht genehmigter Schlüsselwechsel ablehnen. Nächster Schritt: Vertrauensmodell und Lebenszyklus entscheiden, dann separat implementieren und prüfen. |
 | D-04 | ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH | Kein produktives Authentifizierungs- oder Sitzungsprotokoll ist implementiert oder freigegeben; es gibt keine Protokoll-/Kryptografie-Review-Nachweise. | Protokoll, Algorithmen, Parameter, Versionierung und unabhängiger Review fehlen. | Eigenentwickelte Kryptografie oder falsch konfigurierte Standardverfahren können Identität, Integrität und Vertraulichkeit gefährden. | Unabhängige Security-Prüfung und technische Verantwortliche für Backend und jede betroffene Plattform; Produktverantwortliche für Nutzerabläufe. | Etablierte, gewartete Verfahren vergleichen; keine Eigenentwicklung. Tests nach Auswahl: Protokollvektoren, falsche Identität, Integritätsfehler, Replay, Downgrade und Versionswechsel. Nächster Schritt: versionierten Protokollvorschlag unabhängig prüfen lassen. |
@@ -522,6 +528,70 @@ und einer Release-verantwortlichen Person. Namen, Rollenbesetzung,
 Unabhängigkeit und Freigabeprozess sind **OFFEN**. Freigabe einer App erteilt
 keine Freigabe der anderen App.
 
+### D-01-Prüfprotokoll: bestätigte Produktgrenzen und offene Detailfreigaben
+
+**Stand: 21.10.2026. D-01 ist nicht abgeschlossen.** Die Produktabgrenzung ist
+bestätigt und hier dokumentiert; die vollständige fachliche Aktions-/Daten-
+Allowlist und die erforderlichen Security-/Datenschutzbestätigungen fehlen.
+Diese Punkte werden nicht stillschweigend nach D-02 bis D-12 verschoben, um
+D-01 zu schließen.
+
+**Entscheidungsquelle:** Korrekturauftrag „D-01 VOLLSTÄNDIG ABSCHLIESSEN“ vom
+21.10.2026 für dieses Monorepo, Abschnitt 2: „NIKNOLIG: allgemeine
+Systemfunktionen“, „NIKNOLIG Defense: zusätzliche Sicherheits- und
+Notfallfunktionen“, „Elektro Engel: Infrastruktur-Erkennung und Reparaturhinweise
+ausschließlich in Defense“ und „Keine Infrastruktur-Erkennung in der normalen
+NIKNOLIG-App“. Dies bestätigt die Produktzuordnung, nicht deren technische
+Umsetzung, konkrete Eingriffsrechte oder eine unabhängige Sicherheitsabnahme.
+
+#### Festgelegter Funktionsumfang je App
+
+| App / Bereich | Bestätigter Produktumfang | Belegter Stand und Ausschlüsse |
+| --- | --- | --- |
+| NIKNOLIG (`niknolig`) | Allgemeine Systemfunktionen; die vorhandene lokale Assistenz-/Lernprofil-Vorschau und der Support bleiben davon getrennt beschriebener Bestand. | `MainActivity.kt`, `AssistantActivity.kt`, `LearningProfileActivity.kt` und `SupportActivity.kt` unter `apps/niknolig/src/main/java/com/niknolig/app/`: lokale Anfrageanzeige ohne KI-Antwort/Übertragung, app-lokales Profil mit Stil, optionalen Feedbackzählern und manuell gespeicherter Sitzungszusammenfassung; bestätigtes Zurücksetzen und nutzerbestätigter externer E-Mail-Entwurf. Keine Infrastruktur-Erkennung; aus der Elektro-Engel-Oberfläche folgt kein Recht auf Defense-Funktionen. |
+| NIKNOLIG Defense (`niknolig-defense`) | Zusätzliche Sicherheits- und Notfallfunktionen. Elektro-Engels Infrastruktur-Erkennung und Reparaturhinweise ausschließlich hier. Reparaturhinweise sind keine Freigabe automatischer Reparaturen oder Steuerbefehle. | `MainActivity.kt`, `LearningProfileActivity.kt` und `SupportActivity.kt` unter `apps/niknolig-defense/src/main/java/com/niknolig/defense/` belegen lokale Profil-/Support-Vorschau, nicht Infrastruktur-Erkennung, Reparaturhinweise oder eine Notfall-Runtime. Einzelne Erkennungs-, Warn- und Eskalationsabläufe sind noch offen; keine Zuverlässigkeits-, Zustell- oder Sicherheitsgarantie. |
+
+„Zusätzlich“ bezeichnet Defense-Funktionsklassen, keinen gemeinsamen Account,
+keinen Zugriff auf die andere Sandbox und keine automatische Übernahme aller
+NIKNOLIG-Funktionen. Elektro-Engel bleibt eine Systemfunktion, keine dritte App
+und kein neues Repository. Die lokale Vorschau in NIKNOLIG ist keine
+Infrastruktur-Erkennung und wird durch diese Dokumentation nicht verändert.
+
+#### Vollständigkeitsprüfung der D-01-Entscheidungspunkte
+
+| Prüfpunkt zu D-01 | Vorhandene Entscheidung / Nachweis | Ergebnis und noch erforderliche Bestätigung |
+| --- | --- | --- |
+| Produktzwecke und App-Zuordnung | Obiger Korrekturauftrag; getrennte Identitäten bereits in `settings.gradle.kts` und beiden App-Builddateien. | **BESTÄTIGT:** allgemeine Funktionen in NIKNOLIG; zusätzliche Sicherheit/Notfall und Infrastruktur-Erkennung/Reparaturhinweise in Defense; keine Infrastruktur-Erkennung in NIKNOLIG. |
+| Akteure und Verantwortlichkeiten je App | `founder-roles-and-account-requirements.md` enthält app-gebundene Rollenvorschläge, keine vergebenen Rollen. | **OFFEN:** konkrete Nutzer-/Administrationsakteure, Rollenbesetzung und zulässige Aufgaben je Funktion bestätigen; Gründerstatus gewährt keinen Inhalts-/Sensorzugriff. Bezug D-02/D-12 ohne deren Abschluss. |
+| Ressourcen, Datenklassen und Datenzugriffe je App | Lokale Profil-/Supportquellen belegen nur den Bestand. Consent-/Sensorschemas in `backend/contracts/` sind deklarative Entwürfe. | **OFFEN:** konkrete Infrastrukturarten, Eingaben/Ergebnisse, Ressourcen und zulässige Lese-/Schreibzugriffe je Akteur und Zweck. Keine neue Datenklasse durch die Produktzuordnung freigegeben. |
+| Erlaubte Aktionen und Berechtigungen | Keine gegenseitige Modulabhängigkeit; beide Android-Manifeste deklarieren keine Berechtigungen. | **OFFEN:** fachliche Aktions-Allowlist je App, OS-/Sensor-/Netzwerkrechte und Autorisierung pro Ressource. Keine Sensoraktivierung, Überwachung oder Steuerung aus Namen, Profil oder Schema ableiten. Bezug D-03/D-08/D-09. |
+| Richtungen, Ziele und App-übergreifende Beziehungen | `device-link-security-design.md` ist ein gesperrter Entwurf; kein implementierter App-Datenaustausch. | **OFFEN:** ob und welche Quelle, Zielinstallation, Empfänger und Richtung je Daten-/Aktionsfluss zulässig sind. Bis dahin keine neue Übertragung, kein Pairing und kein Cross-App-Zugriff. Bezug D-03/D-04/D-07/D-09. |
+| Automatische Aktionen und Notfallabläufe | `BUSINESSPLAN.md` beschreibt mögliche Hilferuf-/Eskalationsanforderungen ausdrücklich ohne Produktionsfreigabe. | **OFFEN:** Auslöser, Nutzerbestätigung, Warnung/Eskalation, Abbruch, Fehlalarm, Offlineverhalten und Verantwortlichkeit je Defense-Aktion. Keine automatische Reparatur, Alarmierung, Wiederholung oder Datenweitergabe freigegeben. Bezug D-06/D-09. |
+| Datenschutz und Datenlebenszyklus | Sensorplanung, `LEGAL-CHECKLIST.md` und `AGB-ENTWURF.md` verlangen Zweckbindung und Prüfung; sie sind keine Datenschutzfreigabe. | **OFFEN für beide Apps:** Rechtsgrundlagen, Einwilligungstexte/-dauer, Empfänger/Region, lokale/externe Verarbeitung, Speicherung, Aufbewahrung/Löschung, Widerruf und Audit-Zugriff. Bezug D-09/D-10/D-11. |
+| Bestätigungen und Abnahmenachweise | Die Produktzuordnung ist durch den Korrekturauftrag bestätigt. Matrix und bisheriger technischer Abschluss in PR #109/#110 schließen keine menschlichen Freigaben. | **OFFEN:** vollständige Scope-Bestätigung je App durch Produktverantwortliche und für betroffene Daten/Aktionen durch Security und Datenschutz; Rolle, Datum, Dokumentversion und Freigabeumfang nachvollziehbar festhalten. Technische Tests ersetzen diese Bestätigungen nicht. Bezug D-12. |
+
+**Übernommene Entscheidungen und Evidenz:** Die Matrix und ihr technischer
+Abschluss aus [PR #109](https://github.com/nikolausnold/NIKNOLIG-Monorepo/pull/109)
+und [PR #110](https://github.com/nikolausnold/NIKNOLIG-Monorepo/pull/110) bleiben
+Grundlage. Deren PR-Beschreibungen und die geprüften PR-Kommentare enthalten
+keine weitergehende D-01-Freigabe. Getrennte Apps/Identitäten, keine impliziten
+Rechte, deklarative Verträge und bestehende Stop-Gates werden übernommen,
+nicht neu erfunden. Frühere allgemeine Zuordnungen zu „NIKNOLIG“ in der
+Architekturplanung sind keine Freigabe der Infrastruktur-Erkennung in der
+normalen App; hierfür gilt die oben bestätigte Defense-Grenze. Preisvorgaben
+aus dem Businessplan werden nicht neu entschieden oder verändert.
+
+**Abschlusskriterium:** D-01 darf erst auf abgeschlossen gesetzt werden, wenn
+alle offenen Zeilen dieses Prüfprotokolls für beide Apps entweder konkret
+entschieden oder ausdrücklich als nicht zum Scope gehörend bestätigt sind
+und die zugehörigen Produkt-/Security-/Datenschutzbestätigungen vorliegen.
+Noch nicht festgelegte Einzelheiten dürfen nicht als Allowlist gelten.
+Nach späterer Implementierung bleiben die bereits vorgesehenen positiven und
+negativen Autorisierungstests sowie unabhängigen Abnahmen eigene Gates.
+D-02 bis D-12 bleiben mit unverändertem Status offen; D-07 ist weiterhin nur
+technisch nachgewiesen, keine Transportfreigabe. An SecurityChain-P0-Technik,
+App-Code, Berechtigungen und Laufzeitverhalten wird nichts geändert.
+
 ## 11. Versionierung und Änderungssteuerung
 
 | Version | Status | Änderung |
@@ -531,6 +601,7 @@ keine Freigabe der anderen App.
 | 0.3 | Reviewentwurf, nicht genehmigt | Nicht bindende Vorschläge, Begründungen, Risiken und Freigaben für D-01 bis D-12 ergänzt; fehlende Produktionsfunktionen ausdrücklich dokumentiert |
 | 0.4 | Reviewentwurf, nicht genehmigt | D-01 bis D-12 mit technischen Bestandsnachweisen, offenen Nachweisen, Risiken, Rollen, Prüfoptionen und nächsten Schritten einzeln klassifiziert; Backend-Regressionstests prüfen Matrixvollständigkeit und BLE-/iOS-Iststand; keine menschliche Freigabe ergänzt |
 | 0.5 | Reviewentwurf, nicht genehmigt | Technischen Abschluss von Abschnitt 10 und weiterhin offene Produkt-/Sicherheits-/Betriebsentscheidungen präzisiert; Regressionstest prüft Statuszuordnung; keine menschliche Freigabe ergänzt |
+| 0.6 | Reviewentwurf, nicht genehmigt | Bestätigte D-01-Produktgrenzen vom 21.10.2026, Funktionsumfang je App, Einzelpunkt-/Nachweisprüfung und Abschlusskriterien dokumentiert; D-01 bleibt mangels Detailbestätigungen offen, D-02 bis D-12 unverändert; keine technische oder produktive Freigabe |
 
 Diese Datei ist ein Reviewentwurf. Reviewkommentare und Entscheidungen müssen
 als nachvollziehbare Änderung mit Versions-/Änderungshistorie, betroffenen

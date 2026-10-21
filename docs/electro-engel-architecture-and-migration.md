@@ -13,6 +13,16 @@ ein zukünftiges Architekturziel und ändert den aktuellen Produktstatus nicht:
 Die lokale Assistenzvorschau gehört zu NIKNOLIG; NIKNOLIG und NIKNOLIG Defense
 bleiben eigenständige Apps, Sicherheitsdomänen und Releases.
 
+**Bestätigter Produktzuschnitt (D-01, 21.10.2026):** NIKNOLIG umfasst allgemeine
+Systemfunktionen; Defense zusätzliche Sicherheits- und Notfallfunktionen.
+Elektro-Engels Infrastruktur-Erkennung und Reparaturhinweise gehören
+ausschließlich zu Defense, nicht in die normale NIKNOLIG-App. Die lokale
+Assistenzvorschau in NIKNOLIG belegt keine dieser Funktionen. Auch ein neutraler
+Core erteilt keiner App Rechte außerhalb ihres bestätigten Produktumfangs.
+[D-01-Prüfprotokoll](securitychain-p0-specification.md#d-01-prüfprotokoll-bestätigte-produktgrenzen-und-offene-detailfreigaben):
+Datenzugriffe, Berechtigungen, automatische Aktionen und Datenschutzdetails
+sind offen; D-01 bleibt bis zu den vollständigen Bestätigungen offen.
+
 Heute gibt es keine Elektro-Engel-Core-Laufzeit oder gemeinsame Android-
 Bibliothek. Die JSON-Schemas unter `backend/contracts/` sind deklarative
 Vertragsentwürfe; sie implementieren weder Zustimmung noch Pairing,
@@ -32,7 +42,8 @@ Module:
 | `sensor-adapters` | Lokale, explizit registrierte Implementierungen der Core-Schnittstellen; tatsächliche Laufzeitfähigkeiten melden | Core-Entscheidungen, implizite OS-Freigaben, remote geladener Plugin-Code |
 | `multidevice` | Getrennte Protokoll-/Transportintegration für Gerätekommunikation, erst nach eigener Sicherheitsfreigabe | Allgemeine Fernsteuerung, implizite Wiederaufnahme oder Umgehung von Core-Consent-Prüfungen |
 | Android-Integration / UI | Je App eigene Oberfläche, OS-Permissions, Adapterinstanziierung und Übersetzung in app-lokale Zustände | Gemeinsame App-Credentials, Zugriff auf die Daten der jeweils anderen App |
-| NIKNOLIG-Integration | NIKNOLIG-spezifische Navigation, Vorschau und Produktfunktionen außerhalb des neutralen Core | NIKNOLIG-Abhängigkeiten im Core oder implizite Defense-Berechtigungen |
+| NIKNOLIG-Integration | NIKNOLIG-spezifische Navigation, Vorschau und allgemeine Systemfunktionen außerhalb des neutralen Core | NIKNOLIG-Abhängigkeiten im Core, Infrastruktur-Erkennung oder implizite Defense-Berechtigungen |
+| Defense-Integration | Gesondert freizugebende Sicherheits-/Notfallfunktionen einschließlich Infrastruktur-Erkennung und Reparaturhinweisen durch Elektro-Engel | NIKNOLIG-Datenzugriff oder automatische Reparaturen ohne eigene Freigabe |
 
 Die Abhängigkeitsrichtung verläuft von Integrationen und Adaptern zu eng
 definierten Core-Schnittstellen. Der Core kennt keine konsumierende App und

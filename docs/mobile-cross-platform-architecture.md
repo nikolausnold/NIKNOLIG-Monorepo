@@ -35,8 +35,15 @@ bilden noch keine vollständigen NIKNOLIG-, Defense- oder Elektro-Engel-Produkt-
 APIs. Es fehlen insbesondere freigegebene Geschäftsressourcen, Operationen,
 Identitäts-/Login-Fluss und Synchronisationsregeln. Diese dürfen erst nach
 fachlicher und Security-Freigabe als neue versionierte Verträge ergänzt werden.
-Elektro-Engel ist aktuell eine NIKNOLIG-Systemfunktion, kein dritter App-Bereich
-und keine eigene Sicherheitsdomäne.
+Elektro-Engel ist eine Systemfunktion, kein dritter App-Bereich und keine eigene
+Sicherheitsdomäne. Die bestätigten
+[D-01-Produktgrenzen](securitychain-p0-specification.md#d-01-prüfprotokoll-bestätigte-produktgrenzen-und-offene-detailfreigaben)
+trennen allgemeine Systemfunktionen in NIKNOLIG von zusätzlichen Sicherheits-
+und Notfallfunktionen in Defense. Infrastruktur-Erkennung und Reparaturhinweise
+durch Elektro-Engel gehören ausschließlich zu Defense; keine Infrastruktur-
+Erkennung in der normalen NIKNOLIG-App. Lokale Assistenzvorschau ist keine
+Infrastruktur-Erkennung. Datenzugriffe, Berechtigungen, automatische Aktionen
+und Datenschutzdetails bleiben offen; D-01 ist nicht abgeschlossen.
 
 **KI-Support-Vorbereitung:** `backend/ai-support.openapi.yaml` ergänzt separat
 einen standardmäßig gesperrten serverseitigen Support-Vertrag.
@@ -60,10 +67,12 @@ oder automatische E-Mail-Übermittlung.
   diese Quellen konsumieren oder dagegen geprüft werden; keine App pflegt
   abweichende Kopien als eigene Wahrheit.
 - Das vorhandene `app_area`-Modell kennt `niknolig` und `niknolig-defense`.
-  Elektro-Engel-Funktionalität wird nur über eine ausdrücklich freigegebene
-  NIKNOLIG-Operation und Berechtigung abgebildet, nicht über einen erfundenen
-  dritten Bereich. Eine spätere Produktentscheidung für eine andere Grenze
-  verlangt eine neue Sicherheits- und Vertragsprüfung.
+  Elektro-Engel-Funktionalität benötigt eine ausdrücklich freigegebene
+  Operation und Berechtigung des zuständigen App-Bereichs, keinen dritten
+  Bereich. Infrastruktur-Erkennung und Reparaturhinweise sind ausschließlich
+  `niknolig-defense` zuzuordnen, nicht `niknolig`. Eine Umsetzung benötigt
+  weiterhin eine gesonderte Sicherheits- und Vertragsprüfung; bestehende
+  Schema-Versionen werden durch die Produktentscheidung nicht umgedeutet.
 - Beibehaltene, kompatible Felder und optionale Erweiterungen dürfen bestehende
   Verbraucher nicht brechen. Inkompatible Änderung bedeutet neue
   Vertragsversion bzw. neue versionierte Route; alte Verbraucher und Verträge
