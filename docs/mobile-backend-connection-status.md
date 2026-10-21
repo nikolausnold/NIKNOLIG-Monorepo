@@ -1,23 +1,25 @@
 # NIKNOLIG Mobile Backend Connection Status
 
 **Prüfdatum:** 2026-10-21  
-**Ergebnis: BLOCKIERT** – Eine Verbindung beider Apps zu einem deployten Backend
-über HTTPS ist nicht nachgewiesen und mit der vorliegenden Konfiguration nicht
-möglich. Es wurde keine Produktionsadresse angenommen oder erfunden.
+**Status: TEILWEISE IMPLEMENTIERT, PRODUKTIONSVERBINDUNG BLOCKIERT** – Beide
+Android-Apps enthalten jetzt getrennte HTTPS-Clients für `GET /health/ready`.
+Eine erfolgreiche Verbindung zu einem deployten Backend ist nicht nachgewiesen;
+es wurde keine Produktionsadresse angenommen oder erfunden.
 
 ## Tatsächlicher Netzwerkpfad
 
 | Plattform/App | Befund |
 | --- | --- |
-| Android NIKNOLIG (`:niknolig`) | Kein API-Client, keine Backend-Basis-URL und keine `INTERNET`-Berechtigung. Die Assistentenanfrage wird lokal angezeigt; die Support-Prüfung markiert den KI-Dienst lokal als nicht verfügbar. Die E-Mail-Funktion öffnet nach Nutzerbestätigung einen E-Mail-Entwurf (`ACTION_SENDTO`), sie sendet keine App-Anfrage an ein Backend. |
-| Android NIKNOLIG Defense (`:niknolig-defense`) | Kein API-Client, keine Backend-Basis-URL und keine `INTERNET`-Berechtigung. Der Support-Ablauf ist lokal; eine bestätigte E-Mail-Aktion öffnet einen Entwurf und ist kein Backend-Aufruf. |
+| Android NIKNOLIG (`:niknolig`) | Eigener `BackendHealthClient`, eigene `INTERNET`-Berechtigung und eigene Build-Konfiguration. Die Support-Ansicht ruft nach Nutzeraktion ausschließlich `GET /health/ready` ab. Die Assistentenanfrage bleibt lokal; E-Mail öffnet nach Bestätigung nur einen Entwurf. |
+| Android NIKNOLIG Defense (`:niknolig-defense`) | Separater `BackendHealthClient`, eigene `INTERNET`-Berechtigung und eigene Build-Konfiguration. Die Support-Ansicht ruft nach Nutzeraktion ausschließlich `GET /health/ready` ab. Keine geteilten App-Clients, Credentials oder Defense-Funktionen. E-Mail öffnet nur einen Entwurf. |
 | iOS | In diesem Repository gibt es keine Swift-Dateien, Xcode-Projekte/-Workspaces oder `Info.plist`. Daher sind weder ein iOS-Netzwerkpfad noch iOS-Release-Konfiguration oder eine iOS-Verbindung prüfbar bzw. implementierbar. |
 
-Beide Android-Release-Buildskripte konfigurieren Paketkennung und optionales
-Signing, aber keine URL oder Netzwerkvariante. Für keine Plattform sind ein
-Backend-Transport, TLS-Vertrauen, Authentifizierung, Client-Timeouts oder
-Netzwerkfehlerbehandlung konfiguriert. Die Apps stellen derzeit keine Verbindung
-her.
+Die Android-Clients verwenden `HttpsURLConnection` mit System-Zertifikatsprüfung,
+ohne Redirects, mit 5-Sekunden-Verbindungs-/Lese-Timeout, begrenzter JSON-Antwort,
+Health-Vertragsprüfung und typisierten Statusfehlern. Sie protokollieren weder
+URL, Antwortinhalt noch Exceptions und senden keine Credentials oder Nutzdaten.
+Für Health-Checks wird keine Authentifizierung benötigt; dies implementiert
+keinen Login oder Zugriff auf geschützte Funktionen.
 
 ## URL-Konfiguration und vorhandene Routen
 
@@ -30,6 +32,12 @@ her.
   `http://127.0.0.1:8000` ausschließlich als lokales Vorbereitungsbeispiel.
 - Es gibt keine Produktions-URL in den Android-Release-Konfigurationen und
   keine iOS-Release-Konfiguration in diesem Repository.
+- Android NIKNOLIG nimmt `NIKNOLIG_BACKEND_URL` oder
+  `-PniknoligBackendUrl=...`; Defense nimmt getrennt
+  `NIKNOLIG_DEFENSE_BACKEND_URL` oder `-PniknoligDefenseBackendUrl=...`.
+  Release-Aufgaben schlagen ohne eigene App-URL fehl. Nicht-HTTPS-, lokale,
+  Loopback- und `.invalid`-Hosts werden abgelehnt. Debug-Builds ohne Konfiguration
+  bleiben möglich und melden im UI klar, dass kein Verbindungsversuch stattfand.
 
 | Route | Implementierung und tatsächlicher Status |
 | --- | --- |
@@ -47,20 +55,29 @@ echte Produktions-URL, deren DNS, TLS oder Erreichbarkeit geprüft werden könnt
 
 ## Prüfung und Aussagekraft
 
-`python3 -m unittest discover -s backend/tests` **bestanden** (73 Tests). Die
-Health-Servertests starten einen temporären lokalen HTTP-Server; sie prüfen
-Vertrags- und lokale Laufzeitfunktionen, nicht HTTPS, ein Deployment, Android,
-iOS oder ein physisches Gerät. Es wurde kein Android-/iOS-Build durchgeführt.
-Ein erfolgreicher lokaler Test ist kein Build- und kein Verbindungsnachweis.
+Die gezielten Android-Client-Unit-Tests verwenden simulierte HTTPS-Verbindungen
+und prüfen Pfad, HTTPS-Vorgabe, Timeouts, Redirect-Ablehnung und Fehlerantworten.
+Sie belegen keine echte TLS-Verbindung. `python3 -m unittest discover -s
+backend/tests` prüft den Backendvertrag und startet für Health-Tests einen
+temporären lokalen HTTP-Server; ein bestandener Test ist weder HTTPS- noch
+Deploymentnachweis. Android-Debug-Builds konnten in dieser Umgebung nicht
+durchgeführt werden: Gradle löste Android-Gradle-Plugin 8.11.1 aus den
+konfigurierten Repositories nicht auf. Für iOS wurde kein Build durchgeführt.
 
 ## Konkrete Blocker und nächste Voraussetzungen
 
-1. Der Serverbetreiber muss eine kanonische, freigegebene HTTPS-Basis-URL,
+1. Der Serverbetreiber muss für jede App eine kanonische, freigegebene
+   Produktions-HTTPS-Basis-URL,
    verwaltetes DNS, gültige TLS-Zertifikatskette und einen erreichbaren
-   Test-/Staging-Endpunkt bereitstellen.
-2. Für diese Adresse fehlt ein deployter API-Dienst. Vor einer App-Integration
-   müssen die freigegebenen Routen und Fehlerverträge implementiert, der Dienst
-   sicher betrieben und seine HTTPS-Erreichbarkeit nachgewiesen werden.
+   Test-/Staging-Endpunkt bereitstellen. Die Release-Builds bleiben ohne diese
+   konkreten app-scoped URLs absichtlich gesperrt.
+2. Ein deployter API-Dienst fehlt. Der vorhandene Python-Server verwendet
+   `http.server`, bindet lokal und ist ausdrücklich nicht produktionsgeeignet;
+   Compose enthält nur eine lokale Datenbank. Ein Produktionsserver,
+   TLS-Terminierung, Betriebs-/Rollbackkonzept und Deploymentkonfiguration
+   müssen durch den Betreiber freigegeben und bereitgestellt werden. Die Apps
+   können gegen die vorhandenen Health-Routen erst nach diesem Deployment
+   verbunden werden.
 3. SecurityChain-P0 sowie die Produkt-/Security-Entscheidungen zu App-Bereichen,
    Identitäten, Authentifizierung, Widerruf und Datenumfang bleiben gemäß
    [`backend/README.md`](../backend/README.md) Freigabevoraussetzungen. Dieser
@@ -69,10 +86,12 @@ Ein erfolgreicher lokaler Test ist kein Build- und kein Verbindungsnachweis.
    sie muss innerhalb der dafür zuständigen App-Quellen ergänzt und separat
    geprüft werden.
 5. Erst nach Bereitstellung und Freigabe dieser Voraussetzungen können die
-   getrennten Android-Clients und der iOS-Client mit plattformspezifischem
-   TLS-, Auth-, Timeout- und Fehlerverhalten integriert und gegen den
-   deployten Server getestet werden.
+   Android-Health-Clients gegen den echten HTTPS-Server getestet werden. Für
+   Produktfunktionen müssen später separat freigegebene API-Routen, Authentisierung
+   und app-scoped Autorisierung implementiert werden; hier wird keine iOS-
+   Implementierung behauptet.
 
-Bis dahin bleibt der Verbindungsstatus **BLOCKIERT**. Anmeldung und geschützte
-Funktionen wurden nicht geprüft und dürfen aus den lokalen Health-Tests nicht
-abgeleitet werden.
+Bis dahin bleibt die Produktionsverbindung **BLOCKIERT**. Die implementierten
+Android-Clients können ausschließlich den Health-Endpunkt abfragen; weder
+Anmeldung noch KI-, Profil-, Geräte- oder geschützte Funktionen sind verbunden
+oder geprüft. Der Health-Endpunkt liefert keine Aussage über diese Funktionen.

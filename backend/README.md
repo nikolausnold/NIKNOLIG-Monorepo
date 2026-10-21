@@ -4,10 +4,12 @@
 
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
 Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` stellt Health-Routen
-und einen standardmäßig gesperrten KI-Support-Testendpunkt bereit. Login-, Geräte-,
-Pairing-APIs, App-Clients, produktive Endpunkte und eine Cloudflare-/Deployment-
-Konfiguration existieren nicht. NIKNOLIG und NIKNOLIG Defense bleiben getrennte
-Sicherheits- und Release-Domänen; gemeinsame Verträge verleihen keine Rechte.
+und einen standardmäßig gesperrten KI-Support-Testendpunkt bereit. Die Android-
+Module enthalten inzwischen getrennte Clients ausschließlich für
+`GET /health/ready`; Produkt-, Login-, Geräte- und Pairing-APIs, produktive
+Endpunkte und eine Deployment-Konfiguration existieren nicht. NIKNOLIG und
+NIKNOLIG Defense bleiben getrennte Sicherheits- und Release-Domänen; gemeinsame
+Verträge verleihen keine Rechte.
 Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 
 ## Artefakte
@@ -144,11 +146,14 @@ werden durch dieses Monorepo automatisch geändert.
 ## Hetzner-Verbindung: offene Voraussetzungen
 
 In diesem Repository gibt es weder eine bestätigte Hetzner-Adresse noch
-DNS-/TLS-Konfiguration, einen produktiv betriebenen API-Endpunkt oder Android-
-API-Clients. Die Health-only-Laufzeit oben ist lokal und kein Serverziel für
-Apps. Deshalb sind weder eine Basis-URL noch Zugangsdaten, Netzwerkrechte oder
-produktive HTTP-Aufrufe hinterlegt. Eine Adresse oder ein Endpunkt wird nicht
-angenommen oder erfunden.
+DNS-/TLS-Konfiguration, einen produktiv betriebenen API-Endpunkt oder ein
+Deployment. Beide Android-Module können nach expliziter Build-Konfiguration
+ausschließlich den nicht-sensitiven Health-Endpunkt über HTTPS prüfen. Die
+separaten Umgebungsvariablen `NIKNOLIG_BACKEND_URL` und
+`NIKNOLIG_DEFENSE_BACKEND_URL` werden für Release-Builds verlangt; HTTPS ist
+Pflicht, Loopback- und `.invalid`-Hosts werden abgelehnt. Es sind keine
+Produktionsadressen oder Zugangsdaten hinterlegt. Eine Adresse oder ein Endpunkt
+wird nicht angenommen oder erfunden.
 
 Vor einer Android-Verbindung müssen die Verantwortlichen mindestens liefern und
 freigeben:
@@ -172,9 +177,9 @@ freigeben:
    Monitoring, Zertifikats- und Schlüsselrotation sowie erreichbarer
    Incident-Kontakt.
 
-Erst danach können die Apps unabhängig und gegen den freigegebenen Vertrag
-integriert und getestet werden. Bis dahin bleibt die Verbindung fail closed;
-es wird kein Serverzugriff vorgetäuscht.
+Erst danach können Produktoperationen der Apps unabhängig und gegen den
+freigegebenen Vertrag integriert und getestet werden. Bis dahin bleibt jede
+Produktverbindung fail closed; Health-Abfragen geben keine geschützten Rechte.
 
 ## Verifikation und nächste Schritte
 
@@ -377,11 +382,12 @@ Quellen und abgerufene Datei-SHAs:
 
 ### Android, iOS und Offline-Fallback
 
-Android behält zwei getrennte Module, Installationen und später eigene
-API-Clients/Anmeldedaten. Die vorhandene `SupportActivity` ist weiterhin lokal
-und wird hier **nicht** mit dem Backend verbunden; keine Netzwerkberechtigung
-wird hinzugefügt. Elektro-Engel verwendet später ausschließlich explizite
-NIKNOLIG-Berechtigungen.
+Android behält zwei getrennte Module, Installationen und app-scoped Clients.
+Die vorhandene `SupportActivity` prüft ausschließlich `GET /health/ready`; damit
+wird keine KI-, Login- oder Produktfunktion verfügbar. Es werden keine
+Credentials oder Supportanfragen übertragen. Release-Builds bleiben ohne
+freigegebene, app-spezifische HTTPS-URL gesperrt. Elektro-Engel verwendet
+später ausschließlich explizite NIKNOLIG-Berechtigungen.
 
 Es gibt in diesem Monorepo keine iOS-Implementierung. Die separat geplanten
 iOS-Apps konsumieren später denselben Support-Vertrag, aber mit eigenen

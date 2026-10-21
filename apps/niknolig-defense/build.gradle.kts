@@ -18,13 +18,20 @@ fun validateBackendBaseUrl(value: String) {
         ?: error("NIKNOLIG Defense backend URL must include a hostname.")
     require(uri.scheme.equals("https", ignoreCase = true) &&
         uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null &&
-        uri.path in listOf("", "/")
+        uri.path in listOf("", "/") && (uri.port == -1 || uri.port in 1..65535)
     ) { "NIKNOLIG Defense backend URL must be an HTTPS origin without credentials, path, query, or fragment." }
     require(host != "localhost" && !host.endsWith(".localhost") &&
         host != "backend.invalid" && !host.endsWith(".invalid") &&
-        host != "127.0.0.1" && !host.startsWith("127.") &&
-        host != "::1" && host != "0.0.0.0"
+        !isLoopbackOrUnspecifiedAddress(host)
     ) { "NIKNOLIG Defense backend URL must not use a placeholder or loopback host." }
+}
+
+fun isLoopbackOrUnspecifiedAddress(host: String): Boolean {
+    if (!host.contains(':') && !host.matches(Regex("[0-9.]+"))) return false
+    return runCatching {
+        val address = java.net.InetAddress.getByName(host)
+        address.isLoopbackAddress || address.isAnyLocalAddress
+    }.getOrDefault(true)
 }
 
 validateBackendBaseUrl(backendBaseUrl)

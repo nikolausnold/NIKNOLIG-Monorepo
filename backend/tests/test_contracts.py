@@ -1,6 +1,7 @@
 import unittest
 import json
 import copy
+import re
 from pathlib import Path
 
 try:
@@ -233,7 +234,10 @@ class BackendContractTests(unittest.TestCase):
                 root / "apps" / app / "src/main/AndroidManifest.xml"
             ).read_text(encoding="utf-8")
             with self.subTest(app=app):
-                self.assertNotIn("<uses-permission", manifest)
+                permissions = re.findall(
+                    r'<uses-permission android:name="([^"]+)"', manifest
+                )
+                self.assertEqual(["android.permission.INTERNET"], permissions)
                 self.assertNotIn("BLUETOOTH", manifest.upper())
         apps = root / "apps"
         self.assertFalse(list(apps.rglob("*.swift")))
