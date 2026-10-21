@@ -364,6 +364,32 @@ Keine der folgenden Freigaben liegt vor; Namen und Daten sind **OFFEN**.
 | Betreiber / Backend-Betrieb | Betriebsmodell, Monitoring, Backup, Incident, Kosten | D-10, D-11, D-12 |
 | Release-Verantwortliche | Abnahme je App an Version/Commit/Artefakt gebunden | D-12 |
 
+## Vorlage für einen späteren Freigabenachweis
+
+Die folgende leere Vorlage strukturiert die bereits in Abschnitt 10 und D-12
+geforderten Nachweise. Sie ist weder eine Freigabe noch ein neu beschlossener
+Freigabeprozess. Je betroffener App ist ein eigener Nachweis erforderlich; eine
+Freigabe für NIKNOLIG gilt nicht für NIKNOLIG Defense und umgekehrt.
+
+| Feld | Eintrag |
+| --- | --- |
+| Entscheidungspunkt(e) | `[D-01 … D-12]` |
+| App-/System-Scope und ausdrücklich ausgeschlossene Scopes | `[NIKNOLIG / NIKNOLIG Defense / Backend / Plattform; konkretisieren]` |
+| SecurityChain-P0-Version | `[Version/Stand]` |
+| Spezifikations- und Implementierungs-Commit | `[Commit-SHA(s)]` |
+| Betroffenes Release-Artefakt, falls vorhanden | `[Identität und Hash oder nicht anwendbar mit Begründung]` |
+| Zuständige Entscheidungsfunktion und Name | `[Rolle und verantwortliche Person]` |
+| Unabhängigkeit, falls für diese Prüfung erforderlich | `[Bestätigung und Bezug zur Implementierung]` |
+| Entscheidung, genauer Umfang und etwaige Vorbehalte | `[Eintragen; offene Punkte nicht als genehmigt behandeln]` |
+| Review-, Test-, Datenschutz-, Betriebs- und Abnahmenachweise | `[Referenzen und Findings-Disposition, soweit für den Scope erforderlich]` |
+| Datum und Referenz des schriftlichen Nachweises | `[Eintragen]` |
+
+Die zuständigen Personen, Rollenbesetzung, Unabhängigkeit, Signatur-/Dokumentations-
+und Aufbewahrungsform sowie der Freigabeprozess bleiben **OFFEN**. Diese Vorlage
+legt dafür keine Werte oder Mechanismen fest. Ein nicht ausgefülltes Feld,
+fehlender Pflichtnachweis oder eine nicht dokumentierte Entscheidung schließt
+keinen Blocker und erteilt keine Implementierungs- oder Produktivfreigabe.
+
 ## Testergebnisse
 
 Ausgeführt am 21.10.2026 im Verzeichnis `backend`:
