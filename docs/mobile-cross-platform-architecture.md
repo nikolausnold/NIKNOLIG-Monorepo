@@ -51,11 +51,14 @@ einen standardmäßig gesperrten serverseitigen Support-Vertrag.
 Limits und Audit für lokale Mock-Tests vor; kein produktiver Identity-Provider
 oder KI-Transport wird aktiviert. `backend/openapi.yaml` bleibt der
 Health-Vertrag. [Backend-Konfiguration, Kosten und Freigabefolge](../backend/README.md#ki-support-vorbereitete-schnittstelle-keine-betriebsfreigabe)
-sind zentral dokumentiert. Die Android-Clients bleiben unverändert lokal;
-separate iOS-Clients werden nicht angelegt. Beide Plattformen benötigen später
-eigene App-Identitäten und Credentials, denselben versionierten Support-Vertrag
-und einen verständlichen Offline-/Nichtverfügbarkeitszustand ohne Auto-Retry
-oder automatische E-Mail-Übermittlung.
+sind zentral dokumentiert. Die beiden Android-Module prüfen inzwischen nach
+Nutzeraktion getrennt und ohne Credentials ausschließlich den bestehenden
+`GET /health/ready`-Health-Vertrag über eine je App konfigurierte HTTPS-URL.
+Dies verbindet keine KI- oder Produktfunktion. Separate iOS-Clients werden
+nicht angelegt. Spätere geschützte Operationen benötigen eigene App-Identitäten,
+Credentials, den freigegebenen versionierten Vertrag und einen verständlichen
+Offline-/Nichtverfügbarkeitszustand ohne Auto-Retry oder automatische
+E-Mail-Übermittlung.
 
 ## 2. Gemeinsame Vertrags- und Backend-Architektur
 
