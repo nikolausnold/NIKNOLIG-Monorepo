@@ -25,7 +25,7 @@ sys.path.insert(0, str(BACKEND))
 import database
 import deployment
 import migrate
-from asgi import create_app
+from asgi import app as production_app, create_app
 
 
 class ProductionRuntimeTests(unittest.TestCase):
@@ -61,6 +61,18 @@ class ProductionRuntimeTests(unittest.TestCase):
     def setUp(self):
         self.factory.reset_mock(side_effect=True)
         self.factory.return_value = None
+
+    def test_exported_production_entrypoint_registers_contract_health_routes(self):
+        health_routes = {
+            (route.path, method)
+            for route in production_app.routes
+            for method in route.methods or ()
+            if route.path.startswith("/health/")
+        }
+        self.assertEqual(
+            {("/health/live", "GET"), ("/health/ready", "GET")},
+            health_routes,
+        )
 
     def request(self, path, method="GET"):
         try:
