@@ -82,6 +82,41 @@ class BackendHealthClientTest {
         assertEquals(BackendHealthResult.InvalidResponse, trailingContent)
     }
 
+    @Test
+    fun reportsReadinessFailureAndRejectsRedirectsAndOversizedBodies() {
+        for (status in listOf(302, 503)) {
+            val result = BackendHealthClient("https://api.example.test") {
+                FakeHttpsConnection(it, status, """{"status":"ready"}""")
+            }.check()
+            assertEquals(BackendHealthResult.HttpError(status), result)
+        }
+        val connection = FakeHttpsConnection(
+            URL("https://api.example.test/health/ready"), 200,
+            " ".repeat(4096) + """{"status":"ready"}""",
+        )
+        assertEquals(
+            BackendHealthResult.InvalidResponse,
+            BackendHealthClient("https://api.example.test") { connection }.check(),
+        )
+        assertEquals(true, connection.disconnected)
+    }
+
+    @Test
+    fun distinguishesTimeoutFromNetworkAndTlsFailureWithoutReturningReady() {
+        assertEquals(
+            BackendHealthResult.TimedOut,
+            BackendHealthClient("https://api.example.test") {
+                throw java.net.SocketTimeoutException()
+            }.check(),
+        )
+        for (error in listOf(java.io.IOException(), javax.net.ssl.SSLHandshakeException("untrusted"))) {
+            assertEquals(
+                BackendHealthResult.NetworkError,
+                BackendHealthClient("https://api.example.test") { throw error }.check(),
+            )
+        }
+    }
+
     private class FakeHttpsConnection(
         url: URL,
         private val status: Int,

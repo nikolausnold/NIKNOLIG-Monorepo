@@ -9,7 +9,7 @@ APPS = {"niknolig": "com/niknolig/app", "niknolig-defense": "com/niknolig/defens
 
 
 class SupportFlowTests(unittest.TestCase):
-    def test_support_is_internal_and_adds_no_network_permissions(self):
+    def test_support_is_internal_and_only_allows_internet_without_cleartext(self):
         for app in APPS:
             with self.subTest(app=app):
                 manifest = ET.parse(ROOT / "apps" / app / "src/main/AndroidManifest.xml")
@@ -18,7 +18,13 @@ class SupportFlowTests(unittest.TestCase):
                     if item.get(ANDROID + "name") == ".SupportActivity"
                 )
                 self.assertEqual("false", activity.get(ANDROID + "exported"))
-                self.assertEqual([], manifest.findall("./uses-permission"))
+                self.assertEqual(
+                    ["android.permission.INTERNET"],
+                    [item.get(ANDROID + "name") for item in manifest.findall("./uses-permission")],
+                )
+                self.assertEqual(
+                    "false", manifest.find("./application").get(ANDROID + "usesCleartextTraffic")
+                )
 
     def test_landing_support_opens_internal_flow_not_email(self):
         for app, package in APPS.items():
@@ -28,7 +34,7 @@ class SupportFlowTests(unittest.TestCase):
                 self.assertNotIn("ACTION_SENDTO", source)
                 self.assertNotIn("mailto", source)
 
-    def test_email_is_hidden_until_ai_unavailability_and_requires_confirmation(self):
+    def test_email_requires_completed_health_check_and_confirmation_with_ai_still_disabled(self):
         for app, package in APPS.items():
             with self.subTest(app=app):
                 main = ROOT / "apps" / app / "src/main"
@@ -43,14 +49,19 @@ class SupportFlowTests(unittest.TestCase):
                 )
                 self.assertEqual("gone", button.get(ANDROID + "visibility"))
                 source = (main / "java" / package / "SupportActivity.kt").read_text()
-                self.assertIn("private var aiUnavailable = false", source)
-                self.assertIn("if (aiUnavailable) View.VISIBLE else View.GONE", source)
-                self.assertIn("if (!aiUnavailable) return", source)
+                self.assertIn("private var backendStatus: Int? = null", source)
+                self.assertIn("if (backendStatus != null) View.VISIBLE else View.GONE", source)
+                self.assertIn("if (backendStatus == null) return", source)
+                self.assertIn("BackendHealthClient(BuildConfig.BACKEND_BASE_URL).check()", source)
+                self.assertIn("checkButton.visibility = View.VISIBLE", source)
+                self.assertIn("checkButton.isEnabled = false", source)
+                self.assertIn("checkButton.isEnabled = true", source)
+                self.assertNotIn("/v1/ai/support", source)
                 self.assertIn(".setMessage(getString(R.string.support_escalation_consent", source)
                 self.assertIn(".setNegativeButton(android.R.string.cancel, null)", source)
                 self.assertIn(".setPositiveButton(R.string.support_email_draft)", source)
-                self.assertIn('outState.putBoolean("aiUnavailable", aiUnavailable)', source)
-                self.assertIn('savedInstanceState?.getBoolean("aiUnavailable")', source)
+                self.assertIn('outState.putInt("backendStatus", backendStatus ?: 0)', source)
+                self.assertIn('savedInstanceState?.getInt("backendStatus")', source)
 
     def test_draft_uses_only_fixed_resources_and_handles_missing_email_app(self):
         for app, package in APPS.items():
@@ -78,8 +89,8 @@ class SupportFlowTests(unittest.TestCase):
                     self.assertIn("%1$s", locales[folder]["support_escalation_consent"])
                     self.assertIn("%1$s", locales[folder]["support_email_manual"])
                 self.assertEqual(locales["values"].keys(), locales["values-en"].keys())
-                self.assertIn("Kein KI-Dienst eingerichtet", locales["values"]["support_ai_unavailable"])
-                self.assertIn("No AI service is configured", locales["values-en"]["support_ai_unavailable"])
+                self.assertIn("bleibt deaktiviert", locales["values"]["support_ai_unavailable"])
+                self.assertIn("disabled", locales["values-en"]["support_ai_unavailable"])
                 for folder in ("values", "values-en"):
                     resources = ET.parse(main / "res" / folder / "strings.xml")
                     strings = {item.get("name"): item.text for item in resources.findall("string")}
