@@ -475,14 +475,30 @@ docker compose -f backend/compose.production.yaml up --build -d
 
 Der vorliegende ASGI-Einstiegspunkt registriert `GET /health/live` und
 `GET /health/ready`; das Backend-Image kopiert `asgi.py` und startet
-`uvicorn asgi:app`. Die Routen `/health`, `/db/health` und `/projects...`
-gehören nicht zu dieser Implementierung. Meldet ein Hetzner-Container stattdessen
-diese Routen und 404 für die beiden ASGI-Health-Pfade, läuft dort nicht das aus
-diesem Quellstand gebaute Backend-Image. PR #123 prüfte zuvor die Registrierung
-der Routen, nicht die Identität eines entfernten Containers. Ohne dessen
-Image-ID, Startbefehl und Compose-Projekt lässt sich nicht unterscheiden, ob
-ein veraltetes Image, ein anderes Compose-Projekt oder ein fremder Dienst
-abgefragt wurde.
+`uvicorn asgi:app`. Zusätzlich übernimmt diese Laufzeit aus den vom Betreiber
+bereitgestellten Produktionsausschnitten die Antwortformate von `GET /health`
+(`status: ok`, `service: NOLD API`, `version: 0.2.0`), `GET /projects`
+(`projects: [niknolig, defense, monorepo]`) und `GET /db/health`
+(`status: ok`, `service: NOLD PostgreSQL`; bei Fehler HTTP 503 mit
+`{"detail":"database_unavailable"}`). Der Projektkatalog ist statische Metadaten,
+keine Produkt-API oder Freigabe. Die Datenbankroute führt ausschließlich `SELECT 1`
+über die vorhandene zeitbegrenzte PostgreSQL-Verbindung und deren externe
+Konfiguration aus; Produktions-Verbindungswerte werden nicht übernommen.
+
+**Verbleibende Unterschiede zur beschriebenen Produktion:** `/health/live` und
+`/health/ready` behalten den bestehenden Vertrag (`live` beziehungsweise `ready`);
+Readiness prüft weiterhin PostgreSQL und Migrationsinvarianten statt konstant
+`ok` zu melden. `/projects/{name}/health` und der zugehörige Konfigurationsleser
+sind nicht übernommen; es gibt keine neuen externen Anbieteraufrufe, Secret-Mounts
+oder Authentifizierungsfreigaben. Der versionierte OpenAPI-Vertrag bleibt der
+Health-Vertrag; die drei Kompatibilitätsrouten sind hier beschrieben und separat
+getestet. Caddy bleibt unverändert auf die beiden bisherigen Health-Pfade begrenzt:
+die neuen Routen sind in dieser Compose-Konfiguration nicht öffentlich erreichbar.
+Das Repository-Image ist daher **kein funktionsgleicher Produktionsersatz**.
+Die vom Betreiber genannte Produktion startet `app.main:app`; weder deren
+Image-Identität noch eine Synchronisierung oder ein Deployment werden hier bestätigt.
+PR #123 prüfte die Registrierung der Health-Routen, nicht die Identität eines
+entfernten Containers.
 
 Nach Merge dieser Korrektur darf ein autorisierter Betreiber auf dem Server
 zuerst nur Zustand und laufenden Befehl prüfen. Zugangsdaten, vollständige
