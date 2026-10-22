@@ -61,7 +61,7 @@ D-01 ist noch nicht abgeschlossen, D-02 bis D-12 bleiben unverändert offen.
 
 ## Build und Prüfung
 
-Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 8.13 (über den
+Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 8.14.6 (über den
 mitgelieferten Wrapper).
 
 Beide APKs unabhängig im selben Build aufbauen:
