@@ -46,8 +46,9 @@ getrennten Repository-Variablen `NIKNOLIG_BACKEND_URL` und
   Loopback- und `.invalid`-Hosts werden abgelehnt. Debug-Builds ohne Konfiguration
   bleiben möglich und melden im UI klar, dass kein Verbindungsversuch stattfand.
   Der automatische Android-Release überspringt den Build, solange eine der
-  getrennten Repository-URLs fehlt; ein manueller Release-Aufruf behält die
-  bestehende Gradle-Prüfung bei und schlägt ohne URL fehl.
+  getrennten Repository-URLs fehlt; manuelle Releases werden unter denselben
+  Bedingungen übersprungen. Die Gradle-Prüfung bleibt als zusätzliche Schranke
+  bestehen.
 
 | Route | Implementierung und tatsächlicher Status |
 | --- | --- |

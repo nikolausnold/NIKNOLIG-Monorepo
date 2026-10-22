@@ -19,6 +19,11 @@ class AutobuildTests(unittest.TestCase):
 
     def test_release_only_signs_successful_trusted_main_build_commit(self):
         workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
+        dispatch_guard = workflow.split("jobs:", 1)[1].split("||", 1)[0]
+        self.assertIn("github.event_name == 'workflow_dispatch'", dispatch_guard)
+        self.assertIn("github.ref == 'refs/heads/main'", dispatch_guard)
+        self.assertIn("vars.NIKNOLIG_BACKEND_URL != ''", dispatch_guard)
+        self.assertIn("vars.NIKNOLIG_DEFENSE_BACKEND_URL != ''", dispatch_guard)
         for guard in (
             "workflows: [\"Android apps build\", \"Backend contracts and tooling\"]",
             "github.event.workflow_run.conclusion == 'success'",
