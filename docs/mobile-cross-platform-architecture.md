@@ -1,9 +1,16 @@
 # Android-/iOS-Architektur und Integrationsplan
 
-**Status:** Architekturplanung und gesperrte KI-Support-Vorbereitung. Keine iOS-App,
-kein freigegebener API-Endpunkt oder produktiver Dienst und keine Änderung an den
-separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein verbindliches
-Stop-Gate.
+**Status:** Architekturplanung, gesperrte KI-Support-Vorbereitung und native iOS-
+Vorschauziele. Kein freigegebener API-Endpunkt oder produktiver Dienst und keine
+Änderung an den separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein
+verbindliches Stop-Gate.
+
+**Implementierungsstand 22.10.2026:** `apps/ios/NIKNOLIG.xcodeproj` enthält zwei
+unabhängige iOS-App-Targets mit den bestehenden Produkt-IDs. Sie bieten nur die
+bereits belegten lokalen Profil-/Vorschau-, Health- und E-Mail-Flows. Es gibt
+keine KI-, Geräte-, Sensor- oder Notfallintegration. iOS 16.0 ist vorläufige
+technische Projekteinstellung, keine genehmigte Plattformmatrix. Mangels
+macOS/Xcode wurde kein iOS-Build ausgeführt.
 
 ## 1. Bestand: wiederverwenden statt duplizieren
 
@@ -51,11 +58,11 @@ einen standardmäßig gesperrten serverseitigen Support-Vertrag.
 Limits und Audit für lokale Mock-Tests vor; kein produktiver Identity-Provider
 oder KI-Transport wird aktiviert. `backend/openapi.yaml` bleibt der
 Health-Vertrag. [Backend-Konfiguration, Kosten und Freigabefolge](../backend/README.md#ki-support-vorbereitete-schnittstelle-keine-betriebsfreigabe)
-sind zentral dokumentiert. Die beiden Android-Module prüfen inzwischen nach
-Nutzeraktion getrennt und ohne Credentials ausschließlich den bestehenden
-`GET /health/ready`-Health-Vertrag über eine je App konfigurierte HTTPS-URL.
-Dies verbindet keine KI- oder Produktfunktion. Separate iOS-Clients werden
-nicht angelegt. Spätere geschützte Operationen benötigen eigene App-Identitäten,
+sind zentral dokumentiert. Die Android-Module prüfen nach Nutzeraktion getrennt und ohne Credentials
+ausschließlich den bestehenden `GET /health/ready`-Health-Vertrag über je App
+konfigurierte HTTPS-URLs. Die iOS-Targets spiegeln diesen nicht-sensitiven
+Health-Check mit getrennten Build-Einstellungen wider. Dies verbindet keine KI-
+oder Produktfunktion. Geschützte Operationen benötigen eigene App-Identitäten,
 Credentials, den freigegebenen versionierten Vertrag und einen verständlichen
 Offline-/Nichtverfügbarkeitszustand ohne Auto-Retry oder automatische
 E-Mail-Übermittlung.
@@ -253,26 +260,23 @@ Kein neues Repository wird im Rahmen dieser Vorbereitung erstellt.
    Monorepo-Module behalten Ownership und App-Identität. Eine spätere Anbindung
    wird von den zuständigen Teams separat geplant, reviewed und freigegeben;
    dieses Dokument ändert sie nicht.
-5. **iOS-Repository NIKNOLIG-iOS:** Erst nach Freigabe separat erstellen. Es
-   enthält NIKNOLIG-Oberfläche, eigenes Bundle-/Signing-/Release-Setup,
-   App-scoped Authentifizierung und iOS-Adapter. Es konsumiert ausschließlich
-   die genehmigten gemeinsamen Verträge; kein Defense-Schlüssel, keine
-   Android-Runtime und kein impliziter Elektro-Engel-Berechtigungsbereich.
-6. **iOS-Repository NIKNOLIG-Defense-iOS:** Ebenfalls separat und mit eigenem
-   Bundle, Signing, Release, Identität, Authentifizierung und Test-/Consent-
-   Fluss. Keine gemeinsame App-Sandbox, Credentials oder implizite Rechte mit
-   NIKNOLIG-iOS oder den Android-Apps.
-7. **Parität und Übergang:** Für jeden iOS-Verbraucher Schema-/Fehler-Fixtures,
-   App-Bereich, Widerruf, Permission-Nein/Widerruf und Release-Artefakte
-   verifizieren. Verträge werden nur nach einer dokumentierten Consumer-
-   Migration und Kompatibilitätsprüfung ausgebaut oder abgekündigt.
+5. **iOS-Ziele vervollständigen:** Die beiden nativen Targets verbleiben in
+   `apps/ios/` dieses Monorepos und haben getrennte Bundle-IDs, App-Sandboxes,
+   Build-Konfigurationen und Produktoberflächen. Sie konsumieren nur genehmigte
+   gemeinsame Verträge. Es gibt keine gemeinsame App-Credential-Domäne,
+   Android-Runtime oder implizite Elektro-Engel-Berechtigung.
+6. **Plattformfreigaben:** Vor geschützten Funktionen Plattformmatrix,
+   OS-Berechtigungen, Identität, Datenflüsse und Lösch-/Widerrufsregeln pro App
+   schriftlich freigeben. Signierung, Store-Metadaten und TestFlight benötigen
+   separate Apple-Account- und Releasefreigaben.
+7. **Parität und Prüfung:** Schema-/Fehler-Fixtures, App-Bereich, Widerruf,
+   Permission-Nein/Widerruf und Release-Artefakte auf iOS verifizieren. Verträge
+   werden nur nach dokumentierter Consumer-Migration und Kompatibilitätsprüfung
+   ausgebaut oder abgekündigt.
 
-Technisch sinnvoll werden getrennte iOS-Repositories, wenn Verantwortliche,
-Bundle-IDs, Signierung, Releasezyklen und unabhängige Wartung feststehen und
-die gemeinsamen Verträge versioniert, automatisiert geprüft und von Android
-und Backend konsumiert werden. Davor vermeidet ein Vertragsinventar im
-Monorepo unnötige Duplikation. Produktive Umsetzung bleibt unabhängig davon
-SecurityChain-P0-blockiert.
+Die iOS-Projektziele bleiben in diesem Monorepo; diese Projektablage erteilt
+keine Produktiv- oder SecurityChain-P0-Freigabe. Produktive Umsetzung bleibt
+bis zur erforderlichen Sicherheits-, Plattform- und Betreiberfreigabe blockiert.
 
 ## 7. Offene Entscheidungen und Stop-Gate
 

@@ -1,8 +1,9 @@
 # NIKNOLIG-Monorepo
 
-Monorepo für zwei getrennte Android-Apps: NIKNOLIG und NIKNOLIG Defense. Die
-Apps bleiben eigenständige Installationen und Sicherheitsdomänen. Die Websites
-und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
+Monorepo für zwei getrennte Android-Apps und zwei native iOS-App-Targets:
+NIKNOLIG und NIKNOLIG Defense. Die Apps bleiben eigenständige Installationen
+und Sicherheitsdomänen. Die Websites und ihre Deployments bleiben in den
+jeweiligen Quell-Repositories.
 
 ## Android-Module
 
@@ -10,6 +11,10 @@ und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
 | --- | --- | --- |
 | `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG/tree/3c4d6618a61604f6433639151e741371491a5f0d), Commit `3c4d6618a61604f6433639151e741371491a5f0d` |
 | `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
+
+Native iOS-Vorschauziele mit den jeweils passenden Bundle-IDs liegen unter
+[`apps/ios/`](apps/ios/README.md). Sie sind getrennte Targets und teilen weder
+Laufzeitcode noch App-Daten mit Android oder der jeweils anderen App.
 
 Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
 die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
@@ -109,10 +114,12 @@ Das Soll-Konzept für getrennte Gründerrollen und app-spezifische Konten steht 
 Es wurden keine Konten angelegt; die produktive Rollenvergabe bleibt bis zur
 SecurityChain-P0-Freigabe gesperrt.
 
-Die plattformübergreifende Vertragsarchitektur, Android-/iOS-Grenzen und der
-Integrationsplan für spätere separate iOS-Repositories stehen in
-[`docs/mobile-cross-platform-architecture.md`](docs/mobile-cross-platform-architecture.md).
-Es werden keine iOS-Repositories oder produktiven APIs angelegt.
+Die plattformübergreifende Vertragsarchitektur und Android-/iOS-Sicherheitsgrenzen
+stehen in [`docs/mobile-cross-platform-architecture.md`](docs/mobile-cross-platform-architecture.md).
+Die iOS-Ziele implementieren nur lokale Profil-/Vorschaufunktionen, einen
+konfigurierbaren Health-Check und bestätigte E-Mail-Entwürfe. Sie enthalten
+keine KI-, Geräte-, Sensor- oder Notfallintegration und benötigen weiterhin
+SecurityChain-P0- sowie Plattform-/Store-Freigaben.
 
 Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
 [`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
@@ -125,8 +132,8 @@ Builds, Netzwerkzugriffe oder Deployments vor.
   getrennte Workflows: [`Android apps build`](.github/workflows/android-build.yml)
   baut und prüft beide Android-APKs sowie ihre Health-Client-Unit-Tests;
   [`Backend contracts and tooling`](.github/workflows/backend-contracts.yml)
-  führt Backend-Vertrags-/Tooltests und den Systemregister-Check aus. Es gibt
-  weiterhin kein iOS-Projekt in diesem Repository.
+  führt Backend-Vertrags-/Tooltests und den Systemregister-Check aus. Der
+  Android-Workflow prüft die iOS-Targets nicht.
   Der Zeitplan wird erst nach Übernahme auf den Default-Branch aktiv; GitHub
   kann geplante Läufe verzögern oder bei inaktiven öffentlichen Repositories
   deaktivieren.
@@ -221,5 +228,6 @@ Aktivierung in einer Woche.** Die tatsächliche Anbindung benötigt anschließen
    [Apple Developer](https://developer.apple.com/account/) und
    [App Store Connect](https://appstoreconnect.apple.com/) werden eigene
    App-Identitäten, Signierung, Datenschutzangaben und TestFlight-Prüfungen
-   benötigt. Da hier kein iOS-App-Projekt existiert, erzeugt dieser Workflow
-   weder ein iOS-Archiv noch einen iOS-Storeupload.
+   benötigt. Die Vorschauziele unter `apps/ios/` haben weder iOS-Build- noch
+   Store-Nachweise; dieser Android-Workflow erzeugt kein iOS-Archiv und keinen
+   iOS-Storeupload.
