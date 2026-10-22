@@ -35,6 +35,29 @@ proof that a statement is sound. The curated glosses are working descriptions,
 not source-backed dictionary entries. No external source lookup currently
 exists, and the UI never claims one was performed.
 
+## Local runnable interface
+
+The JVM module includes a loopback-only HTTP server for exercising the existing
+deterministic analyzer. It is not a generative AI service and does not call an
+external provider. It accepts UTF-8 plain text at
+`POST /v1/electro-engel/analyze/{mode}`, where `mode` is `word-breakdown`,
+`convention-scan`, `perspective-shift`, or `fact-check`. The JSON response marks
+the engine as `deterministic-local-rules` and reports that sources were not
+checked. Prompts are not logged or persisted.
+
+```sh
+./gradlew :electro-engel-core:run
+curl --fail-with-body -X POST \
+  -H 'Content-Type: text/plain; charset=utf-8' \
+  --data-binary 'Freiheit' \
+  http://127.0.0.1:8081/v1/electro-engel/analyze/word-breakdown
+./gradlew :electro-engel-core:test
+```
+
+The server binds only to `127.0.0.1`; `ELECTRO_ENGEL_PORT` may select a port
+between 1 and 65535. It is a local development/test interface, not a deployment
+or production API.
+
 ## AI integration status
 
 The existing `backend/ai_support.py` and `/v1/ai/support` contract are a separate,
