@@ -627,7 +627,9 @@ class CloudflareAdapterTests(unittest.TestCase):
         backend = Path(__file__).resolve().parents[1]
         contract = (backend / "ai-support.openapi.yaml").read_text()
         self.assertIn("openapi: 3.1.0", contract)
+        self.assertIn("/support:", contract)
         self.assertIn("/v1/ai/support:", contract)
+        self.assertIn("message:", contract)
         self.assertIn("Not deployed, activated, or production-approved", contract)
         self.assertIn("durable distributed quotas", contract)
         self.assertNotIn("/v1/", (backend / "openapi.yaml").read_text())

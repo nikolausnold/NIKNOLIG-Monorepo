@@ -88,9 +88,10 @@ class HealthHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         self.close_connection = True
-        if self.path != "/v1/ai/support":
+        if self.path not in ("/support", "/v1/ai/support"):
             self._send_json(*error_response(404, "NOT_FOUND"))
             return
+        common_support_route = self.path == "/support"
         lengths = self.headers.get_all("Content-Length", [])
         if (self.headers.get_all("Transfer-Encoding") or len(lengths) != 1 or
                 not lengths[0].isascii() or not lengths[0].isdigit() or
@@ -134,6 +135,13 @@ class HealthHandler(BaseHTTPRequestHandler):
             return
         finally:
             self.connection.settimeout(SUPPORT_READ_TIMEOUT_SECONDS)
+        if (common_support_route and type(payload) is dict and
+                set(payload) == {"app", "message"}):
+            payload = {
+                "app": payload["app"],
+                "feature": "support",
+                "prompt": payload["message"],
+            }
         try:
             response = self.server.support_service.handle(
                 self.headers.get("Authorization"), payload
