@@ -79,6 +79,20 @@ class SupportFlowTests(unittest.TestCase):
                 for forbidden in ("SharedPreferences", "EditText", "EXTRA_STREAM", "HttpURLConnection", "Log."):
                     self.assertNotIn(forbidden, source)
 
+    def test_ios_support_is_explicitly_disabled_and_defense_is_not_an_emergency_channel(self):
+        ios = ROOT / "apps" / "ios"
+        for filename in ("NIKNOLIGApp.swift", "NIKNOLIGDefenseApp.swift"):
+            with self.subTest(app=filename):
+                source = (ios / filename).read_text()
+                self.assertIn('Section("KI-Support")', source)
+                self.assertIn("KI-Support ist derzeit nicht freigegeben", source)
+                self.assertIn('Section("E-Mail-Support")', source)
+                self.assertIn("Nichts wird automatisch gesendet.", source)
+                self.assertNotIn("/v1/ai/support", source)
+        defense = (ios / "NIKNOLIGDefenseApp.swift").read_text()
+        self.assertIn("kein Notfallkanal", defense)
+        self.assertIn("löst keinen Notruf aus", defense)
+
     def test_support_strings_are_localized_and_honest_about_missing_ai(self):
         for app in APPS:
             with self.subTest(app=app):

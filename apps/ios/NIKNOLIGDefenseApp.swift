@@ -131,6 +131,10 @@ private struct DefenseSupportView: View {
 
     var body: some View {
         Form {
+            Section("KI-Support") {
+                Text("KI-Support ist derzeit nicht freigegeben. Er ist kein Notfallkanal und ersetzt keine Notruf- oder Schutzfunktion.")
+                    .foregroundStyle(.secondary)
+            }
             Section("Backend-Verbindung") {
                 Text(stateDescription)
                     .accessibilityAddTraits(.updatesFrequently)

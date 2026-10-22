@@ -386,20 +386,24 @@ Quellen und abgerufene Datei-SHAs:
 
 Android behält zwei getrennte Module, Installationen und app-scoped Clients.
 Die vorhandene `SupportActivity` prüft ausschließlich `GET /health/ready`; damit
-wird keine KI-, Login- oder Produktfunktion verfügbar. Es werden keine
-Credentials oder Supportanfragen übertragen. Release-Builds bleiben ohne
-freigegebene, app-spezifische HTTPS-URL gesperrt. Elektro-Engel verwendet
-später ausschließlich explizite NIKNOLIG-Berechtigungen.
+wird keine KI-, Login- oder Produktfunktion verfügbar. Die bestätigte E-Mail-
+Alternative funktioniert unabhängig von diesem Health-Check. Dabei werden keine
+Credentials oder Supportanfragen an das Backend übertragen. Release-Builds
+bleiben ohne freigegebene, app-spezifische HTTPS-URL gesperrt. Elektro-Engel
+verwendet später ausschließlich explizite NIKNOLIG-Berechtigungen.
 
-Es gibt in diesem Monorepo keine iOS-Implementierung. Die separat geplanten
-iOS-Apps konsumieren später denselben Support-Vertrag, aber mit eigenen
-Bundle-IDs, App-Audiences und Keychain-Zugangsdaten. Keine gemeinsamen Android-
-Tokens, kein iOS-Scaffolding, keine Freigabe von App-Store-/Apple-Diensten.
-Siehe [plattformübergreifende Architektur](../docs/mobile-cross-platform-architecture.md).
+Native SwiftUI-Vorschauen für beide Apps existieren unter `apps/ios/`. Ihre
+Supportansichten prüfen ebenfalls ausschließlich `GET /health/ready` und öffnen
+nach Bestätigung einen nutzergeprüften E-Mail-Entwurf; sie rufen keinen KI-
+Endpunkt auf. Es gibt keine gemeinsamen Android-Tokens oder App-Schlüssel.
+Siehe [plattformübergreifende Architektur](../docs/mobile-cross-platform-architecture.md)
+und [iOS-Vorschau](../apps/ios/README.md).
 
-Bei offline/gesperrt/nicht freigegeben/Timeout/Anbieterausfall muss der Client
-verständlich „KI-Unterstützung derzeit nicht verfügbar“ anzeigen. Keine erfundene
-Antwort, keine Offline-Warteschlange oder automatischen Wiederholungen.
+Bei offline/gesperrt/nicht freigegeben/Timeout/Anbieterausfall zeigen die
+Android- und iOS-Supportansichten verständlich, dass KI-Support nicht verfügbar
+oder freigegeben ist. Die E-Mail-Alternative bleibt unabhängig vom Health-Check
+verfügbar. Keine erfundene Antwort, keine Offline-Warteschlange oder automatischen
+Wiederholungen.
 Eine unklare Modellantwort ist kein Beweis für Lösung oder Sicherheit.
 `escalationRequired=false` bedeutet nur, dass kein technischer Eskalationsgrund
 erkannt wurde, nicht „gelöst“ oder „hilfreich“. Eine semantische Erkennung

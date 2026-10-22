@@ -24,39 +24,44 @@ Karten, Schaltflächen und Support-Symbole verwenden produktlokale Drawables.
 Die Support-Symbole kennzeichnen lediglich die Oberfläche: Sie sind kein
 Nachweis einer aktiven KI oder einer Geräteverbindung.
 
-## KI-zuerst-Support und bewusste Eskalation
+## Gesperrter KI-Support und bewusste E-Mail-Eskalation
 
 Beide Startseiten führen zuerst in eine interne, nicht exportierte
 `SupportActivity`, nicht direkt in die E-Mail-App. Auch die lokale
 Elektro-Engel-Ansicht in NIKNOLIG bietet diesen Einstieg.
 
-1. Die Oberfläche erklärt das Ziel: zuerst KI-Unterstützung.
-2. „KI-Verfügbarkeit prüfen“ zeigt den tatsächlichen lokalen
-   Konfigurationsstand: **kein KI-Dienst angeschlossen**. Es erfolgt kein
-   Netzwerkaufruf, keine Problemerfassung und keine simulierte KI-Antwort.
-3. Nur danach erscheint die E-Mail-Eskalation für fehlende KI-Hilfe.
-4. Ein Bestätigungsdialog nennt den vorhandenen Support-Empfänger und erklärt
+1. Die Support-Ansicht zeigt unmittelbar, dass KI-Support nicht freigegeben und
+   kein KI-Dienst angeschlossen ist. Es gibt keinen KI-Aufruf und keine simulierte
+   Antwort.
+2. Die optionale Backend-Prüfung ruft ausschließlich `GET /health/ready` auf;
+   eine erfolgreiche Health-Antwort bestätigt keine KI-Verfügbarkeit.
+3. Die E-Mail-Alternative ist unabhängig von dieser Prüfung stets verfügbar.
+   Ein Bestätigungsdialog nennt den vorhandenen Support-Empfänger und erklärt
    den Datenumfang. Erst die Bestätigung öffnet einen E-Mail-Entwurf.
-5. Der Entwurf enthält nur festen Betreff und Hinweistext, keine Anfrage,
+4. Der Entwurf enthält nur festen Betreff und Hinweistext, keine Anfrage,
    Gesprächsdaten, Lernprofile, Anhänge oder Gerätekennungen. Der Nutzer ergänzt,
    prüft und versendet selbst. Ohne E-Mail-App wird der Empfänger angezeigt.
+5. Die nativen iOS-Supportansichten zeigen denselben KI-/Health-Grenzstatus und
+   öffnen nach Bestätigung ebenfalls nur einen E-Mail-Entwurf.
 
 Die Empfängeradresse kommt weiterhin aus der bestehenden app-lokalen
 `support_email`-Ressource. Es gibt keinen automatischen Mailversand und keine
 Weiterleitung an einen fremden KI-Dienst. Zahlungsfragen bleiben außerhalb des
-technischen Supports. Deutsche und englische Texte sind vorhanden.
+technischen Supports. Die Android-Texte sind auf Deutsch und Englisch
+vorhanden; die nativen iOS-Vorschauen sind derzeit deutschsprachig.
 
 **Noch offen:** Ein echter KI-Support samt Entscheidung „nicht lösbar“ benötigt
 einen freigegebenen serverseitigen Anbieter/Endpunkt, Datenschutz- und
-Datenminimierungsregeln, Fehler-/Unsicherheitsbehandlung und explizite
-Eskalationskriterien. Es wurde kein Modell angebunden und kein Schlüssel im
-Android-Client hinterlegt. Der Health-only-Backend-Status und SecurityChain-P0
-werden durch diese Oberfläche nicht aufgehoben.
+Datenminimierungsregeln, einen genehmigten Authentifizierungs-/Autorisierungsweg,
+Fehler-/Unsicherheitsbehandlung und explizite Eskalationskriterien. Es wurde kein
+Modell angebunden und kein Schlüssel in einer App hinterlegt. Der Health-only-
+Backend-Status und SecurityChain-P0 werden durch diese Oberfläche nicht
+aufgehoben.
 
 Die [Backend-Vorbereitung](../backend/README.md#ki-support-vorbereitete-schnittstelle-keine-betriebsfreigabe)
 ergänzt nun eine gesperrte Provider-Schnittstelle mit Mock-Tests, nicht eine
-aktive KI-Verbindung der Apps. Anbieter-/Kostenfreigabe und mobile Integration
-stehen weiterhin aus; die lokale Support-Oberfläche bleibt unverändert.
+aktive KI-Verbindung der Apps. Anbieter-/Kostenfreigabe, Authentifizierungsweg
+und mobile KI-Integration stehen weiterhin aus.
 
 ## Funktions- und Plattformgrenzen
 

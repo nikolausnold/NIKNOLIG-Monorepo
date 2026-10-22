@@ -271,6 +271,10 @@ private struct NIKNOLIGSupportView: View {
 
     var body: some View {
         Form {
+            Section("KI-Support") {
+                Text("KI-Support ist derzeit nicht freigegeben. Es ist keine externe KI verbunden.")
+                    .foregroundStyle(.secondary)
+            }
             Section("Backend-Verbindung") {
                 Text(stateDescription)
                     .accessibilityAddTraits(.updatesFrequently)
