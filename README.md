@@ -131,9 +131,12 @@ Builds, Netzwerkzugriffe oder Deployments vor.
 - Bei Push und Pull Request sowie montags um 04:23 UTC und manuell laufen
   getrennte Workflows: [`Android apps build`](.github/workflows/android-build.yml)
   baut und prüft beide Android-APKs sowie ihre Health-Client-Unit-Tests;
+  [`iOS app builds`](.github/workflows/ios-build.yml) baut die beiden nativen
+  iOS-App-Targets separat für das Simulator-SDK ohne Code Signing, wenn iOS-
+  Quelldateien geändert werden oder manuell. Der Android-Workflow testet zusätzlich
+  den portablen Swift-Analyse-Core, baut aber keine nativen iOS-Apps;
   [`Backend contracts and tooling`](.github/workflows/backend-contracts.yml)
-  führt Backend-Vertrags-/Tooltests und den Systemregister-Check aus. Der
-  Android-Workflow prüft die iOS-Targets nicht.
+  führt Backend-Vertrags-/Tooltests und den Systemregister-Check aus.
   Der Zeitplan wird erst nach Übernahme auf den Default-Branch aktiv; GitHub
   kann geplante Läufe verzögern oder bei inaktiven öffentlichen Repositories
   deaktivieren.
@@ -228,6 +231,5 @@ Aktivierung in einer Woche.** Die tatsächliche Anbindung benötigt anschließen
    [Apple Developer](https://developer.apple.com/account/) und
    [App Store Connect](https://appstoreconnect.apple.com/) werden eigene
    App-Identitäten, Signierung, Datenschutzangaben und TestFlight-Prüfungen
-   benötigt. Die Vorschauziele unter `apps/ios/` haben weder iOS-Build- noch
-   Store-Nachweise; dieser Android-Workflow erzeugt kein iOS-Archiv und keinen
-   iOS-Storeupload.
+   benötigt. Der iOS-CI-Build ist kein Xcode-Archiv, kein signierter Build,
+   kein Simulator-/Gerätetest und kein TestFlight- oder App-Store-Upload.

@@ -1,5 +1,5 @@
 <resources>
-    <string name="support_flow_description">Prüfe die Backend-Verbindung. Der Health-Check belegt keine KI-Verfügbarkeit; KI-Support bleibt bis zur Sicherheitsfreigabe deaktiviert. Du kannst danach bei Bedarf eine E-Mail vorbereiten.</string>
+    <string name="support_flow_description">KI-Support ist nicht freigegeben und bleibt deaktiviert. Du kannst direkt eine E-Mail vorbereiten. Die optionale Backend-Prüfung bestätigt keine KI-Verfügbarkeit und ersetzt keinen Notfallkanal.</string>
     <string name="support_ai_not_checked">1 · Backend-Verbindung\nPrüfe, ob der konfigurierte Backend-Health-Endpunkt erreichbar ist. Das schaltet keine KI-Funktion frei.</string>
     <string name="support_check_ai">Backend-Verbindung prüfen</string>
     <string name="support_backend_checking">Backend-Verbindung wird geprüft …</string>
@@ -9,7 +9,7 @@
     <string name="support_backend_timeout">Backend antwortete nicht innerhalb des Zeitlimits.</string>
     <string name="support_backend_network_error">Backend konnte nicht sicher erreicht werden. Prüfe Netzwerk und HTTPS-Zertifikat.</string>
     <string name="support_backend_http_error">Backend antwortete mit einem HTTP-Fehler. KI-Support bleibt deaktiviert.</string>
-    <string name="support_ai_unavailable">2 · Persönliche Hilfe\nKI-Support ist nicht freigegeben und bleibt deaktiviert. Du kannst stattdessen eine E-Mail vorbereiten – nur mit deiner Bestätigung.</string>
+    <string name="support_ai_unavailable">KI-Support ist nicht freigegeben und bleibt deaktiviert. Du kannst persönliche Hilfe per E-Mail anfragen – nur mit deiner Bestätigung. Dies ist kein Notfallkanal.</string>
     <string name="support_escalate">Ohne KI-Hilfe: E-Mail vorbereiten</string>
     <string name="support_escalation_title">Persönlichen Support einschalten?</string>
     <string name="support_escalation_consent">Empfänger: %1$s\n\nEs öffnet sich nur ein Entwurf in deiner E-Mail-App. Anfragen, Lernprofil und Gesprächsdaten werden nicht übernommen. Beschreibe dein Problem dort selbst, ohne Passwörter, Zahlungsdaten oder sensible Angaben. Du prüfst und sendest die E-Mail selbst.</string>

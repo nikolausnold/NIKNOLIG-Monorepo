@@ -1,5 +1,5 @@
 <resources>
-    <string name="support_flow_description">Check the backend connection. A health check does not establish AI availability; AI support stays disabled pending security approval. You can then prepare an email if needed.</string>
+    <string name="support_flow_description">AI support has not been approved and remains disabled. You can prepare an email directly. The optional backend check does not establish AI availability or replace an emergency service.</string>
     <string name="support_ai_not_checked">1 · Backend connection\nCheck whether the configured backend health endpoint can be reached. This does not enable AI features.</string>
     <string name="support_check_ai">Check backend connection</string>
     <string name="support_backend_checking">Checking backend connection …</string>
@@ -9,7 +9,7 @@
     <string name="support_backend_timeout">The backend did not respond before the timeout.</string>
     <string name="support_backend_network_error">The backend could not be reached securely. Check the network and HTTPS certificate.</string>
     <string name="support_backend_http_error">The backend returned an HTTP error. AI support remains disabled.</string>
-    <string name="support_ai_unavailable">2 · Personal help\nAI support has not been approved and remains disabled. You can prepare an email instead – only with your confirmation.</string>
+    <string name="support_ai_unavailable">AI support has not been approved and remains disabled. You can request personal help by email – only with your confirmation. This is not an emergency service.</string>
     <string name="support_escalate">No AI help: prepare email</string>
     <string name="support_escalation_title">Contact personal support?</string>
     <string name="support_escalation_consent">Recipient: %1$s\n\nThis only opens a draft in your email app. Requests, learning profiles and conversations are not included. Describe your issue there yourself, without passwords, payment details or sensitive information. You review and send the email yourself.</string>
