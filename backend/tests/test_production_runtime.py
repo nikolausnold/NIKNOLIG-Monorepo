@@ -25,7 +25,7 @@ sys.path.insert(0, str(BACKEND))
 import database
 import deployment
 import migrate
-from asgi import app as production_app, create_app
+from asgi import _check_database, app as production_app, create_app
 
 
 class ProductionRuntimeTests(unittest.TestCase):
@@ -96,6 +96,66 @@ class ProductionRuntimeTests(unittest.TestCase):
     def test_liveness_never_needs_database(self):
         self.factory.side_effect = RuntimeError("secret database address")
         self.assertEqual((200, {"status": "live"}), self.request("/health/live"))
+        self.factory.assert_not_called()
+
+    def test_legacy_health_metadata_matches_production_without_database(self):
+        self.factory.side_effect = RuntimeError("unavailable database")
+        self.assertEqual(
+            (200, {"status": "ok", "service": "NOLD API", "version": "0.2.0"}),
+            self.request("/health"),
+        )
+        self.assertEqual("NOLD API", production_app.title)
+        self.assertEqual("0.2.0", production_app.version)
+        self.factory.assert_not_called()
+
+    def test_project_catalog_matches_production_without_configuration_or_database(self):
+        self.factory.side_effect = RuntimeError("unavailable database")
+        self.assertEqual(
+            (200, {"projects": ["niknolig", "defense", "monorepo"]}),
+            self.request("/projects"),
+        )
+        self.factory.assert_not_called()
+
+    def test_database_health_checks_connectivity_without_migration_requirement(self):
+        self.assertEqual(
+            (200, {"status": "ok", "service": "NOLD PostgreSQL"}),
+            self.request("/db/health"),
+        )
+        self.factory.assert_awaited_once_with(_check_database)
+
+    def test_database_connectivity_check_executes_and_fetches_select_one(self):
+        connection = AsyncMock()
+        cursor = connection.execute.return_value
+        asyncio.run(_check_database(connection))
+        connection.execute.assert_awaited_once_with("SELECT 1")
+        cursor.fetchone.assert_awaited_once_with()
+
+    def test_database_health_failure_is_generic_and_keeps_liveness_available(self):
+        for failure in (
+            psycopg.OperationalError("private connection details"),
+            TimeoutError("private connection details"),
+            ValueError("private connection details"),
+        ):
+            with self.subTest(failure=type(failure).__name__):
+                self.factory.side_effect = failure
+                self.assertEqual(
+                    (503, {"detail": "database_unavailable"}),
+                    self.request("/db/health"),
+                )
+                self.assertEqual(
+                    (200, {"status": "live"}), self.request("/health/live"),
+                )
+
+    def test_compatibility_routes_do_not_enable_writes_or_project_upstream_access(self):
+        for path, method in (
+            ("/health", "POST"), ("/projects", "POST"), ("/db/health", "POST"),
+            ("/projects/niknolig/health", "GET"),
+            ("/projects/unknown/health", "GET"),
+        ):
+            with self.subTest(path=path, method=method):
+                status, body = self.request(path, method)
+                self.assertEqual(404, status)
+                self.assertEqual("NOT_FOUND", body["error"]["code"])
         self.factory.assert_not_called()
 
     def test_readiness_checks_database_and_migration_invariants(self):

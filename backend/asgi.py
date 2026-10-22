@@ -1,4 +1,4 @@
-"""Production health-only ASGI runtime. No auth, pairing, product or AI enabling path."""
+"""Operational health and static metadata. No auth, pairing, product or AI enabling path."""
 
 import json
 import sys
@@ -13,6 +13,12 @@ from migrate import check_ready_async
 
 
 HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+PROJECTS = ("niknolig", "defense", "monorepo")
+
+
+async def _check_database(connection):
+    cursor = await connection.execute("SELECT 1")
+    await cursor.fetchone()
 
 
 def _log_readiness_failure():
@@ -35,6 +41,7 @@ def error(status, code, message):
 
 def create_app(*, readiness_probe=None):
     application = FastAPI(
+        title="NOLD API", version="0.2.0",
         docs_url=None, redoc_url=None, openapi_url=None, redirect_slashes=False,
     )
     probe = readiness_probe if readiness_probe is not None else database.probe
@@ -51,6 +58,26 @@ def create_app(*, readiness_probe=None):
     @application.exception_handler(HTTPException)
     async def unsupported(request, exception):
         return error(404, "NOT_FOUND", "Resource was not found.")
+
+    @application.get("/health")
+    async def health():
+        return {"status": "ok", "service": "NOLD API", "version": "0.2.0"}
+
+    @application.get("/projects")
+    async def projects():
+        return {"projects": list(PROJECTS)}
+
+    @application.get("/db/health")
+    async def db_health():
+        try:
+            await probe(_check_database)
+        except Exception:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "database_unavailable"},
+                headers=HEADERS,
+            )
+        return {"status": "ok", "service": "NOLD PostgreSQL"}
 
     @application.get("/health/live")
     async def live():
