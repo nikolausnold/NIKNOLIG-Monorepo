@@ -13,6 +13,7 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from ai_support import SupportService
 from app import create_server, MAX_SUPPORT_BODY_BYTES
 from test_ai_support import local_service, payload
 
@@ -117,6 +118,21 @@ class SupportHTTPTests(unittest.TestCase):
         self.assertEqual(403, status)
         self.assertEqual("APP_AREA_MISMATCH", body["error"]["code"])
         self.assertFalse(self.provider.calls)
+
+    def test_common_support_route_validates_before_default_disabled_response(self):
+        self.server.support_service = SupportService()
+        for body in (
+                {}, support_payload(app="unknown"),
+                support_payload(message="é" * 1025),
+                {**support_payload(), "unexpected": True}):
+            with self.subTest(body=repr(body)[:100]):
+                status, result, _ = self.post(body, path="/support")
+                self.assertEqual(400, status)
+                self.assertEqual(
+                    "VALIDATION_FAILED", result["error"]["code"])
+        status, result, _ = self.post(support_payload(), path="/support")
+        self.assertEqual(503, status)
+        self.assertEqual("AI_DISABLED", result["error"]["code"])
 
     def test_default_server_remains_disabled_even_with_environment_flags(self):
         with patch.dict("os.environ", {"AI_ENABLED": "true",
