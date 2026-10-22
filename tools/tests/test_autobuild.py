@@ -48,6 +48,13 @@ class AutobuildTests(unittest.TestCase):
         )
         self.assertNotIn("pull_request_target", workflow)
 
+    def test_manual_release_requires_backend_configuration(self):
+        workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
+        manual_guard = workflow.split("if: >-", 1)[1].split("||", 1)[0]
+        self.assertIn("github.event_name == 'workflow_dispatch'", manual_guard)
+        self.assertIn("vars.NIKNOLIG_BACKEND_URL != ''", manual_guard)
+        self.assertIn("vars.NIKNOLIG_DEFENSE_BACKEND_URL != ''", manual_guard)
+
     def test_both_apps_keep_local_versions_and_validate_update_versions(self):
         for app in ("niknolig", "niknolig-defense"):
             build = (ROOT / "apps" / app / "build.gradle.kts").read_text()
