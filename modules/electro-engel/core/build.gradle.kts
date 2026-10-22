@@ -1,5 +1,6 @@
 plugins {
     id("org.jetbrains.kotlin.jvm")
+    id("application")
 }
 
 group = "org.elektroengel"
@@ -15,4 +16,8 @@ dependencies {
 
 tasks.test {
     useJUnit()
+}
+
+application {
+    mainClass.set("org.elektroengel.core.LocalAnalysisServerKt")
 }
