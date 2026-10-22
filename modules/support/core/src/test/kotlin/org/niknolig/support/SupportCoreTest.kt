@@ -19,7 +19,7 @@ class SupportCoreTest {
     @Test
     fun unknownAndUnavailableAccountQuestionsRequestHumanSupport() {
         assertTrue(SupportAssistant.answer("Wie setze ich mein Passwort zurück?").escalationRequired)
-        assertTrue(SupportAssistant.answer("Bitte prüft meinen besonderen Fehler").escalationRequired)
+        assertTrue(SupportAssistant.answer("Bitte prüft den seltenen Code FRED-417").escalationRequired)
         assertTrue(SupportAssistant.answer(" ").escalationRequired)
         assertTrue(SupportAssistant.answer("é".repeat(1_025)).escalationRequired)
     }
