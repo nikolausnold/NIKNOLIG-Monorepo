@@ -68,7 +68,7 @@ private struct DefenseProfileView: View {
                     .foregroundStyle(.secondary)
                 TextField("Zusammenfassung (max. 500 Zeichen)", text: $sessionSummary, axis: .vertical)
                     .lineLimit(3...6)
-                    .onChange(of: sessionSummary) { _, value in
+                    .onChange(of: sessionSummary) { value in
                         if value.count > 500 { sessionSummary = String(value.prefix(500)) }
                     }
                 Button("Zusammenfassung speichern") {
