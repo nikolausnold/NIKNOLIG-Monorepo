@@ -5,11 +5,11 @@
       "name" : "SupportCore",
       "path" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/support/ios",
       "projects" : [
-        "3171b65263e2f2192771ce02f3ca42a70df65d70d767093beb75b8a783ae6ad9",
+        "179c578abe4876dda495477d139337b5260527b1f8bc0613ff0ae8fba32ab833",
         "647b0cb1f1f74ceaafc5407846b2840491794947f084b387b9e1ca66e7d6c4d0"
       ]
     },
-    "signature" : "e78d9589becd66d0d2e92aebee42e56e2b1089881cfe625c3b422dd11f6d5054",
+    "signature" : "a16265245a6c395b4eb747545d10c3372d3e6d388c2ed0ece37ee03fa62481cf",
     "type" : "workspace"
   },
   {
@@ -48,8 +48,8 @@
               "DEBUG=1"
             ],
             "INDEX_ENABLE_DATA_STORE" : "YES",
-            "IPHONEOS_DEPLOYMENT_TARGET" : "15.0",
-            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "15.0",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "16.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "16.0",
             "KEEP_PRIVATE_EXTERNS" : "NO",
             "LIBTOOL_NO_WARNING_FOR_NO_SYMBOLS" : "YES",
             "LINKER_DRIVER" : "auto",
@@ -68,6 +68,12 @@
             ],
             "PRODUCT_NAME" : "$(TARGET_NAME)",
             "SKIP_INSTALL" : "YES",
+            "SPECIALIZATION_SDK_OPTIONS[__platform_filter=ios;ios-simulator]" : [
+
+            ],
+            "SPECIALIZATION_SDK_OPTIONS[__platform_filter=macos]" : [
+
+            ],
             "SUPPORTED_PLATFORMS" : [
               "$(AVAILABLE_PLATFORMS)"
             ],
@@ -123,8 +129,8 @@
               "$(inherited)",
               "SWIFT_PACKAGE"
             ],
-            "IPHONEOS_DEPLOYMENT_TARGET" : "15.0",
-            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "15.0",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "16.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "16.0",
             "KEEP_PRIVATE_EXTERNS" : "NO",
             "LIBTOOL_NO_WARNING_FOR_NO_SYMBOLS" : "YES",
             "LINKER_DRIVER" : "auto",
@@ -142,6 +148,12 @@
             ],
             "PRODUCT_NAME" : "$(TARGET_NAME)",
             "SKIP_INSTALL" : "YES",
+            "SPECIALIZATION_SDK_OPTIONS[__platform_filter=ios;ios-simulator]" : [
+
+            ],
+            "SPECIALIZATION_SDK_OPTIONS[__platform_filter=macos]" : [
+
+            ],
             "SUPPORTED_PLATFORMS" : [
               "$(AVAILABLE_PLATFORMS)"
             ],
@@ -254,15 +266,15 @@
       "projectIsPackage" : "true",
       "projectName" : "SupportCore",
       "targets" : [
-        "3bdba24c54b9e5dd1e5e65b62fe8cbb50207b8f4ddf3ffa7d699924d0d9df98c",
-        "0d8fa5c811600a8fe3114c1be8047f3feea27ed7930bda7d84b71eb503b80f0f",
+        "8b1d8b97639a2a21147dce0585da7b47ac80e16629d7c2d8179d2b475bbd3278",
+        "406bd02946d03c0a068876a16107c5a721c449027328b65c5ca14eb292fbfaea",
         "f039a7d67b0b1f91b87b4e50f59c21f9a79c6ae7e716548e54b8468a70504a3d",
         "f39ca2b7ab813bcd1f693bcb1be8bccc96f954da4c85251684b41dcb68a7fdc3",
         "6cda475bedafff868f4365a8848894ad6ba77405509d3c6c0a7a0119c8b9ee2c",
         "88263fbcb521fbabca4641d6a86d93d7036bb9d609c5a4e060cb7dcafa2b2424"
       ]
     },
-    "signature" : "3171b65263e2f2192771ce02f3ca42a70df65d70d767093beb75b8a783ae6ad9",
+    "signature" : "179c578abe4876dda495477d139337b5260527b1f8bc0613ff0ae8fba32ab833",
     "type" : "project"
   },
   {
@@ -284,8 +296,8 @@
             "GENERATE_INFOPLIST_FILE" : "YES",
             "GENERATE_RESOURCE_ACCESSORS" : "YES",
             "INDEX_ENABLE_DATA_STORE" : "YES",
-            "IPHONEOS_DEPLOYMENT_TARGET" : "15.0",
-            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "15.0",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "16.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "16.0",
             "LD_RUNPATH_SEARCH_PATHS" : [
               "$(RPATH_ORIGIN)/Frameworks",
               "$(RPATH_ORIGIN)/../Frameworks",
@@ -366,8 +378,8 @@
             "GENERATE_INFOPLIST_FILE" : "YES",
             "GENERATE_RESOURCE_ACCESSORS" : "YES",
             "INDEX_ENABLE_DATA_STORE" : "YES",
-            "IPHONEOS_DEPLOYMENT_TARGET" : "15.0",
-            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "15.0",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "16.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "16.0",
             "LD_RUNPATH_SEARCH_PATHS" : [
               "$(RPATH_ORIGIN)/Frameworks",
               "$(RPATH_ORIGIN)/../Frameworks",
@@ -488,7 +500,7 @@
       "productTypeIdentifier" : "com.apple.product-type.bundle.unit-test",
       "type" : "standard"
     },
-    "signature" : "3bdba24c54b9e5dd1e5e65b62fe8cbb50207b8f4ddf3ffa7d699924d0d9df98c",
+    "signature" : "8b1d8b97639a2a21147dce0585da7b47ac80e16629d7c2d8179d2b475bbd3278",
     "type" : "target"
   },
   {
@@ -498,8 +510,8 @@
         {
           "buildSettings" : {
             "DRIVERKIT_DEPLOYMENT_TARGET" : "21.0",
-            "IPHONEOS_DEPLOYMENT_TARGET" : "15.0",
-            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "15.0",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "16.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "16.0",
             "LD_RUNPATH_SEARCH_PATHS" : [
               "$(inherited)",
               "$(RPATH_ORIGIN)"
@@ -530,8 +542,8 @@
         {
           "buildSettings" : {
             "DRIVERKIT_DEPLOYMENT_TARGET" : "21.0",
-            "IPHONEOS_DEPLOYMENT_TARGET" : "15.0",
-            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "15.0",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "16.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "16.0",
             "LD_RUNPATH_SEARCH_PATHS" : [
               "$(inherited)",
               "$(RPATH_ORIGIN)"
@@ -606,7 +618,7 @@
       "productTypeIdentifier" : "com.apple.product-type.tool.swiftpm-test-runner",
       "type" : "standard"
     },
-    "signature" : "0d8fa5c811600a8fe3114c1be8047f3feea27ed7930bda7d84b71eb503b80f0f",
+    "signature" : "406bd02946d03c0a068876a16107c5a721c449027328b65c5ca14eb292fbfaea",
     "type" : "target"
   },
   {
