@@ -227,7 +227,7 @@ class BackendContractTests(unittest.TestCase):
             section,
         )
 
-    def test_current_android_ble_and_ios_boundaries_are_explicit(self):
+    def test_current_android_ble_and_ios_targets_are_explicit(self):
         root = BACKEND.parent
         for app in ("niknolig", "niknolig-defense"):
             manifest = (
@@ -239,9 +239,19 @@ class BackendContractTests(unittest.TestCase):
                 )
                 self.assertEqual(["android.permission.INTERNET"], permissions)
                 self.assertNotIn("BLUETOOTH", manifest.upper())
-        apps = root / "apps"
-        self.assertFalse(list(apps.rglob("*.swift")))
-        self.assertFalse(list(root.rglob("*.xcodeproj")))
+        ios = root / "apps" / "ios"
+        project = ios / "NIKNOLIG.xcodeproj" / "project.pbxproj"
+        self.assertTrue((ios / "NIKNOLIGApp.swift").is_file())
+        self.assertTrue((ios / "NIKNOLIGDefenseApp.swift").is_file())
+        self.assertTrue(project.is_file())
+        project_contents = project.read_text(encoding="utf-8")
+        self.assertIn("name = NIKNOLIG;", project_contents)
+        self.assertIn('name = "NIKNOLIG Defense";', project_contents)
+        self.assertIn("PRODUCT_BUNDLE_IDENTIFIER = com.niknolig.app;", project_contents)
+        self.assertIn(
+            "PRODUCT_BUNDLE_IDENTIFIER = com.niknolig.defense;",
+            project_contents,
+        )
 
     @unittest.skipIf(
         Draft202012Validator is None,
