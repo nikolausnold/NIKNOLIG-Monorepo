@@ -79,9 +79,9 @@
       "evidence": [
         {
           "path": ".github/workflows/android-build.yml",
-          "startLine": 28,
+          "startLine": 30,
           "endLine": 31,
-          "excerpt": "      - name: Assemble both debug APKs\n        run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon\n      - name: Test both backend health clients\n        run: ./gradlew :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon",
+          "excerpt": "      - name: Test both backend health clients\n        run: ./gradlew :electro-engel-core:test :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon",
           "state": "verified"
         },
         {
