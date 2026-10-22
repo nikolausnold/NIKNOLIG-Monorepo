@@ -66,6 +66,11 @@ private struct NIKNOLIGAssistantView: View {
                     .foregroundStyle(.secondary)
                 TextField("Anfrage", text: $request, axis: .vertical)
                     .lineLimit(3...6)
+                Button("Anfrage prüfen") {
+                    status = request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? "Bitte gib zuerst eine Anfrage ein."
+                        : "KI-Support ist deaktiviert. Die Anfrage wurde nicht gesendet."
+                }
                 Text(status)
                     .accessibilityAddTraits(.updatesFrequently)
             }

@@ -7,6 +7,11 @@ Entscheidungsmatrix in [Abschnitt 10 der Spezifikation](securitychain-p0-specifi
 Abschnitt 10 wird nicht neu geöffnet; D-01 wurde nicht erneut bearbeitet
 (vorhandene Nachweise: D-01-Prüfprotokoll, PR #111).
 
+**Nachtrag 22.10.2026:** Zwei native iOS-Vorschauziele wurden unter `apps/ios/`
+ergänzt. Sie implementieren keine Authentifizierung, Geräteverbindung,
+Notfallauslösung oder Sensorzugriffe. Dieser Nachtrag ändert keine D-01–D-12-
+Freigabe; die iOS-Ziele wurden mangels Xcode nicht nativ gebaut oder abgenommen.
+
 ## Ergebnis der Prüfung
 
 Alle in der Matrix genannten Punkte D-02 bis D-12 hängen von Entscheidungen
