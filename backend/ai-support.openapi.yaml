@@ -15,6 +15,49 @@ servers:
   - url: http://127.0.0.1:8000
     description: Local preparation example only; not a deployed service.
 paths:
+  /support:
+    post:
+      operationId: submitSupportMessage
+      summary: Submit a support message for either app.
+      description: >-
+        This shared local-preparation route accepts exactly app and message.
+        Message is non-blank and limited to 2048 UTF-8 bytes. The selected app
+        must match the independently authenticated, active, unexpired principal
+        and its ai:support permission. NIKNOLIG and NIKNOLIG Defense remain
+        separately scoped. The default runtime is disabled and returns
+        AI_DISABLED; this route is not registered by the production ASGI app.
+        It uses the same limits, audit requirements, generic errors and
+        untrusted plain-text response as the legacy compatibility route below.
+        No external provider or network transport is enabled.
+      security:
+        - VerifiedPrincipal: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommonSupportRequest"
+      responses:
+        "200":
+          description: Untrusted text only; clients must not execute or render as HTML.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportReply"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "408":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
   /v1/ai/support:
     post:
       operationId: prepareSupportReply
@@ -111,6 +154,19 @@ components:
           schema:
             $ref: "#/components/schemas/SupportError"
   schemas:
+    CommonSupportRequest:
+      type: object
+      additionalProperties: false
+      required: [app, message]
+      properties:
+        app:
+          type: string
+          enum: [niknolig, niknolig-defense]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: Non-blank; an additional strict 2048 UTF-8 byte limit applies.
     SupportRequest:
       type: object
       additionalProperties: false

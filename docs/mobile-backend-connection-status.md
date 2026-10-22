@@ -54,7 +54,8 @@ getrennten Repository-Variablen `NIKNOLIG_BACKEND_URL` und
 | `GET /health/live` | Lokal in `backend/app.py`; liefert `200` mit `{"status":"live"}`. |
 | `GET /health/ready` | Lokal in `backend/app.py`; liefert `200` mit `{"status":"ready"}`. Prüft keine Produktabhängigkeiten. |
 | `GET /health/live`, `GET /health/ready` in Produktion | `backend/asgi.py`: FastAPI-Liveness und echte PostgreSQL-/Betriebsschema-Prüfung. Readiness liefert bei fehlender Konfiguration, Datenbank oder passender Migration `503 SERVICE_UNAVAILABLE`, nicht `ready`. |
-| `POST /v1/ai/support` | Lokale Vorbereitungsroute. Der Standardstart ist gesperrt und liefert `503 AI_DISABLED`; der Standardauthenticator weist Credentials ab. Kein produktiver Auth-Aussteller, Transport oder deployter Dienst. |
+| `POST /support` | Gemeinsame lokale Vorbereitungsroute mit exakt `app` und `message` (maximal 2.048 UTF-8-Bytes); verwendet die bestehende Authentifizierung, App-Scope-Prüfung und Limits. Der Standardstart ist gesperrt und liefert `503 AI_DISABLED`. Nicht im Produktions-ASGI registriert; kein produktiver Auth-Aussteller, Provider-Transport oder deployter Dienst. |
+| `POST /v1/ai/support` | Lokale Kompatibilitätsroute mit bisherigem Request-Format; bleibt unverändert gesperrt und nutzt denselben Support-Service. |
 | Produkt-, Login-, Geräte-, Profil- und Pairing-Routen | Nicht implementiert bzw. nicht freigegeben; nicht vorhandene Pfade liefern lokal `404`. |
 
 Der unveränderte lokale Vorbereitungsserver verwendet `http.server` ohne TLS;

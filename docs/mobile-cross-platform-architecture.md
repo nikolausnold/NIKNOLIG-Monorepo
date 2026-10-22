@@ -53,9 +53,10 @@ Erkennung in der normalen NIKNOLIG-App. Lokale Assistenzvorschau ist keine
 Infrastruktur-Erkennung. Datenzugriffe, Berechtigungen, automatische Aktionen
 und Datenschutzdetails bleiben offen; D-01 ist nicht abgeschlossen.
 
-**KI-Support-Vorbereitung:** `backend/ai-support.openapi.yaml` ergänzt separat
-einen standardmäßig gesperrten serverseitigen Support-Vertrag. Dieser Vertrag
-ist keine Analyse-API und wird vom lokalen Dekoder nicht aufgerufen.
+**KI-Support-Vorbereitung:** `backend/ai-support.openapi.yaml` dokumentiert
+separat `POST /support` mit gemeinsamem `app`-/`message`-Request für beide Apps.
+Die lokale Route bleibt standardmäßig gesperrt, ist nicht in der Produktions-
+ASGI registriert und ist keine Analyse-API; der lokale Dekoder ruft sie nicht auf.
 `backend/ai_support.py` bereitet austauschbare Provider, Zugriffskontrolle,
 Limits und Audit für lokale Mock-Tests vor; kein produktiver Identity-Provider
 oder KI-Transport wird aktiviert. `backend/openapi.yaml` bleibt der
