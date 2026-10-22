@@ -267,13 +267,37 @@ private struct NIKNOLIGSupportView: View {
     @State private var healthState: NIKNOLIGHealthState = .notConfigured
     @State private var showingEmailConfirmation = false
     @State private var emailMessage = ""
+    @State private var question = ""
+    @State private var answer = ""
+    @State private var ticket: EscalationTicket?
+    @State private var previousQuestion = ""
+    @State private var questionRequestKey = UUID().uuidString
+    @State private var manualRequestKey = "MANUAL_\(UUID().uuidString)"
+    @State private var payloadCipher = SecureSupportPayloadCipher()
+    @State private var supportQueue = SupportEscalationQueue(
+        store: UserDefaultsSupportTicketStore(key: "support_queue_v1")
+    )
     @Environment(\.openURL) private var openURL
 
     var body: some View {
         Form {
-            Section("KI-Support") {
-                Text("KI-Support ist derzeit nicht freigegeben. Es ist keine externe KI verbunden.")
+            Section("Offline-Support") {
+                Text("Begrenzte Offline-Antworten sind verfügbar. Es gibt keinen KI-Dienst und keine automatische E-Mail-Übermittlung.")
                     .foregroundStyle(.secondary)
+                TextField("Kurze Supportfrage (max. 500 Zeichen)", text: $question, axis: .vertical)
+                    .lineLimit(2...4)
+                    .onChange(of: question) { value in
+                        if value.count > 500 { question = String(value.prefix(500)) }
+                        if value != previousQuestion {
+                            previousQuestion = value
+                            questionRequestKey = UUID().uuidString
+                        }
+                    }
+                    .accessibilityHint("Ungeklärte Fragen werden verschlüsselt vorgemerkt und nur nach deiner Bestätigung in einen E-Mail-Entwurf übernommen.")
+                Button("Offline-Antwort anzeigen", action: answerQuestion)
+                if !answer.isEmpty {
+                    Text(answer).accessibilityAddTraits(.updatesFrequently)
+                }
             }
             Section("Backend-Verbindung") {
                 Text(stateDescription)
@@ -282,10 +306,17 @@ private struct NIKNOLIGSupportView: View {
                     .disabled(healthState == .checking)
             }
             Section("E-Mail-Support") {
-                Text("Es wird ein E-Mail-Entwurf geöffnet. Die App sendet keine E-Mail.")
+                Text("Ungeklärte Vorgänge werden verschlüsselt mit Kennung und Diagnoseschlüssel vorgemerkt. Der Fragetext wird nur nach deiner Bestätigung in den E-Mail-Entwurf übernommen.")
                     .foregroundStyle(.secondary)
                 Button("E-Mail-Entwurf öffnen") {
                     showingEmailConfirmation = true
+                }
+                if let ticket {
+                    Text("Vorgemerkt: \(ticket.id.uuidString). Versand ist nicht bestätigt.")
+                        .font(.footnote)
+                    if ticket.handoffState == .handedOff {
+                        Button("E-Mail wurde gesendet") { markTicketSent() }
+                    }
                 }
             }
             if !emailMessage.isEmpty {
@@ -293,6 +324,7 @@ private struct NIKNOLIGSupportView: View {
             }
         }
         .navigationTitle("Support")
+        .onAppear(perform: loadTicket)
         .confirmationDialog(
             "E-Mail-Entwurf öffnen?",
             isPresented: $showingEmailConfirmation,
@@ -301,7 +333,7 @@ private struct NIKNOLIGSupportView: View {
             Button("E-Mail öffnen") { openSupportEmail() }
             Button("Abbrechen", role: .cancel) {}
         } message: {
-            Text("Der Entwurf wird an die Supportadresse übergeben. Nichts wird automatisch gesendet.")
+            Text("Empfänger: n_nold@hotmail.com. Der Entwurf enthält deine aktuelle Frage und eine begrenzte Diagnose. Nichts wird automatisch gesendet. Prüfe den Entwurf und entferne sensible Angaben.")
         }
     }
 
@@ -317,29 +349,144 @@ private struct NIKNOLIGSupportView: View {
     private func checkBackend() {
         healthState = .checking
         Task {
-            healthState = await NIKNOLIGHealthClient.check(
+            let result = await NIKNOLIGHealthClient.check(
                 baseURL: Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String ?? ""
             )
+            healthState = result
+            if result != .ready {
+                let diagnostic = result == .notConfigured ? "NOT_CONFIGURED" : "UNAVAILABLE"
+                if let encrypted = try? payloadCipher.encrypt("") {
+                    enqueue(
+                        issue: "BACKEND",
+                        diagnostic: diagnostic,
+                        requestKey: "BACKEND_\(diagnostic)",
+                        encryptedPayload: encrypted
+                    )
+                }
+            }
+        }
+    }
+
+    private func answerQuestion() {
+        guard !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            answer = "Bitte gib eine kurze Frage ein."
+            return
+        }
+        let result = SupportAssistant.answer(question)
+        answer = {
+            switch result.code {
+            case .backendHealth:
+                "Der Verbindungstest prüft nur Backend-Erreichbarkeit, nicht die KI-Verfügbarkeit."
+            case .privacy:
+                "Die Frage wird nur auf diesem Gerät beantwortet und nicht gespeichert oder übertragen. Eine Übermittlung erfolgt ausschließlich nach deiner Bestätigung per E-Mail."
+            case .payment:
+                "Zahlungsfragen können wir nicht bearbeiten. Wende dich an den Zahlungsanbieter oder Händler; sende keine Zahlungsdaten."
+            case .troubleshooting:
+                "Starte die App neu und wiederhole den Schritt. Prüfe bei Verbindungsproblemen den Backend-Status. Bleibt der Fehler bestehen, beschreibe ihn im E-Mail-Entwurf."
+            case .accountUnavailable:
+                "Konten und Passwort-Wiederherstellung sind derzeit nicht verfügbar. Sende niemals dein Passwort."
+            case .unresolved:
+                "Dafür gibt es keine verlässliche Offline-Antwort. Der Vorgang wird zur persönlichen Klärung vorgemerkt."
+            }
+        }()
+        if result.escalationRequired {
+            if let encrypted = try? payloadCipher.encrypt(question) {
+                enqueue(
+                    issue: result.code.rawValue.uppercased(),
+                    diagnostic: "UNRESOLVED",
+                    requestKey: questionRequestKey,
+                    encryptedPayload: encrypted
+                )
+            } else {
+                emailMessage = "Die Anfrage konnte nicht sicher verschlüsselt und vorgemerkt werden."
+            }
+        }
+    }
+
+    private func enqueue(
+        issue: String,
+        diagnostic: String,
+        requestKey: String,
+        encryptedPayload: String
+    ) {
+        do {
+            ticket = try supportQueue.enqueue(
+                app: .niknolig,
+                requestKey: requestKey,
+                issueCode: issue,
+                diagnosticCode: diagnostic,
+                encryptedPayload: encryptedPayload
+            )
+        } catch {
+            emailMessage = "Die Anfrage konnte nicht sicher vorgemerkt werden. Es wurde keine E-Mail geöffnet."
         }
     }
 
     private func openSupportEmail() {
+        if ticket == nil {
+            guard let encrypted = try? payloadCipher.encrypt(question) else {
+                emailMessage = "Die Anfrage konnte nicht sicher verschlüsselt und vorgemerkt werden."
+                return
+            }
+            enqueue(
+                issue: "MANUAL_REQUEST",
+                diagnostic: healthState == .notConfigured ? "NOT_CONFIGURED" : "NO_MATCH",
+                requestKey: manualRequestKey,
+                encryptedPayload: encrypted
+            )
+        }
+        guard let currentTicket = ticket, currentTicket.handoffState == .ready else {
+            emailMessage = ticket?.handoffState == .handedOff
+                ? "Dieser Vorgang wurde bereits übergeben. Prüfe die E-Mail-App, um doppelte Entwürfe zu vermeiden."
+                : "Übergabestatus unklar oder Anfrage nicht vorgemerkt. Prüfe zuerst die E-Mail-App."
+            return
+        }
+        guard let questionText = try? payloadCipher.decrypt(currentTicket.encryptedPayload) else {
+            emailMessage = "Die vorgemerkte Anfrage konnte nicht entschlüsselt werden. Nichts wurde geöffnet."
+            return
+        }
+        guard let started = try? supportQueue.beginHandoff(currentTicket.id) else {
+            emailMessage = currentTicket.handoffAttempts >= SupportEscalationQueue.maxHandoffAttempts
+                ? "Versuche ausgeschöpft. Schreibe manuell an n_nold@hotmail.com und nenne \(currentTicket.id.uuidString)."
+                : "Die Warteschlange konnte nicht sicher gespeichert werden."
+            return
+        }
         var components = URLComponents()
         components.scheme = "mailto"
         components.path = "n_nold@hotmail.com"
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "NIKNOLIG Support"),
-            URLQueryItem(name: "body", value: "Bitte beschreibe dein Anliegen. Füge keine Zugangsdaten oder sensiblen Informationen bei.")
+            URLQueryItem(name: "subject", value: "NIKNOLIG Support · \(started.id.uuidString)"),
+            URLQueryItem(
+                name: "body",
+                value: """
+                Vorgangskennung: \(started.id.uuidString)
+                App: \(started.app.rawValue)
+                Fehlerklasse: \(started.issueCode)
+                Diagnose: \(started.diagnosticCode)
+
+                Frage: \(questionText)
+
+                Bitte sende keine Passwörter, Zahlungsdaten oder sensiblen Angaben. Du musst diese E-Mail selbst prüfen und senden.
+                """
+            )
         ]
         guard let url = components.url else {
+            ticket = try? supportQueue.finishHandoff(started.id, launched: false)
             emailMessage = "Der E-Mail-Entwurf konnte nicht vorbereitet werden."
             return
         }
         openURL(url) { accepted in
+            ticket = try? supportQueue.finishHandoff(started.id, launched: accepted)
             emailMessage = accepted
-                ? "E-Mail-App geöffnet. Der Versand erfolgt nicht automatisch."
-                : "Keine E-Mail-App verfügbar. Bitte wende dich an n_nold@hotmail.com."
+                ? "E-Mail-App geöffnet. Nichts wurde gesendet. Prüfe den Entwurf und sende selbst."
+                : "Keine E-Mail-App verfügbar. Der Vorgang bleibt vorgemerkt und kann begrenzt erneut versucht werden."
         }
+    }
+
+    private func markTicketSent() {
+        guard let ticket, (try? supportQueue.complete(ticket.id)) == true else { return }
+        self.ticket = nil
+        emailMessage = "Vorgang auf diesem Gerät abgeschlossen."
     }
 }
 

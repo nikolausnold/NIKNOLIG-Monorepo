@@ -31,20 +31,27 @@ object SupportAssistant {
             return SupportAnswer(AnswerCode.UNRESOLVED, true)
         }
         val normalized = question.lowercase()
+        val words = Regex("[\\p{L}\\p{N}]+")
+            .findAll(normalized)
+            .map { it.value }
+            .toSet()
         return when {
-            listOf("passwort", "password", "login", "konto", "account").any(normalized::contains) ->
+            hasAny(words, "passwort", "password", "login", "konto", "account") ->
                 SupportAnswer(AnswerCode.ACCOUNT_UNAVAILABLE, true)
-            listOf("zahlung", "zahlung", "payment", "rechnung", "billing").any(normalized::contains) ->
+            hasAny(words, "zahlung", "preis", "payment", "rechnung", "billing") ->
                 SupportAnswer(AnswerCode.PAYMENT, false)
-            listOf("datenschutz", "privacy", "daten", "data").any(normalized::contains) ->
+            hasAny(words, "datenschutz", "privacy", "daten", "data") ->
                 SupportAnswer(AnswerCode.PRIVACY, false)
-            listOf("backend", "verbindung", "connection", "server", "ki", "ai").any(normalized::contains) ->
+            hasAny(words, "backend", "verbindung", "connection", "server", "ki", "ai") ->
                 SupportAnswer(AnswerCode.BACKEND_HEALTH, false)
-            listOf("fehler", "problem", "funktioniert", "crash", "störung", "issue", "error").any(normalized::contains) ->
+            hasAny(words, "fehler", "problem", "funktioniert", "crash", "störung", "issue", "error") ->
                 SupportAnswer(AnswerCode.TROUBLESHOOTING, false)
             else -> SupportAnswer(AnswerCode.UNRESOLVED, true)
         }
     }
 
     fun diagnose(diagnostic: BackendDiagnostic): BackendDiagnostic = diagnostic
+
+    private fun hasAny(words: Set<String>, vararg terms: String): Boolean =
+        terms.any { it in words }
 }

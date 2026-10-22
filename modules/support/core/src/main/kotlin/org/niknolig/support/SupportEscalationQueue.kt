@@ -16,8 +16,10 @@ enum class HandoffState {
 data class EscalationTicket(
     val id: String,
     val app: SupportApp,
+    val requestKey: String,
     val issueCode: String,
     val diagnosticCode: String,
+    val encryptedPayload: String,
     val createdAtMillis: Long,
     val handoffAttempts: Int = 0,
     val handoffState: HandoffState = HandoffState.READY,
@@ -26,6 +28,11 @@ data class EscalationTicket(
 interface SupportTicketStore {
     fun load(): List<EscalationTicket>
     fun save(tickets: List<EscalationTicket>)
+}
+
+interface SupportPayloadCipher {
+    fun encrypt(plaintext: String): String
+    fun decrypt(ciphertext: String): String
 }
 
 class SupportEscalationQueue(
@@ -39,21 +46,31 @@ class SupportEscalationQueue(
     }
 
     @Synchronized
-    fun enqueue(app: SupportApp, issueCode: String, diagnosticCode: String): EscalationTicket {
+    fun enqueue(
+        app: SupportApp,
+        requestKey: String,
+        issueCode: String,
+        diagnosticCode: String,
+        encryptedPayload: String,
+    ): EscalationTicket {
+        require(requestKey.matches(REQUEST_KEY_PATTERN))
         require(issueCode.matches(CODE_PATTERN) && diagnosticCode.matches(CODE_PATTERN))
+        require(encryptedPayload.matches(ENCRYPTED_PAYLOAD_PATTERN))
         val tickets = store.load()
         tickets.firstOrNull {
-            it.app == app && it.issueCode == issueCode &&
-                it.diagnosticCode == diagnosticCode
+            it.app == app && it.requestKey == requestKey
         }?.let { return it }
         require(tickets.size < MAX_TICKETS) { "Support queue is full" }
         val ticket = EscalationTicket(
             id = idGenerator(),
             app = app,
+            requestKey = requestKey,
             issueCode = issueCode,
             diagnosticCode = diagnosticCode,
+            encryptedPayload = encryptedPayload,
             createdAtMillis = clock(),
         )
+        require(runCatching { UUID.fromString(ticket.id).toString() == ticket.id }.getOrDefault(false))
         store.save(tickets + ticket)
         return ticket
     }
@@ -93,7 +110,9 @@ class SupportEscalationQueue(
     @Synchronized
     fun complete(ticketId: String): Boolean {
         val tickets = store.load()
-        if (tickets.none { it.id == ticketId }) return false
+        if (tickets.none { it.id == ticketId && it.handoffState == HandoffState.HANDED_OFF }) {
+            return false
+        }
         store.save(tickets.filterNot { it.id == ticketId })
         return true
     }
@@ -101,5 +120,7 @@ class SupportEscalationQueue(
     companion object {
         const val MAX_TICKETS = 20
         private val CODE_PATTERN = Regex("[A-Z0-9_]{1,48}")
+        private val REQUEST_KEY_PATTERN = Regex("[A-Za-z0-9_-]{1,128}")
+        private val ENCRYPTED_PAYLOAD_PATTERN = Regex("[A-Za-z0-9_+/=-]{1,8192}")
     }
 }

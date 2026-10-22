@@ -5,11 +5,13 @@ on:
     paths:
       - apps/ios/**
       - modules/electro-engel/ios/**
+      - modules/support/ios/**
       - .github/workflows/ios-build.yml
   pull_request:
     paths:
       - apps/ios/**
       - modules/electro-engel/ios/**
+      - modules/support/ios/**
       - .github/workflows/ios-build.yml
   workflow_dispatch:
 
@@ -30,6 +32,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Test shared support core
+        if: matrix.target == 'NIKNOLIG'
+        run: swift test --package-path modules/support/ios
       - name: Build ${{ matrix.target }} for iOS Simulator
         run: >-
           xcodebuild

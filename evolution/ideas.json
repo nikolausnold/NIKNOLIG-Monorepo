@@ -81,7 +81,7 @@
           "path": ".github/workflows/android-build.yml",
           "startLine": 30,
           "endLine": 31,
-          "excerpt": "      - name: Test both backend health clients\n        run: ./gradlew :electro-engel-core:test :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon",
+          "excerpt": "      - name: Test both backend health clients\n        run: ./gradlew :electro-engel-core:test :support-core:test :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon",
           "state": "verified"
         },
         {

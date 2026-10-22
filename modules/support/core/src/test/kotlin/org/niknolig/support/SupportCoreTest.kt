@@ -13,6 +13,7 @@ class SupportCoreTest {
         assertEquals(AnswerCode.PRIVACY, SupportAssistant.answer("Was passiert mit meinen Daten?").code)
         assertEquals(AnswerCode.PAYMENT, SupportAssistant.answer("Frage zur Zahlung").code)
         assertEquals(AnswerCode.TROUBLESHOOTING, SupportAssistant.answer("Die App funktioniert nicht").code)
+        assertEquals(AnswerCode.UNRESOLVED, SupportAssistant.answer("Wann sendet die Email-App?").code)
     }
 
     @Test
@@ -34,24 +35,52 @@ class SupportCoreTest {
     @Test
     fun queueIsIdempotentScopedAndPersistsOnlyTypedMetadata() {
         val store = MemoryTicketStore()
-        val queue = SupportEscalationQueue(store, clock = { 42L }, idGenerator = { "ticket-1" })
-        val first = queue.enqueue(SupportApp.NIKNOLIG, "UNRESOLVED", "NO_MATCH")
-        val duplicate = queue.enqueue(SupportApp.NIKNOLIG, "UNRESOLVED", "NO_MATCH")
-        val defense = queue.enqueue(SupportApp.NIKNOLIG_DEFENSE, "UNRESOLVED", "NO_MATCH")
+        val queue = SupportEscalationQueue(store, clock = { 42L })
+        val first = queue.enqueue(
+            SupportApp.NIKNOLIG,
+            "request-1",
+            "UNRESOLVED",
+            "NO_MATCH",
+            "Y3lwaGVydGV4dA==",
+        )
+        val duplicate = queue.enqueue(
+            SupportApp.NIKNOLIG,
+            "request-1",
+            "UNRESOLVED",
+            "NO_MATCH",
+            "different-ciphertext",
+        )
+        val defense = queue.enqueue(
+            SupportApp.NIKNOLIG_DEFENSE,
+            "request-1",
+            "UNRESOLVED",
+            "NO_MATCH",
+            "Y3lwaGVydGV4dA==",
+        )
 
         assertEquals(first, duplicate)
         assertEquals(42L, first.createdAtMillis)
-        assertEquals("ticket-1", first.id)
+        assertTrue(runCatching { java.util.UUID.fromString(first.id) }.isSuccess)
         assertEquals(2, queue.pending().size)
-        assertFalse(store.toString().contains("customer text"))
+        assertFalse(store.load().joinToString().contains("customer text"))
         assertEquals(SupportApp.NIKNOLIG_DEFENSE, defense.app)
     }
 
     @Test
     fun failedHandoffIsRetainedAndRetriesAreBounded() {
         val store = MemoryTicketStore()
-        val queue = SupportEscalationQueue(store, idGenerator = { "ticket-1" }, maxHandoffAttempts = 2)
-        val ticket = queue.enqueue(SupportApp.NIKNOLIG, "BACKEND", "NETWORK_ERROR")
+        val queue = SupportEscalationQueue(
+            store,
+            idGenerator = { "7ca68fc2-2e4c-4eef-8c56-89c478f554bb" },
+            maxHandoffAttempts = 2,
+        )
+        val ticket = queue.enqueue(
+            SupportApp.NIKNOLIG,
+            "request-2",
+            "BACKEND",
+            "NETWORK_ERROR",
+            "Y3lwaGVydGV4dA==",
+        )
 
         assertEquals(HandoffState.UNCERTAIN, queue.beginHandoff(ticket.id)?.handoffState)
         assertEquals(HandoffState.READY, queue.finishHandoff(ticket.id, launched = false)?.handoffState)
@@ -64,8 +93,17 @@ class SupportCoreTest {
 
     @Test
     fun successfulHandoffCannotBeRetriedAndCanBeCompletedByUser() {
-        val queue = SupportEscalationQueue(MemoryTicketStore(), idGenerator = { "ticket-1" })
-        val ticket = queue.enqueue(SupportApp.NIKNOLIG_DEFENSE, "UNRESOLVED", "NO_MATCH")
+        val queue = SupportEscalationQueue(
+            MemoryTicketStore(),
+            idGenerator = { "7ca68fc2-2e4c-4eef-8c56-89c478f554bb" },
+        )
+        val ticket = queue.enqueue(
+            SupportApp.NIKNOLIG_DEFENSE,
+            "request-3",
+            "UNRESOLVED",
+            "NO_MATCH",
+            "Y3lwaGVydGV4dA==",
+        )
 
         queue.beginHandoff(ticket.id)
         assertEquals(HandoffState.HANDED_OFF, queue.finishHandoff(ticket.id, launched = true)?.handoffState)

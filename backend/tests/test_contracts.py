@@ -146,7 +146,9 @@ class BackendContractTests(unittest.TestCase):
             root / "apps/niknolig-defense/build.gradle.kts"
         ).read_text(encoding="utf-8")
         self.assertIn('implementation(project(":electro-engel-core"))', niknolig_build)
-        self.assertNotRegex(defense_build, r'\bproject\s*\(')
+        self.assertIn('implementation(project(":support-core"))', niknolig_build)
+        self.assertIn('implementation(project(":support-core"))', defense_build)
+        self.assertNotIn('project(":electro-engel-core")', defense_build)
 
         core = root / "modules/electro-engel/core"
         core_source = (
