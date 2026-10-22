@@ -81,7 +81,9 @@ HTTPS-Verbindungen und ersetzen keinen realen Server- oder Gerätetest.
 Der manuelle Workflow
 [`Read-only Workers repository audit`](.github/workflows/audit-workers.yml)
 prüft ausschließlich Dateien dieses Monorepos. Er führt keine Projekt-Workflows
-oder Skripte aus und ist weder ein Anwendungstest noch ein Nachweis für eine
+oder Skripte aus und benötigt weder `WORKERS_REPOSITORY_URL` noch
+`WORKERS_REPO_READ_PAT` oder andere Repository-Secrets. Er ist weder ein
+Anwendungstest noch ein Nachweis für eine
 Cloudflare-Verbindung. Sein begrenzter Credential-Musterscan beweist nicht, dass
 keine Geheimnisse vorhanden sind.
 
