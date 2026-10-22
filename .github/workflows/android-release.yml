@@ -19,16 +19,12 @@ jobs:
   assemble-release:
     if: >-
       (github.event_name == 'workflow_dispatch' &&
-       github.ref == 'refs/heads/main' &&
-       vars.NIKNOLIG_BACKEND_URL != '' &&
-       vars.NIKNOLIG_DEFENSE_BACKEND_URL != '') ||
+       github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_repository.full_name == github.repository &&
        github.event.workflow_run.head_branch == 'main' &&
-       contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event.workflow_run.event) &&
-       vars.NIKNOLIG_BACKEND_URL != '' &&
-       vars.NIKNOLIG_DEFENSE_BACKEND_URL != '')
+       contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event.workflow_run.event))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: android-release
@@ -38,6 +34,28 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Validate approved production backend URLs
+        env:
+          NIKNOLIG_BACKEND_URL: ${{ vars.NIKNOLIG_BACKEND_URL }}
+          NIKNOLIG_DEFENSE_BACKEND_URL: ${{ vars.NIKNOLIG_DEFENSE_BACKEND_URL }}
+        run: |
+          set -euo pipefail
+          for name in NIKNOLIG_BACKEND_URL NIKNOLIG_DEFENSE_BACKEND_URL; do
+            value="${!name}"
+            if [[ -z "${value//[[:space:]]/}" ]]; then
+              echo "::error::Missing $name. Add its explicitly production-approved HTTPS origin as an Environment variable in Settings > Environments > android-release."
+              exit 1
+            fi
+          done
+          ./gradlew :niknolig:verifyReleaseBackendUrl \
+            :niknolig-defense:verifyReleaseBackendUrl --no-daemon
 
       - name: Verify validation results for release commit
         env:
@@ -71,12 +89,6 @@ jobs:
               exit 1
             fi
           done
-
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
 
       - name: Assign update version
         shell: bash
