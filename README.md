@@ -80,6 +80,15 @@ oder Skripte aus und ist weder ein Anwendungstest noch ein Nachweis für eine
 Cloudflare-Verbindung. Sein begrenzter Credential-Musterscan beweist nicht, dass
 keine Geheimnisse vorhanden sind.
 
+Der Workflow benötigt weder `WORKERS_REPOSITORY_URL` noch
+`WORKERS_REPO_READ_PAT`; vorhandene Werte werden nicht verwendet. Der frühere
+[fehlgeschlagene Lauf](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/38439502694/job/115442076703)
+brach bereits bei der Validierung der externen Repository-URL ab, nicht beim
+Audit. Zum Prüfen der korrigierten Version den
+[Audit-Workflow](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/audit-workers.yml)
+mit dem aktuellen Branch neu starten; eine Wiederholung des alten Laufs
+verwendet weiterhin dessen alten Workflow-Stand.
+
 Weitere Inventur- und Cloudflare-Nachweise stehen im
 [Master-Integrationsplan](docs/MASTER-INTEGRATION-PLAN.md).
 
