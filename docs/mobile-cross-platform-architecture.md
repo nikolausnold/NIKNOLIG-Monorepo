@@ -6,11 +6,12 @@ Vorschauziele. Kein freigegebener API-Endpunkt oder produktiver Dienst und keine
 verbindliches Stop-Gate.
 
 **Implementierungsstand 22.10.2026:** `apps/ios/NIKNOLIG.xcodeproj` enthält zwei
-unabhängige iOS-App-Targets mit den bestehenden Produkt-IDs. Sie bieten nur die
-bereits belegten lokalen Profil-/Vorschau-, Health- und E-Mail-Flows. Es gibt
-keine KI-, Geräte-, Sensor- oder Notfallintegration. iOS 16.0 ist vorläufige
+unabhängige iOS-App-Targets mit den bestehenden Produkt-IDs. NIKNOLIG enthält
+zusätzlich die lokale, regelbasierte Elektro-Engel-Wirklichkeitsanalyse aus
+`modules/electro-engel/ios`; sie ist keine generative KI und prüft keine Quellen.
+Es gibt keine Geräte-, Sensor- oder Notfallintegration. iOS 16.0 ist vorläufige
 technische Projekteinstellung, keine genehmigte Plattformmatrix. Mangels
-macOS/Xcode wurde kein iOS-Build ausgeführt.
+macOS/Xcode wurde kein iOS-App-Build ausgeführt.
 
 ## 1. Bestand: wiederverwenden statt duplizieren
 
@@ -53,7 +54,8 @@ Infrastruktur-Erkennung. Datenzugriffe, Berechtigungen, automatische Aktionen
 und Datenschutzdetails bleiben offen; D-01 ist nicht abgeschlossen.
 
 **KI-Support-Vorbereitung:** `backend/ai-support.openapi.yaml` ergänzt separat
-einen standardmäßig gesperrten serverseitigen Support-Vertrag.
+einen standardmäßig gesperrten serverseitigen Support-Vertrag. Dieser Vertrag
+ist keine Analyse-API und wird vom lokalen Dekoder nicht aufgerufen.
 `backend/ai_support.py` bereitet austauschbare Provider, Zugriffskontrolle,
 Limits und Audit für lokale Mock-Tests vor; kein produktiver Identity-Provider
 oder KI-Transport wird aktiviert. `backend/openapi.yaml` bleibt der

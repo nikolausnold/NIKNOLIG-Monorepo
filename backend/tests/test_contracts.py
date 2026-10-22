@@ -139,17 +139,51 @@ class BackendContractTests(unittest.TestCase):
         root = BACKEND.parent
         settings = (root / "settings.gradle.kts").read_text(encoding="utf-8")
         self.assertIn('include(":niknolig", ":niknolig-defense")', settings)
-        for app in ("niknolig", "niknolig-defense"):
-            build_file = (root / "apps" / app / "build.gradle.kts").read_text(
-                encoding="utf-8"
-            )
-            self.assertNotRegex(build_file, r'\bproject\s*\(')
+        niknolig_build = (root / "apps/niknolig/build.gradle.kts").read_text(
+            encoding="utf-8"
+        )
+        defense_build = (
+            root / "apps/niknolig-defense/build.gradle.kts"
+        ).read_text(encoding="utf-8")
+        self.assertIn('implementation(project(":electro-engel-core"))', niknolig_build)
+        self.assertNotRegex(defense_build, r'\bproject\s*\(')
+
+        core = root / "modules/electro-engel/core"
+        core_source = (
+            core / "src/main/kotlin/org/elektroengel/core/Analysis.kt"
+        ).read_text(encoding="utf-8")
+        self.assertTrue((core / "src/test/kotlin/org/elektroengel/core/AnalysisTest.kt").is_file())
+        self.assertNotRegex(core_source, r"\b(?:android|com\.niknolig)\.")
+        for forbidden in ("HttpURLConnection", "System.out", "println(", "SharedPreferences"):
+            self.assertNotIn(forbidden, core_source)
+        self.assertNotIn(
+            "com.android",
+            (core / "build.gradle.kts").read_text(encoding="utf-8"),
+        )
+        swift_core = root / "modules/electro-engel/ios/ElectroEngelAnalyzer.swift"
+        self.assertTrue(swift_core.is_file())
+        swift_source = swift_core.read_text(encoding="utf-8")
+        for forbidden in ("URLSession", "UserDefaults", "print("):
+            self.assertNotIn(forbidden, swift_source)
+        project = (root / "apps/ios/NIKNOLIG.xcodeproj/project.pbxproj").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("ElectroEngelAnalyzer.swift", project)
+        self.assertEqual(
+            swift_core.resolve(),
+            (root / "apps/ios/../../modules/electro-engel/ios/ElectroEngelAnalyzer.swift").resolve(),
+        )
+        defense_sources = next(
+            line for line in project.splitlines()
+            if "A10000000000000000000072 /* Sources */" in line
+        )
+        self.assertNotIn("ElectroEngelAnalyzer.swift", defense_sources)
 
         architecture = (
             root / "docs/electro-engel-architecture-and-migration.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("keine Core-Runtime", architecture)
-        self.assertIn("SecurityChain-P0 bleibt", architecture)
+        self.assertIn("Kotlin/JVM-Core", architecture)
+        self.assertIn("SecurityChain-P0 bleiben BLOCKED", architecture)
         self.assertIn("NIKNOLIG-Integration", architecture)
         self.assertIn("NIKNOLIG-Abhängigkeiten im Core", architecture)
         self.assertIn("python3 -m unittest discover -s backend/tests", architecture)
@@ -227,7 +261,7 @@ class BackendContractTests(unittest.TestCase):
             section,
         )
 
-    def test_current_android_ble_and_ios_boundaries_are_explicit(self):
+    def test_current_android_ble_and_ios_targets_are_explicit(self):
         root = BACKEND.parent
         for app in ("niknolig", "niknolig-defense"):
             manifest = (
@@ -239,9 +273,19 @@ class BackendContractTests(unittest.TestCase):
                 )
                 self.assertEqual(["android.permission.INTERNET"], permissions)
                 self.assertNotIn("BLUETOOTH", manifest.upper())
-        apps = root / "apps"
-        self.assertFalse(list(apps.rglob("*.swift")))
-        self.assertFalse(list(root.rglob("*.xcodeproj")))
+        ios = root / "apps" / "ios"
+        project = ios / "NIKNOLIG.xcodeproj" / "project.pbxproj"
+        self.assertTrue((ios / "NIKNOLIGApp.swift").is_file())
+        self.assertTrue((ios / "NIKNOLIGDefenseApp.swift").is_file())
+        self.assertTrue(project.is_file())
+        project_contents = project.read_text(encoding="utf-8")
+        self.assertIn("name = NIKNOLIG;", project_contents)
+        self.assertIn('name = "NIKNOLIG Defense";', project_contents)
+        self.assertIn("PRODUCT_BUNDLE_IDENTIFIER = com.niknolig.app;", project_contents)
+        self.assertIn(
+            "PRODUCT_BUNDLE_IDENTIFIER = com.niknolig.defense;",
+            project_contents,
+        )
 
     @unittest.skipIf(
         Draft202012Validator is None,

@@ -28,7 +28,7 @@ jobs:
       - name: Assemble both debug APKs
         run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon
       - name: Test both backend health clients
-        run: ./gradlew :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon
+        run: ./gradlew :electro-engel-core:test :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon
       - name: Preserve backend client test evidence
         if: always()
         uses: actions/upload-artifact@v7.0.2
@@ -73,6 +73,7 @@ jobs:
           path: apps/niknolig/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 7
+
       - name: Upload NIKNOLIG Defense debug APK
         uses: actions/upload-artifact@v7.0.2
         with:
@@ -87,3 +88,13 @@ jobs:
           path: docs/release-readiness.md
           if-no-files-found: error
           retention-days: 7
+
+  electro-engel-ios-core:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test the portable iOS analysis core
+        run: swift test --package-path modules/electro-engel/ios
