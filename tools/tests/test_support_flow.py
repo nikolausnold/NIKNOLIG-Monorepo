@@ -64,7 +64,29 @@ class SupportFlowTests(unittest.TestCase):
                 self.assertIn('savedInstanceState?.getInt("backendStatus")', source)
                 self.assertIn("backendStatus ?: R.string.support_ai_unavailable", source)
 
-    def test_draft_uses_only_fixed_resources_and_handles_missing_email_app(self):
+    def test_shared_support_core_is_used_by_both_apps(self):
+        for app in APPS:
+            with self.subTest(app=app):
+                build = (ROOT / "apps" / app / "build.gradle.kts").read_text()
+                self.assertIn('implementation(project(":support-core"))', build)
+                main = ROOT / "apps" / app / "src/main"
+                package = APPS[app]
+                source = (main / "java" / package / "SupportActivity.kt").read_text()
+                self.assertIn("SupportAssistant.answer(question)", source)
+                self.assertIn("SupportAssistant.diagnose(diagnostic)", source)
+                self.assertIn("SupportEscalationQueue(AndroidSupportTicketStore(this))", source)
+                self.assertIn("android:saveEnabled=\"false\"", (main / "res/layout/activity_support.xml").read_text())
+                store = (main / "java" / package / "AndroidSupportTicketStore.kt").read_text()
+                self.assertIn("SharedPreferences", store)
+                self.assertNotIn("question", store.lower())
+                self.assertNotIn("prompt", store.lower())
+                self.assertIn('.put("payload", ticket.encryptedPayload)', store)
+                cipher = (main / "java" / package / "AndroidSupportPayloadCipher.kt").read_text()
+                self.assertIn("AES/GCM/NoPadding", cipher)
+                self.assertIn("AndroidKeyStore", cipher)
+                self.assertIn("payloadCipher.decrypt(currentTicket.encryptedPayload)", source)
+
+    def test_draft_uses_existing_mailto_path_and_handles_missing_email_app(self):
         for app, package in APPS.items():
             with self.subTest(app=app):
                 source = (
@@ -72,23 +94,53 @@ class SupportFlowTests(unittest.TestCase):
                 ).read_text()
                 self.assertIn("Intent(Intent.ACTION_SENDTO)", source)
                 self.assertIn('mailto:${Uri.encode(getString(R.string.support_email), "@")}', source)
-                self.assertIn('?subject=${Uri.encode(getString(R.string.support_email_subject))}', source)
-                self.assertIn('&body=${Uri.encode(getString(R.string.support_email_body))}', source)
+                self.assertIn('R.string.support_email_subject, started.id', source)
+                self.assertIn('R.string.support_email_body,', source)
+                self.assertIn("supportQueue?.beginHandoff(currentTicket.id)", source)
+                self.assertIn("finishHandoff(started.id, launched = false)", source)
+                self.assertIn("finishHandoff(started.id, launched = true)", source)
                 self.assertIn("catch (_: ActivityNotFoundException)", source)
                 self.assertIn("R.string.support_email_manual", source)
-                for forbidden in ("SharedPreferences", "EditText", "EXTRA_STREAM", "HttpURLConnection", "Log."):
+                for forbidden in ("ACTION_SEND)", "EXTRA_STREAM", "HttpURLConnection", "Log."):
                     self.assertNotIn(forbidden, source)
+                manifest = ET.parse(
+                    ROOT / "apps" / app / "src/main/AndroidManifest.xml"
+                )
+                self.assertEqual(
+                    "false",
+                    manifest.find("./application").get(ANDROID + "allowBackup"),
+                )
 
-    def test_ios_support_is_explicitly_disabled_and_defense_is_not_an_emergency_channel(self):
+    def test_ticket_queue_is_bounded_and_handoff_is_idempotent(self):
+        source = (ROOT / "modules/support/core/src/main/kotlin/org/niknolig/support/SupportEscalationQueue.kt").read_text()
+        self.assertIn("const val MAX_TICKETS = 20", source)
+        self.assertIn("maxHandoffAttempts: Int = 3", source)
+        self.assertIn("HandoffState.UNCERTAIN", source)
+        self.assertIn("HandoffState.HANDED_OFF", source)
+        self.assertIn("it.app == app && it.requestKey == requestKey", source)
+        tests = (ROOT / "modules/support/core/src/test/kotlin/org/niknolig/support/SupportCoreTest.kt").read_text()
+        self.assertIn("failedHandoffIsRetainedAndRetriesAreBounded", tests)
+        self.assertIn("successfulHandoffCannotBeRetriedAndCanBeCompletedByUser", tests)
+
+    def test_ios_support_uses_shared_core_and_defense_is_not_an_emergency_channel(self):
         ios = ROOT / "apps" / "ios"
         for filename in ("NIKNOLIGApp.swift", "NIKNOLIGDefenseApp.swift"):
             with self.subTest(app=filename):
                 source = (ios / filename).read_text()
-                self.assertIn('Section("KI-Support")', source)
-                self.assertIn("KI-Support ist derzeit nicht freigegeben", source)
+                self.assertIn('Section("Offline-Support")', source)
+                self.assertIn("SupportAssistant.answer(question)", source)
+                self.assertIn("SupportEscalationQueue", source)
                 self.assertIn('Section("E-Mail-Support")', source)
                 self.assertIn("Nichts wird automatisch gesendet.", source)
                 self.assertNotIn("/v1/ai/support", source)
+        project = (ios / "NIKNOLIG.xcodeproj/project.pbxproj").read_text()
+        self.assertIn("SupportCore.swift in NIKNOLIG Sources", project)
+        self.assertIn("SupportCore.swift in Defense Sources", project)
+        support_package = ROOT / "modules/support/ios/Package.swift"
+        self.assertTrue(support_package.is_file())
+        support_core = (ROOT / "modules/support/ios/Sources/SupportCore/SupportCore.swift").read_text()
+        self.assertIn("AES.GCM.seal", support_core)
+        self.assertIn("kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly", support_core)
         defense = (ios / "NIKNOLIGDefenseApp.swift").read_text()
         self.assertIn("kein Notfallkanal", defense)
         self.assertIn("löst keinen Notruf aus", defense)

@@ -39,6 +39,48 @@
             android:text="@string/support_flow_description"
             android:textColor="@color/text_secondary"
             android:textSize="16sp" />
+        <EditText
+            android:id="@+id/support_question"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_large"
+            android:autofillHints=""
+            android:importantForAutofill="no"
+            android:saveEnabled="false"
+            android:inputType="textCapSentences|textMultiLine"
+            android:maxLength="500"
+            android:minHeight="96dp"
+            android:gravity="top|start"
+            android:hint="@string/support_question_hint"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary" />
+        <Button
+            android:id="@+id/support_answer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:minHeight="48dp"
+            android:text="@string/support_answer_button" />
+        <TextView
+            android:id="@+id/support_answer_result"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:accessibilityLiveRegion="polite"
+            android:background="@drawable/card_surface"
+            android:padding="@dimen/card_padding"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/support_queue_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:accessibilityLiveRegion="polite"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:visibility="gone" />
         <TextView
             android:id="@+id/support_ai_status"
             android:layout_width="match_parent"
@@ -72,6 +114,14 @@
             android:text="@string/support_payment_notice"
             android:textColor="@color/text_secondary"
             android:textSize="14sp" />
+        <Button
+            android:id="@+id/support_mark_sent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:minHeight="48dp"
+            android:text="@string/support_ticket_mark_sent"
+            android:visibility="gone" />
         <Button
             android:id="@+id/support_close"
             android:layout_width="match_parent"

@@ -1,5 +1,24 @@
 <resources>
-    <string name="support_flow_description">KI-Support ist nicht freigegeben und bleibt deaktiviert. Du kannst direkt eine E-Mail vorbereiten. Die optionale Backend-Prüfung bestätigt keine KI-Verfügbarkeit.</string>
+    <string name="support_flow_description">Offline-FAQ und technische Hinweise sind verfügbar. Es gibt keinen KI-Dienst und keine automatische E-Mail-Übermittlung.</string>
+    <string name="support_question_hint">Stelle eine kurze Supportfrage (max. 500 Zeichen).</string>
+    <string name="support_answer_button">Offline-Antwort anzeigen</string>
+    <string name="support_answer_empty">Bitte gib eine kurze Frage ein.</string>
+    <string name="support_answer_backend">Der Verbindungstest prüft nur Backend-Erreichbarkeit und Bereitschaft, nicht die KI-Verfügbarkeit. Prüfe den Status unten. Bei einem Fehler kannst du eine E-Mail mit Diagnose vorbereiten.</string>
+    <string name="support_answer_privacy">Eine lokale FAQ-Frage wird nur auf dem Gerät verarbeitet. Ungeklärte Fragen werden verschlüsselt vorgemerkt und nur nach deiner Bestätigung in den E-Mail-Entwurf übernommen.</string>
+    <string name="support_answer_payment">Zahlungsfragen können wir nicht bearbeiten. Wende dich an den Zahlungsanbieter oder Händler und sende keine Zahlungsdaten an den technischen Support.</string>
+    <string name="support_answer_troubleshooting">Starte die App neu und wiederhole den Schritt. Prüfe bei Verbindungsproblemen den Backend-Status unten. Bleibt der Fehler bestehen, beschreibe ihn im E-Mail-Entwurf.</string>
+    <string name="support_answer_account">Konten und Passwort-Wiederherstellung sind derzeit nicht verfügbar. Sende niemals dein Passwort. Diese Anfrage wird zur persönlichen Klärung vorgemerkt.</string>
+    <string name="support_answer_unresolved">Dafür habe ich keine verlässliche Offline-Antwort. Die Anfrage wird mit einer technischen Kennung vorgemerkt; du kannst sie nach deiner Bestätigung per E-Mail beschreiben.</string>
+    <string name="support_ticket_queued">Verschlüsselt vorgemerkt: %1$s. Der Fragetext wird nur nach deiner Bestätigung in den E-Mail-Entwurf übernommen.</string>
+    <string name="support_ticket_handed_off">An die E-Mail-App übergeben: %1$s. Der Versand ist noch nicht bestätigt.</string>
+    <string name="support_ticket_handoff_uncertain">Übergabestatus unklar. Prüfe zuerst deine E-Mail-App; ein erneutes Öffnen könnte einen doppelten Entwurf erzeugen.</string>
+    <string name="support_queue_unavailable">Die Anfrage konnte nicht sicher vorgemerkt werden. Es wurde keine E-Mail geöffnet.</string>
+    <string name="support_ticket_handoff_done">E-Mail-Entwurf geöffnet. Nichts wurde gesendet. Prüfe den Inhalt und sende selbst.</string>
+    <string name="support_ticket_handoff_failed">E-Mail-App konnte nicht geöffnet werden. Die Anfrage bleibt vorgemerkt und kann begrenzt erneut versucht werden.</string>
+    <string name="support_ticket_handoff_limit">Die begrenzten Öffnungsversuche sind ausgeschöpft. Schreibe manuell an %1$s und nenne die Kennung %2$s.</string>
+    <string name="support_ticket_already_handed_off">Dieser Vorgang wurde bereits an die E-Mail-App übergeben. Öffne ihn dort, um einen möglichen doppelten Entwurf zu vermeiden.</string>
+    <string name="support_ticket_mark_sent">E-Mail wurde gesendet</string>
+    <string name="support_ticket_marked_sent">Vorgang wurde auf diesem Gerät abgeschlossen.</string>
     <string name="support_ai_not_checked">1 · Backend-Verbindung\nPrüfe, ob der konfigurierte Backend-Health-Endpunkt erreichbar ist. Das schaltet keine KI-Funktion frei.</string>
     <string name="support_check_ai">Backend-Verbindung prüfen</string>
     <string name="support_backend_checking">Backend-Verbindung wird geprüft …</string>
@@ -12,7 +31,7 @@
     <string name="support_ai_unavailable">KI-Support ist nicht freigegeben und bleibt deaktiviert. Du kannst persönliche Hilfe per E-Mail anfragen – nur mit deiner Bestätigung.</string>
     <string name="support_escalate">Ohne KI-Hilfe: E-Mail vorbereiten</string>
     <string name="support_escalation_title">Persönlichen Support einschalten?</string>
-    <string name="support_escalation_consent">Empfänger: %1$s\n\nEs öffnet sich nur ein Entwurf in deiner E-Mail-App. Anfragen, Lernprofil und Gesprächsdaten werden nicht übernommen. Beschreibe dein Problem dort selbst, ohne Passwörter, Zahlungsdaten oder sensible Angaben. Du prüfst und sendest die E-Mail selbst.</string>
+    <string name="support_escalation_consent">Empfänger: %1$s\n\nNach deiner Zustimmung öffnet sich ein E-Mail-Entwurf mit deiner aktuellen Frage und einer begrenzten technischen Diagnose. Nichts wird automatisch gesendet. Lernprofil und Gesprächsdaten werden nicht übernommen. Entferne sensible Angaben, prüfe den Entwurf und sende selbst.</string>
     <string name="support_email_draft">E-Mail-App öffnen</string>
     <string name="support_email_manual">Keine E-Mail-App gefunden. Du kannst selbst an %1$s schreiben.</string>
     <string name="support_close">Zurück zu NIKNOLIG</string>

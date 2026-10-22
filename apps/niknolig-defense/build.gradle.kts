@@ -7,6 +7,7 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":support-core"))
     testImplementation("junit:junit:4.13.2")
 }
 

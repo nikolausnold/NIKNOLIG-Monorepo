@@ -11,8 +11,8 @@
     <string name="support_payment_notice">Payment questions are not handled here. Please contact your payment provider or merchant directly. Do not send payment details to technical support.</string>
     <string name="support_contact_button">Check AI support</string>
     <string name="support_email">n_nold@hotmail.com</string>
-    <string name="support_email_subject">Technical support request – NIKNOLIG Defense</string>
-    <string name="support_email_body">AI help is unavailable in this preview. Please describe your technical issue and the steps you have tried. Do not send passwords, payment details or sensitive information.</string>
+    <string name="support_email_subject">Technical support request – NIKNOLIG Defense · %1$s</string>
+    <string name="support_email_body">Request ID: %1$s\nApp: %2$s\nIssue class: %3$s\nDiagnostic: %4$s\n\nQuestion: %5$s\n\nAdd reproduction steps if useful. Do not send passwords, payment details or sensitive information. You must review and send this email yourself.</string>
     <string name="support_email_unavailable">No email app found on this device.</string>
     <string name="demo_notice">Preview — no device connection, security approval, or production feature is available yet.</string>
     <string name="learning_profile_button">Learning profile and privacy</string>
