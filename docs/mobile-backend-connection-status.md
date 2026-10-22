@@ -1,6 +1,6 @@
 # NIKNOLIG Mobile Backend Connection Status
 
-**Prüfdatum:** 2026-10-21  
+**Prüfdatum:** 2026-10-22  
 **Status: TEILWEISE IMPLEMENTIERT, PRODUKTIONSVERBINDUNG BLOCKIERT** – Beide
 Android-Apps enthalten jetzt getrennte HTTPS-Clients für `GET /health/ready`.
 Eine erfolgreiche Verbindung zu einem deployten Backend ist nicht nachgewiesen;
@@ -12,7 +12,7 @@ es wurde keine Produktionsadresse angenommen oder erfunden.
 | --- | --- |
 | Android NIKNOLIG (`:niknolig`) | Eigener `BackendHealthClient`, eigene `INTERNET`-Berechtigung und eigene Build-Konfiguration. Die Support-Ansicht ruft nach Nutzeraktion ausschließlich `GET /health/ready` ab. Die Assistentenanfrage bleibt lokal; E-Mail öffnet nach Bestätigung nur einen Entwurf. |
 | Android NIKNOLIG Defense (`:niknolig-defense`) | Separater `BackendHealthClient`, eigene `INTERNET`-Berechtigung und eigene Build-Konfiguration. Die Support-Ansicht ruft nach Nutzeraktion ausschließlich `GET /health/ready` ab. Keine geteilten App-Clients, Credentials oder Defense-Funktionen. E-Mail öffnet nur einen Entwurf. |
-| iOS | In diesem Repository gibt es keine Swift-Dateien, Xcode-Projekte/-Workspaces oder `Info.plist`. Daher sind weder ein iOS-Netzwerkpfad noch iOS-Release-Konfiguration oder eine iOS-Verbindung prüfbar bzw. implementierbar. |
+| iOS NIKNOLIG und Defense | Zwei native Targets in `apps/ios/NIKNOLIG.xcodeproj` enthalten getrennte Health-Clients und getrennte leere Build-URL-Einstellungen. Der Check läuft nur nach Nutzeraktion, akzeptiert nur HTTPS ohne Redirect und sendet keine Credentials oder Nutzdaten. Ohne konfigurierte URL meldet die UI „nicht konfiguriert“. Kein iOS-Build, Simulator-, Geräte- oder echter Servertest wurde ausgeführt. |
 
 Die Android-Clients verwenden `HttpsURLConnection` mit System-Zertifikatsprüfung,
 ohne Redirects, mit 5-Sekunden-Verbindungs-/Lese-Timeout, begrenzter JSON-Antwort,
@@ -36,8 +36,9 @@ getrennten Repository-Variablen `NIKNOLIG_BACKEND_URL` und
   Health-Server auf `127.0.0.1:8000`.
 - [`backend/ai-support.openapi.yaml`](../backend/ai-support.openapi.yaml) nennt
   `http://127.0.0.1:8000` ausschließlich als lokales Vorbereitungsbeispiel.
-- Es gibt keine Produktions-URL in den Android-Release-Konfigurationen und
-  keine iOS-Release-Konfiguration in diesem Repository.
+- Es gibt keine bestätigte Produktions-URL. Android-Releases benötigen
+  app-spezifische URLs; iOS-Build-Einstellungen sind leer, bis ein Betreiber
+  eine freigegebene URL bereitstellt.
 - Android NIKNOLIG nimmt `NIKNOLIG_BACKEND_URL` oder
   `-PniknoligBackendUrl=...`; Defense nimmt getrennt
   `NIKNOLIG_DEFENSE_BACKEND_URL` oder `-PniknoligDefenseBackendUrl=...`.
@@ -205,16 +206,16 @@ genannten AGP-Auflösung nicht ausgeführt.
    Identitäten, Authentifizierung, Widerruf und Datenumfang bleiben gemäß
    [`backend/README.md`](../backend/README.md) Freigabevoraussetzungen. Dieser
    Bericht ändert oder schließt keine SecurityChain-D01–D12-Anforderung ab.
-4. Für iOS fehlt zusätzlich die iOS-App samt Projekt- und Release-Konfiguration;
-   sie muss innerhalb der dafür zuständigen App-Quellen ergänzt und separat
-   geprüft werden.
+4. Für iOS müssen die neuen Targets auf macOS/Xcode gebaut und auf Simulator
+   und Geräten getestet werden. Apple-Team, endgültige Plattformmatrix,
+   Signierung, Datenschutzangaben und Storefreigabe sind nicht vorhanden.
 5. Erst nach Bereitstellung und Freigabe dieser Voraussetzungen können die
    Android-Health-Clients gegen den echten HTTPS-Server getestet werden. Für
    Produktfunktionen müssen später separat freigegebene API-Routen, Authentisierung
-   und app-scoped Autorisierung implementiert werden; hier wird keine iOS-
-   Implementierung behauptet.
+   und app-scoped Autorisierung implementiert werden; die iOS-Targets enthalten
+   ausschließlich nicht-sensitive Health-/Vorschauflüsse, keine Produkt-API.
 
 Bis dahin bleibt die Produktionsverbindung **BLOCKIERT**. Die implementierten
-Android-Clients können ausschließlich den Health-Endpunkt abfragen; weder
+Android- und iOS-Clients können ausschließlich den Health-Endpunkt abfragen; weder
 Anmeldung noch KI-, Profil-, Geräte- oder geschützte Funktionen sind verbunden
 oder geprüft. Der Health-Endpunkt liefert keine Aussage über diese Funktionen.

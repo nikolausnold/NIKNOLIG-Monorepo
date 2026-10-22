@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 @main
@@ -86,11 +87,11 @@ private struct NIKNOLIGProfileView: View {
     var body: some View {
         Form {
             Section("Lernsitzung") {
-                Text("Zusammenfassung bleibt auf diesem Gerät.")
+                Text("Die App sendet diese Zusammenfassung nicht an ein Backend.")
                     .foregroundStyle(.secondary)
                 TextField("Zusammenfassung (max. 500 Zeichen)", text: $sessionSummary, axis: .vertical)
                     .lineLimit(3...6)
-                    .onChange(of: sessionSummary) { _, value in
+                    .onChange(of: sessionSummary) { value in
                         if value.count > 500 { sessionSummary = String(value.prefix(500)) }
                     }
                 Button("Zusammenfassung speichern") {
@@ -139,10 +140,13 @@ private struct NIKNOLIGProfileView: View {
     }
 
     private var stylePreview: String {
-        return switch responseStyle {
-        case "step_by_step": "Schrittweise, lokale Vorschau."
-        case "detailed": "Ausführliche, lokale Vorschau."
-        default: "Kurze, lokale Vorschau."
+        switch responseStyle {
+        case "step_by_step":
+            return "Schrittweise, lokale Vorschau."
+        case "detailed":
+            return "Ausführliche, lokale Vorschau."
+        default:
+            return "Kurze, lokale Vorschau."
         }
     }
 
@@ -250,7 +254,7 @@ private enum NIKNOLIGHealthClient {
         let value = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard var components = URLComponents(string: value),
               components.scheme?.lowercased() == "https",
-              let host = components.host?.lowercased(),
+              let host = components.host?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".")),
               !host.isEmpty,
               components.user == nil,
               components.password == nil,

@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 @main
@@ -63,7 +64,7 @@ private struct DefenseProfileView: View {
     var body: some View {
         Form {
             Section("Lernsitzung") {
-                Text("Zusammenfassung bleibt auf diesem Gerät.")
+                Text("Die App sendet diese Zusammenfassung nicht an ein Backend.")
                     .foregroundStyle(.secondary)
                 TextField("Zusammenfassung (max. 500 Zeichen)", text: $sessionSummary, axis: .vertical)
                     .lineLimit(3...6)
@@ -201,7 +202,7 @@ private enum DefenseHealthClient {
         let value = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard var components = URLComponents(string: value),
               components.scheme?.lowercased() == "https",
-              let host = components.host?.lowercased(),
+              let host = components.host?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".")),
               !host.isEmpty,
               components.user == nil,
               components.password == nil,
