@@ -185,8 +185,9 @@ Produktverbindung fail closed; Health-Abfragen geben keine geschützten Rechte.
 
 ## Verifikation und nächste Schritte
 
-`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten und
-die Health-only-Laufzeit. Zusätzlich werden KI-Mocks geprüft. Die lokale
+`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,
+Healthchecks und die gesperrte lokale Support-Route. KI-Mocks werden ebenfalls
+geprüft. Die lokale
 Compose-Konfiguration kann mit diesem Platzhalter syntaktisch geprüft werden:
 
 ```sh
@@ -221,7 +222,11 @@ Bei nicht abgedeckten Sicherheitsentscheidungen hier anhalten.
 ## KI-Support: vorbereitete Schnittstelle, keine Betriebsfreigabe
 
 `ai_support.py` trennt die Provider-Schnittstelle vom lokalen HTTP-Endpunkt
-`POST /v1/ai/support` und von Authentifizierung, Autorisierung und Kontingenten.
+`POST /support` und von Authentifizierung, Autorisierung und Kontingenten. Die
+gemeinsame Route nimmt genau `app` (`niknolig` oder `niknolig-defense`) und
+`message` entgegen; die Nachricht ist auf 2.048 UTF-8-Bytes begrenzt. Die
+bisherige Route `POST /v1/ai/support` bleibt als lokale Kompatibilitätsroute
+mit ihrem bisherigen Request-Format verfügbar.
 Der separate Vertrag `ai-support.openapi.yaml` ist eine lokale Vorbereitung,
 kein veröffentlichter Dienst. `openapi.yaml` bleibt der unveränderte
 Health-Vertrag. Der Standardstart aktiviert keinen Provider; Umgebungsvariablen
@@ -233,6 +238,13 @@ Provider-Aufrufe, neuen Tokens, Konten, Deployments oder Abonnements.
 
 - Ein gemeinsames Provider-Protokoll erlaubt später den Austausch des Anbieters,
   ohne einen Provider-Schlüssel oder dessen SDK in die Apps aufzunehmen.
+- Ein späterer Anbieter wird ausschließlich serverseitig als Adapter des
+  `Provider.generate(prompt) -> ProviderResult`-Protokolls eingebunden und
+  explizit in `SupportService` injiziert. Ein freigegebener Adapter muss einen
+  festen Anbieter/Host, begrenzte Timeouts und Ausgaben, sichere Credential-
+  Ablage sowie Datenschutz-, Lizenz-, Kosten-, Authentifizierungs-, Quota- und
+  Audit-Freigaben umsetzen. Bis dahin gibt es weder Netzwerktransport noch
+  kostenpflichtige Provider-Aufrufe; die Standardkonfiguration bleibt gesperrt.
 - Der vorbereitete Cloudflare-Adapter verwendet ausschließlich einen injizierten
   Transport. Ein authentifizierter Netzwerktransport wird **nicht** mitgeliefert.
   Anbieter, Modell und Provider-Ziel sind keine frei wählbaren Request-Felder.
