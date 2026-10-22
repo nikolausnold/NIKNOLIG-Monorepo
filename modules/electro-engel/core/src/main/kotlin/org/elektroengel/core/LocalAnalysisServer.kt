@@ -17,7 +17,7 @@ private const val ANALYZE_PATH = "/v1/electro-engel/analyze/"
 class LocalAnalysisServer(port: Int) : AutoCloseable {
     private val executor = Executors.newFixedThreadPool(4)
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", port), 16).apply {
-        executor = this@LocalAnalysisServer.executor
+        setExecutor(this@LocalAnalysisServer.executor)
         createContext("/") { exchange -> handle(exchange) }
     }
 
@@ -26,7 +26,7 @@ class LocalAnalysisServer(port: Int) : AutoCloseable {
 
     fun start() {
         server.start()
-        logEvent("server_started", null, null, null)
+        logEvent("server_started", null, null, null, null)
     }
 
     override fun close() {
@@ -47,7 +47,7 @@ class LocalAnalysisServer(port: Int) : AutoCloseable {
             )
         }
 
-        logEvent("request_completed", requestId, response.mode, response.status)
+        logEvent("request_completed", requestId, response.mode, response.status, response.outcome)
         try {
             exchange.responseHeaders.set("Content-Type", "application/json; charset=utf-8")
             exchange.responseHeaders.set("Cache-Control", "no-store")
@@ -180,11 +180,18 @@ private fun jsonString(value: String): String = buildString {
     append('"')
 }
 
-private fun logEvent(event: String, requestId: String?, mode: AnalysisMode?, status: Int?) {
+private fun logEvent(
+    event: String,
+    requestId: String?,
+    mode: AnalysisMode?,
+    status: Int?,
+    outcome: String?,
+) {
     val fields = mutableListOf(""""event":${jsonString(event)}""")
     if (requestId != null) fields += """"requestId":${jsonString(requestId)}"""
     if (mode != null) fields += """"mode":${jsonString(mode.name.lowercase())}"""
     if (status != null) fields += """"status":$status"""
+    if (outcome != null) fields += """"outcome":${jsonString(outcome)}"""
     println("{${fields.joinToString(",")}}")
 }
 
