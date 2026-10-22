@@ -34,7 +34,7 @@ class SupportFlowTests(unittest.TestCase):
                 self.assertNotIn("ACTION_SENDTO", source)
                 self.assertNotIn("mailto", source)
 
-    def test_email_requires_completed_health_check_and_confirmation_with_ai_still_disabled(self):
+    def test_email_fallback_is_immediately_available_and_requires_confirmation(self):
         for app, package in APPS.items():
             with self.subTest(app=app):
                 main = ROOT / "apps" / app / "src/main"
@@ -47,11 +47,11 @@ class SupportFlowTests(unittest.TestCase):
                     item for item in layout.iter("Button")
                     if item.get(ANDROID + "id") == "@+id/support_escalate"
                 )
-                self.assertEqual("gone", button.get(ANDROID + "visibility"))
+                self.assertEqual("visible", button.get(ANDROID + "visibility"))
                 source = (main / "java" / package / "SupportActivity.kt").read_text()
                 self.assertIn("private var backendStatus: Int? = null", source)
-                self.assertIn("if (backendStatus != null) View.VISIBLE else View.GONE", source)
-                self.assertIn("if (backendStatus == null) return", source)
+                self.assertNotIn("if (backendStatus == null) return", source)
+                self.assertNotIn("if (backendStatus != null)", source)
                 self.assertIn("BackendHealthClient(BuildConfig.BACKEND_BASE_URL).check()", source)
                 self.assertIn("checkButton.visibility = View.VISIBLE", source)
                 self.assertIn("checkButton.isEnabled = false", source)
@@ -62,6 +62,7 @@ class SupportFlowTests(unittest.TestCase):
                 self.assertIn(".setPositiveButton(R.string.support_email_draft)", source)
                 self.assertIn('outState.putInt("backendStatus", backendStatus ?: 0)', source)
                 self.assertIn('savedInstanceState?.getInt("backendStatus")', source)
+                self.assertIn("backendStatus ?: R.string.support_ai_unavailable", source)
 
     def test_draft_uses_only_fixed_resources_and_handles_missing_email_app(self):
         for app, package in APPS.items():
