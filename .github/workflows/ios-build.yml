@@ -37,6 +37,5 @@ jobs:
           -target "${{ matrix.target }}"
           -sdk iphonesimulator
           -configuration Debug
-          -derivedDataPath "$RUNNER_TEMP/DerivedData/${{ matrix.target }}"
           CODE_SIGNING_ALLOWED=NO
           build
