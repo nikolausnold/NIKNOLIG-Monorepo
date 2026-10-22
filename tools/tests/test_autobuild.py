@@ -15,18 +15,27 @@ class AutobuildTests(unittest.TestCase):
                 self.assertIn("import java.net.InetAddress", imports)
                 self.assertIn("URI(value)", body)
                 self.assertIn("InetAddress.getByName(host)", body)
+                self.assertIn('uri.scheme.equals("https", ignoreCase = true)', body)
+                self.assertIn("uri.rawUserInfo == null", body)
+                self.assertIn('uri.path in listOf("", "/")', body)
+                self.assertIn('host != "localhost"', body)
+                self.assertIn('host != "backend.invalid"', body)
+                self.assertIn("isLoopbackOrUnspecifiedAddress(host)", body)
                 self.assertNotIn("java.net.", body)
 
     def test_release_only_signs_successful_trusted_main_build_commit(self):
         workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
+        release_guard = workflow.split("jobs:", 1)[1].split("runs-on:", 1)[0]
+        self.assertIn("github.event_name == 'workflow_dispatch'", release_guard)
+        self.assertIn("github.ref == 'refs/heads/main'", release_guard)
+        self.assertNotIn("vars.NIKNOLIG_BACKEND_URL", release_guard)
+        self.assertNotIn("vars.NIKNOLIG_DEFENSE_BACKEND_URL", release_guard)
         for guard in (
             "workflows: [\"Android apps build\", \"Backend contracts and tooling\"]",
             "github.event.workflow_run.conclusion == 'success'",
             "github.event.workflow_run.head_repository.full_name == github.repository",
             "github.event.workflow_run.head_branch == 'main'",
             'fromJSON(\'["push", "schedule", "workflow_dispatch"]\')',
-            "vars.NIKNOLIG_BACKEND_URL != ''",
-            "vars.NIKNOLIG_DEFENSE_BACKEND_URL != ''",
             "ref: ${{ github.event.workflow_run.head_sha || github.sha }}",
             "actions: read",
             "for workflow in android-build.yml backend-contracts.yml; do",
@@ -41,6 +50,22 @@ class AutobuildTests(unittest.TestCase):
         ):
             with self.subTest(guard=guard):
                 self.assertIn(guard, workflow)
+        url_validation = workflow.split(
+            "- name: Validate approved production backend URLs", 1
+        )[1].split("- name: Verify validation results for release commit", 1)[0]
+        self.assertIn("NIKNOLIG_BACKEND_URL: ${{ vars.NIKNOLIG_BACKEND_URL }}", url_validation)
+        self.assertIn(
+            "NIKNOLIG_DEFENSE_BACKEND_URL: ${{ vars.NIKNOLIG_DEFENSE_BACKEND_URL }}",
+            url_validation,
+        )
+        self.assertIn('if [[ -z "${value//[[:space:]]/}" ]]', url_validation)
+        self.assertIn("Missing $name", url_validation)
+        self.assertIn("verifyReleaseBackendUrl", url_validation)
+        self.assertNotIn("secrets.", url_validation)
+        self.assertLess(
+            workflow.index("- name: Validate approved production backend URLs"),
+            workflow.index("- name: Validate and stage release keystores"),
+        )
         self.assertNotIn("/actions/workflows/$workflow/runs", workflow)
         self.assertLess(
             workflow.index("- name: Verify validation results for release commit"),

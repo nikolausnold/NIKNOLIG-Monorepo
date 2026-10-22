@@ -45,9 +45,42 @@ getrennten Repository-Variablen `NIKNOLIG_BACKEND_URL` und
   Release-Aufgaben schlagen ohne eigene App-URL fehl. Nicht-HTTPS-, lokale,
   Loopback- und `.invalid`-Hosts werden abgelehnt. Debug-Builds ohne Konfiguration
   bleiben möglich und melden im UI klar, dass kein Verbindungsversuch stattfand.
-  Der automatische Android-Release überspringt den Build, solange eine der
-  getrennten Repository-URLs fehlt; ein manueller Release-Aufruf behält die
-  bestehende Gradle-Prüfung bei und schlägt ohne URL fehl.
+  Manuelle und automatische Android-Releases verwenden dieselbe URL-Prüfung,
+  bevor Signiergeheimnisse bereitgestellt oder Release-Artefakte gebaut werden.
+
+### Android-Release-URLs in GitHub konfigurieren
+
+Die aktuellen Repository-/Environment-Variablen können in diesem Arbeitslauf
+nicht über die verfügbaren GitHub-Schnittstellen ausgelesen werden. Der letzte
+fehlgeschlagene Release-Lauf protokollierte beide Werte leer; ihr jetziger
+Konfigurationsstand ist damit nicht bestätigt. Es wurde keine Produktions-URL
+angenommen oder ergänzt.
+
+1. Ein Repository-Administrator öffnet
+   [Settings → Environments](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/environments)
+   und wählt das Environment `android-release` (oder legt es exakt so an).
+2. Unter **Environment variables** werden zwei getrennte Variablen eingetragen:
+   `NIKNOLIG_BACKEND_URL` für NIKNOLIG und
+   `NIKNOLIG_DEFENSE_BACKEND_URL` für NIKNOLIG Defense. Beide Werte müssen
+   jeweils die vom zuständigen Betreiber ausdrücklich für Produktion
+   freigegebene HTTPS-Origin sein. Keine Beispiel-, lokale oder erfundene
+   Adresse eintragen; die URLs sind keine Secrets.
+3. Unter **Deployment protection rules** wird mindestens ein erforderlicher
+   Reviewer festgelegt. Der Reviewer bestätigt vor Freigabe des Environment-
+   Deployments, dass beide eingetragenen Origins für Produktion freigegeben
+   sind. Das Workflow-Environment `android-release` erzwingt diese Schutzregel
+   für manuelle und automatische Release-Ausführungen.
+4. Danach prüft der Release-Workflow beide Werte vor der Prüfung der Build-
+   Nachweise, vor dem Zugriff auf Signiergeheimnisse und vor dem Release-Build.
+   Fehlende Werte erhalten eine konkrete GitHub-Fehlermeldung; ungültige
+   HTTPS-Origins, Credentials, Pfade, Query-/Fragmentbestandteile sowie
+   Loopback- und `.invalid`-Hosts werden durch die Gradle-Validierung abgelehnt.
+
+Ohne die beiden vom Betreiber bereitgestellten und vom Environment-Reviewer
+bestätigten Werte bleiben signierte Releases blockiert. Die Prüfung bestätigt
+URL-Format und Freigabeprozess, aber weder DNS/TLS-Erreichbarkeit noch einen
+deployten Produktionsdienst. Debug-Builds bleiben von dieser Release-Prüfung
+unabhängig.
 
 | Route | Implementierung und tatsächlicher Status |
 | --- | --- |
