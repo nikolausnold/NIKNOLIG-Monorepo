@@ -5,7 +5,7 @@ GITHUB_TOKEN optionally authenticates GET requests only to api.github.com.
 External changed means SHA inequality, not ancestry or update safety. The local
 GITHUB_SHA is the build reference (possibly a PR merge); its remote default
 branch head is informational and is deliberately never compared with that SHA.
-Pending entries (including iOS) are explicit onboarding gaps, not checked repos.
+Pending entries are explicit onboarding gaps, not checked repositories.
 Exit 0 means all configured repos were observed, not that all platforms are set
 up or builds passed. Exit 1 means an observation failed; 2 means invalid input
 or an unwritable report. Reports are still emitted on observation/input failure.
