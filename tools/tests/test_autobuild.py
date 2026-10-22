@@ -15,6 +15,12 @@ class AutobuildTests(unittest.TestCase):
                 self.assertIn("import java.net.InetAddress", imports)
                 self.assertIn("URI(value)", body)
                 self.assertIn("InetAddress.getByName(host)", body)
+                self.assertIn('uri.scheme.equals("https", ignoreCase = true)', body)
+                self.assertIn("uri.rawUserInfo == null", body)
+                self.assertIn('uri.path in listOf("", "/")', body)
+                self.assertIn('host != "localhost"', body)
+                self.assertIn('host != "backend.invalid"', body)
+                self.assertIn("isLoopbackOrUnspecifiedAddress(host)", body)
                 self.assertNotIn("java.net.", body)
 
     def test_release_only_signs_successful_trusted_main_build_commit(self):
@@ -52,7 +58,10 @@ class AutobuildTests(unittest.TestCase):
             "NIKNOLIG_DEFENSE_BACKEND_URL: ${{ vars.NIKNOLIG_DEFENSE_BACKEND_URL }}",
             url_validation,
         )
+        self.assertIn('if [[ -z "${value//[[:space:]]/}" ]]', url_validation)
+        self.assertIn("Missing $name", url_validation)
         self.assertIn("verifyReleaseBackendUrl", url_validation)
+        self.assertNotIn("secrets.", url_validation)
         self.assertLess(
             workflow.index("- name: Validate approved production backend URLs"),
             workflow.index("- name: Validate and stage release keystores"),
