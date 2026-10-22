@@ -57,25 +57,110 @@ private struct NIKNOLIGHomeView: View {
 
 private struct NIKNOLIGAssistantView: View {
     @State private var request = ""
-    @State private var status = "Die Vorschau sendet keine Anfrage und erzeugt keine KI-Antwort."
+    @State private var refinement = ""
+    @State private var mode = ElectroEngelMode.wordBreakdown
+    @State private var result: ElectroEngelResult?
+    @State private var failure: ElectroEngelFailure?
+    @State private var isAnalyzing = false
 
     var body: some View {
         Form {
-            Section("Elektro-Engel") {
-                Text("Lokale Vorschau. Es gibt keine Geräteaktionen oder Backend-Verbindung.")
+            Section("Wirklichkeits-Dekoder") {
+                Text("Lokale, regelbasierte Analyse. Dein Text bleibt auf diesem Gerät; eine externe KI ist nicht verbunden.")
                     .foregroundStyle(.secondary)
-                TextField("Anfrage", text: $request, axis: .vertical)
-                    .lineLimit(3...6)
-                Button("Anfrage prüfen") {
-                    status = request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? "Bitte gib zuerst eine Anfrage ein."
-                        : "KI-Support ist deaktiviert. Die Anfrage wurde nicht gesendet."
+                Picker("Analysemodus", selection: $mode) {
+                    ForEach(ElectroEngelMode.allCases) { item in
+                        Text(item.rawValue).tag(item)
+                    }
                 }
-                Text(status)
-                    .accessibilityAddTraits(.updatesFrequently)
+                TextField("Begriff oder Aussage (max. 1000 Zeichen)", text: $request, axis: .vertical)
+                    .lineLimit(4...8)
+                    .onChange(of: request) { value in
+                        if value.count > 1_000 { request = String(value.prefix(1_000)) }
+                    }
+                Button("Lokal analysieren", action: analyze)
+                    .disabled(isAnalyzing)
+            }
+            Section("Analyse verfeinern") {
+                TextField("Vertiefungsfrage (optional)", text: $refinement, axis: .vertical)
+                    .lineLimit(2...4)
+                    .onChange(of: refinement) { value in
+                        if value.count > 500 { refinement = String(value.prefix(500)) }
+                    }
+                Button("Analyse verfeinern", action: analyze)
+                    .disabled(isAnalyzing)
+            }
+            if isAnalyzing {
+                Section {
+                    ProgressView("Lokale Analyse läuft …")
+                }
+            }
+            if let failure {
+                Section("Analyse nicht verfügbar") {
+                    Text(failureDescription(failure))
+                        .accessibilityAddTraits(.updatesFrequently)
+                }
+            }
+            if let result {
+                ForEach(result.sections) { section in
+                    Section(section.heading) {
+                        Text(section.content)
+                            .textSelection(.enabled)
+                    }
+                }
+                Section("Unsicherheit") {
+                    Text(result.uncertainty)
+                }
+                Section("Quellen") {
+                    Text(result.sourceStatus)
+                    ForEach(result.sources, id: \.self) { source in
+                        Text(source).textSelection(.enabled)
+                    }
+                }
             }
         }
         .navigationTitle("Elektro-Engel")
+    }
+
+    private func analyze() {
+        let input = ElectroEngelRequest(mode: mode, text: request, refinement: refinement)
+        guard !request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            result = nil
+            failure = .emptyInput
+            return
+        }
+        failure = nil
+        isAnalyzing = true
+        Task {
+            await Task.yield()
+            let outcome = await Task.detached(priority: .userInitiated) {
+                ElectroEngelAnalyzer.analyze(input)
+            }.value
+            switch outcome {
+            case .success(let value):
+                result = value
+                failure = nil
+            case .failure(let value):
+                result = nil
+                failure = value
+            }
+            isAnalyzing = false
+        }
+    }
+
+    private func failureDescription(_ failure: ElectroEngelFailure) -> String {
+        switch failure {
+        case .emptyInput:
+            return "Bitte gib zuerst einen Begriff oder eine Aussage ein."
+        case .invalidInput:
+            return "Die Eingabe ist zu lang oder enthält ungültige Steuerzeichen."
+        case .aiDisabled:
+            return "Externe KI ist nicht freigegeben. Die lokale Analyse bleibt verfügbar."
+        case .providerUnavailable:
+            return "Die Analysequelle ist nicht verfügbar. Es wurden keine Fakten verifiziert."
+        case .timeout:
+            return "Die Analyse hat das Zeitlimit überschritten. Es wurde kein Ergebnis als geprüft ausgegeben."
+        }
     }
 }
 

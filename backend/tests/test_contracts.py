@@ -139,17 +139,51 @@ class BackendContractTests(unittest.TestCase):
         root = BACKEND.parent
         settings = (root / "settings.gradle.kts").read_text(encoding="utf-8")
         self.assertIn('include(":niknolig", ":niknolig-defense")', settings)
-        for app in ("niknolig", "niknolig-defense"):
-            build_file = (root / "apps" / app / "build.gradle.kts").read_text(
-                encoding="utf-8"
-            )
-            self.assertNotRegex(build_file, r'\bproject\s*\(')
+        niknolig_build = (root / "apps/niknolig/build.gradle.kts").read_text(
+            encoding="utf-8"
+        )
+        defense_build = (
+            root / "apps/niknolig-defense/build.gradle.kts"
+        ).read_text(encoding="utf-8")
+        self.assertIn('implementation(project(":electro-engel-core"))', niknolig_build)
+        self.assertNotRegex(defense_build, r'\bproject\s*\(')
+
+        core = root / "modules/electro-engel/core"
+        core_source = (
+            core / "src/main/kotlin/org/elektroengel/core/Analysis.kt"
+        ).read_text(encoding="utf-8")
+        self.assertTrue((core / "src/test/kotlin/org/elektroengel/core/AnalysisTest.kt").is_file())
+        self.assertNotRegex(core_source, r"\b(?:android|com\.niknolig)\.")
+        for forbidden in ("HttpURLConnection", "System.out", "println(", "SharedPreferences"):
+            self.assertNotIn(forbidden, core_source)
+        self.assertNotIn(
+            "com.android",
+            (core / "build.gradle.kts").read_text(encoding="utf-8"),
+        )
+        swift_core = root / "modules/electro-engel/ios/ElectroEngelAnalyzer.swift"
+        self.assertTrue(swift_core.is_file())
+        swift_source = swift_core.read_text(encoding="utf-8")
+        for forbidden in ("URLSession", "UserDefaults", "print("):
+            self.assertNotIn(forbidden, swift_source)
+        project = (root / "apps/ios/NIKNOLIG.xcodeproj/project.pbxproj").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("ElectroEngelAnalyzer.swift", project)
+        self.assertEqual(
+            swift_core.resolve(),
+            (root / "apps/ios/../../modules/electro-engel/ios/ElectroEngelAnalyzer.swift").resolve(),
+        )
+        defense_sources = next(
+            line for line in project.splitlines()
+            if "A10000000000000000000072 /* Sources */" in line
+        )
+        self.assertNotIn("ElectroEngelAnalyzer.swift", defense_sources)
 
         architecture = (
             root / "docs/electro-engel-architecture-and-migration.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("keine Core-Runtime", architecture)
-        self.assertIn("SecurityChain-P0 bleibt", architecture)
+        self.assertIn("Kotlin/JVM-Core", architecture)
+        self.assertIn("SecurityChain-P0 bleiben BLOCKED", architecture)
         self.assertIn("NIKNOLIG-Integration", architecture)
         self.assertIn("NIKNOLIG-Abhängigkeiten im Core", architecture)
         self.assertIn("python3 -m unittest discover -s backend/tests", architecture)

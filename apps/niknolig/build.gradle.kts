@@ -7,6 +7,7 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":electro-engel-core"))
     testImplementation("junit:junit:4.13.2")
 }
 

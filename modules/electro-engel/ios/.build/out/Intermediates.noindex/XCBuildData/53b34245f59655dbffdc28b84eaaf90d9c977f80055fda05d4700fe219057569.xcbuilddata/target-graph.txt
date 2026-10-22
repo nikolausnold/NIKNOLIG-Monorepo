@@ -1,0 +1,13 @@
+Target dependency graph (5 targets)
+Target 'AllIncludingTests' in project 'Aggregate'
+➜ Explicit dependency on target 'ElectroEngelCoreTests-product' in project 'ElectroEngelCore'
+➜ Explicit dependency on target 'ElectroEngelCoreTests-test-runner' in project 'ElectroEngelCore'
+➜ Explicit dependency on target 'ElectroEngelCore-product' in project 'ElectroEngelCore'
+➜ Explicit dependency on target 'ElectroEngelCore' in project 'ElectroEngelCore'
+Target 'ElectroEngelCore-product' in project 'ElectroEngelCore'
+➜ Explicit dependency on target 'ElectroEngelCore' in project 'ElectroEngelCore'
+Target 'ElectroEngelCoreTests-test-runner' in project 'ElectroEngelCore'
+➜ Explicit dependency on target 'ElectroEngelCoreTests-product' in project 'ElectroEngelCore'
+Target 'ElectroEngelCoreTests-product' in project 'ElectroEngelCore'
+➜ Explicit dependency on target 'ElectroEngelCore' in project 'ElectroEngelCore'
+Target 'ElectroEngelCore' in project 'ElectroEngelCore' (no dependencies)
