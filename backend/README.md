@@ -543,7 +543,10 @@ Eindeutigkeit, Schlüsselspalten und Teilindex-Prädikat.
 python3 -m pip install -r backend/requirements.txt
 # DATABASE_URL oder PGHOST, PGDATABASE, PGUSER und separat bereitgestelltes
 # PGPASSWORD_FILE konfigurieren; keine Credentials in Git oder Shell-History.
+# Für die Rollenbereitstellung zusätzlich HEALTH_DB_PASSWORD_FILE setzen.
 python3 backend/migrate.py
+# Vor ASGI auf die direkte backend_health-Anmeldung und deren separates
+# Passwort umstellen, auch in DATABASE_URL; niemals Migrator-Zugang verwenden.
 python3 -m uvicorn asgi:app --app-dir backend --host 127.0.0.1 --port 8000 \
   --no-proxy-headers --no-server-header --no-access-log
 python3 -m unittest discover -s backend/tests
