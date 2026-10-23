@@ -115,6 +115,13 @@
             android:textColor="@color/text_secondary"
             android:textSize="14sp" />
         <Button
+            android:id="@+id/support_website"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:minHeight="48dp"
+            android:text="@string/support_website_button" />
+        <Button
             android:id="@+id/support_mark_sent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

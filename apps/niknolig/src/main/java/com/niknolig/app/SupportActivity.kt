@@ -68,6 +68,7 @@ class SupportActivity : Activity() {
             }
         }
         findViewById<Button>(R.id.support_close).setOnClickListener { finish() }
+        findViewById<Button>(R.id.support_website).setOnClickListener { openOfficialWebsite() }
         findViewById<Button>(R.id.support_delete_ticket).setOnClickListener {
             val ticketId = pendingTicketId ?: return@setOnClickListener
             if (runCatching { supportQueue?.remove(ticketId, supportApp) }.getOrNull() == true) {
@@ -302,6 +303,16 @@ class SupportActivity : Activity() {
         } catch (_: SecurityException) {
             runCatching { supportQueue?.finishHandoff(started.id, launched = false) }
             Toast.makeText(this, R.string.support_ticket_handoff_failed, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openOfficialWebsite() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.official_website_url))))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.support_website_unavailable, Toast.LENGTH_LONG).show()
+        } catch (_: SecurityException) {
+            Toast.makeText(this, R.string.support_website_unavailable, Toast.LENGTH_LONG).show()
         }
     }
 }
