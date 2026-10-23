@@ -42,6 +42,13 @@ private struct DefenseHomeView: View {
                     NavigationLink("Lernprofil", value: DefenseRoute.profile)
                     NavigationLink("Support", value: DefenseRoute.support)
                 }
+                Section("Defense-Zugang · noch nicht verfügbar") {
+                    Text("Geplant: einmalig fünf aufeinanderfolgende 24-Stunden-Zeiträume kostenlos je berechtigtem NIKNOLIG-Konto, ab der ersten bewusst bestätigten, serverseitig erfolgreichen Defense-Aktivierung. Keine Zahlungsmethode erforderlich. Neuinstallation, Geräte- oder Plattformwechsel starten keinen neuen Test.")
+                    Text("Hier wird kein Test gestartet. Aktivierungszeit, Restzeit und Ablauf sind ohne sichere Kontosynchronisierung nicht verfügbar. Aktivierung, Kauf und Wiederherstellung sind noch nicht angeschlossen.")
+                    Text("Nach Ablauf ist optional ein dauerhaftes Upgrade für einmalig 0,75 € auf unterstützten Plattformen für dasselbe Konto vorgesehen. Kein Abo, keine automatische Verlängerung, keine wiederkehrenden Kosten und keine automatische Zahlung. Ein Kauf erfordert deine ausdrückliche Bestätigung im Store; vorher muss der endgültige Gesamtpreis einschließlich Steuern bestätigt sein. NIKNOLIG bleibt ohne Upgrade nutzbar.")
+                    Text("Sicherheits-, Notfall- und Infrastruktur-Erkennungsfunktionen sind in dieser Vorschau nicht verfügbar. Ein Upgrade garantiert keine Notfallhilfe. Bei akuter Gefahr die örtliche Notrufnummer verwenden.")
+                        .foregroundStyle(.secondary)
+                }
             }
             .navigationTitle("NIKNOLIG Defense")
             .navigationDestination(for: DefenseRoute.self) { route in

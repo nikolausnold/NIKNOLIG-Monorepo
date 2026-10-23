@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#080a09">
     <meta
       name="description"
-      content="Offizieller Downloadstatus für NIKNOLIG und NIKNOLIG Defense."
+      content="Vorbereiteter Downloadstatus für NIKNOLIG und NIKNOLIG Defense auf Android und iOS."
     >
     <title>Downloads – NIKNOLIG</title>
     <style>
@@ -204,12 +204,19 @@
   <body>
     <a class="skip-link" href="#inhalt">Zum Inhalt springen</a>
     <header>
-      <p class="eyebrow">NIKNOLIG · offizieller Downloadstatus</p>
+      <p class="eyebrow">NIKNOLIG · Download-Vorbereitung</p>
       <h1>Download Center</h1>
       <p class="intro">
-        Wähle die passende App. Sobald ein freigegebener, stabiler Android-Download
-        bereitsteht, erscheint hier der offizielle Link.
+        Android und iOS: Noch kein öffentlicher Installationslink verifiziert.
+        Diese Seite ist vorbereitet, aber ihre Einbindung auf der offiziellen
+        Website ist nicht bestätigt. Prüfstand: 23.10.2026.
       </p>
+      <nav aria-label="Downloadnavigation">
+        <a href="#installation">Installationshinweise</a> ·
+        <a href="#defense-zugang">Defense: fünf Tage kostenlos</a> ·
+        <a href="https://niknolig.com/">NIKNOLIG-Website</a> ·
+        <a href="https://defense.niknolig.com/">Defense-Website</a>
+      </nav>
     </header>
 
     <main id="inhalt">
@@ -220,19 +227,27 @@
           <p class="details">
             Die NIKNOLIG-App bleibt eine eigenständige Installation und Produktidentität.
           </p>
-          <p class="platform">Android · APK</p>
-          <span class="status" role="status">Download folgt</span>
+          <h3>Android</h3>
+          <p class="platform">Google Play: Veröffentlichung nicht verifiziert</p>
+          <p class="status">Kein freigegebener APK-Download verifiziert</p>
+          <h3>iOS</h3>
+          <p class="platform">App Store: Veröffentlichung nicht verifiziert</p>
+          <p class="status">Kein bestätigter TestFlight-Einladungslink</p>
         </article>
 
         <article class="product defense" aria-labelledby="defense-title">
           <h2 id="defense-title">NIKNOLIG Defense</h2>
-          <p class="price">Einmalig 0,75&nbsp;€</p>
+          <p class="price">Geplant: fünf Tage kostenlos, danach optional einmalig 0,75&nbsp;€</p>
           <p class="details">
-            Bei nachweislicher Unfähigkeit, sich selbst aus einer Notlage zu befreien,
-            kostenlos für 48 Stunden gemäß Produktregel.
+            Dauerhaftes Upgrade für dasselbe berechtigte Konto auf unterstützten
+            Plattformen. Testzugang, Kauf und Wiederherstellung sind noch nicht verfügbar.
           </p>
-          <p class="platform">Android · APK</p>
-          <span class="status" role="status">Download folgt</span>
+          <h3>Android</h3>
+          <p class="platform">Google Play: Veröffentlichung nicht verifiziert</p>
+          <p class="status">Kein freigegebener APK-Download verifiziert</p>
+          <h3>iOS</h3>
+          <p class="platform">App Store: Veröffentlichung nicht verifiziert</p>
+          <p class="status">Kein bestätigter TestFlight-Einladungslink</p>
         </article>
       </section>
 
@@ -242,11 +257,68 @@
         werden nicht als öffentliche App-Downloads angeboten. Für iOS steht hier
         ebenfalls kein veröffentlichter Download bereit.
       </p>
+      <section id="installation" aria-labelledby="installation-title">
+        <h2 id="installation-title">Sicher installieren</h2>
+        <h3>Android</h3>
+        <p class="details">
+          Sobald veröffentlicht: dem verifizierten Google-Play-Link für die
+          gewünschte App folgen, Anbieter und App prüfen und „Installieren“ wählen.
+          Aktuell ist hier keine Installation möglich. Debug-APKs, Quellcode-ZIPs
+          und kurzlebige CI-Artefakte sind keine Produktionsdownloads.
+        </p>
+        <p class="details">
+          Ein direkter APK-Link darf erst nach Freigabe eines echten signierten
+          Releases mit unabhängig bestätigtem Signatur-Fingerprint, SHA-256,
+          Version und Updateanleitung erscheinen. Manuelle APK-Installation
+          erfordert eine bewusst erteilte Installationsfreigabe für die Quelle;
+          danach wieder deaktivieren. Updates müssen selbst aus derselben
+          vertrauenswürdigen Quelle installiert werden; automatische Storeupdates
+          sind dabei nicht zugesichert. Keine Schutzprüfung deaktivieren.
+        </p>
+        <h3>iOS</h3>
+        <p class="details">
+          Sobald veröffentlicht: dem verifizierten App-Store-Link folgen, Anbieter
+          und App prüfen und „Laden“ wählen. TestFlight nur über eine bestätigte
+          Einladung und Apples TestFlight-App verwenden; Betas können ablaufen.
+          Derzeit ist kein solcher Link bestätigt. Keine direkte IPA-Installation,
+          unbekannte Profile oder Umgehung der Apple-Verteilung verwenden.
+        </p>
+      </section>
+      <section id="defense-zugang" aria-labelledby="defense-access-title">
+        <h2 id="defense-access-title">Defense-Zugang – noch nicht aktiviert</h2>
+        <p class="details">
+          Vorgesehen ist ein einmaliger Testzugang je berechtigtem NIKNOLIG-Konto:
+          fünf aufeinanderfolgende 24-Stunden-Zeiträume ab der ersten bewusst
+          bestätigten, serverseitig erfolgreichen Defense-Aktivierung.
+          Neuinstallation, Geräte- oder Plattformwechsel starten keinen neuen Test.
+          Aktivierungszeit, Ablauf und verbleibende Zeit werden erst nach
+          verifizierter Kontosynchronisierung angezeigt. Hier startet kein Test.
+        </p>
+        <p class="details">
+          Keine Zahlungsmethode für den Test erforderlich. Nach Ablauf endet nur
+          der Defense-Testzugang, nicht der Zugang zu NIKNOLIG. Optional ist ein
+          dauerhaftes Upgrade für einmalig 0,75&nbsp;€ vorgesehen: kein Abo,
+          keine automatische Verlängerung, keine wiederkehrenden Kosten und keine
+          automatische Zahlung nach dem Test. Ein Kauf erfordert deine ausdrückliche
+          Bestätigung im jeweiligen Store. Der endgültige Gesamtpreis einschließlich
+          Steuern muss vorher aus dem Store angezeigt werden; solange 0,75&nbsp;€
+          dort nicht bestätigt ist, wird kein Kauf angeboten.
+        </p>
+        <p class="details">
+          Käufe sollen nach vertrauenswürdiger Prüfung über dasselbe Konto
+          wiederhergestellt und auf unterstützten Plattformen ohne erneute
+          Zahlung synchronisiert werden. Die nötige Konto-, Berechtigungs- und
+          Storeanbindung fehlt noch. Sicherheits-, Notfall- und
+          Infrastruktur-Erkennungsfunktionen sind in der Vorschau nicht verfügbar;
+          auch ein späteres Upgrade garantiert keine Notfallhilfe. Bei akuter
+          Gefahr die örtliche Notrufnummer verwenden.
+        </p>
+      </section>
     </main>
 
     <footer>
       <p>Die Apps werden getrennt veröffentlicht und installiert.</p>
-      <p>iOS-Downloads werden erst angezeigt, wenn ein entsprechender Release verfügbar ist.</p>
+      <p>Store- und Installationslinks erscheinen erst nach verifizierter Veröffentlichung und Freigabe.</p>
     </footer>
   </body>
 </html>
