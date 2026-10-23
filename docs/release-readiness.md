@@ -183,6 +183,21 @@ Datenschutzhinweise müssen vor Einführung fachlich geprüft werden.
 - Baseline-CI vor diesen Änderungen: [Backend #317 erfolgreich](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39993489397)
   und [Android #975 erfolgreich](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39993489393),
   beide auf `31d61b4119f1505bb443e23badd2934fa4ab6d19`. Kein Nachweis dieser Änderungen.
+- Branch-CI für Implementierungscommit `7e48eba`:
+  [Android #976](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39994528545),
+  [iOS #38](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39994528307)
+  und [Backend #318](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39994528281)
+  stehen auf **`action_required`**, jeweils null Jobs laut Logabfrage.
+  Keine ausgeführten Build-/Testjobs und kein CI-Erfolg für diese Änderungen;
+  keine Wiederholung angefordert.
+- Secret-Scan aller zwölf geänderten Dateien ohne Treffer.
+  Parallele Validierung aufgerufen: automatischer Reviewer konnte wegen
+  fehlendem Modell nicht initialisieren (trotz „Success“-Hülle kein bestandener
+  Review). Separater read-only Code-Review fand keine signifikanten Probleme.
+  CodeQL überspringt diese ausschließlich informativen UI-/Dokumentations- und
+  Teständerungen als trivial; kein durchgeführter CodeQL-Scan behauptet.
+  Keine offene Reviewbeanstandung, technische Freigaben bleiben ausstehend.
+  Bei der abschließenden Abfrage kein Pull Request für den Branch gefunden.
 - Noch **nicht ausführbar/abgenommen**: erstmalige Aktivierung; Grenze eine
   Sekunde vor, exakt bei und nach 432000 Sekunden; parallele/duplizierte
   Aktivierung einschließlich verlorener Antwort; Reinstall/Logout/Gerätewechsel;
