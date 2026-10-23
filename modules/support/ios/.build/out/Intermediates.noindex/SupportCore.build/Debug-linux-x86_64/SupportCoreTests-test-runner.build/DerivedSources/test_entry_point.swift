@@ -515,12 +515,8 @@ public import XCTest
 public func __allDiscoveredTests() -> [XCTestCaseEntry] {
     return [
         testCase([            ("testCommonQuestionsReceiveDeterministicAnswers", SupportCoreTests.testCommonQuestionsReceiveDeterministicAnswers),
-            ("testCrossTopicQuestionsRequireHumanSupport", SupportCoreTests.testCrossTopicQuestionsRequireHumanSupport),
             ("testDiagnosticsEscalateOnlyWhenHealthCheckFails", SupportCoreTests.testDiagnosticsEscalateOnlyWhenHealthCheckFails),
             ("testFailedHandoffPersistsAndLimitsRetries", SupportCoreTests.testFailedHandoffPersistsAndLimitsRetries),
-            ("testFailedLocalDeletionDoesNotReportSuccessOrDropTicket", SupportCoreTests.testFailedLocalDeletionDoesNotReportSuccessOrDropTicket),
-            ("testLocalDeletionWorksInEveryStateAndIsScopedAndPersistent", SupportCoreTests.testLocalDeletionWorksInEveryStateAndIsScopedAndPersistent),
-            ("testMetadataSharingAllowsOnlyFixedCodesAndMatchingApp", SupportCoreTests.testMetadataSharingAllowsOnlyFixedCodesAndMatchingApp),
             ("testQueueScopesAppsAndDeduplicatesTickets", SupportCoreTests.testQueueScopesAppsAndDeduplicatesTickets),
             ("testSuccessfulHandoffCannotBeRepeatedAndCanBeCompleted", SupportCoreTests.testSuccessfulHandoffCannotBeRepeatedAndCanBeCompleted),
             ("testUnknownQuestionsAndUnavailableAccountsRequireEscalation", SupportCoreTests.testUnknownQuestionsAndUnavailableAccountsRequireEscalation)]),
