@@ -31,9 +31,8 @@ class SystemUpdatesTests(unittest.TestCase):
         self.assertTrue(DEFAULT_REGISTRY.is_absolute())
         sources = {entry["id"]: entry for entry in self.entries}
         self.assertEqual("nikolausnold/NIKNOLIG-Monorepo", sources["monorepo"]["repository"])
-        self.assertEqual("nikolausnold/NIKNOLIG-Defense-Website-", sources["niknolig-defense"]["repository"])
+        self.assertEqual("nikolausnold/-NIKNOLIG-Defense-Website", sources["niknolig-defense"]["repository"])
         self.assertEqual("3c4d6618a61604f6433639151e741371491a5f0d", sources["niknolig"]["baseline"])
-        self.assertEqual("nikolausnold/NIKNOLIG-Defense-Website-", sources["niknolig-defense"]["repository"])
         self.assertEqual("5f0f385089bc27347eacd282c13a546eb4511da2", sources["niknolig-defense"]["baseline"])
         self.assertEqual("external", sources["ios"]["kind"])
         self.assertEqual(
