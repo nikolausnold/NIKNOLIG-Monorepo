@@ -1,6 +1,7 @@
 import unittest
 import json
 import copy
+import re
 from pathlib import Path
 
 try:
@@ -138,20 +139,155 @@ class BackendContractTests(unittest.TestCase):
         root = BACKEND.parent
         settings = (root / "settings.gradle.kts").read_text(encoding="utf-8")
         self.assertIn('include(":niknolig", ":niknolig-defense")', settings)
-        for app in ("niknolig", "niknolig-defense"):
-            build_file = (root / "apps" / app / "build.gradle.kts").read_text(
-                encoding="utf-8"
-            )
-            self.assertNotRegex(build_file, r'\bproject\s*\(')
+        niknolig_build = (root / "apps/niknolig/build.gradle.kts").read_text(
+            encoding="utf-8"
+        )
+        defense_build = (
+            root / "apps/niknolig-defense/build.gradle.kts"
+        ).read_text(encoding="utf-8")
+        self.assertIn('implementation(project(":electro-engel-core"))', niknolig_build)
+        self.assertIn('implementation(project(":support-core"))', niknolig_build)
+        self.assertIn('implementation(project(":support-core"))', defense_build)
+        self.assertNotIn('project(":electro-engel-core")', defense_build)
+
+        core = root / "modules/electro-engel/core"
+        core_source = (
+            core / "src/main/kotlin/org/elektroengel/core/Analysis.kt"
+        ).read_text(encoding="utf-8")
+        self.assertTrue((core / "src/test/kotlin/org/elektroengel/core/AnalysisTest.kt").is_file())
+        self.assertNotRegex(core_source, r"\b(?:android|com\.niknolig)\.")
+        for forbidden in ("HttpURLConnection", "System.out", "println(", "SharedPreferences"):
+            self.assertNotIn(forbidden, core_source)
+        self.assertNotIn(
+            "com.android",
+            (core / "build.gradle.kts").read_text(encoding="utf-8"),
+        )
+        swift_core = root / "modules/electro-engel/ios/ElectroEngelAnalyzer.swift"
+        self.assertTrue(swift_core.is_file())
+        swift_source = swift_core.read_text(encoding="utf-8")
+        for forbidden in ("URLSession", "UserDefaults", "print("):
+            self.assertNotIn(forbidden, swift_source)
+        project = (root / "apps/ios/NIKNOLIG.xcodeproj/project.pbxproj").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("ElectroEngelAnalyzer.swift", project)
+        self.assertEqual(
+            swift_core.resolve(),
+            (root / "apps/ios/../../modules/electro-engel/ios/ElectroEngelAnalyzer.swift").resolve(),
+        )
+        defense_sources = next(
+            line for line in project.splitlines()
+            if "A10000000000000000000072 /* Sources */" in line
+        )
+        self.assertNotIn("ElectroEngelAnalyzer.swift", defense_sources)
 
         architecture = (
             root / "docs/electro-engel-architecture-and-migration.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("keine Core-Runtime", architecture)
-        self.assertIn("SecurityChain-P0 bleibt", architecture)
+        self.assertIn("Kotlin/JVM-Core", architecture)
+        self.assertIn("SecurityChain-P0 bleiben BLOCKED", architecture)
         self.assertIn("NIKNOLIG-Integration", architecture)
         self.assertIn("NIKNOLIG-Abhängigkeiten im Core", architecture)
         self.assertIn("python3 -m unittest discover -s backend/tests", architecture)
+
+    def test_security_decision_matrix_covers_all_decisions_without_closing_them(self):
+        specification = (
+            BACKEND.parent / "docs/securitychain-p0-specification.md"
+        ).read_text(encoding="utf-8")
+        section = specification.split(
+            "## 10. Offene Entscheidungen und menschliche Freigaben", 1
+        )[1].split("## 11. Versionierung und Änderungssteuerung", 1)[0]
+        rows = [
+            [cell.strip() for cell in line.strip().strip("|").split("|")]
+            for line in section.splitlines()
+            if line.startswith("| D-")
+        ]
+        expected_ids = {f"D-{number:02}" for number in range(1, 13)}
+        self.assertEqual(expected_ids, {row[0] for row in rows})
+        self.assertEqual(len(expected_ids), len(rows))
+        statuses = {
+            "TECHNISCH NACHGEWIESEN",
+            "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "BLOCKIERT / NACHWEIS FEHLT",
+        }
+        for row in rows:
+            with self.subTest(decision=row[0]):
+                self.assertEqual(7, len(row))
+                self.assertIn(row[1], statuses)
+                self.assertTrue(all(row[2:]))
+        self.assertIn(
+            "Keine D-01–D-12-Entscheidung ist durch diese Bestandsprüfung geschlossen.",
+            section,
+        )
+        self.assertIn("BLE bleibt deaktiviert", section)
+        self.assertIn(
+            "eine iOS-Implementierung noch eine Validierung",
+            section,
+        )
+
+    def test_section_10_closeout_preserves_each_open_decision_status(self):
+        specification = (
+            BACKEND.parent / "docs/securitychain-p0-specification.md"
+        ).read_text(encoding="utf-8")
+        section = specification.split(
+            "## 10. Offene Entscheidungen und menschliche Freigaben", 1
+        )[1].split("## 11. Versionierung und Änderungssteuerung", 1)[0]
+        statuses = {
+            "D-01": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-02": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-03": "BLOCKIERT / NACHWEIS FEHLT",
+            "D-04": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-05": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-06": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-07": "TECHNISCH NACHGEWIESEN",
+            "D-08": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-09": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-10": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+            "D-11": "BLOCKIERT / NACHWEIS FEHLT",
+            "D-12": "ENTSCHEIDUNG DURCH MENSCHEN ERFORDERLICH",
+        }
+        rows = {
+            cells[0]: cells[1]
+            for cells in (
+                [cell.strip() for cell in line.strip().strip("|").split("|")]
+                for line in section.splitlines()
+                if line.startswith("| D-")
+            )
+        }
+        self.assertEqual(statuses, rows)
+        self.assertIn("Technischer Abschluss von Abschnitt 10", section)
+        self.assertIn("D-03 und D-11", section)
+        self.assertIn("nicht aber SecurityChain-P0 freigegeben oder erfüllt", section)
+        self.assertIn(
+            "Keine D-01–D-12-Entscheidung ist durch diese Bestandsprüfung geschlossen.",
+            section,
+        )
+
+    def test_current_android_ble_and_ios_targets_are_explicit(self):
+        root = BACKEND.parent
+        for app in ("niknolig", "niknolig-defense"):
+            manifest = (
+                root / "apps" / app / "src/main/AndroidManifest.xml"
+            ).read_text(encoding="utf-8")
+            with self.subTest(app=app):
+                permissions = re.findall(
+                    r'<uses-permission android:name="([^"]+)"', manifest
+                )
+                self.assertEqual(["android.permission.INTERNET"], permissions)
+                self.assertNotIn("BLUETOOTH", manifest.upper())
+        ios = root / "apps" / "ios"
+        project = ios / "NIKNOLIG.xcodeproj" / "project.pbxproj"
+        self.assertTrue((ios / "NIKNOLIGApp.swift").is_file())
+        self.assertTrue((ios / "NIKNOLIGDefenseApp.swift").is_file())
+        self.assertTrue(project.is_file())
+        project_contents = project.read_text(encoding="utf-8")
+        self.assertIn("name = NIKNOLIG;", project_contents)
+        self.assertIn('name = "NIKNOLIG Defense";', project_contents)
+        self.assertIn("PRODUCT_BUNDLE_IDENTIFIER = com.niknolig.app;", project_contents)
+        self.assertIn(
+            "PRODUCT_BUNDLE_IDENTIFIER = com.niknolig.defense;",
+            project_contents,
+        )
 
     @unittest.skipIf(
         Draft202012Validator is None,

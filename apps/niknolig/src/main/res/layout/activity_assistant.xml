@@ -82,11 +82,19 @@
             android:gravity="top|start"
             android:hint="@string/assistant_request_hint"
             android:inputType="textCapSentences|textMultiLine"
-            android:maxLength="500"
+            android:maxLength="1000"
             android:minHeight="120dp"
             android:padding="@dimen/space_medium"
             android:textColor="@color/text_primary"
             android:textColorHint="@color/text_secondary" />
+
+        <Spinner
+            android:id="@+id/assistant_analysis_mode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:contentDescription="@string/assistant_analysis_mode_description"
+            android:entries="@array/assistant_analysis_modes" />
 
         <Button
             android:id="@+id/assistant_request_button"
@@ -95,12 +103,42 @@
             android:layout_marginTop="@dimen/space_small"
             android:text="@string/assistant_request_button" />
 
+        <EditText
+            android:id="@+id/assistant_refinement_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:background="@drawable/card_surface"
+            android:hint="@string/assistant_refinement_hint"
+            android:inputType="textCapSentences|textMultiLine"
+            android:maxLength="500"
+            android:minHeight="64dp"
+            android:padding="@dimen/space_medium"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary" />
+
+        <Button
+            android:id="@+id/assistant_refine_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:text="@string/assistant_refine_button" />
+
+        <ProgressBar
+            android:id="@+id/assistant_analysis_progress"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/assistant_request_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_small"
             android:accessibilityLiveRegion="polite"
+            android:textIsSelectable="true"
             android:textColor="@color/text_primary"
             android:textSize="16sp" />
         </LinearLayout>

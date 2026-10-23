@@ -5,13 +5,28 @@
     <string name="assistant_description">Deine Assistenz für nachvollziehbare, kontrollierte Technik.</string>
     <string name="assistant_open_button">Elektro-Engel öffnen</string>
     <string name="assistant_screen_title">Elektro-Engel</string>
-    <string name="assistant_screen_description">Lokale Vorschau innerhalb von NIKNOLIG. Deine Anfrage wird nicht an einen KI-Dienst oder Server gesendet.</string>
-    <string name="assistant_help_heading">WOBEI BRAUCHST DU HILFE?</string>
-    <string name="assistant_help_description">Gib eine Anfrage ein. Diese Vorschau zeigt sie nur hier an und erstellt keine automatische Antwort.</string>
-    <string name="assistant_request_hint">Deine Anfrage (max. 500 Zeichen)</string>
-    <string name="assistant_request_button">Anfrage lokal anzeigen</string>
-    <string name="assistant_request_empty">Bitte gib zuerst eine Anfrage ein.</string>
-    <string name="assistant_request_local_only">Anfrage, nur hier angezeigt:\n%1$s\n\nEs wurde nichts übertragen und keine Aktion ausgeführt.</string>
+    <string name="assistant_screen_description">Lokale, regelbasierte Analyse. Dein Text bleibt auf diesem Gerät; eine externe KI ist nicht verbunden.</string>
+    <string name="assistant_help_heading">WIRKLICHKEIT DEKODIEREN</string>
+    <string name="assistant_help_description">Untersuche Begriffe und Aussagen in vier getrennten Modi. Die Ergebnisse sind sprachliche Hinweise, keine geprüften Fakten.</string>
+    <string name="assistant_request_hint">Begriff oder Aussage (max. 1000 Zeichen)</string>
+    <string name="assistant_analysis_mode_description">Analysemodus auswählen</string>
+    <string-array name="assistant_analysis_modes">
+        <item>Wort-Zerleger</item>
+        <item>Konventions-Scanner</item>
+        <item>Perspektiven-Wechsler</item>
+        <item>Fakten- und Denkfehler-Prüfer</item>
+    </string-array>
+    <string name="assistant_request_button">Lokal analysieren</string>
+    <string name="assistant_analysis_loading">Lokale Analyse läuft …</string>
+    <string name="assistant_analysis_failed">Die Eingabe konnte nicht analysiert werden. Prüfe den Text und versuche es erneut.</string>
+    <string name="assistant_analysis_empty">Bitte gib zuerst einen Begriff oder eine Aussage ein.</string>
+    <string name="assistant_analysis_error_invalid">Die Eingabe ist zu lang oder enthält ungültige Steuerzeichen.</string>
+    <string name="assistant_analysis_error_ai_disabled">Externe KI ist nicht freigegeben. Die lokale Analyse bleibt verfügbar.</string>
+    <string name="assistant_analysis_error_timeout">Die Analyse hat das Zeitlimit überschritten. Es wurde kein Ergebnis als geprüft ausgegeben.</string>
+    <string name="assistant_analysis_error_unavailable">Die Analysequelle ist nicht verfügbar. Es wurden keine Fakten verifiziert.</string>
+    <string name="assistant_analysis_sources_unchecked">Quellenstatus: nicht geprüft; es wurde keine externe Quelle abgefragt.</string>
+    <string name="assistant_refinement_hint">Vertiefungsfrage (optional, max. 500 Zeichen)</string>
+    <string name="assistant_refine_button">Analyse verfeinern</string>
     <string name="assistant_task_heading">AUFGABEN</string>
     <string name="assistant_task_status">Keine Aufgaben verfügbar. Eine Aufgabenverwaltung ist in dieser Vorschau nicht eingerichtet.</string>
     <string name="assistant_device_heading">GERÄTESTATUS</string>
@@ -27,8 +42,8 @@
     <string name="support_payment_notice">Zahlungsfragen werden hier nicht bearbeitet. Bitte wende dich dafür direkt an den Zahlungsanbieter oder Händler. Sende keine Zahlungsdaten an den technischen Support.</string>
     <string name="support_contact_button">Zum KI-Support</string>
     <string name="support_email">n_nold@hotmail.com</string>
-    <string name="support_email_subject">Technische Supportanfrage – NIKNOLIG</string>
-    <string name="support_email_body">KI-Hilfe ist in dieser Vorschau nicht verfügbar. Bitte beschreibe dein technisches Problem und bereits versuchte Schritte. Sende keine Passwörter, Zahlungsdaten oder sensiblen Angaben.</string>
+    <string name="support_email_subject">Technische Supportanfrage – NIKNOLIG · %1$s</string>
+    <string name="support_email_body">Vorgangskennung: %1$s\nApp: %2$s\nFehlerklasse: %3$s\nDiagnose: %4$s\n\nKein Fragetext oder Gesprächsinhalt wurde übernommen. Du musst diese E-Mail selbst prüfen und senden.</string>
     <string name="support_email_unavailable">Keine E-Mail-App auf diesem Gerät gefunden.</string>
     <string name="demo_notice">Vorschau – noch keine Geräteverbindung, Sicherheitsfreigabe oder produktive Funktion.</string>
     <string name="learning_profile_button">Lernprofil und Datenschutz</string>

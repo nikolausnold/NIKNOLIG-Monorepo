@@ -1,0 +1,46 @@
+name: iOS app builds
+
+on:
+  push:
+    paths:
+      - apps/ios/**
+      - modules/electro-engel/ios/**
+      - modules/support/ios/**
+      - .github/workflows/ios-build.yml
+  pull_request:
+    paths:
+      - apps/ios/**
+      - modules/electro-engel/ios/**
+      - modules/support/ios/**
+      - .github/workflows/ios-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios-apps:
+    runs-on: macos-15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - NIKNOLIG
+          - NIKNOLIG Defense
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test shared support core
+        if: matrix.target == 'NIKNOLIG'
+        run: swift test --package-path modules/support/ios
+      - name: Build ${{ matrix.target }} for iOS Simulator
+        run: >-
+          xcodebuild
+          -project apps/ios/NIKNOLIG.xcodeproj
+          -target "${{ matrix.target }}"
+          -sdk iphonesimulator
+          -configuration Debug
+          CODE_SIGNING_ALLOWED=NO
+          build

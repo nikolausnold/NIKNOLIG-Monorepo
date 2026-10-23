@@ -1,4 +1,4 @@
-"""Local preparation only: no network transport, credential handling, or auth issuer."""
+"""Fail-closed support controls; transport and verified identity are injected."""
 
 from dataclasses import dataclass
 import math
@@ -54,7 +54,7 @@ class Provider(Protocol):
 
 
 class WorkersAITransport(Protocol):
-    """Injected local mock only here; future transport must enforce timeout."""
+    """Server-side transport must bound network time and response size."""
 
     def run(self, *, model: str, messages: tuple, max_tokens: int,
             temperature: float, timeout_seconds: float) -> ProviderResult: ...
@@ -262,8 +262,7 @@ class SupportService:
         if (app not in APPS or feature not in FEATURES or
                 not prompt.strip() or prompt_bytes > MAX_PROMPT_BYTES):
             return error_response(400, "VALIDATION_FAILED", request_id)
-        if (principal.app != app or
-                (feature == "electro-engel" and app != "niknolig")):
+        if principal.app != app:
             return error_response(403, "APP_AREA_MISMATCH", request_id)
         if "ai:" + feature not in principal.permissions:
             return error_response(403, "AUTHORIZATION_DENIED", request_id)

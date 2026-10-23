@@ -3,12 +3,13 @@ name: Preparing release APKs
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Android apps build"]
+    workflows: ["Android apps build", "Backend contracts and tooling"]
     branches: [main]
     types: [completed]
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: android-release
@@ -17,7 +18,8 @@ concurrency:
 jobs:
   assemble-release:
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_repository.full_name == github.repository &&
@@ -38,6 +40,55 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+
+      - name: Validate approved production backend URLs
+        env:
+          NIKNOLIG_BACKEND_URL: ${{ vars.NIKNOLIG_BACKEND_URL }}
+          NIKNOLIG_DEFENSE_BACKEND_URL: ${{ vars.NIKNOLIG_DEFENSE_BACKEND_URL }}
+        run: |
+          set -euo pipefail
+          for name in NIKNOLIG_BACKEND_URL NIKNOLIG_DEFENSE_BACKEND_URL; do
+            value="${!name}"
+            if [[ -z "${value//[[:space:]]/}" ]]; then
+              echo "::error::Missing $name. Add its explicitly production-approved HTTPS origin as an Environment variable in Settings > Environments > android-release."
+              exit 1
+            fi
+          done
+          ./gradlew :niknolig:verifyReleaseBackendUrl \
+            :niknolig-defense:verifyReleaseBackendUrl --no-daemon
+
+      - name: Verify validation results for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          runs="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs" \
+            -f "head_sha=$RELEASE_SHA" -f per_page=100)"
+          for workflow in android-build.yml backend-contracts.yml; do
+            if ! python3 -c '
+          import json
+          import sys
+
+          release_sha = sys.argv[1]
+          workflow_path = f".github/workflows/{sys.argv[2]}"
+          workflow_runs = json.load(sys.stdin).get("workflow_runs", [])
+          valid_events = {"push", "schedule", "workflow_dispatch"}
+          if not any(
+              run.get("path") == workflow_path
+              and run.get("head_sha") == release_sha
+              and run.get("head_branch") == "main"
+              and run.get("status") == "completed"
+              and run.get("conclusion") == "success"
+              and run.get("event") in valid_events
+              for run in workflow_runs
+          ):
+              raise SystemExit(1)
+          ' "$RELEASE_SHA" "$workflow" <<< "$runs"; then
+              echo "::error::No successful $workflow validation found for $RELEASE_SHA on main"
+              exit 1
+            fi
+          done
 
       - name: Assign update version
         shell: bash
@@ -97,6 +148,8 @@ jobs:
       - name: Assemble both signed release APKs and store bundles
         shell: bash
         env:
+          NIKNOLIG_BACKEND_URL: ${{ vars.NIKNOLIG_BACKEND_URL }}
+          NIKNOLIG_DEFENSE_BACKEND_URL: ${{ vars.NIKNOLIG_DEFENSE_BACKEND_URL }}
           NIKNOLIG_RELEASE_STORE_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_STORE_PASSWORD }}
           NIKNOLIG_RELEASE_KEY_ALIAS: niknolig
           NIKNOLIG_RELEASE_KEY_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_KEY_PASSWORD }}

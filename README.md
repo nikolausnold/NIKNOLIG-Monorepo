@@ -1,15 +1,26 @@
 # NIKNOLIG-Monorepo
 
-Monorepo für zwei getrennte Android-Apps: NIKNOLIG und NIKNOLIG Defense. Die
-Apps bleiben eigenständige Installationen und Sicherheitsdomänen. Die Websites
-und ihre Deployments bleiben in den jeweiligen Quell-Repositories.
+Dieses Repository ist das bestehende Android-Monorepo. Die Android-Haupt-App
+und NIKNOLIG Defense Android bleiben in ihren vorhandenen Modulen unter `apps/`.
+Das iOS-Projekt der NIKNOLIG-Haupt-App liegt im separaten Repository
+[`nikolausnold/NIKNOLIG`](https://github.com/nikolausnold/NIKNOLIG). Die
+bestehende Ablage von NIKNOLIG Defense iOS bleibt unverändert; sie wird hier
+nicht neu sortiert oder exportiert. Android- und iOS-Projekte sowie deren
+Builds sind getrennt zu behandeln. Websites und Deployments bleiben in den
+jeweiligen Quell-Repositories.
 
 ## Android-Module
 
 | Modul | Android `applicationId` | Quellstand |
 | --- | --- | --- |
 | `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG/tree/3c4d6618a61604f6433639151e741371491a5f0d), Commit `3c4d6618a61604f6433639151e741371491a5f0d` |
-| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
+| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
+
+Zusätzlich bestehen native iOS-Vorschauziele unter
+[`apps/ios/`](apps/ios/README.md). Sie bleiben an ihrem bestehenden Ort und
+ändern nichts an der Zuordnung des iOS-Hauptprojekts zum separaten Repository.
+Sie sind getrennte Targets und teilen weder Laufzeitcode noch App-Daten mit
+Android oder der jeweils anderen App.
 
 Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
 die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
@@ -31,6 +42,16 @@ werden nicht übertragen oder automatisch beantwortet; Geräteerkennung,
 Verbindungen und Steuerbefehle sind nicht verfügbar. Es gibt keine gemeinsame
 Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
+**Bestätigte Produktgrenzen (D-01, 21.10.2026):** NIKNOLIG umfasst allgemeine
+Systemfunktionen; NIKNOLIG Defense zusätzliche Sicherheits- und Notfallfunktionen.
+Elektro-Engels Infrastruktur-Erkennung und Reparaturhinweise gehören
+ausschließlich zu Defense. Keine Infrastruktur-Erkennung in der normalen
+NIKNOLIG-App; die dort vorhandene lokale Assistenzvorschau ist davon getrennt.
+Das ist keine Implementierungs- oder Datenfreigabe.
+[D-01-Prüfprotokoll und offene Detailentscheidungen](docs/securitychain-p0-specification.md#d-01-prüfprotokoll-bestätigte-produktgrenzen-und-offene-detailfreigaben)
+dokumentieren den Funktionsumfang beider Apps und die fehlenden Bestätigungen;
+D-01 ist noch nicht abgeschlossen, D-02 bis D-12 bleiben unverändert offen.
+
 ## Sicherheits- und Integrationsgrenzen
 
 - Kein App-Modul hängt vom jeweils anderen ab; es gibt keine gemeinsame
@@ -46,7 +67,7 @@ Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
 ## Build und Prüfung
 
-Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 8.13 (über den
+Voraussetzungen: JDK 17, Android SDK / compile SDK 35 und Gradle 8.14.6 (über den
 mitgelieferten Wrapper).
 
 Beide APKs unabhängig im selben Build aufbauen:
@@ -57,16 +78,18 @@ Beide APKs unabhängig im selben Build aufbauen:
 
 Der Workflow
 [`Android apps build`](.github/workflows/android-build.yml) baut beide Apps,
-prüft ihre APK-IDs und verifiziert die APK-Signaturen. In den importierten
-Quellständen sind keine Android-Testquellen vorhanden; deshalb wird kein
-Android-Testtask behauptet.
+prüft ihre APK-IDs und verifiziert die APK-Signaturen. Zusätzlich laufen
+die Android-Health-Client-Unit-Tests beider Module. Sie verwenden simulierte
+HTTPS-Verbindungen und ersetzen keinen realen Server- oder Gerätetest.
 
 ## Read-only Audit
 
 Der manuelle Workflow
 [`Read-only Workers repository audit`](.github/workflows/audit-workers.yml)
 prüft ausschließlich Dateien dieses Monorepos. Er führt keine Projekt-Workflows
-oder Skripte aus und ist weder ein Anwendungstest noch ein Nachweis für eine
+oder Skripte aus und benötigt weder `WORKERS_REPOSITORY_URL` noch
+`WORKERS_REPO_READ_PAT` oder andere Repository-Secrets. Er ist weder ein
+Anwendungstest noch ein Nachweis für eine
 Cloudflare-Verbindung. Sein begrenzter Credential-Musterscan beweist nicht, dass
 keine Geheimnisse vorhanden sind.
 
@@ -99,10 +122,13 @@ Das Soll-Konzept für getrennte Gründerrollen und app-spezifische Konten steht 
 Es wurden keine Konten angelegt; die produktive Rollenvergabe bleibt bis zur
 SecurityChain-P0-Freigabe gesperrt.
 
-Die plattformübergreifende Vertragsarchitektur, Android-/iOS-Grenzen und der
-Integrationsplan für spätere separate iOS-Repositories stehen in
-[`docs/mobile-cross-platform-architecture.md`](docs/mobile-cross-platform-architecture.md).
-Es werden keine iOS-Repositories oder produktiven APIs angelegt.
+Die plattformübergreifende Vertragsarchitektur und Android-/iOS-Sicherheitsgrenzen
+stehen in [`docs/mobile-cross-platform-architecture.md`](docs/mobile-cross-platform-architecture.md).
+Die lokalen iOS-Vorschauziele in `apps/ios/` implementieren nur lokale
+Profil-/Vorschaufunktionen, einen konfigurierbaren Health-Check und bestätigte
+E-Mail-Entwürfe. Sie enthalten keine KI-, Geräte-, Sensor- oder
+Notfallintegration und benötigen weiterhin SecurityChain-P0- sowie
+Plattform-/Store-Freigaben.
 
 Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
 [`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
@@ -113,10 +139,15 @@ Builds, Netzwerkzugriffe oder Deployments vor.
 
 - Bei Push und Pull Request sowie montags um 04:23 UTC und manuell laufen
   getrennte Workflows: [`Android apps build`](.github/workflows/android-build.yml)
-  baut und prüft ausschließlich die beiden Android-APKs;
+  baut und prüft beide Android-APKs sowie ihre Health-Client-Unit-Tests;
+  [`iOS app builds`](.github/workflows/ios-build.yml) baut die bestehenden
+  lokalen iOS-Vorschauziele separat für das Simulator-SDK ohne Code Signing,
+  wenn iOS-Quelldateien geändert werden oder manuell. Der Android-Workflow
+  verwendet Gradle nur für die Android-Module und testet zusätzlich den
+  portablen Swift-Analyse-Core; er baut keine nativen iOS-Apps und baut nicht
+  das iOS-Projekt im separaten NIKNOLIG-Repository;
   [`Backend contracts and tooling`](.github/workflows/backend-contracts.yml)
-  führt Backend-Vertrags-/Tooltests und den Systemregister-Check aus. Es gibt
-  derzeit keine Android-Testquellen und kein iOS-Projekt in diesem Repository.
+  führt Backend-Vertrags-/Tooltests und den Systemregister-Check aus.
   Der Zeitplan wird erst nach Übernahme auf den Default-Branch aktiv; GitHub
   kann geplante Läufe verzögern oder bei inaktiven öffentlichen Repositories
   deaktivieren.
@@ -211,5 +242,5 @@ Aktivierung in einer Woche.** Die tatsächliche Anbindung benötigt anschließen
    [Apple Developer](https://developer.apple.com/account/) und
    [App Store Connect](https://appstoreconnect.apple.com/) werden eigene
    App-Identitäten, Signierung, Datenschutzangaben und TestFlight-Prüfungen
-   benötigt. Da hier kein iOS-App-Projekt existiert, erzeugt dieser Workflow
-   weder ein iOS-Archiv noch einen iOS-Storeupload.
+   benötigt. Der iOS-CI-Build ist kein Xcode-Archiv, kein signierter Build,
+   kein Simulator-/Gerätetest und kein TestFlight- oder App-Store-Upload.

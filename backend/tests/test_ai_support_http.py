@@ -1,5 +1,6 @@
 import http.client
 import json
+from dataclasses import replace
 from pathlib import Path
 import socket
 import sys
@@ -12,8 +13,13 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from ai_support import SupportService
 from app import create_server, MAX_SUPPORT_BODY_BYTES
 from test_ai_support import local_service, payload
+
+
+def support_payload(**changes):
+    return {"app": "niknolig", "message": "Local support question.", **changes}
 
 
 class SupportHTTPTests(unittest.TestCase):
@@ -66,6 +72,67 @@ class SupportHTTPTests(unittest.TestCase):
         self.assertEqual("no-store", headers["Cache-Control"])
         self.assertEqual("nosniff", headers["X-Content-Type-Options"])
         self.assertEqual(1, len(self.provider.calls))
+
+    def test_common_support_route_accepts_both_separately_scoped_apps(self):
+        status, body, _ = self.post(
+            support_payload(), path="/support")
+        self.assertEqual(200, status)
+        self.assertEqual("niknolig", body["app"])
+        self.assertEqual("support", body["feature"])
+        self.assertEqual(["Local support question."], self.provider.calls)
+
+        self.auth.principal = replace(
+            self.auth.principal,
+            app="niknolig-defense",
+            permissions=frozenset({"ai:support"}),
+        )
+        status, body, _ = self.post(
+            support_payload(app="niknolig-defense"), path="/support")
+        self.assertEqual(200, status)
+        self.assertEqual("niknolig-defense", body["app"])
+        self.assertEqual(2, len(self.provider.calls))
+
+    def test_common_support_route_rejects_invalid_input(self):
+        invalid_bodies = (
+            {},
+            {"app": "niknolig"},
+            {"message": "A message"},
+            support_payload(app="unknown"),
+            support_payload(message=""),
+            support_payload(message=" \n\t"),
+            support_payload(message=123),
+            support_payload(message="é" * 1025),
+            {**support_payload(), "provider": "caller"},
+        )
+        for body in invalid_bodies:
+            with self.subTest(body=repr(body)[:100]):
+                status, result, _ = self.post(body, path="/support")
+                self.assertEqual(400, status)
+                self.assertEqual(
+                    "VALIDATION_FAILED", result["error"]["code"])
+        self.assertFalse(self.provider.calls)
+
+    def test_common_support_route_keeps_app_scope_authorization(self):
+        status, body, _ = self.post(
+            support_payload(app="niknolig-defense"), path="/support")
+        self.assertEqual(403, status)
+        self.assertEqual("APP_AREA_MISMATCH", body["error"]["code"])
+        self.assertFalse(self.provider.calls)
+
+    def test_common_support_route_validates_before_default_disabled_response(self):
+        self.server.support_service = SupportService()
+        for body in (
+                {}, support_payload(app="unknown"),
+                support_payload(message="é" * 1025),
+                {**support_payload(), "unexpected": True}):
+            with self.subTest(body=repr(body)[:100]):
+                status, result, _ = self.post(body, path="/support")
+                self.assertEqual(400, status)
+                self.assertEqual(
+                    "VALIDATION_FAILED", result["error"]["code"])
+        status, result, _ = self.post(support_payload(), path="/support")
+        self.assertEqual(503, status)
+        self.assertEqual("AI_DISABLED", result["error"]["code"])
 
     def test_default_server_remains_disabled_even_with_environment_flags(self):
         with patch.dict("os.environ", {"AI_ENABLED": "true",

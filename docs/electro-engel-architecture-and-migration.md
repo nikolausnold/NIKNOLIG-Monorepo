@@ -1,8 +1,8 @@
 # Elektro-Engel: Architekturgrenzen und spätere Repository-Migration
 
-**Status:** Architekturvorbereitung; keine Core-Runtime, keine neue Gradle-
-Bibliothek und keine Freigabe zur Produktivintegration. SecurityChain-P0 bleibt
-BLOCKED.
+**Status:** Deterministischer, lokaler Wirklichkeits-Dekoder unter
+`modules/electro-engel/`; keine generative KI, Quellenprüfung, Sensorintegration
+oder Produktivfreigabe. Remote-KI und SecurityChain-P0 bleiben BLOCKED.
 
 ## Ziel und aktueller Stand
 
@@ -13,26 +13,40 @@ ein zukünftiges Architekturziel und ändert den aktuellen Produktstatus nicht:
 Die lokale Assistenzvorschau gehört zu NIKNOLIG; NIKNOLIG und NIKNOLIG Defense
 bleiben eigenständige Apps, Sicherheitsdomänen und Releases.
 
-Heute gibt es keine Elektro-Engel-Core-Laufzeit oder gemeinsame Android-
-Bibliothek. Die JSON-Schemas unter `backend/contracts/` sind deklarative
-Vertragsentwürfe; sie implementieren weder Zustimmung noch Pairing,
-Sensorzugriff oder Datentransfer. Die App-Quellen liegen unter
-`apps/niknolig/` und `apps/niknolig-defense/`. Es werden keine vorhandenen
-Module verschoben und keine App-Runtime-Abhängigkeiten hinzugefügt.
+**Bestätigter Produktzuschnitt (D-01, 21.10.2026):** NIKNOLIG umfasst allgemeine
+Systemfunktionen; Defense zusätzliche Sicherheits- und Notfallfunktionen.
+Elektro-Engels Infrastruktur-Erkennung und Reparaturhinweise gehören
+ausschließlich zu Defense, nicht in die normale NIKNOLIG-App. Die lokale
+Assistenzvorschau in NIKNOLIG belegt keine dieser Funktionen. Auch ein neutraler
+Core erteilt keiner App Rechte außerhalb ihres bestätigten Produktumfangs.
+[D-01-Prüfprotokoll](securitychain-p0-specification.md#d-01-prüfprotokoll-bestätigte-produktgrenzen-und-offene-detailfreigaben):
+Datenzugriffe, Berechtigungen, automatische Aktionen und Datenschutzdetails
+sind offen; D-01 bleibt bis zu den vollständigen Bestätigungen offen.
 
-## Vorgesehene Verantwortungsgrenzen
+Der plattformneutrale Kotlin/JVM-Core `:electro-engel-core` implementiert
+regelbasierte Textanalysen. Die NIKNOLIG-Android-App integriert ihn; Defense
+bleibt ohne Core-Abhängigkeit. Ein Foundation-only Swift-Pendant ist als
+Swift-Package testbar und wird nur in das NIKNOLIG-iOS-Target eingebunden.
+UI und Navigation verbleiben in der jeweiligen NIKNOLIG-App. Der Core importiert
+keine Android-/App-Typen und enthält keinen Netzwerkzugriff. Beide Implementierungen
+weisen auf ihre Heuristik- und Quellenlimits hin. Sie behaupten keine geprüften
+Etymologien oder Fakten. Die JSON-Schemas unter `backend/contracts/` bleiben
+deklarative Entwürfe ohne Consent-, Pairing-, Sensor- oder Transfer-Runtime.
 
-Diese Grenzen beschreiben den späteren Zielzuschnitt, keine heute vorhandenen
-Module:
+## Verantwortungsgrenzen
+
+Der folgende Core enthält heute ausschließlich lokale Textanalyse. Die übrigen
+Zeilen beschreiben zukünftige, nicht implementierte Bereiche:
 
 | Schicht | Verantwortung | Darf nicht enthalten |
 | --- | --- | --- |
-| `core` | Plattformunabhängige Domänenmodelle, deterministische Regeln und Schnittstellen für Zustimmung, Fähigkeiten und minimale Ergebnisse | Android- oder UI-Frameworks, App-Identität, Netzwerk-/Sensorzugriff, NIKNOLIG-spezifische Zustände |
+| `core` | Implementierte Textanalyse-Modelle und deterministische Regeln; spätere, getrennt freizugebende Consent-/Capability-Schnittstellen | Android- oder UI-Frameworks, App-Identität, Netzwerk-/Sensorzugriff, NIKNOLIG-spezifische Zustände |
 | `contracts` | Versionierte, dokumentierte Austauschformate und Kompatibilitätsregeln | Laufzeitannahmen; ein valides Schema ist weder Autorisierung noch Consent |
 | `sensor-adapters` | Lokale, explizit registrierte Implementierungen der Core-Schnittstellen; tatsächliche Laufzeitfähigkeiten melden | Core-Entscheidungen, implizite OS-Freigaben, remote geladener Plugin-Code |
 | `multidevice` | Getrennte Protokoll-/Transportintegration für Gerätekommunikation, erst nach eigener Sicherheitsfreigabe | Allgemeine Fernsteuerung, implizite Wiederaufnahme oder Umgehung von Core-Consent-Prüfungen |
 | Android-Integration / UI | Je App eigene Oberfläche, OS-Permissions, Adapterinstanziierung und Übersetzung in app-lokale Zustände | Gemeinsame App-Credentials, Zugriff auf die Daten der jeweils anderen App |
-| NIKNOLIG-Integration | NIKNOLIG-spezifische Navigation, Vorschau und Produktfunktionen außerhalb des neutralen Core | NIKNOLIG-Abhängigkeiten im Core oder implizite Defense-Berechtigungen |
+| NIKNOLIG-Integration | NIKNOLIG-spezifische Navigation, Vorschau und allgemeine Systemfunktionen außerhalb des neutralen Core | NIKNOLIG-Abhängigkeiten im Core, Infrastruktur-Erkennung oder implizite Defense-Berechtigungen |
+| Defense-Integration | Gesondert freizugebende Sicherheits-/Notfallfunktionen einschließlich Infrastruktur-Erkennung und Reparaturhinweisen durch Elektro-Engel | NIKNOLIG-Datenzugriff oder automatische Reparaturen ohne eigene Freigabe |
 
 Die Abhängigkeitsrichtung verläuft von Integrationen und Adaptern zu eng
 definierten Core-Schnittstellen. Der Core kennt keine konsumierende App und
@@ -51,7 +65,7 @@ bereitstellen; das macht sie nicht zu gegenseitigen Abhängigkeiten.
 - Sensible Vorgänge benötigen eine konkrete, gültige und widerrufbare
   Zustimmung. Schema-Validität ersetzt niemals Installation-/Peer-Identität,
   Autorisierung, OS-Runtime-Permission oder SecurityChain-P0-Prüfung.
-- Contract-Tests bleiben auf den neutralen Verträgen und Invarianten. App-
+- Core-Tests prüfen beide Textanalyse-Implementierungen und Modulgrenzen. App-
   Integrationstests prüfen zusätzlich die getrennte App-Domäne; echte Sensor-
   und Zwei-Geräte-Freigaben bleiben separate manuelle Gates.
 
@@ -59,9 +73,11 @@ bereitstellen; das macht sie nicht zu gegenseitigen Abhängigkeiten.
 
 | Bereich | Aktueller Pfad | Abhängigkeit / Bedeutung für die Trennung |
 | --- | --- | --- |
-| Gradle-Projektdefinition | `settings.gradle.kts`, `build.gradle.kts` | Nur `:niknolig` und `:niknolig-defense` sind Android-Projekte; es gibt kein Core-Modul. |
+| Gradle-Projektdefinition | `settings.gradle.kts`, `build.gradle.kts` | `:electro-engel-core` ist ein plattformneutraler Kotlin/JVM-Core; nur `:niknolig` konsumiert ihn. |
 | NIKNOLIG Android-App | `apps/niknolig/` | Eigene Oberfläche, Manifest, Ressourcen und Build-Konfiguration; keine Abhängigkeit auf die Defense-App. |
 | Defense Android-App | `apps/niknolig-defense/` | Eigene Oberfläche, Manifest, Ressourcen und Build-Konfiguration; keine Abhängigkeit auf NIKNOLIG. |
+| iOS-Core und NIKNOLIG-Integration | `modules/electro-engel/ios/`, `apps/ios/` | Swift-Core ist als Foundation-only Package testbar und im NIKNOLIG-Target kompiliert; Xcode ist für einen vollständigen App-Build erforderlich. |
+| Regelbasierter Core und Tests | `modules/electro-engel/core/` | Eingabe-/Ergebnismodelle, vier Modi, begrenzte Heuristiken und Fehlerzustände; keine Logs, Persistenz, App- oder Netzwerkabhängigkeit. |
 | Consent-/Sensorverträge | `backend/contracts/` | Derzeit gemeinsamer, rein deklarativer Vertragsentwurf; bei späterer Extraktion gemeinsam mit den versionierten Vertragstests migrieren. |
 | API-Entwurf und Backend-Tests | `backend/openapi.yaml`, `backend/tests/test_contracts.py` | Noch keine operative API; kein Produktionsendpunkt oder Laufzeitclient. |
 | Geräte-/Sensor-Sicherheitsplanung | `docs/electro-engel-multidevice-sensors.md`, `docs/device-link-security-design.md` | Quelle für offene Sicherheitsentscheidungen und ausdrückliche Stop-Gates. |
@@ -86,25 +102,24 @@ optional; die strukturellen Invarianten verwenden die Python-Standardbibliothek.
 
 ## Migrationsplan
 
-1. **Vorbereitung im Monorepo:** Diese Modulgrenzen und Vertragsregeln pflegen;
-   Vertragstests in CI ausführen. Keine Laufzeit oder App-Abhängigkeit allein
-   aufgrund der Zielarchitektur hinzufügen.
-2. **Extraktionsreife nachweisen:** Mindestens ein unabhängig nutzbarer,
-   plattformneutraler Core mit stabilen Verbrauchern und dokumentierter API muss
-   existieren. Verantwortliche müssen Scope, Versionierung, Lizenzierung,
-   Maintainer, Release-/Supportprozess und Sicherheitsreview schriftlich
-   festlegen.
+1. **Lokale Textanalyse:** Der vorhandene Core unterstützt vier offline-
+   Regelmodi. Die Heuristiken sind keine Fakten-, Wörterbuch- oder Quellenprüfung;
+   ihre Tests und Grenzen bleiben mit jeder Erweiterung Teil der Schnittstelle.
+2. **Extraktionsreife nachweisen:** Vor einer Repository-Extraktion müssen
+   stabile Verbraucher und Verträge, Umfang, Versionierung, Lizenzierung,
+   Maintainer, Release-/Supportprozess sowie ein Sicherheitsreview schriftlich
+   festgelegt werden.
 3. **Security-Gates erfüllen:** Verbindliche SecurityChain-P0-Kriterien,
    Bedrohungsmodell, Consent-/Widerrufsverhalten, App-Domänen, Datenklassen,
    Identität, Transport, Aufbewahrung und Negativtests müssen freigegeben und
    überprüfbar sein. Ohne diese Nachweise findet keine operative
    Geräte-/Sensorintegration statt.
-4. **Separat extrahieren:** Erst nach Freigabe nur plattformneutrale Core-
-   Implementierung, ihre öffentlichen Verträge, Tests, Dokumentation und
-   reproduzierbare Build-Konfiguration übertragen. Android-UIs,
+4. **Separat extrahieren:** Erst nach Freigabe die plattformneutralen
+   Implementierungen, öffentlichen Verträge, Tests, Dokumentation und
+   reproduzierbare Build-Konfiguration übertragen. Android-/iOS-UIs,
    app-spezifische Ressourcen, Credentials und NIKNOLIG-Integrationen verbleiben
-   in ihren App-Repositories. Sensoradapter und Multi-Device-Transport werden
-   nur übernommen, falls sie separat freigegeben und unabhängig testbar sind.
+   in ihren App-Projekten. Sensoradapter und Multi-Device-Transport werden nur
+   übernommen, falls sie separat freigegeben und unabhängig testbar sind.
 5. **Verbraucher unabhängig anbinden:** Je App eine eigene, explizite Integration
    gegen eine freigegebene Core-Version reviewen. Es gibt keine gemeinsame
    Laufzeit- oder Credential-Domäne und keine automatische Änderung der

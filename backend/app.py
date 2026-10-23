@@ -1,4 +1,4 @@
-from email.message import Message
+import asyncio
 import json
 import os
 import time
@@ -6,37 +6,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import uuid4
 
 from ai_support import SupportService, error_response
+import database
+from migrate import check_ready_async
+from support_http import (
+    MAX_SUPPORT_BODY_BYTES, SUPPORT_READ_TIMEOUT_SECONDS,
+    _is_supported_content_type, _normalize_common_support_payload,
+    _reject_json_constant, _unique_json_object,
+)
 
 
-MAX_SUPPORT_BODY_BYTES = 8192
-SUPPORT_READ_TIMEOUT_SECONDS = 2.0
-
-
-def _unique_json_object(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError("Duplicate JSON field")
-        result[key] = value
-    return result
-
-
-def _reject_json_constant(value):
-    raise ValueError("Non-JSON constant")
-
-
-def _is_supported_content_type(value):
-    parsed = Message()
-    parsed["Content-Type"] = value
-    params = parsed.get_params()
-    if (parsed.get_content_type() != "application/json" or not params or
-            params[0][0].lower() != "application/json"):
-        return False
-    parameters = params[1:]
-    return (not parameters or
-            len(parameters) == 1 and parameters[0][0].lower() == "charset" and
-            isinstance(parameters[0][1], str) and
-            parameters[0][1].lower() == "utf-8")
+def _check_readiness():
+    asyncio.run(database.probe(check_ready_async))
 
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -52,7 +32,21 @@ class HealthHandler(BaseHTTPRequestHandler):
         if path == "/health/live":
             self._send_json(200, {"status": "live"})
         elif path == "/health/ready":
-            self._send_json(200, {"status": "ready"})
+            try:
+                self.server.readiness_probe()
+            except Exception:
+                self._send_json(
+                    503,
+                    {
+                        "error": {
+                            "code": "SERVICE_UNAVAILABLE",
+                            "message": "Service is temporarily unavailable.",
+                            "requestId": str(uuid4()),
+                        }
+                    },
+                )
+            else:
+                self._send_json(200, {"status": "ready"})
         else:
             self._send_json(
                 404,
@@ -67,9 +61,10 @@ class HealthHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         self.close_connection = True
-        if self.path != "/v1/ai/support":
+        if self.path not in ("/support", "/v1/ai/support"):
             self._send_json(*error_response(404, "NOT_FOUND"))
             return
+        common_support_route = self.path == "/support"
         lengths = self.headers.get_all("Content-Length", [])
         if (self.headers.get_all("Transfer-Encoding") or len(lengths) != 1 or
                 not lengths[0].isascii() or not lengths[0].isdigit() or
@@ -113,6 +108,11 @@ class HealthHandler(BaseHTTPRequestHandler):
             return
         finally:
             self.connection.settimeout(SUPPORT_READ_TIMEOUT_SECONDS)
+        if common_support_route:
+            payload = _normalize_common_support_payload(payload)
+            if payload is None:
+                self._send_json(*error_response(400, "VALIDATION_FAILED"))
+                return
         try:
             response = self.server.support_service.handle(
                 self.headers.get("Authorization"), payload
@@ -135,10 +135,13 @@ class HealthHandler(BaseHTTPRequestHandler):
         return
 
 
-def create_server(host, port, *, support_service=None):
+def create_server(host, port, *, support_service=None, readiness_probe=None):
     server = ThreadingHTTPServer((host, port), HealthHandler)
     # Injection is for local preparation tests; main has no enabling path.
     server.support_service = support_service or SupportService()
+    server.readiness_probe = (
+        _check_readiness if readiness_probe is None else readiness_probe
+    )
     server.daemon_threads = True
     return server
 
