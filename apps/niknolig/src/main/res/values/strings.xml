@@ -42,6 +42,7 @@
     <string name="support_payment_notice">Zahlungsfragen werden hier nicht bearbeitet. Bitte wende dich dafür direkt an den Zahlungsanbieter oder Händler. Sende keine Zahlungsdaten an den technischen Support.</string>
     <string name="support_contact_button">Zum KI-Support</string>
     <string name="support_email">n_nold@hotmail.com</string>
+    <string name="official_website_url" translatable="false">https://niknolig.com/</string>
     <string name="support_email_subject">Technische Supportanfrage – NIKNOLIG · %1$s</string>
     <string name="support_email_body">Vorgangskennung: %1$s\nApp: %2$s\nFehlerklasse: %3$s\nDiagnose: %4$s\n\nKein Fragetext oder Gesprächsinhalt wurde übernommen. Du musst diese E-Mail selbst prüfen und senden.</string>
     <string name="support_email_unavailable">Keine E-Mail-App auf diesem Gerät gefunden.</string>

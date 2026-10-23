@@ -36,6 +36,8 @@
     <string name="support_escalation_title">Contact personal support?</string>
     <string name="support_escalation_consent">Recipient: %1$s\n\nAfter your confirmation, an email draft opens with only a random ticket ID, the app, and fixed issue and diagnostic codes. Question text, learning profiles and conversation history are not included. Nothing is sent automatically. Review the draft and send it yourself.</string>
     <string name="support_email_draft">Open email app</string>
+    <string name="support_website_button">Open official website</string>
+    <string name="support_website_unavailable">No browser was found to open the website.</string>
     <string name="support_email_manual">No email app found. You can write to %1$s yourself.</string>
     <string name="support_close">Back to NIKNOLIG Defense</string>
 </resources>

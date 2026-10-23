@@ -36,6 +36,8 @@
     <string name="support_escalation_title">Persönlichen Support einschalten?</string>
     <string name="support_escalation_consent">Empfänger: %1$s\n\nNach deiner Zustimmung öffnet sich ein E-Mail-Entwurf nur mit einer zufälligen Vorgangskennung, der App und festen Fehler- und Diagnosecodes. Frage, Lernprofil und Gesprächsdaten werden nicht übernommen. Nichts wird automatisch gesendet. Prüfe den Entwurf und sende selbst.</string>
     <string name="support_email_draft">E-Mail-App öffnen</string>
+    <string name="support_website_button">Offizielle Website öffnen</string>
+    <string name="support_website_unavailable">Es wurde kein Browser zum Öffnen der Website gefunden.</string>
     <string name="support_email_manual">Keine E-Mail-App gefunden. Du kannst selbst an %1$s schreiben.</string>
     <string name="support_close">Zurück zu NIKNOLIG</string>
 </resources>

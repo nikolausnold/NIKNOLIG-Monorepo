@@ -9,6 +9,39 @@ APPS = {"niknolig": "com/niknolig/app", "niknolig-defense": "com/niknolig/defens
 
 
 class SupportFlowTests(unittest.TestCase):
+    def test_android_official_website_links_use_product_domains(self):
+        websites = {
+            "niknolig": "https://niknolig.com/",
+            "niknolig-defense": "https://defense.niknolig.com/",
+        }
+        for app, website in websites.items():
+            with self.subTest(app=app):
+                main = ROOT / "apps" / app / "src/main"
+                for folder in ("values", "values-en"):
+                    resources = ET.parse(main / "res" / folder / "strings.xml")
+                    strings = {item.get("name"): item for item in resources.findall("string")}
+                    self.assertEqual(website, strings["official_website_url"].text)
+                    self.assertEqual("false", strings["official_website_url"].get("translatable"))
+                layout = ET.parse(main / "res/layout/activity_support.xml")
+                button = next(
+                    item for item in layout.iter("Button")
+                    if item.get(ANDROID + "id") == "@+id/support_website"
+                )
+                self.assertEqual("48dp", button.get(ANDROID + "minHeight"))
+                source = (main / "java" / APPS[app] / "SupportActivity.kt").read_text()
+                self.assertIn("Intent(Intent.ACTION_VIEW", source)
+                self.assertIn("R.string.official_website_url", source)
+                self.assertIn("R.string.support_website_unavailable", source)
+                self.assertIn("catch (_: ActivityNotFoundException)", source)
+                for folder, label in (
+                    ("values", "Offizielle Website öffnen"),
+                    ("values-en", "Open official website"),
+                ):
+                    support = ET.parse(main / "res" / folder / "support_strings.xml")
+                    strings = {item.get("name"): item.text for item in support.findall("string")}
+                    self.assertEqual(label, strings["support_website_button"])
+                    self.assertTrue(strings["support_website_unavailable"])
+
     def test_support_is_internal_and_only_allows_internet_without_cleartext(self):
         for app in APPS:
             with self.subTest(app=app):
@@ -156,9 +189,15 @@ class SupportFlowTests(unittest.TestCase):
 
     def test_ios_support_uses_shared_core_and_defense_is_not_an_emergency_channel(self):
         ios = ROOT / "apps" / "ios"
-        for filename in ("NIKNOLIGApp.swift", "NIKNOLIGDefenseApp.swift"):
+        websites = {
+            "NIKNOLIGApp.swift": "https://niknolig.com/",
+            "NIKNOLIGDefenseApp.swift": "https://defense.niknolig.com/",
+        }
+        for filename, website in websites.items():
             with self.subTest(app=filename):
                 source = (ios / filename).read_text()
+                self.assertIn(website, source)
+                self.assertIn('Link("Offizielle Website öffnen"', source)
                 self.assertIn('Section("Offline-Support")', source)
                 self.assertIn("SupportAssistant.answer(question)", source)
                 self.assertIn("SupportEscalationQueue", source)

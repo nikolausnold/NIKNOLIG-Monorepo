@@ -16,6 +16,10 @@ private enum NIKNOLIGRoute: Hashable {
     case support
 }
 
+private enum NIKNOLIGOfficialWebsite {
+    static let url = URL(string: "https://niknolig.com/")
+}
+
 private enum NIKNOLIGHealthState: Equatable {
     case notConfigured
     case checking
@@ -304,6 +308,11 @@ private struct NIKNOLIGSupportView: View {
                     .accessibilityAddTraits(.updatesFrequently)
                 Button("Verbindung prüfen", action: checkBackend)
                     .disabled(healthState == .checking)
+            }
+            if let websiteURL = NIKNOLIGOfficialWebsite.url {
+                Section("Website") {
+                    Link("Offizielle Website öffnen", destination: websiteURL)
+                }
             }
             Section("E-Mail-Support") {
                 Text("Ungeklärte Fragen bleiben lokal verschlüsselt. Nach Bestätigung enthält der E-Mail-Entwurf nur eine zufällige Vorgangskennung, die App und feste Fehler- und Diagnosecodes, keinen Fragetext.")

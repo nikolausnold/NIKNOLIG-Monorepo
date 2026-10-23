@@ -74,11 +74,14 @@ und mobile KI-Integration stehen weiterhin aus.
 - Animationen und ein tatsächlicher Gerätewechsel des Elektro-Engels sind
   nicht implementiert. Die produktlokalen Support-Symbole sind statisch.
 
-Die Website-Quellen liegen in den separaten Repositories
-`nikolausnold/NIKNOLIG` und `nikolausnold/NIKNOLIG-Defense`; sie wurden nicht
-verändert. Dort ist die jeweilige Produktidentität später separat zu übernehmen,
-mit größeren Einstiegsflächen und responsiven Inhaltsrastern statt kopierter
-App-Layouts. Diese Änderung bleibt im Monorepo.
+Die Website-Quellen liegen in `nikolausnold/NIKNOLIG` und
+`nikolausnold/-NIKNOLIG-Defense-Website`; sie wurden nicht verändert. Beide
+Android-Supportseiten und beide nativen iOS-Supportansichten verlinken auf die
+jeweilige offizielle Website und öffnen sie außerhalb der App. Die verbindliche
+Domain- und Repository-Zuordnung steht in der
+[Monorepo-Übersicht](../README.md#offizielle-websites-und-app-zuordnung).
+Die eigenständigen Websites behalten ihre responsiven Weblayouts; App-Layouts
+werden nicht kopiert.
 
 ## Prüfung und verbleibende Abnahme
 

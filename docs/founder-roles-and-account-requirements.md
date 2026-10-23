@@ -132,7 +132,7 @@ Backendimplementierung:
   Rollenstatus-Client unter `app/src/main/java/com/niknolig/app/`, UI in
   `app/src/main/res/`, Tests in `app/src/test/` und
   `app/src/androidTest/`; keine Defense-Berechtigungsdaten.
-- [NIKNOLIG Defense](https://github.com/nikolausnold/NIKNOLIG-Defense): eigener
+- [NIKNOLIG Defense](https://github.com/nikolausnold/-NIKNOLIG-Defense-Website): eigener
   Login- und Rollenstatus-Client unter `app/src/main/java/com/niknolig/defense/`,
   UI in `app/src/main/res/`, Tests in `app/src/test/` und
   `app/src/androidTest/`; keine NIKNOLIG-Berechtigungsdaten.

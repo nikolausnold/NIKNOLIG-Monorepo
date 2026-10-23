@@ -24,7 +24,7 @@ from pathlib import Path
 
 DEFAULT_REGISTRY = Path(__file__).resolve().parents[1] / "config/system-repositories.json"
 SHA = re.compile(r"[0-9a-fA-F]{40}\Z")
-REPOSITORY = re.compile(r"nikolausnold/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}\Z")
+REPOSITORY = re.compile(r"nikolausnold/[-A-Za-z0-9][A-Za-z0-9_.-]{0,99}\Z")
 IDENTIFIER = re.compile(r"[a-z][a-z0-9-]{0,63}\Z")
 
 

@@ -21,7 +21,7 @@ The existing email path is a user-confirmed `mailto:` draft. The public NIKNOLIG
 website also uses a `mailto:n_nold@hotmail.com` link in its contact section:
 [`NIKNOLIG/index.html`](https://github.com/nikolausnold/NIKNOLIG/blob/main/index.html)
 and
-[`NIKNOLIG-Defense-Website-/index.html`](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-/blob/main/index.html).
+[`-NIKNOLIG-Defense-Website/index.html`](https://github.com/nikolausnold/-NIKNOLIG-Defense-Website/blob/main/index.html).
 No website server-side mail sender, SMTP configuration, or automatic email
 delivery path was found. Both mobile platforms reuse their existing
 user-confirmed `mailto:` flow. A successful handoff is not proof of delivery.
