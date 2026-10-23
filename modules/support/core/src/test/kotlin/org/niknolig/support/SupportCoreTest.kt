@@ -112,10 +112,60 @@ class SupportCoreTest {
         assertTrue(queue.pending().isEmpty())
     }
 
+    @Test
+    fun metadataSharingAllowsOnlyFixedCodesAndMatchingApp() {
+        val ticket = SupportEscalationQueue(MemoryTicketStore()).enqueue(
+            SupportApp.NIKNOLIG, "request-4", "UNRESOLVED", "NO_MATCH", "Y3lwaGVydGV4dA==",
+        )
+        assertTrue(ticket.canShareMetadata(SupportApp.NIKNOLIG))
+        assertFalse(ticket.canShareMetadata(SupportApp.NIKNOLIG_DEFENSE))
+        assertFalse(ticket.copy(issueCode = "PRIVATE_CUSTOMER_TEXT").canShareMetadata(SupportApp.NIKNOLIG))
+        assertFalse(ticket.copy(diagnosticCode = "PRIVATE_CUSTOMER_TEXT").canShareMetadata(SupportApp.NIKNOLIG))
+        assertFalse(ticket.copy(id = "customer-text").canShareMetadata(SupportApp.NIKNOLIG))
+        assertTrue(ticket.copy(encryptedPayload = "unreadable").canShareMetadata(SupportApp.NIKNOLIG))
+    }
+
+    @Test
+    fun localDeletionWorksInEveryStateAndIsScopedAndPersistent() {
+        HandoffState.entries.forEach { state ->
+            val store = MemoryTicketStore()
+            val queue = SupportEscalationQueue(store)
+            val ticket = queue.enqueue(
+                SupportApp.NIKNOLIG, "same-key", "UNRESOLVED", "NO_MATCH", "Y3lwaGVydGV4dA==",
+            )
+            val other = queue.enqueue(
+                SupportApp.NIKNOLIG_DEFENSE, "same-key", "UNRESOLVED", "NO_MATCH", "Y3lwaGVydGV4dA==",
+            )
+            store.save(store.load().map {
+                if (it.id == ticket.id) it.copy(handoffState = state, handoffAttempts = 3) else it
+            })
+            assertFalse(queue.remove(ticket.id, SupportApp.NIKNOLIG_DEFENSE))
+            assertTrue(queue.remove(ticket.id, SupportApp.NIKNOLIG))
+            assertFalse(queue.remove(ticket.id, SupportApp.NIKNOLIG))
+            assertEquals(listOf(other), SupportEscalationQueue(store).pending())
+            assertNull(queue.finishHandoff(ticket.id, launched = true))
+            assertNull(queue.beginHandoff(ticket.id))
+        }
+    }
+
+    @Test
+    fun failedLocalDeletionDoesNotReportSuccessOrDropTicket() {
+        val store = MemoryTicketStore()
+        val queue = SupportEscalationQueue(store)
+        val ticket = queue.enqueue(
+            SupportApp.NIKNOLIG, "delete-failure", "UNRESOLVED", "NO_MATCH", "Y3lwaGVydGV4dA==",
+        )
+        store.failSave = true
+        assertTrue(runCatching { queue.remove(ticket.id, SupportApp.NIKNOLIG) }.isFailure)
+        assertEquals(listOf(ticket), queue.pending())
+    }
+
     private class MemoryTicketStore : SupportTicketStore {
         private var tickets = emptyList<EscalationTicket>()
+        var failSave = false
         override fun load() = tickets
         override fun save(tickets: List<EscalationTicket>) {
+            check(!failSave)
             this.tickets = tickets.toList()
         }
     }

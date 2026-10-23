@@ -68,6 +68,19 @@ class SupportActivity : Activity() {
             }
         }
         findViewById<Button>(R.id.support_close).setOnClickListener { finish() }
+        findViewById<Button>(R.id.support_delete_ticket).setOnClickListener {
+            val ticketId = pendingTicketId ?: return@setOnClickListener
+            if (runCatching { supportQueue?.remove(ticketId, supportApp) }.getOrNull() == true) {
+                pendingTicketId = null
+                questionInput.text.clear()
+                lastQuestion = null
+                refreshQueueState()
+                answerView.visibility = View.VISIBLE
+                answerView.setText(R.string.support_ticket_deleted)
+            } else {
+                Toast.makeText(this, R.string.support_ticket_delete_failed, Toast.LENGTH_LONG).show()
+            }
+        }
         refreshQueueState()
     }
 
@@ -206,6 +219,8 @@ class SupportActivity : Activity() {
         }
         findViewById<Button>(R.id.support_mark_sent).visibility =
             if (ticket?.handoffState?.name == "HANDED_OFF") View.VISIBLE else View.GONE
+        findViewById<Button>(R.id.support_delete_ticket).visibility =
+            if (ticket != null) View.VISIBLE else View.GONE
     }
 
     private fun openEmailDraft() {
@@ -239,8 +254,7 @@ class SupportActivity : Activity() {
             ).show()
             return
         }
-        val question = runCatching { payloadCipher.decrypt(currentTicket.encryptedPayload) }.getOrNull()
-        if (question == null) {
+        if (!currentTicket.canShareMetadata(supportApp)) {
             Toast.makeText(this, R.string.support_queue_unavailable, Toast.LENGTH_LONG).show()
             return
         }
@@ -270,7 +284,6 @@ class SupportActivity : Activity() {
                         supportApp.value,
                         started.issueCode,
                         started.diagnosticCode,
-                        question,
                     ))}"
             )
         }

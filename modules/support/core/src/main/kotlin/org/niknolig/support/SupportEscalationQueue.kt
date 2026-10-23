@@ -23,7 +23,14 @@ data class EscalationTicket(
     val createdAtMillis: Long,
     val handoffAttempts: Int = 0,
     val handoffState: HandoffState = HandoffState.READY,
-)
+) {
+    fun canShareMetadata(expectedApp: SupportApp): Boolean =
+        app == expectedApp &&
+            runCatching { UUID.fromString(id).toString() == id }.getOrDefault(false) &&
+            issueCode in (AnswerCode.entries.map { it.name } + listOf("BACKEND", "MANUAL_REQUEST")) &&
+            diagnosticCode in (BackendDiagnostic.entries.map { it.name } +
+                listOf("AI_DISABLED", "UNRESOLVED", "NO_MATCH"))
+}
 
 interface SupportTicketStore {
     fun load(): List<EscalationTicket>
@@ -114,6 +121,15 @@ class SupportEscalationQueue(
             return false
         }
         store.save(tickets.filterNot { it.id == ticketId })
+        return true
+    }
+
+    @Synchronized
+    fun remove(ticketId: String, app: SupportApp): Boolean {
+        val tickets = store.load()
+        val remaining = tickets.filterNot { it.id == ticketId && it.app == app }
+        if (remaining.size == tickets.size) return false
+        store.save(remaining)
         return true
     }
 

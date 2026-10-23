@@ -84,7 +84,8 @@ class SupportFlowTests(unittest.TestCase):
                 cipher = (main / "java" / package / "AndroidSupportPayloadCipher.kt").read_text()
                 self.assertIn("AES/GCM/NoPadding", cipher)
                 self.assertIn("AndroidKeyStore", cipher)
-                self.assertIn("payloadCipher.decrypt(currentTicket.encryptedPayload)", source)
+                self.assertNotIn(".decrypt(", source)
+                self.assertIn("currentTicket.canShareMetadata(supportApp)", source)
 
     def test_draft_uses_existing_mailto_path_and_handles_missing_email_app(self):
         for app, package in APPS.items():
@@ -110,6 +111,37 @@ class SupportFlowTests(unittest.TestCase):
                     "false",
                     manifest.find("./application").get(ANDROID + "allowBackup"),
                 )
+                draft = source.split("val emailIntent =", 1)[1].split("try {", 1)[0]
+                for forbidden in ("question", "encryptedPayload", "requestKey", "decrypt"):
+                    self.assertNotIn(forbidden, draft)
+                for folder in ("values", "values-en"):
+                    resources = ET.parse(
+                        ROOT / "apps" / app / "src/main/res" / folder / "strings.xml"
+                    )
+                    body = next(item.text for item in resources.findall("string")
+                                if item.get("name") == "support_email_body")
+                    self.assertNotIn("%5$s", body)
+                    for index in range(1, 5):
+                        self.assertIn(f"%{index}$s", body)
+
+    def test_android_local_delete_is_available_for_every_ticket_state(self):
+        for app, package in APPS.items():
+            with self.subTest(app=app):
+                main = ROOT / "apps" / app / "src/main"
+                source = (main / "java" / package / "SupportActivity.kt").read_text()
+                self.assertIn("supportQueue?.remove(ticketId, supportApp)", source)
+                self.assertIn(
+                    "if (ticket != null) View.VISIBLE else View.GONE", source
+                )
+                layout = ET.parse(main / "res/layout/activity_support.xml")
+                self.assertTrue(any(
+                    item.get(ANDROID + "id") == "@+id/support_delete_ticket"
+                    for item in layout.iter("Button")
+                ))
+                for folder, expected in (("values", "zurückgerufen"), ("values-en", "recalled")):
+                    resources = ET.parse(main / "res" / folder / "support_strings.xml")
+                    strings = {item.get("name"): item.text for item in resources.findall("string")}
+                    self.assertIn(expected, strings["support_ticket_deleted"])
 
     def test_ticket_queue_is_bounded_and_handoff_is_idempotent(self):
         source = (ROOT / "modules/support/core/src/main/kotlin/org/niknolig/support/SupportEscalationQueue.kt").read_text()
@@ -133,6 +165,15 @@ class SupportFlowTests(unittest.TestCase):
                 self.assertIn('Section("E-Mail-Support")', source)
                 self.assertIn("Nichts wird automatisch gesendet.", source)
                 self.assertNotIn("/v1/ai/support", source)
+                self.assertNotIn(".decrypt(", source)
+                self.assertIn("currentTicket.canShareMetadata(for:", source)
+                self.assertIn('Button("Lokalen Vorgang löschen", role: .destructive', source)
+                self.assertIn("supportQueue.remove(ticket.id, app:", source)
+                self.assertIn("nicht gelöscht oder zurückgerufen", source)
+                draft = source.split("components.queryItems =", 1)[1].split("guard let url", 1)[0]
+                for forbidden in ("question", "encryptedPayload", "requestKey", "decrypt"):
+                    self.assertNotIn(forbidden, draft)
+                self.assertIn("guard ticket?.id == started.id else { return }", source)
         project = (ios / "NIKNOLIG.xcodeproj/project.pbxproj").read_text()
         self.assertIn("SupportCore.swift in NIKNOLIG Sources", project)
         self.assertIn("SupportCore.swift in Defense Sources", project)

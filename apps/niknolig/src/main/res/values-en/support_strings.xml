@@ -4,12 +4,15 @@
     <string name="support_answer_button">Show offline answer</string>
     <string name="support_answer_empty">Please enter a short question.</string>
     <string name="support_answer_backend">The connection check only verifies backend reachability and readiness, not AI availability. Check the status below. If it fails, you can prepare an email with the diagnostic.</string>
-    <string name="support_answer_privacy">A local FAQ question is processed only on this device. Unresolved questions are stored encrypted and are added to an email draft only after you confirm.</string>
+    <string name="support_answer_privacy">Questions are processed locally; unresolved questions stay encrypted on this device. After confirmation, email drafts contain only a random ticket ID, the app, and fixed issue and diagnostic codes, never question text.</string>
     <string name="support_answer_payment">We cannot handle payment questions. Contact your payment provider or merchant, and do not send payment details to technical support.</string>
     <string name="support_answer_troubleshooting">Restart the app and retry the step. For connection problems, check the backend status below. If the issue persists, describe it in the email draft.</string>
     <string name="support_answer_account">Accounts and password recovery are not available yet. Never send your password. This request is queued for personal review.</string>
     <string name="support_answer_unresolved">There is no reliable offline answer for this. The request is queued with a technical identifier; after confirmation, you can describe it by email.</string>
-    <string name="support_ticket_queued">Stored encrypted: %1$s. The question is added to an email draft only after you confirm.</string>
+    <string name="support_ticket_queued">Stored encrypted locally: %1$s. Question text is never added to email drafts.</string>
+    <string name="support_ticket_delete">Delete local ticket (does not recall email)</string>
+    <string name="support_ticket_deleted">Local ticket deleted. External email drafts and sent emails were not deleted or recalled.</string>
+    <string name="support_ticket_delete_failed">The local ticket could not be deleted.</string>
     <string name="support_ticket_handed_off">Handed to the email app: %1$s. Delivery is not confirmed.</string>
     <string name="support_ticket_handoff_uncertain">Handoff status is uncertain. Check your email app first; reopening could create a duplicate draft.</string>
     <string name="support_queue_unavailable">The request could not be safely queued. No email was opened.</string>
@@ -31,7 +34,7 @@
     <string name="support_ai_unavailable">AI support has not been approved and remains disabled. You can request personal help by email – only with your confirmation.</string>
     <string name="support_escalate">No AI help: prepare email</string>
     <string name="support_escalation_title">Contact personal support?</string>
-    <string name="support_escalation_consent">Recipient: %1$s\n\nAfter your confirmation, an email draft opens with your current question and limited technical diagnostics. Nothing is sent automatically. Learning profiles and conversation history are not included. Remove sensitive information, review the draft, and send it yourself.</string>
+    <string name="support_escalation_consent">Recipient: %1$s\n\nAfter your confirmation, an email draft opens with only a random ticket ID, the app, and fixed issue and diagnostic codes. Question text, learning profiles and conversation history are not included. Nothing is sent automatically. Review the draft and send it yourself.</string>
     <string name="support_email_draft">Open email app</string>
     <string name="support_email_manual">No email app found. You can write to %1$s yourself.</string>
     <string name="support_close">Back to NIKNOLIG</string>

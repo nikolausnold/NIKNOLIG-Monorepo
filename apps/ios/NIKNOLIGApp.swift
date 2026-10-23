@@ -293,7 +293,7 @@ private struct NIKNOLIGSupportView: View {
                             questionRequestKey = UUID().uuidString
                         }
                     }
-                    .accessibilityHint("Ungeklärte Fragen werden verschlüsselt vorgemerkt und nur nach deiner Bestätigung in einen E-Mail-Entwurf übernommen.")
+                    .accessibilityHint("Ungeklärte Fragen bleiben verschlüsselt auf diesem Gerät. E-Mail-Entwürfe enthalten keinen Fragetext.")
                 Button("Offline-Antwort anzeigen", action: answerQuestion)
                 if !answer.isEmpty {
                     Text(answer).accessibilityAddTraits(.updatesFrequently)
@@ -306,7 +306,7 @@ private struct NIKNOLIGSupportView: View {
                     .disabled(healthState == .checking)
             }
             Section("E-Mail-Support") {
-                Text("Ungeklärte Vorgänge werden verschlüsselt mit Kennung und Diagnoseschlüssel vorgemerkt. Der Fragetext wird nur nach deiner Bestätigung in den E-Mail-Entwurf übernommen.")
+                Text("Ungeklärte Fragen bleiben lokal verschlüsselt. Nach Bestätigung enthält der E-Mail-Entwurf nur eine zufällige Vorgangskennung, die App und feste Fehler- und Diagnosecodes, keinen Fragetext.")
                     .foregroundStyle(.secondary)
                 Button("E-Mail-Entwurf öffnen") {
                     showingEmailConfirmation = true
@@ -314,9 +314,16 @@ private struct NIKNOLIGSupportView: View {
                 if let ticket {
                     Text("Vorgemerkt: \(ticket.id.uuidString). Versand ist nicht bestätigt.")
                         .font(.footnote)
+                    if ticket.handoffState == .uncertain {
+                        Text("Übergabestatus unklar. Prüfe zuerst die E-Mail-App, um doppelte Entwürfe zu vermeiden.")
+                    }
                     if ticket.handoffState == .handedOff {
+                        Text("An die E-Mail-App übergeben; dies bestätigt keinen Versand.")
                         Button("E-Mail wurde gesendet") { markTicketSent() }
                     }
+                    Button("Lokalen Vorgang löschen", role: .destructive, action: deleteTicket)
+                    Text("Löschen entfernt nur diesen lokalen Vorgang. Entwürfe oder gesendete E-Mails in der E-Mail-App werden nicht gelöscht oder zurückgerufen.")
+                        .font(.footnote)
                 }
             }
             if !emailMessage.isEmpty {
@@ -333,7 +340,7 @@ private struct NIKNOLIGSupportView: View {
             Button("E-Mail öffnen") { openSupportEmail() }
             Button("Abbrechen", role: .cancel) {}
         } message: {
-            Text("Empfänger: n_nold@hotmail.com. Der Entwurf enthält deine aktuelle Frage und eine begrenzte Diagnose. Nichts wird automatisch gesendet. Prüfe den Entwurf und entferne sensible Angaben.")
+            Text("Empfänger: n_nold@hotmail.com. Der Entwurf enthält nur eine zufällige Vorgangskennung, die App und feste Fehler- und Diagnosecodes. Frage, Lernprofil und Gesprächsdaten werden nicht übernommen. Nichts wird automatisch gesendet. Prüfe den Entwurf und sende selbst.")
         }
     }
 
@@ -378,7 +385,7 @@ private struct NIKNOLIGSupportView: View {
             case .backendHealth:
                 "Der Verbindungstest prüft nur Backend-Erreichbarkeit, nicht die KI-Verfügbarkeit."
             case .privacy:
-                "Die Frage wird nur auf diesem Gerät beantwortet und nicht gespeichert oder übertragen. Eine Übermittlung erfolgt ausschließlich nach deiner Bestätigung per E-Mail."
+                "Fragen werden nur lokal beantwortet; ungeklärte Fragen bleiben lokal verschlüsselt. E-Mail-Entwürfe enthalten nach Bestätigung nur eine zufällige Vorgangskennung, die App und feste Fehler- und Diagnosecodes, keinen Fragetext."
             case .payment:
                 "Zahlungsfragen können wir nicht bearbeiten. Wende dich an den Zahlungsanbieter oder Händler; sende keine Zahlungsdaten."
             case .troubleshooting:
@@ -445,8 +452,8 @@ private struct NIKNOLIGSupportView: View {
                 : "Übergabestatus unklar oder Anfrage nicht vorgemerkt. Prüfe zuerst die E-Mail-App."
             return
         }
-        guard let questionText = try? payloadCipher.decrypt(currentTicket.encryptedPayload) else {
-            emailMessage = "Die vorgemerkte Anfrage konnte nicht entschlüsselt werden. Nichts wurde geöffnet."
+        guard currentTicket.canShareMetadata(for: .niknolig) else {
+            emailMessage = "Die Vorgangsmetadaten sind ungültig. Nichts wurde geöffnet."
             return
         }
         guard let started = try? supportQueue.beginHandoff(currentTicket.id) else {
@@ -468,9 +475,7 @@ private struct NIKNOLIGSupportView: View {
                 Fehlerklasse: \(started.issueCode)
                 Diagnose: \(started.diagnosticCode)
 
-                Frage: \(questionText)
-
-                Bitte sende keine Passwörter, Zahlungsdaten oder sensiblen Angaben. Du musst diese E-Mail selbst prüfen und senden.
+                Kein Fragetext oder Gesprächsinhalt wurde übernommen. Du musst diese E-Mail selbst prüfen und senden.
                 """
             )
         ]
@@ -480,7 +485,9 @@ private struct NIKNOLIGSupportView: View {
             return
         }
         openURL(url) { accepted in
-            ticket = try? supportQueue.finishHandoff(started.id, launched: accepted)
+            let updated = try? supportQueue.finishHandoff(started.id, launched: accepted)
+            guard ticket?.id == started.id else { return }
+            ticket = updated
             emailMessage = accepted
                 ? "E-Mail-App geöffnet. Nichts wurde gesendet. Prüfe den Entwurf und sende selbst."
                 : "Keine E-Mail-App verfügbar. Der Vorgang bleibt vorgemerkt und kann begrenzt erneut versucht werden."
@@ -490,7 +497,22 @@ private struct NIKNOLIGSupportView: View {
     private func markTicketSent() {
         guard let ticket, (try? supportQueue.complete(ticket.id)) == true else { return }
         self.ticket = nil
+        loadTicket()
         emailMessage = "Vorgang auf diesem Gerät abgeschlossen."
+    }
+
+    private func deleteTicket() {
+        guard let ticket else { return }
+        do {
+            guard try supportQueue.remove(ticket.id, app: .niknolig) else { return }
+            self.ticket = nil
+            question = ""
+            answer = ""
+            loadTicket()
+            emailMessage = "Lokaler Vorgang gelöscht. Externe E-Mail-Entwürfe und gesendete E-Mails wurden nicht gelöscht oder zurückgerufen."
+        } catch {
+            emailMessage = "Der lokale Vorgang konnte nicht gelöscht werden."
+        }
     }
 }
 
