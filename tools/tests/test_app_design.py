@@ -262,11 +262,14 @@ class AppDesignTests(unittest.TestCase):
         self.assertEqual(2, text.count("Kein bestätigter TestFlight-Einladungslink"))
         for phrase in (
             "fünf aufeinanderfolgende 24-Stunden-Zeiträume",
+            "getrennter kostenloser Defense-Zugang für 48 Stunden",
+            "nicht allein wegen eines abgelaufenen Tests oder fehlender Zahlung",
+            "Prüfung ist noch nicht festgelegt",
             "Keine Zahlungsmethode", "keine automatische Zahlung",
             "nicht der Zugang zu NIKNOLIG", "keine Notfallhilfe",
         ):
             self.assertIn(phrase, text)
-        self.assertNotIn("48 Stunden", text)
+        self.assertIn("48 Stunden", text)
         self.assertFalse(any(tag in ("form", "script") for tag, _ in page.elements))
 
 

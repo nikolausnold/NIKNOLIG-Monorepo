@@ -3,7 +3,7 @@
 **Ergebnis: BLOCKED**
 
 **Audit-Baseline:** 2026-10-15, Bestandsaufnahme ab 15:03 UTC
-**Letzte Aktualisierung:** 2026-10-23 (Verteilung und Defense-Zugang)
+**Letzte Aktualisierung:** 2026-10-23 (zusätzliche Notfallzugangsregel)
 
 **Repository:** `nikolausnold/NIKNOLIG-Monorepo`
 
@@ -17,8 +17,13 @@
 für diesen Auftrag; die älteren Auditabschnitte darunter bleiben historische
 Nachweise. Insbesondere existieren inzwischen App-Testquellen, ein lokales
 iOS-Projekt und Health-/Support-Laufzeiten, aber keine Konto-/Entitlement-API.
-Die neue Fünf-Tage-Regel ersetzt die frühere 48-Stunden-Härtefallregel; der
-Test verlangt keinen Nachweis einer Notlage.
+Der reguläre Fünf-Tage-Test und der zusätzliche kostenlose 48-Stunden-
+Notfallzugang sind getrennte Regeln. Der Notfallzugang gilt für Personen, die
+sich nachweislich nicht selbst aus einer Notlage befreien können, und darf nicht
+allein wegen eines abgelaufenen Tests oder fehlender Zahlung blockiert werden.
+Die konkrete Prüfung ist nicht festgelegt oder implementiert und darf nicht
+durch ein unbelegtes Verfahren ersetzt werden. Für den regulären Test ist kein
+Notlagen- oder Gesundheitsnachweis erforderlich.
 
 ### Geänderte Bereiche und Veröffentlichungsnachweise
 
@@ -149,7 +154,7 @@ Der sichere Mindestumfang nach Identitäts-/SecurityChain-P0-Freigabe ist:
 
 | Ereignis | Erwartetes Verhalten nach Implementierung |
 | --- | --- |
-| Noch nicht aktiviert | „Fünf Tage kostenlos aktivieren“, Laufzeit/keine Zahlungsmethode erklären; nur bewusste Bestätigung startet serverseitig. |
+| Noch nicht aktiviert | „Fünf Tage kostenlos aktivieren“, Laufzeit/keine Zahlungsmethode erklären; nur bewusste Bestätigung startet serverseitig. Der separate Notfallzugang ist davon unabhängig. |
 | Aktiver Test | Aktivierungszeit, Endzeit mit Zeitzone, Restdauer aus Serverzeit; Geräteuhränderung verlängert nichts. |
 | Exakt am Ablauf / abgelehntes Upgrade | „Dein kostenloser Defense-Test ist beendet.“ Optional „Dauerhaft für einmalig 0,75 € freischalten“ nur bei bestätigtem Storepreis; kein automatischer Dialog, keine Zahlung bei Ablehnung. NIKNOLIG bleibt nutzbar. |
 | Erfolgreicher verifizierter Kauf / Restore | Dauerhaft freigeschaltet, Konto synchronisieren, keinen erneuten Kauf anbieten. |
@@ -157,11 +162,14 @@ Der sichere Mindestumfang nach Identitäts-/SecurityChain-P0-Freigabe ist:
 | Pending / Verifikation nicht erreichbar | „Kauf ausstehend“ bzw. „Prüfung nicht verfügbar“, kein vorzeitiger Grant, keinen zweiten Kauf anstoßen; später synchronisieren. |
 | Erstattet / widerrufen | Betroffenen Kaufgrant entziehen, keine neue Trialaktivierung; andere unabhängig gültige Kaufgrants oder ein noch laufender Originaltest bleiben maßgeblich. Kein Neuverkauf ohne neue ausdrückliche Entscheidung. |
 | Offline / Serverfehler | „Berechtigung nicht synchronisierbar“, nicht „Test beendet“ behaupten; keine erfundenen Zeitwerte und keine neuen Grants. Nach Verbindung neu prüfen. |
+| Notfallzugang | Separater kostenloser Defense-Zugang für 48 Stunden für Personen, die sich nachweislich nicht selbst aus einer Notlage befreien können; nicht allein wegen abgelaufenem Test oder fehlender Zahlung sperren. Die konkrete sichere, datensparsame und dokumentierte Prüfung muss vor Umsetzung festgelegt werden; derzeit weder umgesetzt noch verfügbar. |
 
-Ohne Test/Upgrade bleiben die freizugebenden Defense-Sicherheits-,
-Notfall-, Infrastruktur-Erkennungs- und Reparaturhinweisfunktionen gesperrt.
-**Aktuell sind diese Funktionen ohnehin nicht implementiert**, auch nicht gegen
-Zahlung. Konkreter freigegebener Funktionskatalog ist ein Veröffentlichungsblocker.
+Die Zugangsregeln schalten keine Funktion frei: Defense-Sicherheits-,
+Notfall-, Infrastruktur-Erkennungs- und Reparaturhinweisfunktionen sind aktuell
+nicht implementiert. Der konkrete freigegebene Funktionskatalog ist ein
+Veröffentlichungsblocker. Die eigenständige 48-Stunden-Regel darf nicht allein
+am Ablauf des regulären Tests oder an fehlender Zahlung scheitern, ist aber noch
+nicht technisch verfügbar.
 Ein kostenpflichtiges Upgrade garantiert keine Notfallhilfe. Bei akuter Gefahr
 örtliche Notrufnummer verwenden; keine Zahlung oder Nachweisprüfung vor Notruf
 suggerieren. Verbraucherrechte, Storebedingungen, GDPR-Rechtsgrundlagen und

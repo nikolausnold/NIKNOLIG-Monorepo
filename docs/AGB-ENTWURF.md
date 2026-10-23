@@ -61,7 +61,13 @@ fachjuristische Prüfung:
   oder App-Start. Serverzeit bestimmt Beginn und Ablauf; Neuinstallation,
   Geräte- und Plattformwechsel gewähren keinen neuen Test. Keine Zahlungsmethode
   erforderlich; kein Notlagen- oder Gesundheitsnachweis wird für den Test verlangt.
-  Diese Vorgabe ersetzt die frühere 48-Stunden-Härtefallregel.
+- **Zusätzlicher Notfallzugang für NIKNOLIG Defense:** Personen, die sich
+  nachweislich nicht selbst aus einer Notlage befreien können, erhalten 48 Stunden
+  kostenlosen Defense-Zugang. Diese Regel gilt getrennt vom regulären Fünf-Tage-Test
+  und dem Einmalkauf. Der Zugang darf nicht allein wegen eines abgelaufenen Tests
+  oder fehlender Zahlung blockiert werden. Die konkrete Prüfung ist noch nicht
+  festgelegt; sie muss vor Umsetzung sicher, datensparsam und dokumentiert definiert
+  werden. Es werden keine bestimmten Nachweise oder Prüfverfahren unterstellt.
 - **Nach Ablauf:** optionales dauerhaftes Defense-Upgrade für **einmalig 0,75 €**
   für dasselbe Konto auf unterstützten Plattformen, mit Wiederherstellung nach
   Storeprüfung. Kein Abonnement, keine automatische Verlängerung, keine

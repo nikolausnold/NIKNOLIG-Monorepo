@@ -276,7 +276,9 @@ Die [vorbereitete Downloadseite](docs/download/index.html) zeigt Android-/iOS-
 Verfügbarkeitszustände und Installationshinweise; ihre Einbindung auf
 `niknolig.com` ist nicht umgesetzt oder live bestätigt. Es gibt keine
 verifizierten Store-/Installationslinks. Defense zeigt in beiden lokalen
-App-Vorschauen die geplanten fünf kostenlosen Tage und das optionale dauerhafte
-Upgrade für einmalig 0,75 € ohne Abo oder automatische Zahlung, startet aber
-keinen Test und bietet keinen Kauf an. Konto-, Trial- und Storeprüfung fehlen.
+App-Vorschauen die geplanten fünf kostenlosen Tage, den zusätzlichen getrennten
+48-Stunden-Notfallzugang und das optionale dauerhafte Upgrade für einmalig
+0,75 € ohne Abo oder automatische Zahlung. Die Notfallprüfung ist noch nicht
+festgelegt; Test, Notfallzugang und Kauf sind nicht verfügbar. Konto-, Trial-,
+Notfall- und Storeprüfung fehlen.
 [Verifizierter Bestand, kleinster sicherer Backendanschluss und Releaseblocker](docs/release-readiness.md#defense-zugang-und-app-verteilung--stand-23102026).
