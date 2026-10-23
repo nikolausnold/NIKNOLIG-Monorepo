@@ -74,12 +74,22 @@ und mobile KI-Integration stehen weiterhin aus.
 - Animationen und ein tatsächlicher Gerätewechsel des Elektro-Engels sind
   nicht implementiert. Die produktlokalen Support-Symbole sind statisch.
 
-Die Website-Quellen liegen in `nikolausnold/NIKNOLIG` und
-`nikolausnold/-NIKNOLIG-Defense-Website`; sie wurden nicht verändert. Beide
-Android-Supportseiten und beide nativen iOS-Supportansichten verlinken auf die
-jeweilige offizielle Website und öffnen sie außerhalb der App. Die verbindliche
-Domain- und Repository-Zuordnung steht in der
-[Monorepo-Übersicht](../README.md#offizielle-websites-und-app-zuordnung).
+Die offiziellen Domains sind NIKNOLIG → `https://niknolig.com/` und NIKNOLIG
+Defense → `https://defense.niknolig.com/`. Die Defense-Website wird laut
+aktueller Produktvorgabe im aktiven App-Repository
+[`nikolausnold/-niknolig-defense`](https://github.com/nikolausnold/-niknolig-defense)
+gepflegt; das separate `nikolausnold/-NIKNOLIG-Defense-Website`-Repository ist
+archiviert und keine aktuelle Website-Quelle. Die GitHub-API lieferte für das
+owner-designierte aktive Repository während des Audits HTTP 404, daher konnten
+seine aktuellen Dateien und Revisionen nicht unabhängig bestätigt werden.
+
+Beide Android-Supportseiten und beide nativen iOS-Supportansichten öffnen die
+jeweilige offizielle Website extern im Browser. Android verwendet hierfür eine
+feste produktbezogene HTTPS-Ressource und `ACTION_VIEW`, keine WebView. Das
+App-interne Fehlerhandling meldet einen fehlenden Browser; Laden, TLS-Fehler,
+Timeouts und Wiederholungen werden dem externen Browser überlassen und wurden
+nicht auf einem Gerät geprüft. Die verbindliche Domain- und Repository-Zuordnung
+steht in der [Monorepo-Übersicht](../README.md#offizielle-websites-und-app-zuordnung).
 Die eigenständigen Websites behalten ihre responsiven Weblayouts; App-Layouts
 werden nicht kopiert.
 

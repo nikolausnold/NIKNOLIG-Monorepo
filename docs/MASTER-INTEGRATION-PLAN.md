@@ -95,6 +95,15 @@ nichts geklont:
 | [nikolausnold/-NIKNOLIG-Defense-Website](https://github.com/nikolausnold/-NIKNOLIG-Defense-Website) | `26922857d919be4a5ae01a8cad016e69c174fba1` | `app/` Android-Quelle; statische Website (`index.html`, `styles.css`, Assets) und `.github/workflows/deploy-website.yml`. | Aktueller `main`-Stand zum 23.10.2026; der Repositoryname enthält einen führenden Bindestrich. |
 | [nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo](https://github.com/nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo) | `afe4f5a3f0b84500437484a3bf0b3976d7b99e58` | Getrennte Xcode-Projekte unter `apps/niknolig-ios/` und `apps/niknolig-defense-ios/`. | `main` enthält die beiden gelisteten iOS-Projekte; eine verbindliche Vorrang-/Mirror-Beziehung zu den lokalen Monorepo-Zielen oder `NIKNOLIG/ios` ist nicht belegt. |
 
+**Aktualisierung der Defense-Website-Zuordnung:** Die vorstehende Defense-Zeile
+ist ein historischer Repository-Snapshot. Laut aktueller Produktvorgabe ist
+`nikolausnold/-NIKNOLIG-Defense-Website` archiviert und nicht mehr die aktuelle
+Website-Quelle. Die Pflege erfolgt im aktiven App-Repository
+[`nikolausnold/-niknolig-defense`](https://github.com/nikolausnold/-niknolig-defense).
+Die GitHub-API lieferte für dieses Repository während des Audits HTTP 404; sein
+Inhalt, Status und eine aktuelle Revision konnten daher nicht unabhängig
+verifiziert werden.
+
 Die externen Android-Projektpfade sind `NIKNOLIG/app` und
 `-NIKNOLIG-Defense-Website/app`; im Monorepo entsprechen sie getrennten Modulen
 `apps/niknolig` und `apps/niknolig-defense` mit unterschiedlichen
@@ -209,30 +218,29 @@ read-only abgefragt; es wurden keine externen Repositories oder Websites geände
 | Bereich | Tatsächlicher Repository-Pfad / Branch | Befund |
 | --- | --- | --- |
 | NIKNOLIG Android | Monorepo `apps/niknolig`; externe Quelle `nikolausnold/NIKNOLIG/app`, `main` @ `2531bdfa9a4c7e949c2778fbf515c132fed9d4d3` | Getrennte lokale Android-App `:niknolig`, `com.niknolig.app`. |
-| NIKNOLIG Defense Android | Monorepo `apps/niknolig-defense`; externe Quelle `nikolausnold/-NIKNOLIG-Defense-Website/app`, `main` @ `26922857d919be4a5ae01a8cad016e69c174fba1` | Das aktuell auflösbare Defense-Repository hat den führenden Bindestrich und enthält sowohl Android-`app/` als auch Website-Dateien. Für `nikolausnold/NIKNOLIG-Defense` lieferte die aktuelle GitHub-Inhaltsabfrage kein Repository. Daraus wird keine Löschung oder Archivierung abgeleitet. |
+| NIKNOLIG Defense Android | Monorepo `apps/niknolig-defense`; laut aktueller Produktvorgabe externe Quelle `nikolausnold/-niknolig-defense` | Das frühere Repository `nikolausnold/-NIKNOLIG-Defense-Website` ist laut Produktvorgabe archiviert. Die GitHub-API lieferte für das owner-designierte aktive App-Repository HTTP 404; aktuelle Dateien und Revision konnten nicht verifiziert werden. |
 | NIKNOLIG iOS | Monorepo `apps/ios/NIKNOLIG.xcodeproj` und `NIKNOLIGApp.swift`; separates iOS-Projekt `nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo/apps/niknolig-ios`, `main` @ `afe4f5a3f0b84500437484a3bf0b3976d7b99e58` | Das NIKNOLIG-Repository enthält außerdem `ios/`. Welche externe Ablage für Releases maßgeblich ist, ist nicht belegt. |
 | NIKNOLIG Defense iOS | Monorepo `apps/ios/NIKNOLIG.xcodeproj` und `NIKNOLIGDefenseApp.swift`; separates iOS-Projekt `nikolausnold/nikolausnold-NIKNOLIG-iOS-Monorepo/apps/niknolig-defense-ios`, gleicher `main`-Stand | Getrenntes lokales Target; keine externe Veröffentlichungsquelle oder Store-Veröffentlichung nachgewiesen. |
 | NIKNOLIG Website | `nikolausnold/NIKNOLIG`, Root-Dateien `index.html`, `styles.css`, `assets/niknolig-mark.svg`; `.github/workflows/deploy-website.yml`, `main` | [Pages-Lauf #36](https://github.com/nikolausnold/NIKNOLIG/actions/runs/39954787871) erfolgreich auf `6eec28fc830056b57127ddd06d934e62f2dba50d`; das Deploy-Log nennt `https://niknolig.com/`. PR [#41](https://github.com/nikolausnold/NIKNOLIG/pull/41) ist gemergt und ergänzt den SVG-Workflow-Trigger sowie Dokumentation. |
-| NIKNOLIG Defense Website | `nikolausnold/-NIKNOLIG-Defense-Website`, Root-Dateien `index.html`, `styles.css`, `assets/niknolig-mark.svg`; `.github/workflows/deploy-website.yml`, `main` @ `26922857d919be4a5ae01a8cad016e69c174fba1` | [PR #4](https://github.com/nikolausnold/-NIKNOLIG-Defense-Website/pull/4) ist gemergt. Der [Pages-Lauf #35](https://github.com/nikolausnold/-NIKNOLIG-Defense-Website/actions/runs/39912347042) deployte diesen Commit erfolgreich; das Deploy-Log nennt `https://defense.niknolig.com/`. Das Repository wird also weiterhin als Website-Quelle verwendet und wurde nicht nachweislich durch eine Veröffentlichung aus einem anderen Repository ersetzt. |
+| NIKNOLIG Defense Website | Laut aktueller Produktvorgabe gepflegt im aktiven App-Repository [`nikolausnold/-niknolig-defense`](https://github.com/nikolausnold/-niknolig-defense) | Die GitHub-API lieferte bei diesem Audit HTTP 404; Inhalt und Deployment des aktiven Repositorys sind nicht unabhängig bestätigt. Das frühere Repository `nikolausnold/-NIKNOLIG-Defense-Website` ist archiviert; sein Pages-Lauf #35 und PR #4 sind historische Nachweise, keine aktuelle Eigentums- oder Deploymentbestätigung. |
 
 Die verbindliche Website-Zuordnung für alle vier lokalen App-Targets ist
 NIKNOLIG → `https://niknolig.com/` und NIKNOLIG Defense →
 `https://defense.niknolig.com/`. Die Android-Supportseiten verwenden eine
 produktspezifische URL-Ressource und `ACTION_VIEW`; die beiden nativen
-iOS-Supportansichten verwenden jeweils einen externen `Link`. Vor dieser
-Korrektur waren in den App-Konfigurationen keine Website-URLs, WebViews,
-Android-App-Link-Filter oder iOS-Associated-Domain-Einträge vorhanden. Es wurden
-keine Deep-Link-/Universal-Link-Dienste ergänzt.
+iOS-Supportansichten verwenden jeweils einen externen `Link`. Es gibt keine
+WebViews, Android-App-Link-Filter oder iOS-Associated-Domain-Einträge für diese
+Websites.
 
-Der aktuelle NIKNOLIG-Website-Quellstand enthält weiterhin den Link
-`https://nikolausnold.github.io/NIKNOLIG-Defense/` statt der offiziellen
-Defense-Domain. Er ist als offener Website-Quellfehler festgehalten; die
-Korrektur liegt im separaten Repository und wurde in diesem Auftrag nicht
-vorgenommen. `https://niknolig.com/` und `https://defense.niknolig.com/` konnten
-aus dieser Umgebung wegen fehlgeschlagener DNS-Auflösung nicht live abgerufen
-werden. Die erfolgreichen Pages-Actions bestätigen den Deployment-Schritt und
-die dort ausgegebene Environment-URL, nicht unabhängige öffentliche
-HTTP-/TLS-Erreichbarkeit. Eine Cloudflare-Verbindung ist weiterhin nicht belegt.
+Die früher dokumentierte GitHub-Pages-URL
+`https://nikolausnold.github.io/NIKNOLIG-Defense/` ist keine offizielle
+Defense-Domain und wird hier nur als historischer Website-Quellbefund geführt.
+Die aktuellen offiziellen Domains wurden am 23.10.2026 mit `getent` und `curl`
+geprüft; DNS-Auflösung scheiterte für beide (`curl`-Fehler 6, HTTP-Code 000).
+Daher konnten weder HTTPS-Antwort noch TLS-Zertifikat oder Redirects geprüft
+werden. Frühere GitHub-Pages-Läufe belegen keinen aktuellen Deploy und keine
+öffentliche Erreichbarkeit. Eine Cloudflare-Verbindung ist weiterhin nicht
+belegt.
 
 Der Auftraggeber teilte mit, die GitHub-App „Cloudflare Workers und Seiten“ sei
 für alle Repositorys mit Lese-/Schreibzugriff installiert. Das ist eine
@@ -366,10 +374,11 @@ Cloudflare-Kontozugriff.
    einen API-Testworkflow, aber der aktuelle Workflow-Verzeichnisabruf und der
    direkte Dateiabruf bestätigten keine Datei; es wurden keine zugehörigen Runs
    zurückgegeben.
-3. Der aktuelle NIKNOLIG-Website-Quellstand verlinkt weiterhin auf
-   `https://nikolausnold.github.io/NIKNOLIG-Defense/` statt auf die offizielle
-   Defense-Domain. Diese externe Quellkorrektur und ein Live-Aufruf mit
-   funktionierender DNS-Auflösung stehen aus.
+3. Ein früherer NIKNOLIG-Website-Snapshot enthielt den veralteten Link
+   `https://nikolausnold.github.io/NIKNOLIG-Defense/`. Der aktuelle Zielinhalt
+   wurde nicht erneut geprüft; der aktive Defense-Website-Quellstand ist laut
+   Produktvorgabe im App-Repository `nikolausnold/-niknolig-defense`, dessen
+   GitHub-API-Abruf im Audit HTTP 404 lieferte.
 4. Welche Austauschdaten und Aktionen dürfen zwischen NIKNOLIG und Defense
    fließen, in welche Richtung und mit welcher Genehmigung?
 5. Welche Daten müssen offline verfügbar sein; welche Datenschutz-,
@@ -397,10 +406,9 @@ Cloudflare-Kontozugriff.
    Produktumfang und zutreffende Store-/Marketingaussagen sind vor einem
    produktiven Defense-Release zu entscheiden und zu belegen.
 
-**Nächster sicherer Schritt:** Den in `nikolausnold/NIKNOLIG/index.html`
-nachgewiesenen Defense-Link in dessen Quellrepository auf
-`https://defense.niknolig.com/` aktualisieren und den Website-Deploy dort
-prüfen. Diese externe Website wurde in diesem Auftrag nicht verändert. Für
+**Nächster sicherer Schritt:** Die Verfügbarkeit des owner-designierten
+Defense-App-Repositorys und seiner aktuellen Website-Dateien klären; aus dem
+Monorepo-Audit wurden keine externen Repositorys oder Websites geändert. Für
 Cloudflare bleibt ein redigierter read-only Einstellungsnachweis beider Projekte
 erforderlich. Ein produktiver Android-Release bleibt außerdem von den oben
 genannten Scope-, Rechts- und unabhängig verifizierten Signierfreigaben abhängig.
