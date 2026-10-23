@@ -2,9 +2,13 @@
 
 Dieses Repository enthält die getrennten Android-Module unter `apps/` und zwei
 native iOS-Vorschauziele unter `apps/ios/`. Android- und iOS-Projekte sowie deren
-Builds sind getrennt zu behandeln. Die externen Android-Quellpfade sind
-`nikolausnold/NIKNOLIG/app` und
-`nikolausnold/-NIKNOLIG-Defense-Website/app`. Ein separates iOS-Monorepo enthält
+Builds sind getrennt zu behandeln. Die externe Android-Quelle für NIKNOLIG ist
+`nikolausnold/NIKNOLIG/app`; das owner-designierte aktive
+NIKNOLIG-Defense-App-Repository ist
+[`nikolausnold/-niknolig-defense`](https://github.com/nikolausnold/-niknolig-defense).
+Das separate Repository
+[`nikolausnold/-NIKNOLIG-Defense-Website`](https://github.com/nikolausnold/-NIKNOLIG-Defense-Website)
+ist archiviert und keine aktuelle Website-Quelle. Ein separates iOS-Monorepo enthält
 beide iOS-Projekte; die lokalen Vorschauziele bleiben zusätzlich hier. Websites
 und Deployments bleiben in ihren Quell-Repositories.
 
@@ -13,7 +17,7 @@ und Deployments bleiben in ihren Quell-Repositories.
 | Modul | Android `applicationId` | Quellstand |
 | --- | --- | --- |
 | `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG `app/`, `main` @ `2531bdfa`](https://github.com/nikolausnold/NIKNOLIG/tree/2531bdfa9a4c7e949c2778fbf515c132fed9d4d3/app) |
-| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG Defense `app/`, `main` @ `26922857`](https://github.com/nikolausnold/-NIKNOLIG-Defense-Website/tree/26922857d919be4a5ae01a8cad016e69c174fba1/app) |
+| `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [Owner-designiertes aktives NIKNOLIG-Defense-App-Repository](https://github.com/nikolausnold/-niknolig-defense) (GitHub-API während dieses Audits nicht lesbar; daher keine Revision bestätigt) |
 
 | Produkt | Lokales iOS-Ziel | Separates iOS-Projekt |
 | --- | --- | --- |
@@ -30,16 +34,18 @@ diesen externen iOS-Ablagen ist nicht nachgewiesen.
 | Produkt | Offizielle Website für Android und iOS | Website-Quelle und Veröffentlichungsweg |
 | --- | --- | --- |
 | NIKNOLIG | [https://niknolig.com/](https://niknolig.com/) | `nikolausnold/NIKNOLIG`: `index.html`, `styles.css`, `assets/niknolig-mark.svg`; `.github/workflows/deploy-website.yml` veröffentlicht mit GitHub Pages. Lauf [#36](https://github.com/nikolausnold/NIKNOLIG/actions/runs/39954787871) war auf `main` erfolgreich und setzte die Workflow-URL auf `https://niknolig.com/`. |
-| NIKNOLIG Defense | [https://defense.niknolig.com/](https://defense.niknolig.com/) | `nikolausnold/-NIKNOLIG-Defense-Website`: Website-Dateien im Repository-Root; `.github/workflows/deploy-website.yml` veröffentlicht mit GitHub Pages. Lauf [#35](https://github.com/nikolausnold/-NIKNOLIG-Defense-Website/actions/runs/39912347042) war auf `main` bei `26922857` erfolgreich und setzte die Workflow-URL auf `https://defense.niknolig.com/`. |
+| NIKNOLIG Defense | [https://defense.niknolig.com/](https://defense.niknolig.com/) | Laut aktueller Produktvorgabe wird die Website im aktiven App-Repository [`nikolausnold/-niknolig-defense`](https://github.com/nikolausnold/-niknolig-defense) gepflegt. Das separate Repository `nikolausnold/-NIKNOLIG-Defense-Website` ist archiviert; seine früheren Pages-Läufe belegen keine aktuelle Veröffentlichung. |
 
 Beide Android-Supportseiten und beide nativen iOS-Supportansichten öffnen die
 jeweilige offizielle URL extern im Browser. Es gibt keine WebView, Android-App-
 Link-/Intent-Filter oder iOS-Associated-Domain-Konfiguration für diese Websites.
-Die erfolgreichen GitHub-Pages-Läufe belegen den Deployment-Schritt, nicht die
-öffentliche Erreichbarkeit: DNS-Auflösung für beide offiziellen Domains war aus
-dieser Prüfungsumgebung nicht möglich. Der aktuelle NIKNOLIG-Website-Quellstand
-verlinkt außerdem noch auf `https://nikolausnold.github.io/NIKNOLIG-Defense/`;
-dieser externe Website-Link ist nicht Gegenstand der lokalen App-Korrektur.
+Die Android-Apps verwenden jeweils eine produktspezifische, fest konfigurierte
+HTTPS-URL mit `ACTION_VIEW`. Browser-Ladevorgang, TLS-Fehler, Timeouts und
+Wiederholungen liegen außerhalb der App; die App zeigt eine lesbare Meldung,
+wenn kein Browser zum Öffnen gefunden wird. Die Live-Prüfung am 23.10.2026
+scheiterte für beide Domains bereits an der DNS-Auflösung (`curl`-Fehler 6);
+HTTP-Antwort, TLS-Zertifikat und Redirects konnten daher nicht geprüft werden.
+Das ist kein Nachweis allgemeiner Nichterreichbarkeit.
 
 Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
 die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
