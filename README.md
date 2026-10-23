@@ -1,8 +1,12 @@
 # NIKNOLIG-Monorepo
 
-Monorepo für zwei getrennte Android-Apps und zwei native iOS-App-Targets:
-NIKNOLIG und NIKNOLIG Defense. Die Apps bleiben eigenständige Installationen
-und Sicherheitsdomänen. Die Websites und ihre Deployments bleiben in den
+Dieses Repository ist das bestehende Android-Monorepo. Die Android-Haupt-App
+und NIKNOLIG Defense Android bleiben in ihren vorhandenen Modulen unter `apps/`.
+Das iOS-Projekt der NIKNOLIG-Haupt-App liegt im separaten Repository
+[`nikolausnold/NIKNOLIG`](https://github.com/nikolausnold/NIKNOLIG). Die
+bestehende Ablage von NIKNOLIG Defense iOS bleibt unverändert; sie wird hier
+nicht neu sortiert oder exportiert. Android- und iOS-Projekte sowie deren
+Builds sind getrennt zu behandeln. Websites und Deployments bleiben in den
 jeweiligen Quell-Repositories.
 
 ## Android-Module
@@ -12,9 +16,11 @@ jeweiligen Quell-Repositories.
 | `:niknolig` (`apps/niknolig`) | `com.niknolig.app` | [NIKNOLIG](https://github.com/nikolausnold/NIKNOLIG/tree/3c4d6618a61604f6433639151e741371491a5f0d), Commit `3c4d6618a61604f6433639151e741371491a5f0d` |
 | `:niknolig-defense` (`apps/niknolig-defense`) | `com.niknolig.defense` | [NIKNOLIG-Defense](https://github.com/nikolausnold/NIKNOLIG-Defense-Website-/tree/5f0f385089bc27347eacd282c13a546eb4511da2), Commit `5f0f385089bc27347eacd282c13a546eb4511da2` |
 
-Native iOS-Vorschauziele mit den jeweils passenden Bundle-IDs liegen unter
-[`apps/ios/`](apps/ios/README.md). Sie sind getrennte Targets und teilen weder
-Laufzeitcode noch App-Daten mit Android oder der jeweils anderen App.
+Zusätzlich bestehen native iOS-Vorschauziele unter
+[`apps/ios/`](apps/ios/README.md). Sie bleiben an ihrem bestehenden Ort und
+ändern nichts an der Zuordnung des iOS-Hauptprojekts zum separaten Repository.
+Sie sind getrennte Targets und teilen weder Laufzeitcode noch App-Daten mit
+Android oder der jeweils anderen App.
 
 Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
 die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
@@ -118,10 +124,11 @@ SecurityChain-P0-Freigabe gesperrt.
 
 Die plattformübergreifende Vertragsarchitektur und Android-/iOS-Sicherheitsgrenzen
 stehen in [`docs/mobile-cross-platform-architecture.md`](docs/mobile-cross-platform-architecture.md).
-Die iOS-Ziele implementieren nur lokale Profil-/Vorschaufunktionen, einen
-konfigurierbaren Health-Check und bestätigte E-Mail-Entwürfe. Sie enthalten
-keine KI-, Geräte-, Sensor- oder Notfallintegration und benötigen weiterhin
-SecurityChain-P0- sowie Plattform-/Store-Freigaben.
+Die lokalen iOS-Vorschauziele in `apps/ios/` implementieren nur lokale
+Profil-/Vorschaufunktionen, einen konfigurierbaren Health-Check und bestätigte
+E-Mail-Entwürfe. Sie enthalten keine KI-, Geräte-, Sensor- oder
+Notfallintegration und benötigen weiterhin SecurityChain-P0- sowie
+Plattform-/Store-Freigaben.
 
 Der lokale, einmalig ausführbare Ideen-Priorisierer ist in
 [`docs/evolution-engine.md`](docs/evolution-engine.md) beschrieben. Er bewertet
@@ -133,10 +140,12 @@ Builds, Netzwerkzugriffe oder Deployments vor.
 - Bei Push und Pull Request sowie montags um 04:23 UTC und manuell laufen
   getrennte Workflows: [`Android apps build`](.github/workflows/android-build.yml)
   baut und prüft beide Android-APKs sowie ihre Health-Client-Unit-Tests;
-  [`iOS app builds`](.github/workflows/ios-build.yml) baut die beiden nativen
-  iOS-App-Targets separat für das Simulator-SDK ohne Code Signing, wenn iOS-
-  Quelldateien geändert werden oder manuell. Der Android-Workflow testet zusätzlich
-  den portablen Swift-Analyse-Core, baut aber keine nativen iOS-Apps;
+  [`iOS app builds`](.github/workflows/ios-build.yml) baut die bestehenden
+  lokalen iOS-Vorschauziele separat für das Simulator-SDK ohne Code Signing,
+  wenn iOS-Quelldateien geändert werden oder manuell. Der Android-Workflow
+  verwendet Gradle nur für die Android-Module und testet zusätzlich den
+  portablen Swift-Analyse-Core; er baut keine nativen iOS-Apps und baut nicht
+  das iOS-Projekt im separaten NIKNOLIG-Repository;
   [`Backend contracts and tooling`](.github/workflows/backend-contracts.yml)
   führt Backend-Vertrags-/Tooltests und den Systemregister-Check aus.
   Der Zeitplan wird erst nach Übernahme auf den Default-Branch aktiv; GitHub
