@@ -96,9 +96,67 @@ final class SupportCoreTests: XCTestCase {
         XCTAssertTrue(try queue.tickets().isEmpty)
     }
 
+    func testMetadataSharingAllowsOnlyFixedCodesAndMatchingApp() {
+        func ticket(issue: String = "UNRESOLVED", diagnostic: String = "NO_MATCH") -> EscalationTicket {
+            EscalationTicket(
+                app: .niknolig, requestKey: "metadata", issueCode: issue,
+                diagnosticCode: diagnostic, encryptedPayload: "unreadable"
+            )
+        }
+        XCTAssertTrue(ticket().canShareMetadata(for: .niknolig))
+        XCTAssertFalse(ticket().canShareMetadata(for: .niknoligDefense))
+        XCTAssertFalse(ticket(issue: "PRIVATE_CUSTOMER_TEXT").canShareMetadata(for: .niknolig))
+        XCTAssertFalse(ticket(diagnostic: "PRIVATE_CUSTOMER_TEXT").canShareMetadata(for: .niknolig))
+    }
+
+    func testLocalDeletionWorksInEveryStateAndIsScopedAndPersistent() throws {
+        for state in [HandoffState.ready, .uncertain, .handedOff] {
+            let store = MemoryTicketStore()
+            let queue = SupportEscalationQueue(store: store)
+            let ticket = try queue.enqueue(
+                app: .niknolig, requestKey: "same-key", issueCode: "UNRESOLVED",
+                diagnosticCode: "NO_MATCH", encryptedPayload: "Y3lwaGVydGV4dA=="
+            )
+            let other = try queue.enqueue(
+                app: .niknoligDefense, requestKey: "same-key", issueCode: "UNRESOLVED",
+                diagnosticCode: "NO_MATCH", encryptedPayload: "Y3lwaGVydGV4dA=="
+            )
+            try store.save(store.load().map {
+                var updated = $0
+                if updated.id == ticket.id {
+                    updated.handoffState = state
+                    updated.handoffAttempts = SupportEscalationQueue.maxHandoffAttempts
+                }
+                return updated
+            })
+            XCTAssertFalse(try queue.remove(ticket.id, app: .niknoligDefense))
+            XCTAssertTrue(try queue.remove(ticket.id, app: .niknolig))
+            XCTAssertFalse(try queue.remove(ticket.id, app: .niknolig))
+            XCTAssertEqual(try SupportEscalationQueue(store: store).tickets(), [other])
+            XCTAssertNil(try queue.finishHandoff(ticket.id, launched: true))
+            XCTAssertNil(try queue.beginHandoff(ticket.id))
+        }
+    }
+
+    func testFailedLocalDeletionDoesNotReportSuccessOrDropTicket() throws {
+        let store = MemoryTicketStore()
+        let queue = SupportEscalationQueue(store: store)
+        let ticket = try queue.enqueue(
+            app: .niknolig, requestKey: "delete-failure", issueCode: "UNRESOLVED",
+            diagnosticCode: "NO_MATCH", encryptedPayload: "Y3lwaGVydGV4dA=="
+        )
+        store.failSave = true
+        XCTAssertThrowsError(try queue.remove(ticket.id, app: .niknolig))
+        XCTAssertEqual(try queue.tickets(), [ticket])
+    }
+
     private final class MemoryTicketStore: SupportTicketStore {
         private var stored: [EscalationTicket] = []
+        var failSave = false
         func load() throws -> [EscalationTicket] { stored }
-        func save(_ tickets: [EscalationTicket]) throws { stored = tickets }
+        func save(_ tickets: [EscalationTicket]) throws {
+            if failSave { throw SupportQueueError.encryptionFailed }
+            stored = tickets
+        }
     }
 }

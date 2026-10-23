@@ -25,10 +25,17 @@ and
 No website server-side mail sender, SMTP configuration, or automatic email
 delivery path was found. Both mobile platforms reuse their existing
 user-confirmed `mailto:` flow. A successful handoff is not proof of delivery.
+Drafts include only the random ticket ID, app identity, and allowlisted fixed
+issue/diagnostic codes. Question text, ciphertext, request keys, learning profiles,
+and conversation content are never included. Stored payloads are not decrypted
+for email; encryption is only for local recovery.
 The app won't reopen a handed-off ticket because doing so could create a
 duplicate; the user's mail app owns draft storage, delivery retries, and its
-outbox. The user must confirm the email was sent before removing the ticket from
-the local queue.
+outbox. The user can mark a handed-off ticket sent to complete it locally, or
+explicitly delete a local ticket in any state (including uncertain or
+retry-exhausted).
+Deletion removes only that app's selected local record and encrypted payload;
+it does not delete or recall drafts or sent mail in an external email app.
 
 ## Operational limits and manual steps
 
@@ -56,3 +63,7 @@ python3 -m unittest tools.tests.test_support_flow
 The core tests cover FAQ responses, unresolved questions, backend diagnostics,
 per-app queue scoping, idempotent ticket creation, failed handoff retention,
 bounded retries, and duplicate-prevention after a successful handoff.
+They also cover metadata allowlisting and app-scoped deletion in every handoff
+state, including exhausted retries, persistence failures, and late callbacks
+after deletion. Flow checks ensure drafts never use question text or decrypted
+payloads and that deletion controls remain available.

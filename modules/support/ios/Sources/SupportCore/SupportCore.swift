@@ -90,6 +90,14 @@ public struct EscalationTicket: Codable, Equatable {
     public var handoffAttempts: Int
     public var handoffState: HandoffState
 
+    public func canShareMetadata(for expectedApp: SupportApp) -> Bool {
+        app == expectedApp &&
+            ["BACKENDHEALTH", "PRIVACY", "PAYMENT", "TROUBLESHOOTING",
+             "ACCOUNTUNAVAILABLE", "UNRESOLVED", "BACKEND", "MANUAL_REQUEST"].contains(issueCode) &&
+            ["READY", "NOT_CONFIGURED", "INVALID_RESPONSE", "TIMED_OUT", "NETWORK_ERROR",
+             "HTTP_ERROR", "UNAVAILABLE", "UNRESOLVED", "NO_MATCH"].contains(diagnosticCode)
+    }
+
     public init(
         id: UUID = UUID(),
         app: SupportApp,
@@ -281,6 +289,14 @@ public final class SupportEscalationQueue {
         }
         tickets.removeAll { $0.id == ticketID }
         try store.save(tickets)
+        return true
+    }
+
+    public func remove(_ ticketID: UUID, app: SupportApp) throws -> Bool {
+        let tickets = try store.load()
+        let remaining = tickets.filter { !($0.id == ticketID && $0.app == app) }
+        guard remaining.count != tickets.count else { return false }
+        try store.save(remaining)
         return true
     }
 

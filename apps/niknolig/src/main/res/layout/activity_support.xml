@@ -123,6 +123,14 @@
             android:text="@string/support_ticket_mark_sent"
             android:visibility="gone" />
         <Button
+            android:id="@+id/support_delete_ticket"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:minHeight="48dp"
+            android:text="@string/support_ticket_delete"
+            android:visibility="gone" />
+        <Button
             android:id="@+id/support_close"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
