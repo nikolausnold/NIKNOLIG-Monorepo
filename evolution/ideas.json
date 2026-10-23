@@ -138,8 +138,8 @@
       "evidence": [
         {
           "path": "docs/device-link-security-design.md",
-          "startLine": 169,
-          "endLine": 174,
+          "startLine": 208,
+          "endLine": 210,
           "excerpt": "Die Planung ist abgeschlossen; die Implementierung bleibt **BLOCKED**, bis\nSecurityChain-P0-Nachweis, Bedrohungsmodell, fachlicher Daten-/Aktionsumfang,\nTransportwahl und Protokollvertrag freigegeben sind.",
           "state": "verified"
         }
