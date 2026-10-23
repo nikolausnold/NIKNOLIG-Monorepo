@@ -25,6 +25,13 @@ class SupportCoreTest {
     }
 
     @Test
+    fun crossTopicQuestionsRequireHumanSupport() {
+        val answer = SupportAssistant.answer("Wie viel kostet die Zahlung für mein Konto?")
+        assertEquals(AnswerCode.UNRESOLVED, answer.code)
+        assertTrue(answer.escalationRequired)
+    }
+
+    @Test
     fun backendDiagnosticsOnlyEscalateWhenHealthCheckFailed() {
         assertFalse(SupportAssistant.diagnose(BackendDiagnostic.READY).escalationRequired)
         BackendDiagnostic.entries.filter { it != BackendDiagnostic.READY }.forEach {

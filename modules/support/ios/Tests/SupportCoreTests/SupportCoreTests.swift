@@ -17,6 +17,12 @@ final class SupportCoreTests: XCTestCase {
         XCTAssertTrue(SupportAssistant.answer(String(repeating: "é", count: 1_025)).escalationRequired)
     }
 
+    func testCrossTopicQuestionsRequireHumanSupport() {
+        let answer = SupportAssistant.answer("Wie viel kostet die Zahlung für mein Konto?")
+        XCTAssertEqual(answer.code, .unresolved)
+        XCTAssertTrue(answer.escalationRequired)
+    }
+
     func testDiagnosticsEscalateOnlyWhenHealthCheckFails() {
         XCTAssertFalse(SupportDiagnostic.ready.escalationRequired)
         for diagnostic in [

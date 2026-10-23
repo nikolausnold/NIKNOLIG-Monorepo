@@ -35,19 +35,28 @@ object SupportAssistant {
             .findAll(normalized)
             .map { it.value }
             .toSet()
-        return when {
-            hasAny(words, "passwort", "password", "login", "konto", "account") ->
-                SupportAnswer(AnswerCode.ACCOUNT_UNAVAILABLE, true)
-            hasAny(words, "zahlung", "preis", "payment", "rechnung", "billing") ->
-                SupportAnswer(AnswerCode.PAYMENT, false)
-            hasAny(words, "datenschutz", "privacy", "daten", "data") ->
-                SupportAnswer(AnswerCode.PRIVACY, false)
-            hasAny(words, "backend", "verbindung", "connection", "server", "ki", "ai") ->
-                SupportAnswer(AnswerCode.BACKEND_HEALTH, false)
-            hasAny(words, "fehler", "problem", "funktioniert", "crash", "störung", "issue", "error") ->
-                SupportAnswer(AnswerCode.TROUBLESHOOTING, false)
-            else -> SupportAnswer(AnswerCode.UNRESOLVED, true)
+        val matches = buildList {
+            if (hasAny(words, "passwort", "password", "login", "konto", "account")) {
+                add(AnswerCode.ACCOUNT_UNAVAILABLE)
+            }
+            if (hasAny(words, "zahlung", "preis", "payment", "rechnung", "billing")) {
+                add(AnswerCode.PAYMENT)
+            }
+            if (hasAny(words, "datenschutz", "privacy", "daten", "data")) {
+                add(AnswerCode.PRIVACY)
+            }
+            if (hasAny(words, "backend", "verbindung", "connection", "server", "ki", "ai")) {
+                add(AnswerCode.BACKEND_HEALTH)
+            }
+            if (hasAny(words, "fehler", "problem", "funktioniert", "crash", "störung", "issue", "error")) {
+                add(AnswerCode.TROUBLESHOOTING)
+            }
         }
+        if (matches.size != 1) return SupportAnswer(AnswerCode.UNRESOLVED, true)
+        return SupportAnswer(
+            matches.single(),
+            matches.single() == AnswerCode.ACCOUNT_UNAVAILABLE,
+        )
     }
 
     fun diagnose(diagnostic: BackendDiagnostic): BackendDiagnostic = diagnostic

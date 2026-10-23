@@ -50,22 +50,26 @@ public enum SupportAssistant {
         let words = Set(
             question.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)
         )
+        var matches: [SupportAnswerCode] = []
         if containsAny(words, "passwort", "password", "login", "konto", "account") {
-            return SupportAnswer(code: .accountUnavailable, escalationRequired: true)
+            matches.append(.accountUnavailable)
         }
         if containsAny(words, "zahlung", "preis", "payment", "rechnung", "billing") {
-            return SupportAnswer(code: .payment, escalationRequired: false)
+            matches.append(.payment)
         }
         if containsAny(words, "datenschutz", "privacy", "daten", "data") {
-            return SupportAnswer(code: .privacy, escalationRequired: false)
+            matches.append(.privacy)
         }
         if containsAny(words, "backend", "verbindung", "connection", "server", "ki", "ai") {
-            return SupportAnswer(code: .backendHealth, escalationRequired: false)
+            matches.append(.backendHealth)
         }
         if containsAny(words, "fehler", "problem", "funktioniert", "crash", "störung", "issue", "error") {
-            return SupportAnswer(code: .troubleshooting, escalationRequired: false)
+            matches.append(.troubleshooting)
         }
-        return SupportAnswer(code: .unresolved, escalationRequired: true)
+        guard matches.count == 1, let code = matches.first else {
+            return SupportAnswer(code: .unresolved, escalationRequired: true)
+        }
+        return SupportAnswer(code: code, escalationRequired: code == .accountUnavailable)
     }
 
     private static func containsAny(_ words: Set<String>, _ values: String...) -> Bool {
