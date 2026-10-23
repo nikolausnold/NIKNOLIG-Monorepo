@@ -12,6 +12,112 @@ NIKNOLIG Defense bleiben getrennte Sicherheits- und Release-Domänen; gemeinsame
 Verträge verleihen keine Rechte.
 Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 
+## Fortsetzung nach #148: produktiver HTTP-Pfad und Anbietertransport
+
+Ausgangsstand `97e4e796c0a9b7dc2d94d20c372becabab81364a`; #146–#148 und
+Elektro-Engel BUILD TO RUN werden nicht wiederholt. Die Bestandsaufnahme weiter
+unten beschreibt den damaligen Stand; für Support gelten folgende Ergänzungen:
+
+- **Konkreter Laufzeitfehler behoben:** Nur der lokale Server kannte `/support`
+  und `/v1/ai/support`; Produktions-ASGI und Caddy lieferten dafür 404.
+  Beide POST-Routen sind jetzt auch im ASGI-Image und Proxy vorhanden. Sie teilen
+  dieselbe strenge JSON-/App-Prüfung mit dem lokalen Server, begrenzen den Body
+  auf 8192 Bytes und das Einlesen auf zwei Sekunden. Synchrone Anbieterarbeit
+  blockiert nicht den Health-Eventloop.
+- **Realer Transport implementiert, nicht aktiviert:** `workers_ai.py` spricht
+  ausschließlich `https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/`
+  mit dem bereits vorgeschlagenen festen Modell an. Account-ID und Token-Dateipfad
+  kommen ausschließlich aus serverseitiger Konstruktion, nicht aus Requests.
+  TLS-Zertifikatsprüfung, Größen-/Tokenlimits, Socket-Timeout, Abbruchfrist nach
+  Verbindungsaufbau, keine Redirects, keine Umgebungsproxies und keine
+  automatischen Wiederholungen begrenzen Fehler und unklare Kosten. Die lokale
+  DNS-Auflösung unterliegt zusätzlich den Resolverfristen des Betriebssystems.
+  Antworten ohne gültige Nutzungsdaten werden abgelehnt. Weder Import noch
+  Konstruktion führen Netzwerkaufrufe aus.
+- **Keine Freigabe erfunden:** `asgi:app` verwendet weiterhin den deaktivierten
+  `SupportService`. Es gibt keinen Environment-Schalter, der Authentifizierung,
+  Audit oder Kostenfreigaben umgeht. Der neue Transport wird dort nicht automatisch
+  konstruiert. Tests verwenden lokale Fixtures; kein Anbieter wurde aufgerufen,
+  kein Token erzeugt und kein kostenpflichtiger Dienst aktiviert.
+
+### Was tatsächlich noch fehlt
+
+**Repository-Arbeit nach den erforderlichen Entscheidungen:** produktiver
+Authentifizierungsvalidator und Login-/Widerrufsfluss, dauerhafte verteilte
+Quoten/Audit-Speicher, autorisiertes serverseitiges Ticketregister mit
+Idempotenz/Recovery sowie authentifizierte Android- und iOS-Supportclients.
+Diese Komponenten sind **nicht** durch die neuen HTTP-Routen erledigt. Ohne
+festgelegten Aussteller, App-Audiences, Widerrufsverfahren, Datenaufbewahrung und
+freigegebenes P0 darf kein öffentlicher Chat aktiviert werden. Die Health-Rolle
+`backend_health` darf dafür keine Schreibrechte erhalten.
+
+**Konkrete Betreiberaktionen:**
+
+1. Für das vom Auftrag genannte Ziel `https://api.niknolig.com` DNS-A/AAAA zum
+   tatsächlichen Server und erreichbares TCP/443 prüfen. In dieser Arbeitsumgebung
+   schlugen beide HTTPS-Health-Abrufe bereits mit `Could not resolve host` fehl;
+   das ist kein Beweis eines weltweiten DNS-Ausfalls und kein Live-API-Nachweis.
+   Betreiber müssen vom Zielnetz mit verifiziertem TLS prüfen:
+   `/health/live` → 200 `{"status":"live"}`;
+   `/health/ready` → 200 `{"status":"ready"}` nur bei gültiger dedizierter
+   Health-Anmeldung und unverändertem Schema, sonst 503 mit Vertragsfehler.
+   `/health` mit `status: ok` ersetzt diese Prüfung nicht.
+2. Auf dem vorhandenen Server `BACKEND_HOSTNAME=api.niknolig.com` und
+   `BACKEND_HOSTNAME_CONFIRMED=api.niknolig.com` setzen; lesbare, gültige
+   TLS-Kette mit exakt diesem SAN, passenden privaten Schlüssel sowie **getrennte**
+   PostgreSQL-Migrator-/Health-Passwortdateien über die bestehenden
+   `*_SECRET_FILE`-/`TLS_*_FILE`-Variablen bereitstellen. Backup samt Restore prüfen,
+   dann das bestehende Produktions-Compose einschließlich Preflight und Migration
+   ausführen. Kein Docker-Volume löschen und `001` nicht ohne separate Freigabe
+   anwenden. Zertifikatsverlängerung und Caddy-Neuladen sind Betreiberaufgaben.
+3. Erst nach bestätigter Erreichbarkeit die beiden bestehenden App-Originvariablen
+   `NIKNOLIG_BACKEND_URL` und `NIKNOLIG_DEFENSE_BACKEND_URL` auf
+   `https://api.niknolig.com` setzen:
+   [Actions-Variablen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/variables/actions).
+   Das verbindet nur Health, noch keinen authentifizierten Supportchat.
+4. Vor KI-Aktivierung Anbieter/Modell, Datenschutz und Budget ausdrücklich
+   genehmigen; vorhandenen Cloudflare-Account und minimal auf Workers-AI-Aufrufe
+   beschränkten serverseitigen Zugang bestätigen. Dieser PR verlangt **keine
+   Erzeugung neuer Tokens**. Falls kein geeigneter Zugang vorhanden ist, bleibt
+   KI aus. Zugangsdaten niemals in Apps, Repository, Tickets oder PR-Kommentare
+   schreiben. Erst mit dauerhaftem Audit/Quota und verifizierter Authentifizierung
+   darf eine gesondert reviewte Service-Konfiguration den Adapter injizieren.
+5. Mail: vorhanden ist nur ein ausdrücklich bestätigter `mailto:`-Entwurf an
+   `n_nold@hotmail.com`, kein SMTP-Sender und kein Zustellnachweis. Für einen
+   späteren Serverversand fehlen konkret: genehmigter vorhandener SMTP-/API-Dienst,
+   Host/Port und TLS-Modus bzw. fester HTTPS-Endpunkt, Authentifizierungsverfahren
+   samt serverseitigem Secret, berechtigte/verifizierte Absenderadresse,
+   gegebenenfalls SPF/DKIM/DMARC, freigegebene Limits/Kosten, Aufbewahrung und
+   Bounce-/Zustellbehandlung. Kein Dienst wird eingerichtet. Jeder Versand muss
+   weiterhin auf expliziter Nutzerbestätigung beruhen; fehlende oder unklare
+   Zustellung darf nicht als Erfolg gelten.
+
+### Support und Geräteabnahme
+
+Die bestehenden verschlüsselten lokalen Ticketqueues behalten UUIDs,
+App-Isolation, begrenzte Wiederholungen und `UNCERTAIN` nach unklarer Übergabe.
+Beschädigte lokale Speicherung wird nicht als leere erfolgreiche Queue behandelt
+oder überschrieben. Frageinhalte werden nicht stillschweigend in E-Mails ergänzt.
+Ein serverseitiger Ticketempfang oder geräteübergreifendes Recovery ist weiterhin
+nicht vorhanden.
+
+[`securitychain-p0-specification.md`](../docs/securitychain-p0-specification.md)
+steht ausdrücklich auf **Reviewentwurf, nicht genehmigt**.
+[`device-link-security-design.md`](../docs/device-link-security-design.md)
+legt noch keinen freigegebenen Transport fest. Deshalb keine BLE-/Pairing- oder
+Sensoraktivierung, keine simulierten aktiven Verbindungen. Erforderlich sind
+schriftliche P0-/Transportfreigabe, konkrete unterstützte Geräte/Hardware und
+anschließend getrennte reale Android-/iOS-Abnahmen.
+
+Wiederverwendete Ausgangsnachweise: [Backend-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39923936131),
+[Android-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39923938992)
+und [Android-Release](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39924232544)
+waren für `97e4e79` erfolgreich. Der vorherige Releaseversuch
+`39924030230` scheiterte vor Abschluss des Android-Buildnachweises; der spätere
+erfolgreiche Lauf ersetzt ihn, kein erneuter Build wurde deshalb ausgelöst.
+Der ältere iOS-Nachweis unten bleibt separat; kein neuer iOS-/Gerätebuild und
+kein produktiver PostgreSQL-/Caddy-/TLS-Nachweis wird daraus abgeleitet.
+
 ## Produktions-Bestandsaufnahme und erstes Sicherheitspaket
 
 Geprüfter Ausgangscommit: `341aa679fe73d46f393c9b031437d665d40fac62`

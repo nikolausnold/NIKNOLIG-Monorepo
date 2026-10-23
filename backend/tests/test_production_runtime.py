@@ -26,13 +26,15 @@ import database
 import deployment
 import migrate
 from asgi import _check_database, app as production_app, create_app
+from ai_support import SupportService
 
 
 class ProductionRuntimeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.factory = AsyncMock()
-        cls.application = create_app(readiness_probe=cls.factory)
+        cls.support = SupportService()
+        cls.application = create_app(readiness_probe=cls.factory, support_service=cls.support)
         cls.socket = socket.socket()
         cls.socket.bind(("127.0.0.1", 0))
         cls.url = f"http://127.0.0.1:{cls.socket.getsockname()[1]}"
@@ -97,6 +99,82 @@ class ProductionRuntimeTests(unittest.TestCase):
         self.factory.side_effect = RuntimeError("secret database address")
         self.assertEqual((200, {"status": "live"}), self.request("/health/live"))
         self.factory.assert_not_called()
+
+    def support_request(self, raw, path="/support", headers=None):
+        request = Request(self.url + path, data=raw, headers=(
+            {"Content-Type": "application/json"} if headers is None else headers
+        ))
+        try:
+            response = urlopen(request, timeout=5)
+        except HTTPError as response_error:
+            response = response_error
+        with response:
+            self.assertEqual("no-store", response.headers["Cache-Control"])
+            self.assertEqual("nosniff", response.headers["X-Content-Type-Options"])
+            return response.status, json.load(response)
+
+    def test_asgi_support_defaults_disabled_for_both_apps(self):
+        for app in ("niknolig", "niknolig-defense"):
+            status, body = self.support_request(json.dumps({
+                "app": app, "message": "Help",
+            }).encode())
+            self.assertEqual(503, status)
+            self.assertEqual("AI_DISABLED", body["error"]["code"])
+            self.assertTrue(body["error"]["escalationRequired"])
+        self.factory.assert_not_called()
+
+    def test_asgi_support_normalizes_both_apps_and_preserves_authorization(self):
+        for app in ("niknolig", "niknolig-defense"):
+            with patch.object(self.support, "handle", return_value=(200, {"text": "Untrusted"})) as handle:
+                status, _ = self.support_request(json.dumps({
+                    "app": app, "message": "Help",
+                }).encode(), headers={
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Authorization": "******",
+                })
+                self.assertEqual(200, status)
+                handle.assert_called_once_with(
+                    "******", {"app": app, "feature": "support", "prompt": "Help"},
+                )
+
+    def test_asgi_compatibility_route_dispatches_original_payload(self):
+        payload = {"app": "niknolig-defense", "feature": "electro-engel", "prompt": "Help"}
+        with patch.object(self.support, "handle", return_value=(503, {"error": {}})) as handle:
+            self.assertEqual(503, self.support_request(
+                json.dumps(payload).encode(), path="/v1/ai/support",
+            )[0])
+            handle.assert_called_once_with(None, payload)
+
+    def test_asgi_support_rejects_bad_json_and_extra_fields_before_service(self):
+        invalid = [
+            b'{"app":"niknolig","app":"niknolig-defense","message":"Help"}',
+            b'{"app":"niknolig","message":NaN}', b'[]', b'{"app":',
+            b'{"app":"niknolig","message":"Help","provider":"other"}',
+            b'{"app":"niknolig","message":"   "}',
+            b'{"app":"niknolig","message":"\\ud800"}',
+        ]
+        with patch.object(self.support, "handle") as handle:
+            for raw in invalid:
+                self.assertEqual(400, self.support_request(raw)[0])
+            handle.assert_not_called()
+
+    def test_asgi_support_bounds_payload_and_content_type(self):
+        with patch.object(self.support, "handle") as handle:
+            self.assertEqual(413, self.support_request(b"x" * 8193)[0])
+            self.assertEqual(400, self.support_request(b"{}", headers={
+                "Content-Type": "text/plain",
+            })[0])
+            self.assertEqual(400, self.support_request(b"{}", headers={
+                "Content-Type": "application/json", "Content-Encoding": "gzip",
+            })[0])
+            handle.assert_not_called()
+
+    def test_asgi_support_contains_internal_service_errors(self):
+        with patch.object(self.support, "handle", side_effect=RuntimeError("private-provider-data")):
+            status, body = self.support_request(b'{"app":"niknolig","message":"Help"}')
+        self.assertEqual(503, status)
+        self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
+        self.assertNotIn("private-provider-data", json.dumps(body))
 
     def test_legacy_health_metadata_matches_production_without_database(self):
         self.factory.side_effect = RuntimeError("unavailable database")
@@ -222,10 +300,13 @@ class ProductionRuntimeTests(unittest.TestCase):
                 self.assertEqual("NOT_FOUND", body["error"]["code"])
         self.factory.assert_not_called()
 
-    def test_no_ai_or_product_routes_even_with_enabling_environment(self):
+    def test_environment_cannot_enable_ai_or_product_routes(self):
         with patch.dict(os.environ, {"AI_ENABLED": "true", "SUPPORT_ENABLED": "true"}):
+            status, body = self.support_request(b'{"app":"niknolig","message":"Help"}')
+            self.assertEqual(503, status)
+            self.assertEqual("AI_DISABLED", body["error"]["code"])
             for path, method in (
-                ("/v1/ai/support", "POST"), ("/v1/devices", "GET"),
+                ("/v1/devices", "GET"),
                 ("/v1/pairing", "POST"), ("/health/ready/", "GET"),
                 ("/health/live", "POST"),
             ):
