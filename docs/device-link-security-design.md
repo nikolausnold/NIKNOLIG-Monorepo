@@ -147,6 +147,44 @@ Android-Versionen und freigegebenen App-Builds sind mindestens zu protokollieren
 Automatisierte Tests oder Emulatoren ersetzen nicht die Abnahme auf beiden
 physischen Geräten. Ein erfolgreicher APK-Build hebt den P0-Blocker nicht auf.
 
+### BLE-Anforderungs- und Testmatrix (Planung; nicht freigegeben)
+
+Die Matrix beschreibt spätere Nachweise, keine gegenwärtige Funktion oder
+Freigabe. Bis alle zugeordneten Entscheidungen schriftlich genehmigt sind,
+bleiben BLE-Berechtigungen, Discovery, Pairing und Verbindungen deaktiviert.
+Vorher zulässig sind nur Tests bestehender, deaktivierter Grenzen. Sobald eine
+Architektur freigegeben ist, dürfen automatisierte Vorabtests ausschließlich
+deterministische Mock-Transporte und synthetische Identitäten/Daten verwenden.
+Ein Mock kann weder BLE-Verhalten noch Kryptografie, Geräteidentität oder
+physische Interoperabilität nachweisen.
+
+| Anforderung | Erlaubter Mock-Test nach Freigabe | Negativ-/Fehlerfälle, die abgelehnt werden müssen | Erforderliche Entscheidung / Abnahme |
+| --- | --- | --- | --- |
+| Explizite Nutzerfreigabe und App-Scope | Simulierte Zustimmung beider Nutzer für den konkret freigegebenen Zweck, die Daten, Aktion und Zielinstallation; getrennte NIKNOLIG-/Defense-Identitäten | Fehlende, abgelaufene oder widerrufene Zustimmung; einseitige Zustimmung; falscher Zweck, Scope, Empfänger oder Ziel; Gerätename oder Pairingstatus als alleiniger Zustimmungs-/Identitätsnachweis | D-01, D-02, D-03, D-09: Produkt-Allowlist je App, Identitätsbindung und Consent-Text/-Lebenszyklus; Datenschutz-/Security-Freigabe |
+| Authentifiziertes Pairing und Vertrauensprüfung | Synthetischer, vorab festgelegter Peer-Nachweis besteht nur bei passender App-Identität und beidseitiger Bestätigung | Unbekannter/falscher Peer, geänderte Identität oder Schlüssel, unvollständiger Besitznachweis, App-Scope-Wechsel oder fehlende Bestätigung; niemals Vertrauen allein aus BLE-Adresse, Werbung oder OS-Pairing ableiten | D-02 bis D-05: Auth-/Vertrauensmodell, Protokoll und Schlüssel-Lebenszyklus; unabhängiger Security-Review |
+| Verbindung, Sitzungszustand und Abbruch | Mock-Transport prüft ausschließlich freigegebene Zustandsübergänge, den genehmigten Zeitlimitvertrag sowie Beendigung bei Abbruch | Timeout, Teilantwort, unerwarteter Zustand, Prozessneustart, Peerwechsel, Integritätsfehler oder nicht prüfbare Berechtigung; Sitzung schließen, kein schwächerer Transport, keine automatische sensible Wiederholung/Queue | D-04, D-06, D-07: Protokoll, Zeitlimits, Offline-/Wiederverbindungsverhalten und Transport; physische Abnahme erst nach Freigabe |
+| Android-Berechtigungen und Widerruf | Synthetische Rückgaben für Berechtigung erteilt und später widerrufen; keine Android-Bluetooth-API im Mock-Test aufrufen | Verweigerung, Widerruf, fehlende/unerwartete Capability oder nicht unterstützte OS-Version: Discovery/Verbindung bleibt aus bzw. endet | D-07, D-08 und D-06: minimale Rechte je unterstützter OS-/Gerätematrix sowie Widerrufsverhalten; separate schriftliche BLE-Freigabe |
+| Nicht autorisierte Geräte, Aktionen und Replay | Synthetische Allowlist-Fälle akzeptieren nur genehmigte Rolle, Richtung, Aktion, Sitzung und Zielinstallation | Fremdes Gerät, nicht erlaubte Aktion/Richtung, falsche Rolle, Duplikat oder Replay einer alten Challenge/Nachricht, veraltete Sitzung, Downgrade oder unbekannte Version: ablehnen und betroffene Sitzung schließen | D-01 bis D-06 und D-09: Aktions-/Daten-Allowlist, etablierter geprüfter Schutz gegen Replay/Downgrade, Consent und Autorisierung; unabhängiger Review |
+| Fehlerantworten und datensparsames Logging | Mock-Fehler werden in stabile, allgemeine Fehlercodes umgewandelt; synthetische Audit-Ereignisse enthalten nur freigegebene Metadaten | Keine Stacktrace-, Payload-, Gerätenamen/-adresse-, Token-, Schlüssel-, Nonce-/Challenge- oder Sensorrohwert-Ausgabe; Audit-Ausfall darf keine geschützte Aktion freigeben | D-06, D-10: Fehler-/Audit-Verhalten, Rechtsgrundlage, Zugriff und Retention; datenschutzrechtliche und Security-Abnahme |
+| App-Isolation und Testbelege | Mock-Fälle laufen getrennt je App mit synthetischen App- und Installationsreferenzen | Kein Credential-, Schlüssel-, Berechtigungs- oder Sitzungsübertritt zwischen Apps; kein Cross-App-Zugriff ohne ausdrücklich genehmigten, getesteten Datenfluss | D-01, D-05, D-08, D-12: getrennte App-Freigaben, Plattformtests und unabhängige, commit-/artefaktgebundene Review-Nachweise |
+
+**Wiederverwendbare Bestandsnachweise:** `BackendContractTests.test_current_android_ble_and_ios_targets_are_explicit`
+prüft, dass beide Manifeste derzeit nur `INTERNET` deklarieren und keine
+Bluetooth-Berechtigung enthalten. Die getrennten
+`BackendHealthClientTest`-Klassen nutzen injizierte Fake-HTTPS-Verbindungen für
+synthetische HTTP-Erfolgs- und Fehlerantworten; sie testen ausschließlich den
+Health-Endpunkt und sind kein BLE-Transport, Pairing- oder
+Kryptografietest. Es gibt aktuell keine BLE-Schnittstelle, BLE-Runtime,
+Pairing-Zustandsmaschine oder BLE-Testgeräte-/Mock-Abstraktion, die
+wiederverwendet werden könnte. Die vorhandenen Tests belegen daher nur den
+deaktivierten Ist-Zustand, keine BLE-Sicherheit.
+
+Für die spätere Umsetzung müssen die genehmigten Negativfälle als Unit-/
+Vertragstests mit synthetischen Daten umgesetzt werden. Physische Gerätetests
+dürfen erst nach Freigabe der Architektur und auf den ausdrücklich unterstützten
+Geräten stattfinden; Mock-Tests ersetzen sie nicht. Bis dahin wird weder eine
+Verbindung simuliert noch ein Gerät als gepaart oder sicher markiert.
+
 ## 6. Risiken und verbleibende Unbekannte
 
 - Ohne verbindliche SecurityChain-P0-Kriterien lässt sich keine
