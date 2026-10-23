@@ -42,8 +42,8 @@ it does not delete or recall drafts or sent mail in an external email app.
 Both backend readiness implementations expose `GET /health/ready` with the
 successful response `200 application/json` and exactly `{"status":"ready"}`.
 Both Android clients request that route over HTTPS and validate that response.
-The legacy `GET /health` route instead returns `{"status":"ok","service":"NOLD
-API","version":"0.2.0"}` and is not the readiness contract. A successful response
+The legacy `GET /health` route instead returns status `ok` plus service/version
+metadata, and is not the readiness contract. A successful response
 with a different content type or body is correctly rejected; accepting it would
 weaken validation. No backend origin is configured by default in either app, and
 no deployed origin or captured response was available here, so the reported

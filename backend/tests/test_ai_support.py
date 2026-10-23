@@ -238,7 +238,7 @@ class SupportServiceTests(unittest.TestCase):
         )
         self.assertEqual(403, self.invoke(
             payload(app="niknolig-defense", feature="electro-engel"))[0])
-        self.assertFalse(self.provider.calls)
+        self.assertEqual(["Local support question."], self.provider.calls)
         self.auth.principal = replace(
             self.auth.principal, app="niknolig-defense",
             permissions=frozenset({"ai:support", "ai:electro-engel"}),
