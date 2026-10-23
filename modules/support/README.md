@@ -37,17 +37,45 @@ retry-exhausted).
 Deletion removes only that app's selected local record and encrypted payload;
 it does not delete or recall drafts or sent mail in an external email app.
 
+## Backend contract diagnosis and AI status
+
+Both backend readiness implementations expose `GET /health/ready` with the
+successful response `200 application/json` and exactly `{"status":"ready"}`.
+Both Android clients request that route over HTTPS and validate that response.
+The legacy `GET /health` route instead returns status `ok` plus service/version
+metadata, and is not the readiness contract. A successful response
+with a different content type or body is correctly rejected; accepting it would
+weaken validation. No backend origin is configured by default in either app, and
+no deployed origin or captured response was available here, so the reported
+`InvalidResponse` could not be reproduced against a live endpoint. If it appears
+with a configured deployment, verify that the origin routes `/health/ready` to
+this backend rather than a legacy health endpoint or unrelated proxy response.
+
+The shared AI-support preparation endpoint can scope `support` and
+`electro-engel` requests independently to either app. The app claim must match
+the authenticated principal and permission; a NIKNOLIG credential cannot make a
+Defense request. This is not a production integration: the production ASGI
+runtime does not register AI routes, the default local service rejects requests
+as `AI_DISABLED`, and no authenticated mobile client is enabled. Defense does
+not gain the separate NIKNOLIG-local Elektro-Engel runtime.
+
 ## Operational limits and manual steps
 
 - The backend AI support routes remain local-preparation-only and disabled.
   There is no production authentication issuer, approved provider, or deployed
   support API.
+- The health contract is implemented and covered by server/client tests, but a
+  configured deployment's response cannot be verified without its origin and
+  response evidence.
 - Unresolved tickets are queued only on the device that created them. No server
   operator receives them until the user reviews and sends the email.
 - If a mail app cannot be opened, the ticket remains queued; after three failed
   launch attempts, the app gives the recipient and ticket ID for manual email.
 - A delivery failure after the mail app has opened must be retried from that
   mail app. The app cannot observe SMTP/mail-provider delivery results.
+- The websites have contact `mailto:` links but no reusable server-side sender,
+  SMTP configuration, or delivery API. Automatic mail is therefore unavailable;
+  only the existing user-confirmed mobile draft is safe to reuse.
 - Before release, operators must verify that the user-facing inbox is monitored
   and complete an on-device draft test using synthetic content. No test email
   was sent as part of this implementation.
