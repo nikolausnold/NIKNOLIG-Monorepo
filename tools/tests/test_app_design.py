@@ -226,7 +226,10 @@ class AppDesignTests(unittest.TestCase):
         }["defense_access_notice"]
         for phrase in (
             "five consecutive 24-hour periods", "No payment method required",
-            "No trial starts here", "one-time €0.75", "No subscription",
+            "separate 48 hours of free Defense access",
+            "not be blocked solely because the trial expired or payment is missing",
+            "Neither a trial nor emergency access starts here",
+            "one-time €0.75", "No subscription",
             "NIKNOLIG remains usable without the upgrade",
         ):
             self.assertIn(phrase, english)
