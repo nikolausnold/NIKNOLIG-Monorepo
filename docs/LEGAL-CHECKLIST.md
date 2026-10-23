@@ -42,9 +42,10 @@ tatsächlichen Angebote zu prüfen.
 - [ ] Die Produktvorgabe „NIKNOLIG Defense regulär einmalig 0,75 €“ je Store
   umsetzen und Kaufumfang, Länderpreise, Steuern, Store-Gebühren,
   Rückerstattung und Zahlungsabwicklung prüfen.
-- [ ] Fünf-Tage-Test statt früherer Härtefallregel konsistent umsetzen: einmal
-  je berechtigtem Konto plattformübergreifend, keine Zahlungsmethode und keine
-  Notlagen-/Gesundheitsnachweise für den Test.
+- [ ] Den regulären Fünf-Tage-Test und den zusätzlichen 48-Stunden-Notfallzugang
+  als getrennte Regeln darstellen. Für den regulären Test: einmal je berechtigtem
+  Konto plattformübergreifend, keine Zahlungsmethode und kein Notlagen-/
+  Gesundheitsnachweis.
 - [ ] Start erst nach ausdrücklicher Aktivierung und erfolgreicher
   Servertransaktion, Ablauf nach exakt 432000 Sekunden Serverzeit; Zeitpunkte
   und Restzeit verständlich anzeigen. Reinstallationen setzen nichts zurück.
@@ -58,9 +59,14 @@ tatsächlichen Angebote zu prüfen.
 - [ ] Play Billing und Apple-In-App-Kauf, serverseitige Prüfung, Wiederherstellung,
   plattformübergreifende Synchronisierung sowie Erstattung/Widerruf testen;
   keine externen Bezahlumgehungen. Unterstützte Länder/Preisstufen verifizieren.
-- [ ] Sicherstellen, dass notwendige Notfallfunktionen nicht von einem vorab
- erbrachten Härtefallnachweis abhängen; konkret betroffene Funktionen
- festlegen.
+- [ ] Den kostenlosen 48-Stunden-Defense-Zugang für Personen, die sich
+ nachweislich nicht selbst aus einer Notlage befreien können, separat vom
+ regulären Test und Kauf festlegen. Er darf nicht allein wegen abgelaufenen Tests
+ oder fehlender Zahlung blockiert werden.
+- [ ] Vor Implementierung Umfang und sicheren, datensparsamen, dokumentierten
+ Prüfprozess für die Notfallberechtigung festlegen. Kein bestimmtes Dokument,
+ Gesundheitsdatum oder anderes Nachweisverfahren ohne gesonderte Freigabe
+ voraussetzen; Datenschutz, Missbrauchsrisiken, Ablehnung und Überprüfung prüfen.
 - [ ] Den tatsächlichen Leistungsumfang von Elektro-Engel als
   NIKNOLIG-Systemfunktion und seine Einordnung in die getrennten App-Angebote
   dokumentieren. Keine separate App oder eigenständige kostenpflichtige

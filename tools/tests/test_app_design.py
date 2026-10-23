@@ -226,7 +226,10 @@ class AppDesignTests(unittest.TestCase):
         }["defense_access_notice"]
         for phrase in (
             "five consecutive 24-hour periods", "No payment method required",
-            "No trial starts here", "one-time €0.75", "No subscription",
+            "separate 48 hours of free Defense access",
+            "not be blocked solely because the trial expired or payment is missing",
+            "Neither a trial nor emergency access starts here",
+            "one-time €0.75", "No subscription",
             "NIKNOLIG remains usable without the upgrade",
         ):
             self.assertIn(phrase, english)
@@ -262,11 +265,14 @@ class AppDesignTests(unittest.TestCase):
         self.assertEqual(2, text.count("Kein bestätigter TestFlight-Einladungslink"))
         for phrase in (
             "fünf aufeinanderfolgende 24-Stunden-Zeiträume",
+            "getrennter kostenloser Defense-Zugang für 48 Stunden",
+            "nicht allein wegen eines abgelaufenen Tests oder fehlender Zahlung",
+            "Prüfung ist noch nicht festgelegt",
             "Keine Zahlungsmethode", "keine automatische Zahlung",
             "nicht der Zugang zu NIKNOLIG", "keine Notfallhilfe",
         ):
             self.assertIn(phrase, text)
-        self.assertNotIn("48 Stunden", text)
+        self.assertIn("48 Stunden", text)
         self.assertFalse(any(tag in ("form", "script") for tag, _ in page.elements))
 
 
