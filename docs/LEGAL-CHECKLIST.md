@@ -42,16 +42,22 @@ tatsächlichen Angebote zu prüfen.
 - [ ] Die Produktvorgabe „NIKNOLIG Defense regulär einmalig 0,75 €“ je Store
   umsetzen und Kaufumfang, Länderpreise, Steuern, Store-Gebühren,
   Rückerstattung und Zahlungsabwicklung prüfen.
-- [ ] Die Härtefallregel für NIKNOLIG Defense konsistent abbilden: qualifizierte
-  Personen erhalten genau 48 Stunden kostenlose Nutzung; keine unbegrenzte
-  Freischaltung aus der Regel ableiten.
-- [ ] Den Start auf die Aktivierung des Härtefallzugangs und das Ende exakt
-  48 Stunden danach festlegen; beide Zeitpunkte nachvollziehbar erfassen.
-  Verhalten nach Fristende darf keine automatische Belastung unterstellen.
-- [ ] Nachweismethode, zuständige Entscheidung, Missbrauchsbegrenzung und
- datenschutzrechtliche Umsetzung der Härtefallregel fachlich und
- fachjuristisch prüfen. Diese Punkte sind noch offen; keine Nachweise oder
- Verfahren erfinden.
+- [ ] Fünf-Tage-Test statt früherer Härtefallregel konsistent umsetzen: einmal
+  je berechtigtem Konto plattformübergreifend, keine Zahlungsmethode und keine
+  Notlagen-/Gesundheitsnachweise für den Test.
+- [ ] Start erst nach ausdrücklicher Aktivierung und erfolgreicher
+  Servertransaktion, Ablauf nach exakt 432000 Sekunden Serverzeit; Zeitpunkte
+  und Restzeit verständlich anzeigen. Reinstallationen setzen nichts zurück.
+- [ ] Eligibility, Kontoverknüpfung, Missbrauchsbegrenzung, Datenminimierung,
+  Löschfristen und Rechtsgrundlage für den minimalen Trial-Verbrauchsnachweis
+  prüfen; kein unbegrenztes Fingerprinting oder verdecktes Speichern.
+- [ ] Nach Ablauf nur optionales dauerhaftes Upgrade für einmalig 0,75 € mit
+  ausdrücklicher Storebestätigung; kein Abo, keine automatische Verlängerung,
+  wiederkehrenden Kosten oder automatische Belastung. Ablehnung lässt NIKNOLIG
+  unverändert nutzbar. Gesamtpreis inklusive Steuern aus dem Store bestätigen.
+- [ ] Play Billing und Apple-In-App-Kauf, serverseitige Prüfung, Wiederherstellung,
+  plattformübergreifende Synchronisierung sowie Erstattung/Widerruf testen;
+  keine externen Bezahlumgehungen. Unterstützte Länder/Preisstufen verifizieren.
 - [ ] Sicherstellen, dass notwendige Notfallfunktionen nicht von einem vorab
  erbrachten Härtefallnachweis abhängen; konkret betroffene Funktionen
  festlegen.
@@ -138,11 +144,11 @@ tatsächlichen Angebote zu prüfen.
 3. Umsetzung und rechtliche Prüfung der verbindlichen Produktpreise:
    NIKNOLIG dauerhaft kostenlos, NIKNOLIG Defense regulär einmalig 0,75 €;
    Store-, Länder- und Steuerdarstellung.
-4. Härtefallregel für Defense: Nachweismethode, Entscheidung, technische
-   Erfassung der Aktivierung und des Ablaufs exakt 48 Stunden später, Verhalten
-   nach Fristende, Missbrauchsbegrenzung und datenschutzrechtliche Umsetzung.
-   Notwendige Notfallfunktionen dürfen nicht von einem vorherigen Nachweis
-   abhängen.
+4. Defense-Test: einmalige bewusste Aktivierung je berechtigtem Konto, Ablauf
+   nach fünf mal 24 Stunden Serverzeit, kein automatischer Kauf; Kontomodell,
+   technische Durchsetzung und datenschutzrechtliche Umsetzung.
+   Verbleibende Defense-Funktionsgrenzen klar benennen, keine Garantie von
+   Notfallhilfe suggerieren.
 5. Elektro-Engels tatsächliche Funktion, Zweckbestimmung und mögliche
    Sonderpflichten.
 6. Datenschutzrollen, Datenflüsse, Datenschutzerklärungs-URL und
