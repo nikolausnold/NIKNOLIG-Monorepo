@@ -422,6 +422,10 @@ private struct NIKNOLIGSupportView: View {
         }
     }
 
+    private func loadTicket() {
+        ticket = try? supportQueue.tickets().last(where: { $0.app == .niknolig })
+    }
+
     private func openSupportEmail() {
         if ticket == nil {
             guard let encrypted = try? payloadCipher.encrypt(question) else {
