@@ -43,6 +43,9 @@ async def probe(check):
     async def run():
         nonlocal connection
         dsn, kwargs = connection_parameters()
+        kwargs["options"] = (
+            kwargs.get("options", "") + " -c default_transaction_read_only=on"
+        ).strip()
         connection = await psycopg.AsyncConnection.connect(dsn, autocommit=True, **kwargs)
         await check(connection)
 

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 import database
-from migrate import check_ready_async
+from migrate import check_health_ready_async
 
 
 HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
@@ -86,7 +86,7 @@ def create_app(*, readiness_probe=None):
     @application.get("/health/ready")
     async def ready():
         try:
-            await probe(check_ready_async)
+            await probe(check_health_ready_async)
         except Exception:
             _log_readiness_failure()
             return error(503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable.")

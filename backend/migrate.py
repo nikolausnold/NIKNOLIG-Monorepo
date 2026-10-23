@@ -190,7 +190,10 @@ def check_ready(connection):
 
 
 async def check_ready_async(connection):
-    checks = _readiness_checks()
+    await _run_checks_async(connection, _readiness_checks())
+
+
+async def _run_checks_async(connection, checks):
     rows = None
     while True:
         try:
@@ -201,8 +204,8 @@ async def check_ready_async(connection):
         rows = await cursor.fetchall()
 
 
-def _check_health_role(connection):
-    unsafe = connection.execute("""
+def _health_role_checks():
+    rows = yield """
         SELECT EXISTS (
             SELECT 1 FROM pg_roles r WHERE r.rolname = 'backend_health' AND (
                 r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication
@@ -242,11 +245,11 @@ def _check_health_role(connection):
             WHERE r.rolname = 'backend_health'
               AND (a.privilege_type <> objects.allowed OR a.is_grantable)
         )
-    """).fetchone()[0]
-    if unsafe:
+    """
+    if rows != [(False,)]:
         raise RuntimeError("Existing health role has unexpected privileges, ownership or memberships")
     # PUBLIC grants are inherited even by NOINHERIT roles.
-    if connection.execute("""
+    rows = yield """
         SELECT has_schema_privilege('backend_health', 'public', 'CREATE')
         OR EXISTS (
             SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -258,8 +261,21 @@ def _check_health_role(connection):
                     AND has_any_column_privilege('backend_health', c.oid, 'SELECT'))
             )
         )
-    """).fetchone()[0]:
+    """
+    if rows != [(False,)]:
         raise RuntimeError("Health role has unexpected effective schema or table privileges")
+
+
+def _check_health_role(connection):
+    _run_checks(connection, _health_role_checks())
+
+
+async def check_health_ready_async(connection):
+    cursor = await connection.execute("SELECT current_user, session_user")
+    if await cursor.fetchall() != [("backend_health", "backend_health")]:
+        raise RuntimeError("Health runtime requires the dedicated health login")
+    await _run_checks_async(connection, _health_role_checks())
+    await check_ready_async(connection)
 
 
 def _configure_health_role(connection, secret_path):
