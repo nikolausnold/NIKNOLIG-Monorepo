@@ -5,5 +5,8 @@
 !migrate.py
 !deployment.py
 !healthcheck.py
+!ai_support.py
+!support_http.py
+!workers_ai.py
 !migrations/
 !migrations/*.sql

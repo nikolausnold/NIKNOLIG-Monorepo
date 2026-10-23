@@ -1,4 +1,4 @@
-"""Local preparation only: no network transport, credential handling, or auth issuer."""
+"""Fail-closed support controls; transport and verified identity are injected."""
 
 from dataclasses import dataclass
 import math
@@ -54,7 +54,7 @@ class Provider(Protocol):
 
 
 class WorkersAITransport(Protocol):
-    """Injected local mock only here; future transport must enforce timeout."""
+    """Server-side transport must bound network time and response size."""
 
     def run(self, *, model: str, messages: tuple, max_tokens: int,
             temperature: float, timeout_seconds: float) -> ProviderResult: ...

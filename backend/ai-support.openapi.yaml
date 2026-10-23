@@ -8,7 +8,9 @@ info:
     extend the approved health-only contract in openapi.yaml. No environment
     variable enables AI. Local tests explicitly inject mocks, verified principals,
     audit sinks and approval gates. No authentication issuer, account, secret,
-    network transport or paid API integration is supplied. SecurityChain-P0,
+    production credentials or paid API activation is supplied. A server-side
+    Workers AI HTTPS transport is available but is never constructed by default.
+    SecurityChain-P0,
     provider/model approval, operator cost approval, durable distributed quotas
     and audit storage, privacy review and production authentication remain blockers.
 servers:
@@ -25,7 +27,7 @@ paths:
         must match the independently authenticated, active, unexpired principal
         and its ai:support permission. NIKNOLIG and NIKNOLIG Defense remain
         separately scoped. The default runtime is disabled and returns
-        AI_DISABLED; this route is not registered by the production ASGI app.
+        AI_DISABLED; ASGI and Caddy now expose the same fail-closed route.
         It uses the same limits, audit requirements, generic errors and
         untrusted plain-text response as the legacy compatibility route below.
         No external provider or network transport is enabled.
@@ -80,7 +82,7 @@ paths:
         with offline and kill-switch gates false; defaults fail closed.
         The preferred adapter uses a fixed server-side Cloudflare Workers AI
         candidate @cf/meta/llama-3.1-8b-instruct-fp8-fast and an injected
-        transport only, with max_tokens 256 and a
+        server-side transport, with max_tokens 256 and a
         5-second transport timeout requirement. The model is a preparation
         candidate, not a production approval or availability promise.
         Local atomic limits default to 5 calls per principal/app per minute,

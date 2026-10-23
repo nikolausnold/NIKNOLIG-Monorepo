@@ -8,7 +8,7 @@ COPY requirements.txt ./
 RUN python -m pip install --no-cache-dir -r requirements.txt \
     && groupadd --gid 10001 backend \
     && useradd --uid 10001 --gid 10001 --no-create-home backend
-COPY asgi.py database.py migrate.py deployment.py healthcheck.py ./
+COPY asgi.py database.py migrate.py deployment.py healthcheck.py ai_support.py support_http.py workers_ai.py ./
 COPY migrations ./migrations
 USER 10001:10001
 EXPOSE 8000

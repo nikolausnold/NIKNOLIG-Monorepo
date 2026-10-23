@@ -54,14 +54,14 @@ this backend rather than a legacy health endpoint or unrelated proxy response.
 The shared AI-support preparation endpoint can scope `support` and
 `electro-engel` requests independently to either app. The app claim must match
 the authenticated principal and permission; a NIKNOLIG credential cannot make a
-Defense request. This is not a production integration: the production ASGI
-runtime does not register AI routes, the default local service rejects requests
+Defense request. This is not an activated production integration: the production ASGI
+runtime and Caddy expose the same fail-closed support routes; the default service rejects requests
 as `AI_DISABLED`, and no authenticated mobile client is enabled. Defense does
 not gain the separate NIKNOLIG-local Elektro-Engel runtime.
 
 ## Operational limits and manual steps
 
-- The backend AI support routes remain local-preparation-only and disabled.
+- The backend AI support routes remain disabled by default, including in ASGI.
   There is no production authentication issuer, approved provider, or deployed
   support API.
 - The health contract is implemented and covered by server/client tests, but a

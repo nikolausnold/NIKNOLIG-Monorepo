@@ -31,6 +31,18 @@ https://{$BACKEND_HOSTNAME} {
 			}
 		}
 	}
+	@support {
+		method POST
+		path /support /v1/ai/support
+	}
+	handle @support {
+		reverse_proxy api:8000 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 15s
+			}
+		}
+	}
 	handle {
 		respond 404
 	}
