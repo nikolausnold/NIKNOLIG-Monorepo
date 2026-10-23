@@ -262,8 +262,7 @@ class SupportService:
         if (app not in APPS or feature not in FEATURES or
                 not prompt.strip() or prompt_bytes > MAX_PROMPT_BYTES):
             return error_response(400, "VALIDATION_FAILED", request_id)
-        if (principal.app != app or
-                (feature == "electro-engel" and app != "niknolig")):
+        if principal.app != app:
             return error_response(403, "APP_AREA_MISMATCH", request_id)
         if "ai:" + feature not in principal.permissions:
             return error_response(403, "AUTHORIZATION_DENIED", request_id)

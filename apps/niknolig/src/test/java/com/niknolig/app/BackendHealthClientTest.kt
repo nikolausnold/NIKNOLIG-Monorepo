@@ -49,11 +49,17 @@ class BackendHealthClientTest {
         val invalid = BackendHealthClient("https://api.example.test") {
             FakeHttpsConnection(it, 200, """{"status":"live"}""")
         }.check()
+        val legacyHealth = BackendHealthClient("https://api.example.test") {
+            FakeHttpsConnection(
+                it, 200, """{"status":"ok","service":"NOLD API","version":"0.2.0"}""",
+            )
+        }.check()
         val unauthorized = BackendHealthClient("https://api.example.test") {
             FakeHttpsConnection(it, 401, """{"error":{"code":"AUTHENTICATION_REQUIRED"}}""")
         }.check()
 
         assertEquals(BackendHealthResult.InvalidResponse, invalid)
+        assertEquals(BackendHealthResult.InvalidResponse, legacyHealth)
         assertEquals(BackendHealthResult.HttpError(401), unauthorized)
     }
 

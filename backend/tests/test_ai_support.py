@@ -227,12 +227,32 @@ class SupportServiceTests(unittest.TestCase):
             self.auth.principal, app="niknolig-defense",
             permissions=frozenset({"ai:support", "ai:electro-engel"}),
         )
+        status, response = self.invoke(
+            payload(app="niknolig-defense", feature="electro-engel"))
+        self.assertEqual(200, status)
+        self.assertEqual("niknolig-defense", response["app"])
+        self.assertEqual("electro-engel", response["feature"])
+        self.auth.principal = replace(
+            self.auth.principal, app="niknolig",
+            permissions=frozenset({"ai:support", "ai:electro-engel"}),
+        )
         self.assertEqual(403, self.invoke(
             payload(app="niknolig-defense", feature="electro-engel"))[0])
         self.assertFalse(self.provider.calls)
+        self.auth.principal = replace(
+            self.auth.principal, app="niknolig-defense",
+            permissions=frozenset({"ai:support", "ai:electro-engel"}),
+        )
         self.assertEqual(200, self.invoke(payload(app="niknolig-defense"))[0])
-        self.auth.principal = replace(self.auth.principal, app="niknolig")
+        self.auth.principal = replace(
+            self.auth.principal, app="niknolig",
+            permissions=frozenset({"ai:support", "ai:electro-engel"}),
+        )
         self.assertEqual(200, self.invoke(payload(feature="electro-engel"))[0])
+        self.assertEqual(
+            ["Local support question."] * 3,
+            self.provider.calls,
+        )
 
     def test_untrusted_fields_types_unicode_and_size_are_rejected(self):
         cases = [

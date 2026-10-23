@@ -69,8 +69,10 @@ paths:
         Content-Encoding, duplicate Authorization headers, duplicate JSON fields
         and non-JSON constants are rejected. No body/header app claim is trusted:
         the verified active, unexpired principal must have the exact app scope
-        and ai:support or ai:electro-engel permission. Electro-Engel is exclusive
-        to niknolig, never niknolig-defense. No client provider, model, URL,
+        and ai:support or ai:electro-engel permission scoped to the same app.
+        Elektro-Engel support can be requested independently by either app; this
+        does not grant cross-app access or install its local runtime in Defense.
+        No client provider, model, URL,
         credential, conversation history, tool or action fields are accepted.
         Replies are untrusted text, never commands, HTML or tool invocations.
         No conversation state is stored or shared between apps.
@@ -183,15 +185,6 @@ components:
           minLength: 1
           maxLength: 2048
           description: Non-blank; an additional strict 2048 UTF-8 byte limit applies.
-      allOf:
-        - if:
-            properties:
-              feature:
-                const: electro-engel
-          then:
-            properties:
-              app:
-                const: niknolig
     SupportReply:
       type: object
       additionalProperties: false
