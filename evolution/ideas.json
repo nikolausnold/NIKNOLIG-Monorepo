@@ -86,8 +86,8 @@
         },
         {
           "path": "backend/README.md",
-          "startLine": 188,
-          "endLine": 189,
+          "startLine": 279,
+          "endLine": 280,
           "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,\nHealthchecks und die gesperrte lokale Support-Route.",
           "state": "verified"
         }

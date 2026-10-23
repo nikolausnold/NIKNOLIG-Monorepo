@@ -160,7 +160,7 @@ class ProductionRuntimeTests(unittest.TestCase):
 
     def test_readiness_checks_database_and_migration_invariants(self):
         self.assertEqual((200, {"status": "ready"}), self.request("/health/ready"))
-        self.factory.assert_awaited_once_with(migrate.check_ready_async)
+        self.factory.assert_awaited_once_with(migrate.check_health_ready_async)
 
     def test_unavailable_database_returns_generic_503(self):
         self.factory.side_effect = psycopg.OperationalError("password and internal address")
@@ -346,6 +346,33 @@ class MigrationUnitTests(unittest.TestCase):
 
 
 class AsyncDeadlineTests(unittest.IsolatedAsyncioTestCase):
+    async def test_probe_enforces_read_only_without_changing_migration_connections(self):
+        connection = AsyncMock()
+        with patch("database.connection_parameters", return_value=("", {
+            "options": "-c statement_timeout=2000",
+        })), patch(
+            "database.psycopg.AsyncConnection.connect", return_value=connection,
+        ) as connect:
+            check = AsyncMock()
+            await database.probe(check)
+        self.assertEqual(
+            "-c statement_timeout=2000 -c default_transaction_read_only=on",
+            connect.call_args.kwargs["options"],
+        )
+        check.assert_awaited_once_with(connection)
+        connection.close.assert_awaited_once()
+
+    async def test_production_readiness_rejects_admin_or_assumed_health_identity(self):
+        for identity in (("postgres", "postgres"), ("backend_health", "postgres"), []):
+            connection = AsyncMock()
+            connection.execute.return_value.fetchall.return_value = (
+                [] if identity == [] else [identity]
+            )
+            with self.subTest(identity=identity), self.assertRaisesRegex(
+                RuntimeError, "dedicated health login",
+            ):
+                await migrate.check_health_ready_async(connection)
+
     async def test_deadline_closes_connection_before_cancelling_stalled_query(self):
         connection = AsyncMock()
         order = []
@@ -579,13 +606,118 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             **{"password": "integration-test-only"},
         )
         with patch.dict(os.environ, {"DATABASE_URL": dsn, "PGPASSWORD_FILE": ""}):
-            asyncio.run(database.probe(migrate.check_ready_async))
+            asyncio.run(database.probe(migrate.check_health_ready_async))
             self.connection.execute(
                 "ALTER TABLE backend_schema_migrations DROP CONSTRAINT backend_schema_migrations_checksum_check, "
                 "ADD CONSTRAINT backend_schema_migrations_checksum_check CHECK (true)"
             )
             with self.assertRaisesRegex(RuntimeError, "ledger invariants"):
-                asyncio.run(database.probe(migrate.check_ready_async))
+                asyncio.run(database.probe(migrate.check_health_ready_async))
+
+    def test_health_probes_are_read_only_but_migrations_remain_writable(self):
+        migrate.migrate(self.connection)
+        self.connection.execute("CREATE TABLE probe_write_target (value integer)")
+
+        async def attempt_write(connection):
+            await connection.execute("INSERT INTO probe_write_target VALUES (1)")
+
+        with patch.dict(os.environ, {
+            "DATABASE_URL": os.environ["BACKEND_TEST_DATABASE_URL"], "PGPASSWORD_FILE": "",
+        }), self.assertRaises(psycopg.errors.ReadOnlySqlTransaction):
+            asyncio.run(database.probe(attempt_write))
+        self.assertEqual(
+            [(0,)], self.connection.execute("SELECT count(*) FROM probe_write_target").fetchall(),
+        )
+        self.connection.execute("INSERT INTO probe_write_target VALUES (2)")
+
+    def test_real_http_readiness_rejects_role_drift_and_admin_configuration(self):
+        from psycopg.conninfo import make_conninfo
+        with patch("database.read_secret", return_value="integration-test-only"):
+            migrate.migrate(self.connection, health_secret_path="mock-only")
+        dsn = make_conninfo(
+            os.environ["BACKEND_TEST_DATABASE_URL"], user="backend_health",
+            **{"password": "integration-test-only"},
+        )
+        listener = socket.socket()
+        listener.bind(("127.0.0.1", 0))
+        url = f"http://127.0.0.1:{listener.getsockname()[1]}"
+        server = uvicorn.Server(uvicorn.Config(
+            create_app(), log_level="critical", access_log=False,
+        ))
+        thread = threading.Thread(
+            target=server.run, kwargs={"sockets": [listener]}, daemon=True,
+        )
+
+        def request(path):
+            try:
+                response = urlopen(url + path, timeout=5)
+            except HTTPError as failure:
+                response = failure
+            with response:
+                self.assertEqual("no-store", response.headers["Cache-Control"])
+                return response.status, json.load(response)
+
+        try:
+            with patch.dict(os.environ, {"DATABASE_URL": dsn, "PGPASSWORD_FILE": ""}):
+                thread.start()
+                for _ in range(100):
+                    if server.started:
+                        break
+                    time.sleep(0.02)
+                self.assertTrue(server.started)
+                self.assertEqual((200, {"status": "ready"}), request("/health/ready"))
+                self.connection.execute("GRANT UPDATE ON backend_schema_migrations TO backend_health")
+                try:
+                    status, body = request("/health/ready")
+                    self.assertEqual(503, status)
+                    self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
+                    self.assertNotIn("backend_health", json.dumps(body))
+                    self.assertEqual((200, {"status": "live"}), request("/health/live"))
+                finally:
+                    self.connection.execute("REVOKE UPDATE ON backend_schema_migrations FROM backend_health")
+                self.assertEqual((200, {"status": "ready"}), request("/health/ready"))
+                with patch.dict(os.environ, {
+                    "DATABASE_URL": os.environ["BACKEND_TEST_DATABASE_URL"],
+                }):
+                    self.assertEqual(503, request("/health/ready")[0])
+                    self.assertEqual((200, {"status": "live"}), request("/health/live"))
+        finally:
+            server.should_exit = True
+            if thread.ident is not None:
+                thread.join(5)
+            listener.close()
+            self.assertFalse(thread.is_alive())
+
+    def test_production_readiness_rejects_privilege_drift_after_provisioning(self):
+        from psycopg.conninfo import make_conninfo
+        with patch("database.read_secret", return_value="integration-test-only"):
+            migrate.migrate(self.connection, approve_contract=True, health_secret_path="mock-only")
+        dsn = make_conninfo(
+            os.environ["BACKEND_TEST_DATABASE_URL"], user="backend_health",
+            **{"password": "integration-test-only"},
+        )
+        mutations = (
+            ("GRANT SELECT ON device_installations TO backend_health",
+             "REVOKE SELECT ON device_installations FROM backend_health"),
+            ("GRANT UPDATE (checksum) ON backend_schema_migrations TO PUBLIC",
+             "REVOKE UPDATE (checksum) ON backend_schema_migrations FROM PUBLIC"),
+            ("GRANT CREATE ON SCHEMA public TO PUBLIC",
+             "REVOKE CREATE ON SCHEMA public FROM PUBLIC"),
+            ("GRANT pg_read_all_data TO backend_health",
+             "REVOKE pg_read_all_data FROM backend_health"),
+            ("ALTER ROLE backend_health BYPASSRLS",
+             "ALTER ROLE backend_health NOBYPASSRLS"),
+        )
+        with patch.dict(os.environ, {"DATABASE_URL": dsn, "PGPASSWORD_FILE": ""}):
+            for mutation, restore in mutations:
+                with self.subTest(mutation=mutation):
+                    self.connection.execute(mutation)
+                    try:
+                        with self.assertRaisesRegex(RuntimeError, "health role|Health role"):
+                            asyncio.run(database.probe(migrate.check_health_ready_async))
+                    finally:
+                        self.connection.execute(restore)
+                    asyncio.run(database.probe(migrate.check_health_ready_async))
 
     def test_existing_overprivileged_health_role_is_rejected_atomically(self):
         with patch("database.read_secret", return_value="integration-test-only"):

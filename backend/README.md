@@ -12,6 +12,97 @@ NIKNOLIG Defense bleiben getrennte Sicherheits- und Release-Domänen; gemeinsame
 Verträge verleihen keine Rechte.
 Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 
+## Produktions-Bestandsaufnahme und erstes Sicherheitspaket
+
+Geprüfter Ausgangscommit: `341aa679fe73d46f393c9b031437d665d40fac62`
+(23.10.2026). Die Support-Arbeiten
+[#146](https://github.com/nikolausnold/NIKNOLIG-Monorepo/pull/146) und
+[#147](https://github.com/nikolausnold/NIKNOLIG-Monorepo/pull/147) sind bereits
+enthalten und werden nicht parallel neu implementiert. Elektro-Engel BUILD TO RUN
+bleibt abgeschlossen und wurde nicht wiederholt.
+
+**Keine vollständige Produktstrecke ist hier als produktiv funktionsfähig
+nachgewiesen.** Lokale Implementierung, bestandene Builds und ein API-Vertrag
+sind kein Nachweis für produktiven Betrieb. Die folgende Matrix unterscheidet
+vorhandene Logik von fehlender Verbindung und externen Voraussetzungen; sie ist
+keine Produktionsfreigabe.
+
+| Funktion / Modul | Einordnung | Konkreter Nachweis und verbleibende Lücke |
+| --- | --- | --- |
+| Produktiver Gesamtdatenfluss beider Apps | Blockiert durch externe Voraussetzungen | Kein bestätigter Betreiber-Endpunkt, Betriebszugang oder physischer Gerätetest in dieser Prüfung; keine Produktionsverbindung behauptet. |
+| Liveness und Readiness | Implementiert, aber nicht produktiv verbunden | `asgi.py`, `database.py`, `migrate.py`: echte PostgreSQL-Abfragen, Frist, Prüfsummen und Schema-Invarianten; dieses Paket ergänzt Read-only und die Health-Rollenprüfung. Der HTTP→ASGI→PostgreSQL-Pfad ist mit einer wegwerfbaren Testinstanz geprüft, nicht mit einem Produktionsserver. |
+| Migration / Datenbank | Teilweise implementiert | `000_health_runtime.sql` ist die Infrastruktur-Basis; `001_initial_contract.sql` bleibt ein separat freizugebendes Geräte-Modell. Keine produktive Migration ausgeführt. |
+| Konfiguration / Deployment / Rollback | Teilweise implementiert | `compose.production.yaml`, `deployment.py`, `Caddyfile` und die Betriebsabschnitte unten existieren. Domain, TLS-Erneuerung, vorhandene Server-/DB-Ressourcen, Backup-Wiederherstellung und Monitoring sind extern zu bestätigen. Keine Infrastruktur ersetzt. |
+| Anmeldung, Autorisierung, Sitzungen | Vollständig fehlend als Produktlaufzeit | `ai_support.py` hat nur ein Authenticator-Protokoll und standardmäßige Ablehnung, keinen Aussteller, Login, Widerrufsspeicher oder produktiven Validator. Die Health-DB-Rolle ersetzt keine Benutzeranmeldung. |
+| Echte KI-Antworten über das Backend | Implementiert als Vorbereitung, aber nicht verbunden | `ai_support.py` und `ai-support.openapi.yaml`: Adaptergrenze, App-Scope, Audit-/Quota-Gates und lokale Tests. Kein realer Netzwerktransport und kein Anbieteraufruf; ASGI registriert keine KI-Route. |
+| KI-Freigabe / Kostenkontrolle | Blockiert durch externe Voraussetzungen und fehlende Laufzeit | Anbieter-/Modell-/Datenschutz-/Kostenfreigabe und serverseitige Zugangsdaten fehlen. In-Memory-Quoten sind keine dauerhafte instanzübergreifende Kostenbegrenzung; Audit- und Quota-Speicher müssen noch implementiert werden. |
+| Elektro-Engel-Analyse | Implementiert, aber nicht mit echter KI verbunden | `modules/electro-engel/`: lokale deterministische Analyse, kein Beleg für generative KI oder Faktenprüfung. Keine Änderung an BUILD TO RUN. |
+| Gemeinsame Supportantworten | Teilweise implementiert | `modules/support/` wird von beiden Android- und iOS-Apps verwendet: lokale FAQs und Diagnosecodes. Kein authentifizierter Netzwerk-Chat, kein Empfang menschlicher Antworten. |
+| Supportfälle / Wiederherstellung / Duplikate | Teilweise implementiert | `SupportEscalationQueue.kt` und der Swift-Supportkern: lokale verschlüsselte Speicherung, UUID, app-bezogene Idempotenz, Zustände, begrenzte Wiederholungen und Löschung. Kein serverseitiges Ticketregister, keine geräteübergreifende Wiederherstellung oder freigegebene zeitliche Aufbewahrungsregel. |
+| E-Mail-Eskalation | Teilweise implementiert | Bestehender bestätigter `mailto:`-Entwurf an `n_nold@hotmail.com`, nur Ticketmetadaten; kein automatischer Versand und keine Zustellbestätigung. `UNCERTAIN` ist absichtlich kein Erfolg. Siehe `modules/support/README.md`. |
+| Website-Mailversand | Blockiert durch externe Voraussetzungen | Der vorhandene Supportbefund dokumentiert Website-`mailto:`-Links, keinen wiederverwendbaren serverseitigen Versanddienst. Kein SMTP-Zugang oder Zustelltest verfügbar; kein neuer Maildienst eingerichtet. |
+| Geräteidentität / Registrierung / Kopplung | Vollständig fehlend als Laufzeit | SQL-/JSON-Entwürfe sind keine Schlüsselbesitzprüfung, Registrierungs-API oder Kopplung. Identitäts-, Widerrufs- und P0-Regeln müssen freigegeben werden. |
+| BLE / Wiederverbindung / tatsächlicher Gerätestatus | Vollständig fehlend | Keine technische BLE-Verbindung, entsprechende mobile Berechtigungsstrecke oder physische Geräteprüfung nachgewiesen. Kein Gerät als verbunden oder sicher markiert. |
+| Lernprofil / Einstellungen | Teilweise implementiert | Beide `LearningProfileActivity.kt` sowie beide SwiftUI-Appdateien speichern lokal Einstellungen, Feedback und Zusammenfassung und erlauben Zurücksetzen. Kein Backend-Abgleich, kein serverseitiger Export oder produktiver Berechtigungsfluss. |
+| Einwilligung / Export / Löschung | Teilweise implementiert | Lokale Lernprofil- und Ticketlöschung vorhanden; kein vollständiger Datenexport, serverseitiger Consent-/Löschfluss oder umfassender Aufbewahrungsprozess. E-Mail-Entwürfe außerhalb der App werden nicht zurückgerufen. |
+| Navigation / Lade-, Offline-, Fehlerzustände | Teilweise implementiert | Beide `MainActivity.kt` verbinden vorhandene Profil-/Supportansichten, NIKNOLIG zusätzlich den lokalen Assistenten. Supportansichten unterscheiden fehlende Konfiguration, ungültige Health-Antwort und Nichtverfügbarkeit; physische UI-End-to-End-Abnahme steht aus. |
+| Defense-Schutz / Notfall / Sensoren | Vollständig fehlend und als nicht verfügbar ausgewiesen | `apps/ios/NIKNOLIGDefenseApp.swift`, Android-Vorschau und `docs/BUSINESSPLAN.md`: keine aktive Notfall-, Standort- oder Infrastruktur-Erkennung; keine Überwachung aktiviert. |
+| Defense-Preis und 48-Stunden-Regel | Teilweise implementiert als Produktregel | Einmalig 0,75 € und 48 Stunden kostenfrei bei nachgewiesener Unfähigkeit zur Befreiung bleiben unverändert. Zahlungs-/Berechtigungsdurchsetzung und datensparsame Nachweisprüfung fehlen; kein Zahlungsanbieter aktiviert. |
+| Android | Implementiert, produktive Abnahme offen | Zwei getrennte App-Identitäten, Healthclients und Supportkern. Bestehende CI prüft Builds, Unit-Tests, APK-Identitäten und Signaturen; dies ist kein physischer Geräte- oder Live-Backend-Test. |
+| iOS | Implementiert als native Vorschau, produktive Abnahme offen | Zwei getrennte Targets, lokale Profile, Support und Healthclient. Bestehende CI baut beide Simulator-Targets separat; kein Geräte-, Signierungs-, TestFlight- oder produktiver Verbindungsnachweis. |
+
+### Technischer Umfang dieses Pakets
+
+- Alle `database.probe`-Verbindungen starten mit
+  `default_transaction_read_only=on`; die separate synchrone
+  Migrationsverbindung bleibt schreibfähig.
+- ASGI-Readiness verlangt eine direkte Anmeldung als `backend_health`
+  (`current_user` und `session_user`). Versehentliche Migrator-/Admin-Credentials
+  und `SET ROLE` statt separater Anmeldung liefern 503.
+- Die schon bei der Rollenbereitstellung geprüften unerwarteten
+  Rollenattribute, Mitgliedschaften, Besitzverhältnisse, expliziten Grants
+  und effektiven öffentlichen Schema-/Tabellenrechte werden nun bei jeder
+  produktiven Readiness erneut geprüft. Nachträgliche Berechtigungsdrift bleibt
+  nicht mehr bis zur nächsten Migration unbemerkt.
+- Liveness bleibt ohne DB erreichbar; Fehler und Logs enthalten keine
+  Credentials oder Rollen-/Verbindungsdetails. `/db/health` bleibt lediglich ein
+  Konnektivitätstest, keine Produkt- oder Sicherheitsfreigabe.
+- Keine neue Abhängigkeit, kein Produkt-Endpunkt, keine neue Migration,
+  kein bezahlter Dienst und keine Änderung der bestehenden Support-/KI-Gates.
+
+Vor einem späteren Rollout muss der Betreiber die schon vorgesehene
+`backend_health`-Anmeldung samt separatem Secret bereitstellen; mit bisherigen
+Admin-Credentials wird Readiness absichtlich nicht mehr grün. Die weiter unten
+beschriebene Migration übernimmt diese Rollenbereitstellung nur bei gesetztem
+`HEALTH_DB_PASSWORD_FILE`. Bei einem Rollenfehler zuerst die Fehlkonfiguration
+beheben, nicht auf Admin-Credentials ausweichen. Dieses Paket ändert kein
+Datenbankschema; ein freigegebener Image-Rollback benötigt deshalb keine
+Datenmigration und darf die Berechtigungen nicht erweitern.
+
+### Wiederverwendete CI-Nachweise des Ausgangsstands
+
+- [Backend-Verträge und Tooling, erfolgreich, Commit `341aa679`](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39921402603).
+- [Android-Builds und Client-/Core-Tests, erfolgreich, Commit `341aa679`](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39921402543).
+- [iOS-Simulator-Builds beider Targets und Supporttests, erfolgreich, Commit `fa50382e`](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39917773453).
+  Dieser ältere Lauf ist ein iOS-Buildnachweis, kein Build des neuen Backend-Pakets.
+  Android- und iOS-Nachweise sind nicht gegeneinander austauschbar.
+
+Für dieses Paket werden Backend-Regressionen und echte PostgreSQL-Integration
+gezielt geprüft; keine erneuten vollständigen mobilen Builds lokal gestartet.
+Die genannten Ausgangsläufe ersetzen nicht die CI des neuen PR-Commits.
+
+### Nächste verbindliche Entscheidungen
+
+Zuerst die vorhandene Betriebsumgebung und den realen HTTPS-Origin bestätigen
+(Repository-Konfiguration: [Actions-Variablen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/variables/actions),
+serverseitige Zugangsdaten nicht in Kommentare oder Git schreiben).
+Danach Aussteller/Login, App-Scope, Sitzungswiderruf, Datenmodell,
+Aufbewahrung und P0-Abnahmekriterien freigeben und implementieren. Erst darauf
+aufbauend folgen dauerhafte Supportdaten, echter KI-Transport mit genehmigtem
+Budget, bestätigte E-Mail-Zustellung und schließlich reale Geräteverbindungen.
+Anbietergebühren, Maildienstgebühren, Zahlungsanbieter und etwaige zusätzliche
+Infrastrukturkosten erfordern vor Aktivierung ausdrücklich Zustimmung.
+
 ## Artefakte
 
 - [`openapi.yaml`](openapi.yaml): OpenAPI 3.1-Vertrag für nicht-sensitive
@@ -452,7 +543,10 @@ Eindeutigkeit, Schlüsselspalten und Teilindex-Prädikat.
 python3 -m pip install -r backend/requirements.txt
 # DATABASE_URL oder PGHOST, PGDATABASE, PGUSER und separat bereitgestelltes
 # PGPASSWORD_FILE konfigurieren; keine Credentials in Git oder Shell-History.
+# Für die Rollenbereitstellung zusätzlich HEALTH_DB_PASSWORD_FILE setzen.
 python3 backend/migrate.py
+# Vor ASGI auf die direkte backend_health-Anmeldung und deren separates
+# Passwort umstellen, auch in DATABASE_URL; niemals Migrator-Zugang verwenden.
 python3 -m uvicorn asgi:app --app-dir backend --host 127.0.0.1 --port 8000 \
   --no-proxy-headers --no-server-header --no-access-log
 python3 -m unittest discover -s backend/tests
@@ -467,6 +561,8 @@ Die vorhandene `001_initial_contract.sql` bleibt unverändert und gesperrt:
 Architektur-/Security-/Datenmodell-Freigabe** verwendet werden. Das Flag ist
 kein Freigabenachweis und wird im Produktions-Compose nicht gesetzt.
 Kein automatisches Downgrade oder Löschen vorhandener Daten wird durchgeführt.
+Der ASGI-Readiness-Aufruf benötigt die separate `backend_health`-Anmeldung;
+die Migrationsanmeldung ist dort auch bei gültigem Schema nicht zulässig.
 Integrationstests laufen zusätzlich bei `BACKEND_TEST_DATABASE_URL`; sie
 löschen das `public`-Schema und verlangen deshalb ausdrücklich eine wegwerfbare
 Testdatenbank mit Namenssuffix `_backend_test`, niemals eine Betriebsdatenbank.
