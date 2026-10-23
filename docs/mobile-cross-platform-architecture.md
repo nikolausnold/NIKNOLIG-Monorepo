@@ -1,17 +1,20 @@
 # Android-/iOS-Architektur und Integrationsplan
 
-**Status:** Architekturplanung, gesperrte KI-Support-Vorbereitung und native iOS-
-Vorschauziele. Kein freigegebener API-Endpunkt oder produktiver Dienst und keine
-Änderung an den separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein
-verbindliches Stop-Gate.
+**Status:** Architekturplanung, gesperrte KI-Support-Vorbereitung und bestehende
+lokale iOS-Vorschauziele. Das iOS-Projekt der NIKNOLIG-Haupt-App liegt im
+separaten Repository [`nikolausnold/NIKNOLIG`](https://github.com/nikolausnold/NIKNOLIG).
+Kein freigegebener API-Endpunkt oder produktiver Dienst. SecurityChain P0 bleibt
+ein verbindliches Stop-Gate.
 
-**Implementierungsstand 22.10.2026:** `apps/ios/NIKNOLIG.xcodeproj` enthält zwei
-unabhängige iOS-App-Targets mit den bestehenden Produkt-IDs. NIKNOLIG enthält
-zusätzlich die lokale, regelbasierte Elektro-Engel-Wirklichkeitsanalyse aus
-`modules/electro-engel/ios`; sie ist keine generative KI und prüft keine Quellen.
-Es gibt keine Geräte-, Sensor- oder Notfallintegration. iOS 16.0 ist vorläufige
-technische Projekteinstellung, keine genehmigte Plattformmatrix. Mangels
-macOS/Xcode wurde kein iOS-App-Build ausgeführt.
+**Implementierungsstand 22.10.2026:** Dieses Monorepo enthält zusätzlich die
+bestehenden lokalen Vorschauziele in `apps/ios/NIKNOLIG.xcodeproj`; deren
+Vorhandensein ändert nicht die Zuordnung des iOS-Hauptprojekts zum separaten
+Repository. NIKNOLIG enthält hier außerdem die lokale, regelbasierte
+Elektro-Engel-Wirklichkeitsanalyse aus `modules/electro-engel/ios`; sie ist keine
+generative KI und prüft keine Quellen. Es gibt keine Geräte-, Sensor- oder
+Notfallintegration. iOS 16.0 ist vorläufige technische Projekteinstellung,
+keine genehmigte Plattformmatrix. Android-Module, deren Gradle-Builds und
+Application IDs bleiben davon getrennt und unverändert.
 
 ## 1. Bestand: wiederverwenden statt duplizieren
 
@@ -263,11 +266,12 @@ Kein neues Repository wird im Rahmen dieser Vorbereitung erstellt.
    Monorepo-Module behalten Ownership und App-Identität. Eine spätere Anbindung
    wird von den zuständigen Teams separat geplant, reviewed und freigegeben;
    dieses Dokument ändert sie nicht.
-5. **iOS-Ziele vervollständigen:** Die beiden nativen Targets verbleiben in
-   `apps/ios/` dieses Monorepos und haben getrennte Bundle-IDs, App-Sandboxes,
-   Build-Konfigurationen und Produktoberflächen. Sie konsumieren nur genehmigte
-   gemeinsame Verträge. Es gibt keine gemeinsame App-Credential-Domäne,
-   Android-Runtime oder implizite Elektro-Engel-Berechtigung.
+5. **iOS-Projektzuordnung erhalten:** Das iOS-Projekt der NIKNOLIG-Haupt-App
+   bleibt im separaten Repository `nikolausnold/NIKNOLIG`. Die bereits
+   vorhandenen lokalen Vorschauziele in `apps/ios/` bleiben am bisherigen Ort;
+   NIKNOLIG Defense iOS wird nicht neu sortiert oder exportiert. iOS-Builds
+   bleiben vom Android-Gradle-Build getrennt; Android-Builds bauen keine
+   iOS-Projekte.
 6. **Plattformfreigaben:** Vor geschützten Funktionen Plattformmatrix,
    OS-Berechtigungen, Identität, Datenflüsse und Lösch-/Widerrufsregeln pro App
    schriftlich freigeben. Signierung, Store-Metadaten und TestFlight benötigen
@@ -277,9 +281,11 @@ Kein neues Repository wird im Rahmen dieser Vorbereitung erstellt.
    werden nur nach dokumentierter Consumer-Migration und Kompatibilitätsprüfung
    ausgebaut oder abgekündigt.
 
-Die iOS-Projektziele bleiben in diesem Monorepo; diese Projektablage erteilt
-keine Produktiv- oder SecurityChain-P0-Freigabe. Produktive Umsetzung bleibt
-bis zur erforderlichen Sicherheits-, Plattform- und Betreiberfreigabe blockiert.
+Die bestehenden lokalen iOS-Vorschauziele und ihre separate CI-Konfiguration
+bleiben unverändert. Sie ersetzen nicht das iOS-Hauptprojekt im separaten
+Repository. Diese Projektzuordnung erteilt keine Produktiv- oder
+SecurityChain-P0-Freigabe. Produktive Umsetzung bleibt bis zur erforderlichen
+Sicherheits-, Plattform- und Betreiberfreigabe blockiert.
 
 ## 7. Offene Entscheidungen und Stop-Gate
 
