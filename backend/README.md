@@ -74,6 +74,9 @@ freigegebenes P0 darf kein öffentlicher Chat aktiviert werden. Die Health-Rolle
    `NIKNOLIG_BACKEND_URL` und `NIKNOLIG_DEFENSE_BACKEND_URL` auf
    `https://api.niknolig.com` setzen:
    [Actions-Variablen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/variables/actions).
+   Etwaige überschreibende Werte in
+   [Environment `android-release`](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/environments)
+   müssen ebenfalls auf den bestätigten Origin zeigen.
    Das verbindet nur Health, noch keinen authentifizierten Supportchat.
 4. Vor KI-Aktivierung Anbieter/Modell, Datenschutz und Budget ausdrücklich
    genehmigen; vorhandenen Cloudflare-Account und minimal auf Workers-AI-Aufrufe
@@ -117,6 +120,17 @@ waren für `97e4e79` erfolgreich. Der vorherige Releaseversuch
 erfolgreiche Lauf ersetzt ihn, kein erneuter Build wurde deshalb ausgelöst.
 Der ältere iOS-Nachweis unten bleibt separat; kein neuer iOS-/Gerätebuild und
 kein produktiver PostgreSQL-/Caddy-/TLS-Nachweis wird daraus abgeleitet.
+
+Gezielte Prüfung dieser Fortsetzung: **148 Backendtests erfolgreich, keine
+übersprungen**, einschließlich echter Migrationen/Readiness gegen eine
+wegwerfbare Instanz des in Produktion gepinnten PostgreSQL-17.9-Images;
+zusätzlich **9 bestehende Supportflowtests erfolgreich**. Das gepinnte
+Caddy-2.10.2-Image hat die Konfiguration erfolgreich adaptiert; die erzeugten
+Routen enthalten GET-Health und POST-Support als getrennte gleichrangige
+Handler. Tests prüfen außerdem App-Scope/Auth vor Anbieteraufruf,
+deaktivierte Standardkonfiguration, doppelte Header/JSON-Felder, langsame
+Bodies, Providerfehler sowie Größen-/Timeoutgrenzen. Kein echter KI-Aufruf
+oder E-Mail-Versand und keine Android-/iOS-Neubuilds wurden ausgelöst.
 
 ## Produktions-Bestandsaufnahme und erstes Sicherheitspaket
 

@@ -1,4 +1,5 @@
 import io
+import http.client
 import json
 from email.message import Message
 from pathlib import Path
@@ -115,6 +116,29 @@ class WorkersAIHTTPTests(unittest.TestCase):
         self.response.isclosed.side_effect = [False, True]
         self.assertEqual("Help text", self.invoke().text)
         self.connection.sock.settimeout.assert_called_once()
+
+    def test_real_http_parser_accepts_close_and_chunked_provider_responses(self):
+        payload = json.dumps({
+            "success": True, "result": {"response": "Help", "usage": {
+                "prompt_tokens": 1, "completion_tokens": 1,
+            }},
+        }).encode()
+        responses = (
+            b"Content-Length: " + str(len(payload)).encode() + b"\r\n\r\n" + payload,
+            b"Transfer-Encoding: chunked\r\n\r\n" +
+            f"{len(payload):x}\r\n".encode() + payload + b"\r\n0\r\n\r\n",
+        )
+        for wire_body in responses:
+            sock = MagicMock()
+            sock.makefile.return_value = io.BytesIO(
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                b"Connection: close\r\n" + wire_body,
+            )
+            response = http.client.HTTPResponse(sock)
+            response.begin()
+            self.connection.getresponse.return_value = response
+            self.assertEqual("Help", self.invoke().text)
+            self.assertTrue(response.isclosed())
 
     def test_truncated_or_overstated_content_length_is_rejected(self):
         self.response.getheader.side_effect = lambda name: (

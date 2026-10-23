@@ -26,7 +26,7 @@ import database
 import deployment
 import migrate
 from asgi import _check_database, app as production_app, create_app
-from ai_support import SupportService
+from ai_support import Principal, ProviderResult, RuntimeControls, SupportService
 
 
 class ProductionRuntimeTests(unittest.TestCase):
@@ -84,6 +84,21 @@ class ProductionRuntimeTests(unittest.TestCase):
         self.assertIn("api:", compose)
         self.assertIn("build:", compose)
         self.assertIn("context: .", compose)
+
+    def test_proxy_support_handlers_are_siblings_of_health_not_nested(self):
+        config = (BACKEND / "Caddyfile").read_text()
+        depth = 0
+        handlers = {}
+        for line in config.splitlines():
+            stripped = line.strip()
+            if stripped.startswith(("handle @", "@support {", "@health {")):
+                handlers[stripped] = depth
+            depth += line.count("{") - line.count("}")
+        self.assertEqual(0, depth)
+        self.assertEqual(1, handlers["handle @health {"])
+        self.assertEqual(1, handlers["handle @support {"])
+        self.assertEqual(1, handlers["@support {"])
+        self.assertEqual(1, handlers["@health {"])
 
     def request(self, path, method="GET"):
         try:
@@ -175,6 +190,51 @@ class ProductionRuntimeTests(unittest.TestCase):
         self.assertEqual(503, status)
         self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
         self.assertNotIn("private-provider-data", json.dumps(body))
+
+    def test_asgi_dispatch_enforces_verified_app_scope_before_provider_call(self):
+        principal = Principal("fixture", "niknolig", frozenset({"ai:support"}), 2000, True)
+        authenticator = MagicMock()
+        authenticator.authenticate.side_effect = lambda authorization: (
+            principal if authorization == "local-fixture" else None
+        )
+        provider = MagicMock(provider_id="local-mock")
+        provider.generate.return_value = ProviderResult("Untrusted reply", 3, 3)
+        controls = RuntimeControls()
+        controls.configure(enabled=True, provider_approved=True, cost_approved=True)
+        service = SupportService(
+            authenticator=authenticator, provider=provider, controls=controls,
+            audit=MagicMock(), clock=lambda: 1000,
+        )
+        with patch.object(self.support, "handle", side_effect=service.handle):
+            raw = b'{"app":"niknolig","message":"Help"}'
+            self.assertEqual(401, self.support_request(raw)[0])
+            headers = {"Content-Type": "application/json", "Authorization": "local-fixture"}
+            self.assertEqual(403, self.support_request(
+                b'{"app":"niknolig-defense","message":"Help"}', headers=headers,
+            )[0])
+            status, body = self.support_request(raw, headers=headers)
+            self.assertEqual(200, status)
+            self.assertTrue(body["untrusted"])
+            self.assertEqual("text/plain", body["contentType"])
+        provider.generate.assert_called_once_with("Help")
+
+    def test_asgi_duplicate_authorization_and_slow_body_never_dispatch(self):
+        cases = (
+            b"Content-Length: 2\r\nAuthorization: one\r\nAuthorization: two\r\n\r\n{}",
+            b"Content-Length: 100\r\n\r\n{}",
+        )
+        with patch.object(self.support, "handle") as handle:
+            for suffix, expected in zip(cases, (400, 408)):
+                with socket.create_connection(self.socket.getsockname(), timeout=4) as client:
+                    client.sendall(
+                        b"POST /support HTTP/1.1\r\nHost: localhost\r\n"
+                        b"Content-Type: application/json\r\nConnection: close\r\n" + suffix,
+                    )
+                    response = b""
+                    while chunk := client.recv(4096):
+                        response += chunk
+                self.assertIn(f" {expected} ".encode(), response.split(b"\r\n", 1)[0])
+            handle.assert_not_called()
 
     def test_legacy_health_metadata_matches_production_without_database(self):
         self.factory.side_effect = RuntimeError("unavailable database")
