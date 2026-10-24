@@ -115,10 +115,14 @@ class KnowledgeRepository(Protocol):
     def get_version(self, entry_id: UUID, version: int) -> KnowledgeEntry | None: ...
     def search(self, terms: tuple[str, ...]) -> tuple[KnowledgeEntry, ...]: ...
     def record_feedback(self, app: str, issue_code: str, entry_id: UUID,
-                        version: int, positive: bool) -> tuple[int, int]: ...
+                        version: int, positive: bool) -> tuple[int, int]:
+        """Revalidate entry scope and source approval atomically with the counter update."""
+        ...
     def feedback_counts(self, app: str, issue_code: str,
                         entry_id: UUID, version: int) -> tuple[int, int]: ...
-    def add_candidate(self, candidate: LearningCandidate) -> None: ...
+    def add_candidate(self, candidate: LearningCandidate) -> None:
+        """Revalidate the referenced entry/source atomically with staging and revocation."""
+        ...
     def get_candidate(self, candidate_id: UUID) -> LearningCandidate | None: ...
     def set_candidate_state(self, candidate_id: UUID, state: str) -> LearningCandidate | None: ...
     def approve_candidate(self, candidate_id: UUID,
@@ -191,6 +195,7 @@ class InMemoryKnowledgeRepository:
     def record_feedback(self, app, issue_code, entry_id, version, positive):
         key = (app, issue_code, entry_id, version)
         with self._lock:
+            self._require_learning_entry(app, entry_id, version)
             up, down = self._feedback.get(key, (0, 0))
             counts = (up + int(positive), down + int(not positive))
             self._feedback[key] = counts
@@ -202,7 +207,16 @@ class InMemoryKnowledgeRepository:
 
     def add_candidate(self, candidate):
         with self._lock:
+            self._require_learning_entry(
+                candidate.app, candidate.solution_entry_id, candidate.solution_entry_version,
+            )
             self._candidates[candidate.candidate_id] = candidate
+
+    def _require_learning_entry(self, app, entry_id, version):
+        entry = self.get_version(entry_id, version)
+        if (entry is None or entry.scope not in (app, "shared") or
+                not _source_allows_scope(self._sources.get(entry.source_id), entry.scope)):
+            raise PermissionError("Learning entry source is not approved for this scope")
 
     def get_candidate(self, candidate_id):
         with self._lock:
@@ -323,7 +337,7 @@ class KnowledgeService:
         source = self.repository.get_source(source_id)
         if not _source_allows_scope(source, scope):
             raise PermissionError("Knowledge source is not approved for this scope")
-        identifier = entry_id or uuid4()
+        identifier = uuid4() if entry_id is None else entry_id
         if not isinstance(identifier, UUID):
             raise ValueError("Invalid knowledge entry identifier")
         previous = self.repository.current(identifier)

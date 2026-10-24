@@ -190,6 +190,59 @@ class KnowledgeServiceTests(unittest.TestCase):
         self.assertEqual(first, self.repository.get_version(first.entry_id, 1))
         self.assertIsNone(self.repository.get_version(first.entry_id, 3))
 
+    def test_invalid_entry_ids_do_not_allocate_new_entries(self):
+        for identifier in ("", 0, False, [], {}, "not-a-uuid"):
+            with self.subTest(identifier=identifier):
+                before = list(self.audit.events)
+                with self.assertRaisesRegex(ValueError, "entry identifier"):
+                    self.publish(entry_id=identifier)
+                self.assertEqual((), self.repository.search(()))
+                self.assertEqual(before, self.audit.events)
+
+    def test_feedback_rechecks_source_revocation_after_audit(self):
+        entry = self.publish()
+        write = self.audit.write
+
+        def audit(event):
+            write(event)
+            if event["event"] == "learning_feedback_recorded":
+                self.repository.revoke_source(entry.source_id)
+
+        with patch.object(self.audit, "write", side_effect=audit):
+            with self.assertRaises(PermissionError):
+                self.service.record_feedback(
+                    principal(), issue_code="installation", solution_entry_id=entry.entry_id,
+                    solution_entry_version=entry.version, positive=True,
+                )
+        self.assertEqual((0, 0), self.repository.feedback_counts(
+            "niknolig", "installation", entry.entry_id, entry.version,
+        ))
+
+    def test_staging_rechecks_source_revocation_after_audit(self):
+        entry = self.publish()
+        for _ in range(3):
+            self.service.record_feedback(
+                principal(), issue_code="installation", solution_entry_id=entry.entry_id,
+                solution_entry_version=entry.version, positive=True,
+            )
+        write = self.audit.write
+        candidate_ids = []
+
+        def audit(event):
+            write(event)
+            if event["event"] == "learning_candidate_staged":
+                candidate_ids.append(event["candidateId"])
+                self.repository.revoke_source(entry.source_id)
+
+        with patch.object(self.audit, "write", side_effect=audit):
+            with self.assertRaises(PermissionError):
+                self.service.stage_learning(
+                    principal(), issue_code="installation", solution_entry_id=entry.entry_id,
+                    solution_entry_version=entry.version,
+                )
+        self.assertEqual(1, len(candidate_ids))
+        self.assertEqual({}, self.repository._candidates)
+
     def test_feedback_and_candidates_stay_bound_to_entry_version(self):
         first = self.publish()
         candidate = self.stage(first)
