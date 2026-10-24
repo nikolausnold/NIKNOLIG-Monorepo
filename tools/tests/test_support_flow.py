@@ -9,6 +9,40 @@ APPS = {"niknolig": "com/niknolig/app", "niknolig-defense": "com/niknolig/defens
 
 
 class SupportFlowTests(unittest.TestCase):
+    def test_four_health_clients_have_independent_configuration_and_explicit_health_actions(self):
+        for app, package in APPS.items():
+            with self.subTest(app=app):
+                build = (ROOT / "apps" / app / "build.gradle.kts").read_text()
+                self.assertIn('backendBaseUrl.ifEmpty { "https://api.niknolig.com" }', build)
+                release_guard = build.split('tasks.register("verifyReleaseBackendUrl")', 1)[1]
+                self.assertIn("require(backendBaseUrl.isNotEmpty())", release_guard)
+                main = ROOT / "apps" / app / "src/main"
+                client = (main / "java" / package / "BackendHealthClient.kt").read_text()
+                self.assertIn('LIVE("/health/live", "live")', client)
+                self.assertIn('READY("/health/ready", "ready")', client)
+                layout = ET.parse(main / "res/layout/activity_support.xml")
+                ids = {item.get(ANDROID + "id") for item in layout.iter("Button")}
+                self.assertTrue({"@+id/support_check_live", "@+id/support_check_ai"} <= ids)
+        ios = ROOT / "apps/ios"
+        project = (ios / "NIKNOLIG.xcodeproj/project.pbxproj").read_text()
+        for setting in ("NIKNOLIG_BACKEND_URL", "NIKNOLIG_DEFENSE_BACKEND_URL"):
+            self.assertEqual(2, project.count(f'{setting} = "https://api.niknolig.com";'))
+        for filename in ("NIKNOLIGApp.swift", "NIKNOLIGDefenseApp.swift"):
+            with self.subTest(app=filename):
+                source = (ios / filename).read_text()
+                self.assertIn('checkBackend(endpoint: .live)', source)
+                self.assertIn('components.path = "/health/\\(endpoint.rawValue)"', source)
+                self.assertIn('object["status"] as? String == endpoint.rawValue', source)
+                self.assertIn('complete(endpoint == .live ? .live : .ready)', source)
+                self.assertIn('complete(.httpError(http.statusCode))', source)
+                self.assertIn('complete(.timedOut)', source)
+                self.assertIn('complete(.invalidResponse)', source)
+                for setting in ("httpCookieStorage", "urlCredentialStorage", "urlCache"):
+                    self.assertIn(f"configuration.{setting} = nil", source)
+                self.assertIn("configuration.httpShouldSetCookies = false", source)
+                self.assertIn("completionHandler(nil)", source)
+                self.assertIn("data.count + chunk.count <= 4_096", source)
+
     def test_android_official_website_links_use_product_domains(self):
         websites = {
             "niknolig": "https://niknolig.com/",
@@ -85,7 +119,10 @@ class SupportFlowTests(unittest.TestCase):
                 self.assertIn("private var backendStatus: Int? = null", source)
                 self.assertNotIn("if (backendStatus == null) return", source)
                 self.assertNotIn("if (backendStatus != null)", source)
-                self.assertIn("BackendHealthClient(BuildConfig.BACKEND_BASE_URL).check()", source)
+                self.assertIn("BackendHealthClient(BuildConfig.BACKEND_BASE_URL).check(endpoint)", source)
+                self.assertIn("checkBackend(BackendHealthEndpoint.LIVE)", source)
+                self.assertIn("liveButton.isEnabled = false", source)
+                self.assertIn("liveButton.isEnabled = true", source)
                 self.assertIn("checkButton.visibility = View.VISIBLE", source)
                 self.assertIn("checkButton.isEnabled = false", source)
                 self.assertIn("checkButton.isEnabled = true", source)

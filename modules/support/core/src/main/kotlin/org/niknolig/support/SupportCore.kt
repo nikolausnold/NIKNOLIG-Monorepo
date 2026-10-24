@@ -15,6 +15,7 @@ data class SupportAnswer(
 )
 
 enum class BackendDiagnostic(val escalationRequired: Boolean) {
+    LIVE(false),
     READY(false),
     NOT_CONFIGURED(true),
     INVALID_RESPONSE(true),

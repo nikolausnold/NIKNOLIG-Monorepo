@@ -26,8 +26,9 @@ class SupportCoreTest {
 
     @Test
     fun backendDiagnosticsOnlyEscalateWhenHealthCheckFailed() {
+        assertFalse(SupportAssistant.diagnose(BackendDiagnostic.LIVE).escalationRequired)
         assertFalse(SupportAssistant.diagnose(BackendDiagnostic.READY).escalationRequired)
-        BackendDiagnostic.entries.filter { it != BackendDiagnostic.READY }.forEach {
+        BackendDiagnostic.entries.filter { it !in listOf(BackendDiagnostic.READY, BackendDiagnostic.LIVE) }.forEach {
             assertTrue(SupportAssistant.diagnose(it).escalationRequired)
         }
     }

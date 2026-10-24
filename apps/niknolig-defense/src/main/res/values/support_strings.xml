@@ -23,9 +23,11 @@
     <string name="support_ticket_mark_sent">E-Mail wurde gesendet</string>
     <string name="support_ticket_marked_sent">Vorgang wurde auf diesem Gerät abgeschlossen.</string>
     <string name="support_ai_not_checked">1 · Backend-Verbindung\nPrüfe, ob der konfigurierte Backend-Health-Endpunkt erreichbar ist. Das schaltet keine KI-Funktion frei.</string>
-    <string name="support_check_ai">Backend-Verbindung prüfen</string>
+    <string name="support_check_live">API-Erreichbarkeit prüfen (Liveness)</string>
+    <string name="support_backend_live">API-Prozess erreichbar. Dies bestätigt weder Datenbankbereitschaft noch KI- oder Produktfunktionen.</string>
+    <string name="support_check_ai">Backend-Bereitschaft prüfen (Readiness)</string>
     <string name="support_backend_checking">Backend-Verbindung wird geprüft …</string>
-    <string name="support_backend_ready">Backend-Health-Endpunkt hat gültig geantwortet. Das bestätigt keine KI-Verfügbarkeit; KI-Support bleibt deaktiviert.</string>
+    <string name="support_backend_ready">Backend meldet Bereitschaft. Das bestätigt keine KI-Verfügbarkeit; KI-Support bleibt deaktiviert.</string>
     <string name="support_backend_not_configured">Keine freigegebene HTTPS-Backend-Adresse in diesem Build konfiguriert. Es wurde keine Verbindung hergestellt.</string>
     <string name="support_backend_invalid_response">Backend-Antwort entsprach nicht dem erwarteten Health-Vertrag.</string>
     <string name="support_backend_timeout">Backend antwortete nicht innerhalb des Zeitlimits.</string>

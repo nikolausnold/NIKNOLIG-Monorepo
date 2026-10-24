@@ -1,5 +1,92 @@
 # NIKNOLIG Mobile Backend Connection Status
 
+## Aktueller Connectivity-Stand: 24.10.2026
+
+Die Betreiberbestätigung für `https://api.niknolig.com/health/live` (HTTP 200)
+wird als vorhandener externer Nachweis übernommen, nicht erneut als DNS-/TLS-
+Auftrag geprüft. Sie ist kein Readiness-, App-Geräte- oder Produkt-API-Nachweis.
+
+### Tatsächliche Änderungen
+
+Alle vier Apps (NIKNOLIG und Defense, jeweils Android und iOS) verwenden für
+öffentliche Health-Abfragen standardmäßig `https://api.niknolig.com`. Die
+app-spezifischen URL-Einstellungen bleiben unabhängig überschreibbar. Android
+verlangt für Release-Aufgaben weiterhin eine explizite eigene URL-Konfiguration;
+der Health-Standardwert umgeht weder `verifyReleaseBackendUrl` noch den
+Environment-Review des Release-Workflows.
+
+In jeder Support-Oberfläche gibt es jetzt getrennte Nutzeraktionen:
+
+| Aktion | Route und akzeptierte Antwort | Aussage |
+| --- | --- | --- |
+| Liveness | `GET /health/live`, HTTP 200, exakt `{"status":"live"}` | API-Prozess erreichbar; keine Aussage über Datenbank oder Produktfunktionen |
+| Readiness | `GET /health/ready`, HTTP 200, exakt `{"status":"ready"}` | Backend meldet Bereitschaft; keine KI-/Produktfreigabe |
+
+Es gibt keinen automatischen Fallback von fehlgeschlagener Readiness auf eine
+vermeintlich erfolgreiche Bereitschaft. Beide Prüftasten sind während einer
+Anfrage gesperrt. Redirects, falsche JSON-Verträge und Antworten über 4.096 Bytes
+werden abgelehnt. Android lehnt zusätzlich Nicht-Origin-URLs schon im Client
+ab; iOS zeigt HTTP-Statusfehler, Timeout, Netzwerk-/TLS-Fehler und ungültige
+Antworten getrennt an. Die iOS-Sessions deaktivieren explizit Cookies,
+Credential-Speicher und Cache. Die vorhandene System-TLS-Prüfung bleibt aktiv.
+Es werden keine Tokens, Gerätekennungen oder Nutzdaten hinzugefügt.
+
+`backend/openapi.yaml` enthält die bestätigte öffentliche Health-Origin und
+getrennte Antwortschemas für Liveness und Readiness. Die bereits vorhandenen
+ASGI-Routen `/health`, `/projects` und `/db/health` sind mit ihren tatsächlichen
+Antwortformen ebenfalls dokumentiert. `/projects` liefert statische Labels,
+keine Authentifizierungs-Scopes; `/db/health` prüft Konnektivität, nicht das
+Betriebsschema. Die mobilen Clients verwenden ausschließlich die beiden
+versionierten Health-Verträge. Die Existenz der übrigen Routen im öffentlichen
+Deployment wurde hier nicht behauptet.
+
+`POST /support` und `POST /v1/ai/support` sind bereits im ASGI registriert,
+verwenden aber standardmäßig den gesperrten Support-Service (`503 AI_DISABLED`).
+Ihr separater Vertrag bleibt `backend/ai-support.openapi.yaml`. Keine der
+vier Apps ruft diese Routen auf; es wurde kein Auth-Aussteller, Provider oder
+produktiver Datenfluss aktiviert. Login-, Gerätebindungs- und Pairing-Routen
+fehlen weiterhin und werden ohne genehmigte Entscheidungen nicht erfunden.
+
+### Grenzen und Nachweise dieses Arbeitslaufs
+
+Die Kotlin-Clients beider Apps und der geänderte Support-Core wurden mit dem
+vorhandenen Kotlin-Compiler unabhängig vom Android-Plugin kompiliert:
+**29 JUnit-Tests bestanden** (20 Client-Tests und 9 Support-Core-Tests).
+Das ist kein APK-/Android-Gerätenachweis.
+
+**55 Python-Tests bestanden:** 13 Backend-Vertragsprüfungen, 25 lokale
+ASGI-Runtime-Tests, 11 Support-/Vier-Client-Konfigurationsprüfungen und
+6 Autobuild-/Release-Gate-Regressionen. Die iOS-Prüfungen darin sind statisch,
+nicht native Swift-Tests. Zusätzlich wurden **11 OpenAPI-Fälle** geprüft:
+7 tatsächliche lokale Antwortformen einschließlich Readiness-/Datenbank-`503`
+über alle 5 GET-Routen sowie 4 Negativfälle für vertauschte Statuswerte und
+zusätzliche Felder. Der Schemaabgleich nutzte PyYAML und JSON Schema Draft
+2020-12 mit UUID-Formatprüfung in einer isolierten Testumgebung; keine Änderung
+der Produktionsabhängigkeiten war nötig.
+
+Der gemeinsame Android-Build-/Unit-Test-Aufruf scheiterte vor der
+Projektkonfiguration: `com.android.application:9.4.1` konnte aus den konfigurierten
+Repositories nicht aufgelöst werden. Es wurde kein Versionswechsel oder
+Mirror-Workaround vorgenommen. Swift/Xcode sind in dieser Linux-Umgebung nicht
+verfügbar; ein nativer iOS-Build oder iOS-Netzwerktest ist damit nicht belegt.
+
+Ein gezielter HTTPS-Aufruf von `/health/ready` aus dieser Agent-Umgebung endete
+vor HTTP mit `curl: (6) Could not resolve host: api.niknolig.com`. Das widerlegt
+nicht den vom Betreiber bestätigten Liveness-Nachweis. Es wurde keine weitere
+DNS-Prüfung gestartet. Die tatsächliche Readiness und die Verbindung von
+installierten Apps zum öffentlichen Server sind hier nicht nachgewiesen.
+
+Authentifizierung, Gerätebindung, KI und produktive Datenflüsse bleiben gemäß
+dem vorhandenen SecurityChain-Register gesperrt. Es wurden keine
+Produktionsmigrationen, Deployments, Neustarts oder Änderungen am Server und
+keine GitHub-Variablen-/Secret-Änderungen vorgenommen.
+
+## Historischer Stand bis 22.10.2026 (Archiv)
+
+Die folgenden älteren Befunde und Blocker sind historische Nachweise; Aussagen
+über fehlende Serveradresse oder leere Client-Standardwerte sind durch den
+aktuellen Stand oben ersetzt. Frühere Testzahlen gelten nicht für diesen Stand.
+
 **Prüfdatum:** 2026-10-22  
 **Status: TEILWEISE IMPLEMENTIERT, PRODUKTIONSVERBINDUNG BLOCKIERT** – Beide
 Android-Apps enthalten jetzt getrennte HTTPS-Clients für `GET /health/ready`.

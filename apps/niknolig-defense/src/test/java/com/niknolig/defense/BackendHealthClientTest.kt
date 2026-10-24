@@ -10,6 +10,77 @@ import org.junit.Test
 
 class BackendHealthClientTest {
     @Test
+    fun enforcesTheExactResponseByteLimitForEachHealthRoute() {
+        for (endpoint in BackendHealthEndpoint.entries) {
+            val json = """{"status":"${endpoint.status}"}"""
+            val atLimit = " ".repeat(4096 - json.length) + json
+            val expected = if (endpoint == BackendHealthEndpoint.LIVE) {
+                BackendHealthResult.Live
+            } else BackendHealthResult.Ready
+            for ((body, result) in listOf(
+                atLimit to expected, (" " + atLimit) to BackendHealthResult.InvalidResponse,
+            )) {
+                assertEquals(
+                    result,
+                    BackendHealthClient("https://api.example.test") {
+                        FakeHttpsConnection(it, 200, body)
+                    }.check(endpoint),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun livenessUsesItsOwnRouteAndCannotEstablishReadiness() {
+        var requestedUrl: URL? = null
+        val client = BackendHealthClient("https://api.niknolig.com/") {
+            requestedUrl = it
+            FakeHttpsConnection(it, 200, """{"status":"live"}""")
+        }
+        assertEquals(BackendHealthResult.Live, client.check(BackendHealthEndpoint.LIVE))
+        assertEquals("https://api.niknolig.com/health/live", requestedUrl.toString())
+        assertEquals(BackendHealthResult.InvalidResponse, client.check())
+        assertEquals(
+            BackendHealthResult.InvalidResponse,
+            BackendHealthClient("https://api.niknolig.com") {
+                FakeHttpsConnection(it, 200, """{"status":"ready"}""")
+            }.check(BackendHealthEndpoint.LIVE),
+        )
+    }
+
+    @Test
+    fun rejectsNonOriginUrlsBeforeAnyRequest() {
+        for (value in listOf(
+            "https://user:password@api.example.test", "https://api.example.test/prefix",
+            "https://api.example.test?query", "https://api.example.test#fragment",
+            "https:///health", "https://api.example.test:65536",
+        )) {
+            var opened = false
+            val result = BackendHealthClient(value) {
+                opened = true
+                FakeHttpsConnection(it, 200, """{"status":"ready"}""")
+            }.check()
+            assertEquals(value, BackendHealthResult.NotConfigured, result)
+            assertEquals(value, false, opened)
+        }
+    }
+
+    @Test
+    fun rejectsWrongContentTypeForBothEndpoints() {
+        for (endpoint in BackendHealthEndpoint.entries) {
+            val connection = FakeHttpsConnection(
+                URL("https://api.example.test"), 200,
+                """{"status":"${endpoint.status}"}""", "text/html",
+            )
+            assertEquals(
+                BackendHealthResult.InvalidResponse,
+                BackendHealthClient("https://api.example.test") { connection }.check(endpoint),
+            )
+            assertEquals(true, connection.disconnected)
+        }
+    }
+
+    @Test
     fun requestsOnlyTheReadinessRouteOverHttpsAndAcceptsTheContractResponse() {
         var requestedUrl: URL? = null
         val connection = FakeHttpsConnection(URL("https://api.example.test/health/ready"), 200, """{"status":"ready"}""")
@@ -25,6 +96,10 @@ class BackendHealthClientTest {
         assertEquals(5_000, connection.connectTimeout)
         assertEquals(5_000, connection.readTimeout)
         assertEquals(false, connection.instanceFollowRedirects)
+        assertEquals(false, connection.useCaches)
+        assertEquals("application/json", connection.getRequestProperty("Accept"))
+        assertEquals(null, connection.getRequestProperty("Authorization"))
+        assertEquals(null, connection.getRequestProperty("Cookie"))
         assertEquals(true, connection.disconnected)
     }
 
@@ -127,6 +202,7 @@ class BackendHealthClientTest {
         url: URL,
         private val status: Int,
         private val body: String,
+        private val responseContentType: String = "application/json; charset=utf-8",
     ) : HttpsURLConnection(url) {
         var disconnected = false
 
@@ -139,7 +215,7 @@ class BackendHealthClientTest {
         override fun getLocalCertificates(): Array<Certificate>? = null
         override fun getServerCertificates(): Array<Certificate> = emptyArray()
         override fun getResponseCode() = status
-        override fun getContentType() = "application/json; charset=utf-8"
+        override fun getContentType() = responseContentType
         override fun getInputStream(): InputStream = ByteArrayInputStream(body.toByteArray())
     }
 }

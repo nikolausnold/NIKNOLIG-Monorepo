@@ -93,7 +93,7 @@ android {
         targetSdk = 35
         versionCode = updateVersionCode ?: 1
         versionName = updateVersionCode?.let { "0.1.$it" } ?: "0.1.0"
-        buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
+        buildConfigField("String", "BACKEND_BASE_URL", "\"${backendBaseUrl.ifEmpty { "https://api.niknolig.com" }}\"")
     }
 
     buildTypes {

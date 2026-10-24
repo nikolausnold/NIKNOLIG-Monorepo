@@ -20,10 +20,20 @@ private enum NIKNOLIGDefenseOfficialWebsite {
 }
 
 private enum DefenseHealthState: Equatable {
+    case notChecked
     case notConfigured
     case checking
+    case live
     case ready
     case unavailable
+    case invalidResponse
+    case timedOut
+    case httpError(Int)
+}
+
+private enum DefenseHealthEndpoint: String {
+    case live
+    case ready
 }
 
 private struct DefenseHomeView: View {
@@ -136,7 +146,7 @@ private struct DefenseProfileView: View {
 }
 
 private struct DefenseSupportView: View {
-    @State private var healthState: DefenseHealthState = .notConfigured
+    @State private var healthState: DefenseHealthState = .notChecked
     @State private var showingEmailConfirmation = false
     @State private var emailMessage = ""
     @State private var question = ""
@@ -174,7 +184,9 @@ private struct DefenseSupportView: View {
             Section("Backend-Verbindung") {
                 Text(stateDescription)
                     .accessibilityAddTraits(.updatesFrequently)
-                Button("Verbindung prüfen", action: checkBackend)
+                Button("API-Erreichbarkeit prüfen (Liveness)") { checkBackend(endpoint: .live) }
+                    .disabled(healthState == .checking)
+                Button("Backend-Bereitschaft prüfen (Readiness)") { checkBackend() }
                     .disabled(healthState == .checking)
             }
             if let websiteURL = NIKNOLIGDefenseOfficialWebsite.url {
@@ -221,22 +233,35 @@ private struct DefenseSupportView: View {
 
     private var stateDescription: String {
         switch healthState {
+        case .notChecked: "Noch nicht geprüft. Die Health-Abfrage startet nur nach deiner Aktion."
         case .notConfigured: "Nicht konfiguriert. Es wurde keine Verbindung versucht."
         case .checking: "Verbindung wird geprüft …"
+        case .live: "API-Prozess erreichbar. Dies bestätigt weder Datenbankbereitschaft noch KI- oder Produktfunktionen."
         case .ready: "Backend meldet Bereitschaft. Dies bestätigt keine KI-Verfügbarkeit."
-        case .unavailable: "Backend nicht erreichbar oder Antwort ungültig. Erneut prüfen, wenn online."
+        case .unavailable: "Backend konnte nicht sicher erreicht werden. Erneut prüfen, wenn online."
+        case .invalidResponse: "Backend-Antwort entspricht nicht dem erwarteten Health-Vertrag."
+        case .timedOut: "Backend antwortete nicht innerhalb des Zeitlimits."
+        case .httpError(let status): "Backend antwortete mit HTTP \(status). Dies aktiviert keine Produktfunktionen."
         }
     }
 
-    private func checkBackend() {
+    private func checkBackend(endpoint: DefenseHealthEndpoint = .ready) {
         healthState = .checking
         Task {
             let result = await DefenseHealthClient.check(
-                baseURL: Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String ?? ""
+                baseURL: Bundle.main.object(forInfoDictionaryKey: "BackendBaseURL") as? String ?? "",
+                endpoint: endpoint
             )
             healthState = result
-            if result != .ready {
-                let diagnostic = result == .notConfigured ? "NOT_CONFIGURED" : "UNAVAILABLE"
+            if result != .ready && result != .live {
+                let diagnostic: String
+                switch result {
+                case .notConfigured: diagnostic = "NOT_CONFIGURED"
+                case .invalidResponse: diagnostic = "INVALID_RESPONSE"
+                case .timedOut: diagnostic = "TIMED_OUT"
+                case .httpError: diagnostic = "HTTP_ERROR"
+                default: diagnostic = "NETWORK_ERROR"
+                }
                 if let encrypted = try? payloadCipher.encrypt("") {
                     enqueue(
                         issue: "BACKEND",
@@ -392,7 +417,7 @@ private struct DefenseSupportView: View {
 }
 
 private enum DefenseHealthClient {
-    static func check(baseURL: String) async -> DefenseHealthState {
+    static func check(baseURL: String, endpoint: DefenseHealthEndpoint = .ready) async -> DefenseHealthState {
         let value = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard var components = URLComponents(string: value),
               components.scheme?.lowercased() == "https",
@@ -403,6 +428,7 @@ private enum DefenseHealthClient {
               components.path.isEmpty || components.path == "/",
               components.query == nil,
               components.fragment == nil,
+              components.port.map({ (1...65535).contains($0) }) ?? true,
               host != "localhost",
               !host.hasSuffix(".localhost"),
               host != "backend.invalid",
@@ -411,16 +437,22 @@ private enum DefenseHealthClient {
               host != "::1" else {
             return .notConfigured
         }
-        components.path = "/health/ready"
+        components.path = "/health/\(endpoint.rawValue)"
         guard let url = components.url else { return .notConfigured }
         return await withCheckedContinuation { continuation in
-            let probe = DefenseHealthProbe { state in continuation.resume(returning: state) }
+            let probe = DefenseHealthProbe(endpoint: endpoint) { state in continuation.resume(returning: state) }
             let configuration = URLSessionConfiguration.ephemeral
             configuration.timeoutIntervalForRequest = 5
             configuration.timeoutIntervalForResource = 5
+            configuration.httpShouldSetCookies = false
+            configuration.httpCookieStorage = nil
+            configuration.urlCredentialStorage = nil
+            configuration.urlCache = nil
             let session = URLSession(configuration: configuration, delegate: probe, delegateQueue: nil)
             probe.session = session
-            session.dataTask(with: url).resume()
+            var request = URLRequest(url: url)
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            session.dataTask(with: request).resume()
         }
     }
 }
@@ -431,8 +463,10 @@ private final class DefenseHealthProbe: NSObject, URLSessionDataDelegate, URLSes
     private var response: HTTPURLResponse?
     private var data = Data()
     private var completed = false
+    private let endpoint: DefenseHealthEndpoint
 
-    init(completion: @escaping (DefenseHealthState) -> Void) {
+    init(endpoint: DefenseHealthEndpoint, completion: @escaping (DefenseHealthState) -> Void) {
+        self.endpoint = endpoint
         self.completion = completion
     }
 
@@ -452,10 +486,18 @@ private final class DefenseHealthProbe: NSObject, URLSessionDataDelegate, URLSes
         didReceive response: URLResponse,
         completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
     ) {
-        guard let http = response as? HTTPURLResponse,
-              http.statusCode == 200,
-              http.mimeType?.lowercased() == "application/json" else {
-            complete(.unavailable)
+        guard let http = response as? HTTPURLResponse else {
+            complete(.invalidResponse)
+            completionHandler(.cancel)
+            return
+        }
+        guard http.statusCode == 200 else {
+            complete(.httpError(http.statusCode))
+            completionHandler(.cancel)
+            return
+        }
+        guard http.mimeType?.lowercased() == "application/json" else {
+            complete(.invalidResponse)
             completionHandler(.cancel)
             return
         }
@@ -465,7 +507,7 @@ private final class DefenseHealthProbe: NSObject, URLSessionDataDelegate, URLSes
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive chunk: Data) {
         guard data.count + chunk.count <= 4_096 else {
-            complete(.unavailable)
+            complete(.invalidResponse)
             dataTask.cancel()
             return
         }
@@ -475,18 +517,21 @@ private final class DefenseHealthProbe: NSObject, URLSessionDataDelegate, URLSes
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard !completed else { return }
         if let error = error as? URLError, error.code == .timedOut {
+            complete(.timedOut)
+            return
+        }
+        guard error == nil else {
             complete(.unavailable)
             return
         }
-        guard error == nil,
-              response?.statusCode == 200,
+        guard response?.statusCode == 200,
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               object.count == 1,
-              object["status"] as? String == "ready" else {
-            complete(.unavailable)
+              object["status"] as? String == endpoint.rawValue else {
+            complete(.invalidResponse)
             return
         }
-        complete(.ready)
+        complete(endpoint == .live ? .live : .ready)
     }
 
     private func complete(_ state: DefenseHealthState) {

@@ -3,16 +3,63 @@ info:
   title: NIKNOLIG Shared Backend Contract
   version: 0.1.0
   description: >-
-    Contract-first proposal. Only health operations are defined; no operational
+    Public health and service metadata contract; no operational
     app, device, profile, or pairing API is implemented or approved. Production
-    integration is blocked pending SecurityChain-P0 and product/security review.
+    data integration is blocked pending SecurityChain-P0 and product/security review.
 servers:
-  - url: https://backend.invalid
-    description: Placeholder only; not a deployed or approved endpoint.
+  - url: https://api.niknolig.com
+    description: Public health origin confirmed by the operator; no product API approval.
 tags:
   - name: Health
     description: Non-sensitive process and dependency health contract.
+  - name: Metadata
+    description: Static service metadata, not app identity or authorization scopes.
 paths:
+  /health:
+    get:
+      operationId: getServiceMetadata
+      tags: [Metadata]
+      summary: Report static process metadata without checking dependencies.
+      security: []
+      responses:
+        "200":
+          description: Static API metadata; not readiness or product availability.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceMetadata"
+  /projects:
+    get:
+      operationId: getProjectNames
+      tags: [Metadata]
+      summary: List static project labels, not authenticated app scopes.
+      security: []
+      responses:
+        "200":
+          description: Static project labels; defense is not an authorization scope.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectNames"
+  /db/health:
+    get:
+      operationId: getDatabaseConnectivity
+      tags: [Health]
+      summary: Check database connectivity, not schema readiness.
+      security: []
+      responses:
+        "200":
+          description: Database accepted a connectivity query.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatabaseHealth"
+        "503":
+          description: Database connectivity check failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatabaseUnavailable"
   /health/live:
     get:
       operationId: getLiveness
@@ -25,7 +72,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                $ref: "#/components/schemas/LivenessStatus"
               example:
                 status: live
   /health/ready:
@@ -40,7 +87,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                $ref: "#/components/schemas/ReadinessStatus"
               example:
                 status: ready
         "503":
@@ -65,14 +112,57 @@ components:
         No issuer, token issuance, validation, or protected operation is
         specified or implemented by this contract.
   schemas:
-    HealthStatus:
+    ServiceMetadata:
+      type: object
+      additionalProperties: false
+      required: [status, service, version]
+      properties:
+        status:
+          const: ok
+        service:
+          const: NOLD API
+        version:
+          const: 0.2.0
+    ProjectNames:
+      type: object
+      additionalProperties: false
+      required: [projects]
+      properties:
+        projects:
+          type: array
+          const: [niknolig, defense, monorepo]
+    DatabaseHealth:
+      type: object
+      additionalProperties: false
+      required: [status, service]
+      properties:
+        status:
+          const: ok
+        service:
+          const: NOLD PostgreSQL
+    DatabaseUnavailable:
+      type: object
+      additionalProperties: false
+      required: [detail]
+      properties:
+        detail:
+          const: database_unavailable
+    LivenessStatus:
       type: object
       additionalProperties: false
       required: [status]
       properties:
         status:
           type: string
-          enum: [live, ready]
+          const: live
+    ReadinessStatus:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ready
     ApiError:
       type: object
       additionalProperties: false
