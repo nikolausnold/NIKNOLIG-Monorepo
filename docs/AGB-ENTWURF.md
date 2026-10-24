@@ -7,7 +7,7 @@
 > fachjuristisch geprüft werden. Unpassende Alternativen und Platzhalter dürfen
 > nicht stehen bleiben.
 
-**Entwurfsstand:** 2026-10-14  
+**Entwurfsstand:** 2026-10-23 (Defense-Testzugang aktualisiert)
 **Anbieter:** `[vollständiger Name/Firma, Rechtsform, vertretungsberechtigte Person]`  
 **Anschrift:** `[ladungsfähige Anschrift]`  
 **Kontakt:** `n_nold@hotmail.com` (in den App-Ressourcen als Supportadresse
@@ -49,28 +49,38 @@ suggerieren, die tatsächlich nicht angeboten wird.
 
 ## 3. Preis, Zahlung und Vertragsschluss
 
-Die folgenden Preisangaben und die Härtefallregel geben verbindliche
+Die folgenden Preisangaben und der Testzugang geben verbindliche
 Produktvorgaben wieder. Sie belegen kein verfügbares Kaufangebot und ersetzen
 weder die konkrete Store-Anzeige noch die vor Veröffentlichung erforderliche
 fachjuristische Prüfung:
 
 - **NIKNOLIG:** dauerhaft kostenlos.
-- **NIKNOLIG Defense:** regulärer einmaliger Preis von **0,75 €**.
-- **Härtefallregel für NIKNOLIG Defense:** Personen, die nachweislich nicht in
-  der Lage sind, sich aus einer Notsituation zu befreien, sollen genau **48
-  Stunden** kostenlos nutzen können. Der kostenlose Zeitraum beginnt mit der
-  tatsächlichen Aktivierung des Härtefallzugangs und endet 48 Stunden nach
-  diesem Startzeitpunkt. Beginn und Ablauf müssen nachvollziehbar erfasst
-  werden. Die Regel begründet keine unbegrenzte kostenlose Freischaltung. Die
-  notwendigen Notfallfunktionen dürfen nicht davon abhängen, dass vorab ein
-  Nachweis erbracht wird.
-- **Vor Veröffentlichung offen:** konkrete Nachweismethode, zuständige
-  Entscheidung und Aktivierung, Missbrauchsbegrenzung, datenschutzrechtliche
-  Umsetzung und nachvollziehbare Erfassung von Start und Ablauf, Verhalten
-  nach Ende der 48 Stunden sowie Preis-, Steuer- und Länderanzeige je Store.
-  Es ist insbesondere nicht festgelegt, welche Funktionen als notwendige
-  Notfallfunktionen gelten. Aus der Härtefallregel folgt keine automatische
-  Belastung nach Fristablauf.
+- **NIKNOLIG Defense:** einmalig fünf aufeinanderfolgende 24-Stunden-Zeiträume
+  kostenlos je berechtigtem NIKNOLIG-Konto. Start ist die erste bewusst
+  bestätigte, serverseitig erfolgreiche Defense-Aktivierung, nicht Installation
+  oder App-Start. Serverzeit bestimmt Beginn und Ablauf; Neuinstallation,
+  Geräte- und Plattformwechsel gewähren keinen neuen Test. Keine Zahlungsmethode
+  erforderlich; kein Notlagen- oder Gesundheitsnachweis wird für den Test verlangt.
+- **Zusätzlicher Notfallzugang für NIKNOLIG Defense:** Personen, die sich
+  nachweislich nicht selbst aus einer Notlage befreien können, erhalten 48 Stunden
+  kostenlosen Defense-Zugang. Diese Regel gilt getrennt vom regulären Fünf-Tage-Test
+  und dem Einmalkauf. Der Zugang darf nicht allein wegen eines abgelaufenen Tests
+  oder fehlender Zahlung blockiert werden. Die konkrete Prüfung ist noch nicht
+  festgelegt; sie muss vor Umsetzung sicher, datensparsam und dokumentiert definiert
+  werden. Es werden keine bestimmten Nachweise oder Prüfverfahren unterstellt.
+- **Nach Ablauf:** optionales dauerhaftes Defense-Upgrade für **einmalig 0,75 €**
+  für dasselbe Konto auf unterstützten Plattformen, mit Wiederherstellung nach
+  Storeprüfung. Kein Abonnement, keine automatische Verlängerung, keine
+  wiederkehrenden Kosten und keine automatische Zahlung nach dem Test.
+  Nur eine ausdrücklich bestätigte Storebestellung darf eine Zahlung auslösen.
+  Ablehnung lässt NIKNOLIG nutzbar und verursacht keine Kosten.
+- **Vor Veröffentlichung offen:** Eligibility-/Kontomodell, sichere
+  Berechtigungsdurchsetzung, Storeprodukte, endgültiger Gesamtpreis einschließlich
+  Steuern und unterstützte Länder/Plattformen. Ohne bestätigte Preisstufe von
+  0,75 € darf kein abweichender Preis stillschweigend angeboten werden.
+  Leistungsumfang und Folgen von Erstattung/Widerruf sind rechtlich zu prüfen.
+  Der Test und Käufe sind noch nicht verfügbar; technische Freigabekriterien
+  stehen im [Releasebericht](release-readiness.md#defense-zugang-und-app-verteilung--stand-23102026).
 - **Elektro-Engel-Systemfunktion:** Ein separates Entgelt oder eigenständiges
   App-Angebot ist nicht festgelegt. Der konkrete Funktionsumfang und seine
   Einordnung in die getrennten App-Angebote müssen vor Veröffentlichung
@@ -95,10 +105,10 @@ ergänzen. Es wird derzeit kein Direktvertrieb oder Abonnement behauptet.
 Für einen späteren Einmalkauf sind Nutzungsumfang und Folgen einer
 Deinstallation, Gerätewechsel, Kontosperre, Entfernung aus dem Store und
 Beendigung des Angebots anhand des konkreten Store-Vertrags zu beschreiben.
-Ein Abonnement oder eine laufende entgeltliche Leistung ist nicht belegt.
-Sollte ein solches Angebot eingeführt werden, sind Laufzeit, Verlängerung,
-Kündigungsweg, Fristen und Folgen vor Abschluss gesondert und
-verbraucherrechtskonform mitzuteilen.
+Das Defense-Upgrade ist kein Abonnement und darf weder laufende Entgelte noch
+eine automatische Verlängerung begründen. „Dauerhaft“ bezeichnet den
+Nutzungsanspruch nach gültigem Einmalkauf, keine Garantie ewigen Serverbetriebs
+oder von Notfallhilfe; konkrete Leistung und gesetzliche Rechte bleiben zu klären.
 
 Gesetzliche Kündigungs- und Beendigungsrechte sowie Rechte aus dem jeweiligen
 Store-Vertrag bleiben unberührt. Diese Klausel soll sie nicht beschränken.

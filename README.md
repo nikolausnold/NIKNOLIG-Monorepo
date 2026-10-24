@@ -269,3 +269,16 @@ Aktivierung in einer Woche.** Die tatsächliche Anbindung benötigt anschließen
    App-Identitäten, Signierung, Datenschutzangaben und TestFlight-Prüfungen
    benötigt. Der iOS-CI-Build ist kein Xcode-Archiv, kein signierter Build,
    kein Simulator-/Gerätetest und kein TestFlight- oder App-Store-Upload.
+
+### App-Downloads und Defense-Testzugang (23.10.2026)
+
+Die [vorbereitete Downloadseite](docs/download/index.html) zeigt Android-/iOS-
+Verfügbarkeitszustände und Installationshinweise; ihre Einbindung auf
+`niknolig.com` ist nicht umgesetzt oder live bestätigt. Es gibt keine
+verifizierten Store-/Installationslinks. Defense zeigt in beiden lokalen
+App-Vorschauen die geplanten fünf kostenlosen Tage, den zusätzlichen getrennten
+48-Stunden-Notfallzugang und das optionale dauerhafte Upgrade für einmalig
+0,75 € ohne Abo oder automatische Zahlung. Die Notfallprüfung ist noch nicht
+festgelegt; Test, Notfallzugang und Kauf sind nicht verfügbar. Konto-, Trial-,
+Notfall- und Storeprüfung fehlen.
+[Verifizierter Bestand, kleinster sicherer Backendanschluss und Releaseblocker](docs/release-readiness.md#defense-zugang-und-app-verteilung--stand-23102026).
