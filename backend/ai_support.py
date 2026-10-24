@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import math
+import re
 import threading
 import time
 from typing import Protocol
@@ -62,6 +63,7 @@ class WorkersAITransport(Protocol):
 
 class CloudflareWorkersAI:
     provider_id = "cloudflare-workers-ai"
+    model_id = MODEL
 
     def __init__(self, transport: WorkersAITransport):
         self._transport = transport
@@ -76,6 +78,35 @@ class CloudflareWorkersAI:
             max_tokens=MAX_OUTPUT_TOKENS,
             temperature=0.2,
             timeout_seconds=5.0,
+        )
+
+
+class LocalModelRuntime(Protocol):
+    """An operator-supplied local runner; this interface does not install weights."""
+
+    def generate(self, prompt: str, *, system_prompt: str, max_tokens: int,
+                 timeout_seconds: float) -> ProviderResult: ...
+
+
+class LocalModelProvider:
+    provider_id = "local-model"
+
+    def __init__(self, *, model_id: str, runtime: LocalModelRuntime):
+        if (type(model_id) is not str or
+                not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}", model_id)):
+            raise ValueError("A fixed local model identifier is required")
+        if not callable(getattr(runtime, "generate", None)):
+            raise ValueError("A local model runtime is required")
+        self.model_id = model_id
+        self._runtime = runtime
+
+    def generate(self, prompt):
+        if (type(prompt) is not str or not prompt.strip() or
+                len(prompt.encode("utf-8")) > MAX_PROMPT_BYTES):
+            raise ValueError("Unsupported local model input")
+        return self._runtime.generate(
+            prompt, system_prompt=SYSTEM_PROMPT,
+            max_tokens=MAX_OUTPUT_TOKENS, timeout_seconds=5.0,
         )
 
 
@@ -267,7 +298,7 @@ class SupportService:
         if "ai:" + feature not in principal.permissions:
             return error_response(403, "AUTHORIZATION_DENIED", request_id)
         provider_id = getattr(self.provider, "provider_id", None)
-        if provider_id not in ("cloudflare-workers-ai", "local-mock"):
+        if provider_id not in ("cloudflare-workers-ai", "local-model", "local-mock"):
             return error_response(503, "AI_DISABLED", request_id, escalate=True)
         # One byte per token plus fixed framing is a conservative input ceiling.
         input_reservation = prompt_bytes + len(SYSTEM_PROMPT.encode("utf-8")) + 64
@@ -285,7 +316,9 @@ class SupportService:
             return error_response(503, "QUOTA_UNAVAILABLE", request_id)
         event = {
             "requestId": request_id, "app": app, "feature": feature,
-            "provider": provider_id, "outcome": "reserved",
+            "provider": provider_id,
+            "model": getattr(self.provider, "model_id", None),
+            "outcome": "reserved",
             "reservedTokens": reservation,
         }
         try:
