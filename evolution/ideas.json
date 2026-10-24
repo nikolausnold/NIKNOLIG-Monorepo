@@ -36,7 +36,7 @@
         {
           "path": "README.md",
           "startLine": 106,
-          "endLine": 108,
+          "endLine": 111,
           "excerpt": "Zusätzlich laufen\ndie Android-Health-Client-Unit-Tests beider Module. Sie verwenden simulierte\nHTTPS-Verbindungen und ersetzen keinen realen Server- oder Gerätetest.",
           "state": "hypothesis"
         }
