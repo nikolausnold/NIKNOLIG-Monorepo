@@ -27,7 +27,7 @@ def validate(environment):
         raise ValueError(f"Set {variable} to the operator-approved HTTPS origin for this app.")
     try:
         url = urlsplit(value)
-        host = (url.hostname or "").lower().rstrip(".")
+        host = (url.hostname or "").lower().removesuffix(".")
         port = url.port
         valid = (
             url.scheme.lower() == "https"

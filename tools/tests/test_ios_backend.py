@@ -26,7 +26,10 @@ class IOSBackendTests(unittest.TestCase):
     def test_https_origins_are_accepted_without_network_access(self):
         for identity, variable in VARIABLES.items():
             for configuration in ("Debug", "Release"):
-                for value in ("https://api.example.com", "https://defense.example.com:8443/"):
+                for value in (
+                    "https://api.example.com", "https://api.example.com.",
+                    "https://defense.example.com:8443/",
+                ):
                     with self.subTest(identity=identity, configuration=configuration, value=value):
                         validate({
                             "PRODUCT_BUNDLE_IDENTIFIER": identity,
@@ -45,7 +48,7 @@ class IOSBackendTests(unittest.TestCase):
                 "https://[::]", "https://127.1", "https://2130706433",
                 "https://0x7f000001", "https://0x7f.0.0.1", "https://0x0",
                 "https://[::ffff:127.0.0.1]", "https://bad..example.com",
-                "https://-bad.example.com",
+                "https://-bad.example.com", "https://api.example.com..",
                 "https://api.example.com:0", "https://api.example.com:65536",
                 "https://api.example.com:bad", "https://bad host.example.com",
                 "https://api.example.com\n.evil.com", "https://api%2eexample.com",

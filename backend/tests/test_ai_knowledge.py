@@ -163,6 +163,26 @@ class KnowledgeServiceTests(unittest.TestCase):
         self.assertEqual(before, self.repository.search(()))
         self.assertEqual("pending", self.repository.get_candidate(candidate.candidate_id).state)
 
+    def test_learning_approval_rechecks_evidence_source_after_audit(self):
+        candidate = self.stage(self.publish())
+        self.service.register_source(principal(), source("alternate"))
+        before = self.repository.search(())
+        write = self.audit.write
+
+        def audit(event):
+            write(event)
+            if event["event"] == "learning_candidate_approval_requested":
+                self.repository.revoke_source("manual")
+
+        with patch.object(self.audit, "write", side_effect=audit):
+            with self.assertRaises(PermissionError):
+                self.service.approve_learning(
+                    principal(), candidate.candidate_id, source_id="alternate",
+                    title="Reviewed solution", content="Use approved steps.",
+                )
+        self.assertEqual(before, self.repository.search(()))
+        self.assertEqual("pending", self.repository.get_candidate(candidate.candidate_id).state)
+
     def test_registration_rejects_other_app_before_audit_or_storage(self):
         for app, other in (
             ("niknolig", "niknolig-defense"), ("niknolig-defense", "niknolig"),

@@ -236,6 +236,10 @@ class InMemoryKnowledgeRepository:
             candidate = self._candidates.get(candidate_id)
             if candidate is None or candidate.state != "pending":
                 return None
+            self._require_learning_entry(
+                candidate.app, candidate.solution_entry_id,
+                candidate.solution_entry_version,
+            )
             updated = replace(candidate, state="approved")
             self.publish(entry)
             self._candidates[candidate_id] = updated
