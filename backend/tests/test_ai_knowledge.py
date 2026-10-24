@@ -1,8 +1,11 @@
+import concurrent.futures
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
+import threading
 import unittest
+from unittest.mock import patch
 from uuid import uuid4
 
 
@@ -61,6 +64,18 @@ class KnowledgeServiceTests(unittest.TestCase):
         values.update(kwargs)
         return self.service.publish(principal(app), **values)
 
+    def stage(self, entry):
+        for _ in range(3):
+            self.service.record_feedback(
+                principal(), issue_code="installation",
+                solution_entry_id=entry.entry_id,
+                solution_entry_version=entry.version, positive=True,
+            )
+        return self.service.stage_learning(
+            principal(), issue_code="installation",
+            solution_entry_id=entry.entry_id, solution_entry_version=entry.version,
+        )
+
     def test_search_is_app_scoped_and_contains_provenance(self):
         entry = self.publish()
         hits = self.service.search(principal("niknolig"), "restart setup")
@@ -103,6 +118,22 @@ class KnowledgeServiceTests(unittest.TestCase):
                 source_id="shared-pending", title="Cross-scope", content="No grant.",
             )
 
+    def test_registration_rejects_other_app_before_audit_or_storage(self):
+        for app, other in (
+            ("niknolig", "niknolig-defense"), ("niknolig-defense", "niknolig"),
+        ):
+            for trust in ("pending", "approved", "revoked"):
+                with self.subTest(app=app, trust=trust):
+                    foreign = source("foreign-source", scope=other, trust=trust)
+                    before = list(self.audit.events)
+                    with self.assertRaises(PermissionError):
+                        self.service.register_source(principal(app), foreign)
+                    self.assertEqual(before, self.audit.events)
+                    self.assertIsNone(self.repository.get_source(foreign.source_id))
+            own = source(app + "-source", scope=app)
+            self.service.register_source(principal(app), own)
+            self.assertEqual(own, self.repository.get_source(own.source_id))
+
     def test_versions_are_immutable_and_sequential(self):
         first = self.publish()
         second = self.publish(entry_id=first.entry_id, title="Install reliably")
@@ -111,6 +142,70 @@ class KnowledgeServiceTests(unittest.TestCase):
         self.assertEqual(second, self.repository.current(first.entry_id))
         with self.assertRaises(ValueError):
             self.repository.publish(replace(second, version=4))
+        self.assertEqual(first, self.repository.get_version(first.entry_id, 1))
+        self.assertIsNone(self.repository.get_version(first.entry_id, 3))
+
+    def test_feedback_and_candidates_stay_bound_to_entry_version(self):
+        first = self.publish()
+        candidate = self.stage(first)
+        second = self.publish(entry_id=first.entry_id, content="Use different steps.")
+        with self.assertRaises(ValueError):
+            self.service.stage_learning(
+                principal(), issue_code="installation",
+                solution_entry_id=second.entry_id, solution_entry_version=second.version,
+            )
+        self.assertEqual((0, 0), self.repository.feedback_counts(
+            "niknolig", "installation", second.entry_id, second.version,
+        ))
+        self.service.record_feedback(
+            principal(), issue_code="installation", solution_entry_id=second.entry_id,
+            solution_entry_version=second.version, positive=False,
+        )
+        self.assertEqual((3, 0), self.repository.feedback_counts(
+            "niknolig", "installation", first.entry_id, first.version,
+        ))
+        self.assertEqual(first.version, candidate.solution_entry_version)
+        self.assertEqual(first.entry_id, candidate.solution_entry_id)
+        historical = self.service.stage_learning(
+            principal(), issue_code="installation", solution_entry_id=first.entry_id,
+            solution_entry_version=first.version,
+        )
+        self.assertEqual(3, historical.positive_count)
+        self.assertEqual(first.version, historical.solution_entry_version)
+        self.service.reject_learning(principal(), candidate.candidate_id)
+        self.assertEqual(first.version, self.repository.get_candidate(
+            candidate.candidate_id,
+        ).solution_entry_version)
+        newer = self.stage(second)
+        self.assertEqual(second.version, newer.solution_entry_version)
+        self.assertEqual((3, 1), (newer.positive_count, newer.negative_count))
+
+    def test_feedback_versions_are_explicit_validated_and_app_scoped(self):
+        entry = self.publish()
+        for version in (0, -1, True, "1", 99):
+            with self.subTest(version=version):
+                before = list(self.audit.events)
+                with self.assertRaises((ValueError, PermissionError)):
+                    self.service.record_feedback(
+                        principal(), issue_code="installation",
+                        solution_entry_id=entry.entry_id,
+                        solution_entry_version=version, positive=True,
+                    )
+                with self.assertRaises((ValueError, PermissionError)):
+                    self.service.stage_learning(
+                        principal(), issue_code="installation",
+                        solution_entry_id=entry.entry_id, solution_entry_version=version,
+                    )
+                self.assertEqual(before, self.audit.events)
+        with self.assertRaises(PermissionError):
+            self.service.record_feedback(
+                principal("niknolig-defense"), issue_code="installation",
+                solution_entry_id=entry.entry_id, solution_entry_version=entry.version,
+                positive=True,
+            )
+        self.assertEqual((0, 0), self.repository.feedback_counts(
+            "niknolig", "installation", entry.entry_id, entry.version,
+        ))
 
     def test_feedback_has_no_free_text_and_learning_requires_review(self):
         entry = self.publish()
@@ -118,9 +213,11 @@ class KnowledgeServiceTests(unittest.TestCase):
             self.service.record_feedback(
                 principal(), issue_code="installation",
                 solution_entry_id=entry.entry_id, positive=True,
+                solution_entry_version=entry.version,
             )
         candidate = self.service.stage_learning(
-            principal(), issue_code="installation", solution_entry_id=entry.entry_id
+            principal(), issue_code="installation", solution_entry_id=entry.entry_id,
+            solution_entry_version=entry.version,
         )
         self.assertEqual(3, candidate.positive_count)
         staged = [event for event in self.audit.events
@@ -133,6 +230,9 @@ class KnowledgeServiceTests(unittest.TestCase):
             content="Use the approved recovery sequence.",
         )
         self.assertEqual(1, promoted.version)
+        approved = self.repository.get_candidate(candidate.candidate_id)
+        self.assertEqual("approved", approved.state)
+        self.assertEqual(entry.version, approved.solution_entry_version)
         self.assertEqual("learning_candidate_approval_requested",
                          self.audit.events[-1]["event"])
         with self.assertRaises(PermissionError):
@@ -147,9 +247,11 @@ class KnowledgeServiceTests(unittest.TestCase):
             self.service.record_feedback(
                 principal(), issue_code="installation",
                 solution_entry_id=entry.entry_id, positive=True,
+                solution_entry_version=entry.version,
             )
         candidate = self.service.stage_learning(
-            principal(), issue_code="installation", solution_entry_id=entry.entry_id
+            principal(), issue_code="installation", solution_entry_id=entry.entry_id,
+            solution_entry_version=entry.version,
         )
         before = len(self.repository.search(()))
         self.service.reject_learning(principal(), candidate.candidate_id)
@@ -161,11 +263,108 @@ class KnowledgeServiceTests(unittest.TestCase):
         self.service.record_feedback(
             principal(), issue_code="installation",
             solution_entry_id=entry.entry_id, positive=True,
+            solution_entry_version=entry.version,
         )
         with self.assertRaises(ValueError):
             self.service.stage_learning(
-                principal(), issue_code="installation", solution_entry_id=entry.entry_id
+                principal(), issue_code="installation", solution_entry_id=entry.entry_id,
+                solution_entry_version=entry.version,
             )
+
+    def test_concurrent_approvals_publish_once(self):
+        candidate = self.stage(self.publish())
+        barrier = threading.Barrier(2)
+        write = self.audit.write
+
+        def audit(event):
+            write(event)
+            if event["event"] == "learning_candidate_approval_requested":
+                barrier.wait(timeout=5)
+
+        def approve():
+            try:
+                return self.service.approve_learning(
+                    principal(), candidate.candidate_id, source_id="manual",
+                    title="Reviewed solution", content="Use approved steps.",
+                )
+            except RuntimeError:
+                return None
+
+        before = len(self.repository.search(()))
+        with patch.object(self.audit, "write", side_effect=audit):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(approve) for _ in range(2)]
+                results = [future.result(timeout=10) for future in futures]
+        self.assertEqual(1, sum(result is not None for result in results))
+        self.assertEqual(before + 1, len(self.repository.search(())))
+        self.assertEqual("approved", self.repository.get_candidate(candidate.candidate_id).state)
+
+    def test_concurrent_approval_and_rejection_are_serialized(self):
+        for winner in ("approve", "reject"):
+            with self.subTest(winner=winner):
+                candidate = self.stage(self.publish())
+                barrier = threading.Barrier(2)
+                committed = threading.Event()
+                write = self.audit.write
+
+                def audit(event):
+                    write(event)
+                    actions = {
+                        "learning_candidate_approval_requested": "approve",
+                        "learning_candidate_rejected": "reject",
+                    }
+                    if event["event"] in actions:
+                        barrier.wait(timeout=5)
+                        if actions[event["event"]] != winner:
+                            self.assertTrue(committed.wait(timeout=5))
+
+                def review(action):
+                    try:
+                        if action == "approve":
+                            self.service.approve_learning(
+                                principal(), candidate.candidate_id, source_id="manual",
+                                title="Reviewed solution", content="Use approved steps.",
+                            )
+                        else:
+                            self.service.reject_learning(principal(), candidate.candidate_id)
+                        return True
+                    except RuntimeError:
+                        return False
+                    finally:
+                        if action == winner:
+                            committed.set()
+
+                before = len(self.repository.search(()))
+                with patch.object(self.audit, "write", side_effect=audit):
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                        futures = {action: pool.submit(review, action)
+                                   for action in ("approve", "reject")}
+                        results = {action: future.result(timeout=10)
+                                   for action, future in futures.items()}
+                self.assertTrue(results[winner])
+                self.assertFalse(results["reject" if winner == "approve" else "approve"])
+                self.assertEqual(before + int(winner == "approve"),
+                                 len(self.repository.search(())))
+                self.assertEqual("approved" if winner == "approve" else "rejected",
+                                 self.repository.get_candidate(candidate.candidate_id).state)
+
+    def test_failed_approval_commits_neither_publication_nor_state(self):
+        entry = self.publish()
+        candidate = self.stage(entry)
+        before = self.repository.search(())
+        with self.assertRaises(ValueError):
+            self.repository.approve_candidate(candidate.candidate_id, entry)
+        self.assertEqual("pending", self.repository.get_candidate(candidate.candidate_id).state)
+        self.assertEqual(before, self.repository.search(()))
+        self.audit.fail = True
+        with self.assertRaises(RuntimeError):
+            self.service.approve_learning(
+                principal(), candidate.candidate_id, source_id="manual",
+                title="Reviewed solution", content="Use approved steps.",
+            )
+        self.assertEqual("pending", self.repository.get_candidate(candidate.candidate_id).state)
+        self.assertEqual(before, self.repository.search(()))
+        self.assertIsNone(self.repository.approve_candidate(uuid4(), entry))
 
     def test_approval_cannot_cross_app_boundaries(self):
         entry = self.publish()
@@ -174,9 +373,11 @@ class KnowledgeServiceTests(unittest.TestCase):
             self.service.record_feedback(
                 principal(), issue_code="installation",
                 solution_entry_id=entry.entry_id, positive=True,
+                solution_entry_version=entry.version,
             )
         candidate = self.service.stage_learning(
-            principal(), issue_code="installation", solution_entry_id=entry.entry_id
+            principal(), issue_code="installation", solution_entry_id=entry.entry_id,
+            solution_entry_version=entry.version,
         )
         with self.assertRaises(PermissionError):
             self.service.approve_learning(
@@ -208,6 +409,47 @@ class KnowledgeServiceTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.service.research(principal(), "model_candidates")
         self.assertIsInstance(self.service.research_provider, DisabledResearchProvider)
+
+    def test_empty_research_allowlist_prevents_provider_call(self):
+        class Provider:
+            provider_id = "approved-test"
+
+            def search(self, query):
+                raise AssertionError("Research must not be dispatched")
+
+        service = KnowledgeService(
+            self.repository, research_provider=Provider(), audit=self.audit,
+            clock=lambda: NOW, research_approved=True, research_cost_approved=True,
+        )
+        with self.assertRaisesRegex(ValueError, "host allowlist"):
+            service.research(principal(), "model_candidates")
+
+    def test_retrieval_context_counts_all_newlines_at_exact_boundaries(self):
+        for title in ("First setup", "Second setup", "Third setup"):
+            self.publish(title=title)
+        hits = self.service.search(principal(), "setup")
+        full = self.service.retrieval_context(hits)
+        parts = full.split("\n")
+        self.assertEqual(4, len(parts))
+        header = parts[0]
+        self.assertEqual(header, self.service.retrieval_context((), max_chars=len(header)))
+        for count in range(1, len(parts) + 1):
+            expected = "\n".join(parts[:count])
+            with self.subTest(count=count):
+                self.assertEqual(expected, self.service.retrieval_context(
+                    hits, max_chars=len(expected),
+                ))
+                if count > 1:
+                    budget = len(expected) - 1
+                    context = self.service.retrieval_context(hits, max_chars=budget)
+                    self.assertEqual("\n".join(parts[:count - 1]), context)
+                    self.assertLessEqual(len(context), budget)
+
+    def test_retrieval_context_rejects_budgets_smaller_than_header(self):
+        header = self.service.retrieval_context(())
+        for budget in (0, 1, len(header) - 1, True, 6000.0, 12001):
+            with self.subTest(budget=budget), self.assertRaises(ValueError):
+                self.service.retrieval_context((), max_chars=budget)
 
     def test_research_is_explicit_and_marks_conflicting_claims(self):
         class Provider:

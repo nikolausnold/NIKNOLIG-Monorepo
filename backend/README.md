@@ -23,11 +23,15 @@ enthalten nur Ereignistyp, App-Bereich, IDs, Version und Zeit, keine Inhalte
 oder Supportnachrichten. Der standardmäßige Audit-Sink verweigert Schreibzugriffe.
 
 Lernen nimmt ausschließlich feste Fehlerkategorien, eine Referenz auf eine
-freigegebene Lösung und positives/negatives Feedback an; keine Freitexte,
+freigegebene Lösung (`solution_entry_id` und `solution_entry_version`) und
+positives/negatives Feedback an; Bestätigungen gelten nur für diese unveränderliche
+Version. Keine Freitexte,
 Kundendaten oder Roh-Supportfälle werden gespeichert. Ein Kandidat wird nach
 mindestens drei positiven Signalen und nur in einer isolierten, flüchtigen
 Sandbox angelegt. Er verändert keine Wissensversion, bis eine Person mit
 `learning:approve` Inhalt aus einer freigegebenen Quelle ausdrücklich kuratiert.
+Repository-Adapter müssen Freigabe und Veröffentlichung atomar ausführen und mit
+Ablehnungen serialisieren; ein verlorener Zustandswechsel darf nichts veröffentlichen.
 Credential-artige Texte werden bei redaktionellen Einträgen abgelehnt. Die
 Referenzimplementierung `InMemoryKnowledgeRepository` ist absichtlich nicht
 produktiv und verliert alle Daten beim Prozessende; es gibt weder eine
@@ -37,7 +41,8 @@ Vorbereitung nicht in ASGI, Android oder iOS aktiviert.
 
 On-demand-Recherche ist eine Provider-Schnittstelle ohne konkreten
 Netzwerkadapter. Standardmäßig ist sie deaktiviert; selbst ein injizierter
-Provider erfordert getrennte explizite Anbieter- und Kostenfreigaben. Übertragen
+Provider erfordert getrennte explizite Anbieter- und Kostenfreigaben sowie eine
+nicht leere Host-Allowlist vor jedem Anbieteraufruf. Übertragen
 werden können nur feste öffentliche Themenabfragen (keine Supportnachricht oder
 freie Kundeneingabe). Ergebnisse tragen Quelle, Abrufzeit und thematische
 Konfliktmarkierungen und werden nicht dauerhaft gespeichert. Es gibt keine
@@ -49,7 +54,9 @@ Cloudflare-Workers-AI-Adapter. Das ist ein vorgeschlagener externer Kandidat,
 kein Nachweis von Aktivierung, heutiger Verfügbarkeit, Produktfreigabe oder
 autonomem Lernen. `LocalModelProvider` ergänzt einen austauschbaren Adapter für
 einen vom Betreiber bereitgestellten lokalen Runner; es installiert oder lädt
-keine Gewichte und wählt kein lokales Modell. Das lokale Modell, Quantisierung,
+keine Gewichte und wählt kein lokales Modell. Der Runner erhält den festen
+`SYSTEM_PROMPT` separat als `system_prompt` neben dem unvertrauenswürdigen
+Benutzerprompt. Das lokale Modell, Quantisierung,
 Runtime, RAM-/VRAM- und Datenträgerbedarf sowie Strom-/Laufzeitkosten sind daher
 noch nicht bestimmbar. Beim externen Kandidaten liegen Modellgewichte außerhalb
 dieses Backends; es fallen hier keine lokalen Gewichtsspeicher an. Preise und
