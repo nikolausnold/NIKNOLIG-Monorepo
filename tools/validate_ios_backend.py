@@ -53,7 +53,10 @@ def validate(environment):
                 valid = len(host) <= 253 and all(
                     re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
                     for label in host.split(".")
-                ) and not re.fullmatch(r"[0-9.]+", host)
+                ) and not re.fullmatch(
+                    r"(?:0x[0-9a-f]+|[0-9]+)(?:\.(?:0x[0-9a-f]+|[0-9]+))*",
+                    host,
+                )
             else:
                 if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
                     address = address.ipv4_mapped

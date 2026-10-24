@@ -43,6 +43,7 @@ class IOSBackendTests(unittest.TestCase):
                 "https://sub.localhost.", "https://backend.invalid",
                 "https://127.0.0.1", "https://0.0.0.0", "https://[::1]",
                 "https://[::]", "https://127.1", "https://2130706433",
+                "https://0x7f000001", "https://0x7f.0.0.1", "https://0x0",
                 "https://[::ffff:127.0.0.1]", "https://bad..example.com",
                 "https://-bad.example.com",
                 "https://api.example.com:0", "https://api.example.com:65536",
@@ -65,14 +66,15 @@ class IOSBackendTests(unittest.TestCase):
 
     def test_cli_failure_does_not_print_configured_value(self):
         output = io.StringIO()
+        configured_value = "******example.com"
         with patch.dict("os.environ", {
             "PRODUCT_BUNDLE_IDENTIFIER": "com.niknolig.app",
             "CONFIGURATION": "Release",
-            "NIKNOLIG_BACKEND_URL": "******example.com",
+            "NIKNOLIG_BACKEND_URL": configured_value,
         }, clear=True), contextlib.redirect_stderr(output):
             self.assertEqual(main(), 1)
         self.assertIn("NIKNOLIG_BACKEND_URL", output.getvalue())
-        self.assertNotIn("private-", output.getvalue())
+        self.assertNotIn(configured_value, output.getvalue())
 
     def test_both_targets_validate_before_compiling(self):
         project = (ROOT / "apps/ios/NIKNOLIG.xcodeproj/project.pbxproj").read_text()
