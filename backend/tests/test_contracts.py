@@ -58,8 +58,8 @@ class BackendContractTests(unittest.TestCase):
         for number in range(2, 13):
             with self.subTest(decision=number):
                 self.assertIn(f"**D-{number:02}", proposals)
-        self.assertIn("nicht genehmigt", proposals)
-        self.assertIn("bleiben", proposals)
+        self.assertIn("Status: Vorschläge zur Freigabe, nicht genehmigt.", proposals)
+        self.assertIn("Bis dahin keine Anmeldung.", proposals)
 
         runbook = (BACKEND / "README.md").read_text(encoding="utf-8")
         self.assertIn("Suffix `_restore_test`", runbook)

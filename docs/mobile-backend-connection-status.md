@@ -45,24 +45,27 @@ Ersatzserver gewählt.
 - Android NIKNOLIG nimmt `NIKNOLIG_BACKEND_URL` oder
   `-PniknoligBackendUrl=...`; Defense nimmt getrennt
   `NIKNOLIG_DEFENSE_BACKEND_URL` oder `-PniknoligDefenseBackendUrl=...`.
-  Release-Aufgaben verwenden standardmäßig die offizielle Origin und erlauben
-  getrennte Overrides. Nicht-HTTPS-, lokale, Loopback- und `.invalid`-Hosts
-  werden abgelehnt.
+  Lokale Gradle-Builds verwenden standardmäßig die offizielle Origin und erlauben
+  getrennte Overrides. Der Release-Workflow verlangt weiterhin getrennte,
+  ausdrücklich bestätigte Environment-Variablen. Nicht-HTTPS-, lokale,
+  Loopback- und `.invalid`-Hosts werden abgelehnt.
   Manuelle und automatische Android-Releases verwenden dieselbe URL-Prüfung,
   bevor Signiergeheimnisse bereitgestellt oder Release-Artefakte gebaut werden.
 
 ### Android-Release-URLs in GitHub konfigurieren
 
-Die aktuellen Repository-/Environment-Variablen können in diesem Arbeitslauf
+Die aktuellen Repository-/Environment-Variablen konnten in diesem Arbeitslauf
 nicht über die verfügbaren GitHub-Schnittstellen ausgelesen werden. Der letzte
 fehlgeschlagene Release-Lauf protokollierte beide Werte leer; ihr jetziger
-Konfigurationsstand ist damit nicht bestätigt. Es wurde keine Produktions-URL
-angenommen oder ergänzt.
+Konfigurationsstand ist damit nicht bestätigt. `https://api.niknolig.com` ist
+der vom Auftrag vorgegebene Standard-Origin, aber seine Produktionszuordnung
+muss der Betreiber weiterhin bestätigen.
 
 1. Ein Repository-Administrator öffnet
    [Settings → Environments](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/environments)
    und wählt das Environment `android-release` (oder legt es exakt so an).
-2. Unter **Environment variables** werden zwei getrennte Variablen eingetragen:
+2. Unter **Environment variables** werden nach Betreiberbestätigung zwei
+   getrennte Variablen eingetragen:
    `NIKNOLIG_BACKEND_URL` für NIKNOLIG und
    `NIKNOLIG_DEFENSE_BACKEND_URL` für NIKNOLIG Defense. Beide Werte müssen
    jeweils die vom zuständigen Betreiber ausdrücklich für Produktion
@@ -82,8 +85,8 @@ angenommen oder ergänzt.
 Ohne die beiden vom Betreiber bereitgestellten und vom Environment-Reviewer
 bestätigten Werte bleiben signierte Releases blockiert. Die Prüfung bestätigt
 URL-Format und Freigabeprozess, aber weder DNS/TLS-Erreichbarkeit noch einen
-deployten Produktionsdienst. Debug-Builds bleiben von dieser Release-Prüfung
-unabhängig.
+deployten Produktionsdienst. Debug-Builds verwenden ohne Override die
+auftragsgemäße Standard-Origin; dies ist kein Live-API-Nachweis.
 
 | Route | Implementierung und tatsächlicher Status |
 | --- | --- |
