@@ -17,6 +17,8 @@ class BackendContractTests(unittest.TestCase):
     def test_openapi_only_exposes_non_sensitive_health_operations(self):
         contract = (BACKEND / "openapi.yaml").read_text(encoding="utf-8")
         self.assertIn("openapi: 3.1.0", contract)
+        self.assertIn("https://api.niknolig.com", contract)
+        self.assertNotIn("backend.invalid", contract)
         self.assertIn("/health/live:", contract)
         self.assertIn("/health/ready:", contract)
         self.assertIn("security: []", contract)
@@ -24,7 +26,30 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("APP_AREA_MISMATCH", contract)
         self.assertIn("REPLAY_DETECTED", contract)
         self.assertNotIn("/v1/", contract)
-        self.assertIn("specified or implemented", contract)
+        self.assertIn("Product integration remains", contract)
+
+    def test_mobile_health_clients_default_to_official_api_origin(self):
+        root = BACKEND.parent
+        for module, variable in (
+            ("niknolig", "NIKNOLIG_BACKEND_URL"),
+            ("niknolig-defense", "NIKNOLIG_DEFENSE_BACKEND_URL"),
+        ):
+            gradle = (root / "apps" / module / "build.gradle.kts").read_text(
+                encoding="utf-8"
+            )
+            with self.subTest(module=module):
+                self.assertIn(f'environmentVariable("{variable}")', gradle)
+                self.assertIn('.orElse("https://api.niknolig.com")', gradle)
+
+        project = (
+            root / "apps/ios/NIKNOLIG.xcodeproj/project.pbxproj"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(4, project.count('= "https://api.niknolig.com";'))
+        self.assertIn('NIKNOLIG_BACKEND_URL = "https://api.niknolig.com";', project)
+        self.assertIn(
+            'NIKNOLIG_DEFENSE_BACKEND_URL = "https://api.niknolig.com";',
+            project,
+        )
 
     def test_migration_separates_app_domains_and_does_not_store_private_keys(self):
         migration = (BACKEND / "migrations/001_initial_contract.sql").read_text(

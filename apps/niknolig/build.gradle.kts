@@ -14,6 +14,7 @@ dependencies {
 
 val backendBaseUrl = providers.gradleProperty("niknoligBackendUrl")
     .orElse(providers.environmentVariable("NIKNOLIG_BACKEND_URL"))
+    .orElse("https://api.niknolig.com")
     .orNull
     ?.trim()
     .orEmpty()

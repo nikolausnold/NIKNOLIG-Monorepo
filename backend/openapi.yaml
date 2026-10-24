@@ -5,10 +5,11 @@ info:
   description: >-
     Contract-first proposal. Only health operations are defined; no operational
     app, device, profile, or pairing API is implemented or approved. Production
-    integration is blocked pending SecurityChain-P0 and product/security review.
+    This contract defines health operations only. Product integration remains
+    blocked pending SecurityChain-P0 and product/security review.
 servers:
-  - url: https://backend.invalid
-    description: Placeholder only; not a deployed or approved endpoint.
+  - url: https://api.niknolig.com
+    description: Official API origin; deployment and reachability are not verified by this contract.
 tags:
   - name: Health
     description: Non-sensitive process and dependency health contract.
