@@ -193,6 +193,28 @@ class AutobuildTests(unittest.TestCase):
             self.assertIn(f"apps/{app}/build/test-results/testDebugUnitTest/*.xml", evidence)
             self.assertIn(f"apps/{app}/build/reports/tests/testDebugUnitTest/**", evidence)
 
+    def test_lint_and_unsigned_ios_app_builds_are_required_without_release_claims(self):
+        workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
+        self.assertIn(":niknolig:lintDebug :niknolig-defense:lintDebug", workflow)
+        self.assertIn("android-lint-${{ github.sha }}", workflow)
+        for app in ("niknolig", "niknolig-defense"):
+            self.assertIn(f"apps/{app}/build/reports/lint-results-debug.*", workflow)
+        ios = (ROOT / ".github/workflows/ios-build.yml").read_text()
+        for required in (
+            "runs-on: macos-15", "xcodebuild -project apps/ios/NIKNOLIG.xcodeproj",
+            "-configuration Debug", "-configuration Release",
+            '-target "${{ matrix.target }}"',
+            "-sdk iphonesimulator", "CODE_SIGNING_ALLOWED=NO",
+            "NIKNOLIG_BACKEND_URL=https://niknolig.example.com",
+            "NIKNOLIG_DEFENSE_BACKEND_URL=https://defense.example.com",
+            "no signed device archive",
+        ):
+            self.assertIn(required, " ".join(ios.split()))
+        self.assertNotIn("secrets.", ios)
+        self.assertNotIn("-allowProvisioningUpdates", ios)
+        self.assertIn("swift test --package-path modules/support/ios", ios)
+        self.assertEqual(ios.count("- tools/validate_ios_backend.py"), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
