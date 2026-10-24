@@ -11,7 +11,7 @@ from uuid import uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from ai_support import (
-    CloudflareWorkersAI, Limits, MAX_OUTPUT_BYTES, MAX_OUTPUT_TOKENS,
+    CloudflareWorkersAI, LocalModelProvider, Limits, MAX_OUTPUT_BYTES, MAX_OUTPUT_TOKENS,
     MAX_PROMPT_BYTES, MODEL, Principal, ProviderResult, RuntimeControls,
     SupportService, SYSTEM_PROMPT,
 )
@@ -182,9 +182,30 @@ class SupportServiceTests(unittest.TestCase):
         for private in (private_prompt, self.auth.authorization,
                         self.auth.principal.subject, body["text"]):
             self.assertNotIn(private, encoded)
-        allowed = {"requestId", "app", "feature", "provider", "outcome",
+        allowed = {"requestId", "app", "feature", "provider", "model", "outcome",
                    "reservedTokens", "inputTokens", "outputTokens"}
         self.assertTrue(all(set(e) <= allowed for e in self.audit.events))
+
+    def test_local_model_adapter_uses_fixed_bounded_runtime_parameters(self):
+        class Runtime:
+            def __init__(self):
+                self.calls = []
+
+            def generate(self, prompt, *, system_prompt, max_tokens, timeout_seconds):
+                self.calls.append((prompt, system_prompt, max_tokens, timeout_seconds))
+                return ProviderResult("Local inference.", 10, 4)
+
+        runtime = Runtime()
+        provider = LocalModelProvider(model_id="local/approved-model-q4", runtime=runtime)
+        self.service.provider = provider
+        status, response = self.invoke()
+        self.assertEqual(200, status)
+        self.assertEqual("Local inference.", response["text"])
+        self.assertEqual(
+            [("Local support question.", SYSTEM_PROMPT, MAX_OUTPUT_TOKENS, 5.0)],
+            runtime.calls,
+        )
+        self.assertEqual("local/approved-model-q4", self.audit.events[0]["model"])
 
     def test_principal_validation_denies_before_quotas(self):
         original = self.auth.principal
