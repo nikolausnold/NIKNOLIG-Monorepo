@@ -28,8 +28,8 @@ class AutobuildTests(unittest.TestCase):
         release_guard = workflow.split("jobs:", 1)[1].split("runs-on:", 1)[0]
         self.assertIn("github.event_name == 'workflow_dispatch'", release_guard)
         self.assertIn("github.ref == 'refs/heads/main'", release_guard)
-        self.assertNotIn("vars.NIKNOLIG_BACKEND_URL", release_guard)
-        self.assertNotIn("vars.NIKNOLIG_DEFENSE_BACKEND_URL", release_guard)
+        self.assertIn("vars.NIKNOLIG_BACKEND_URL != ''", release_guard)
+        self.assertIn("vars.NIKNOLIG_DEFENSE_BACKEND_URL != ''", release_guard)
         for guard in (
             "workflows: [\"Android apps build\", \"Backend contracts and tooling\"]",
             "github.event.workflow_run.conclusion == 'success'",
