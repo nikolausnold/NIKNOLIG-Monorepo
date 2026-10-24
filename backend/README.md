@@ -360,20 +360,21 @@ werden durch dieses Monorepo automatisch geändert.
 
 In diesem Repository gibt es weder eine bestätigte Hetzner-Adresse noch
 DNS-/TLS-Konfiguration, einen produktiv betriebenen API-Endpunkt oder ein
-Deployment. Beide Android-Module können nach expliziter Build-Konfiguration
-ausschließlich den nicht-sensitiven Health-Endpunkt über HTTPS prüfen. Die
-separaten Umgebungsvariablen `NIKNOLIG_BACKEND_URL` und
-`NIKNOLIG_DEFENSE_BACKEND_URL` werden für Release-Builds verlangt; HTTPS ist
-Pflicht, Loopback- und `.invalid`-Hosts werden abgelehnt. Es sind keine
-Produktionsadressen oder Zugangsdaten hinterlegt. Eine Adresse oder ein Endpunkt
-wird nicht angenommen oder erfunden.
+Deployment. Die vom Auftrag angegebene Origin `https://api.niknolig.com` ist nun
+als Standard für die bestehenden, nicht-sensitiven HTTPS-Health-Clients und im
+OpenAPI-Vertrag konfiguriert; app-spezifische Android-Umgebungsvariablen bzw.
+iOS-Build-Einstellungen können sie überschreiben. DNS, TLS, Serverzuordnung,
+Erreichbarkeit und produktiver Betrieb dieser Origin sind damit nicht bestätigt.
+Die Clients fragen ausschließlich Health ab; HTTPS ist Pflicht, Loopback- und
+`.invalid`-Hosts werden abgelehnt. Zugangsdaten oder Produktrechte sind nicht
+hinterlegt.
 
 Vor einer Android-Verbindung müssen die Verantwortlichen mindestens liefern und
 freigeben:
 
-1. Die kanonische HTTPS-Basis-URL des Hetzner-Servers, verwaltete DNS-Auflösung,
-   TLS-Zertifikatskette/-Erneuerung und die festgelegten Client-
-   Vertrauensregeln; kein HTTP-Fallback.
+1. Betreiberbestätigung, dass `https://api.niknolig.com` auf den vorgesehenen
+   Hetzner-Dienst zeigt, sowie verwaltete DNS-Auflösung, TLS-Zertifikatskette/
+   -Erneuerung und festgelegte Client-Vertrauensregeln; kein HTTP-Fallback.
 2. Eine bereitgestellte, versionierte Produkt-API mit freigegebenen OpenAPI-
    Operationen, Datenumfang und Fehlerantworten. Die vorhandenen Health-Routen
    implementieren keine Produktfunktion.
@@ -383,7 +384,7 @@ freigeben:
 4. Einen freigegebenen Test-/Staging-Endpunkt und nicht-produktive Testidentitäten
    für Negativ-, Ablauf-, Widerrufs-, TLS- und Timeouttests; keine produktiven
    Tokens in Builds oder Tests.
-5. Pro Android-App die genehmigte, zur Build-Variante passende Serveradresse,
+5. Pro Android-App getrennte, bestätigte Build-Overrides falls erforderlich,
    Token-Bezugs-/Speicherregeln (OS-geschützt und getrennt je App) sowie
    verbindliche Verbindungs-/Lese-Timeoutwerte und Abbruch-/Fehlerverhalten.
 6. Betriebsverantwortung beim Serverbetreiber: Deployment-/Rollbackverfahren,
@@ -395,6 +396,11 @@ freigegebenen Vertrag integriert und getestet werden. Bis dahin bleibt jede
 Produktverbindung fail closed; Health-Abfragen geben keine geschützten Rechte.
 
 ## Verifikation und nächste Schritte
+
+Konkrete, nicht genehmigte Standardvorschläge und Freigabepunkte zu D-02 bis
+D-12 stehen in
+[`docs/securitychain-d02-d12-decision-proposals.md`](../docs/securitychain-d02-d12-decision-proposals.md).
+Sie schließen keine P0-Entscheidung und geben keine Produktfunktion frei.
 
 `python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,
 Healthchecks und die gesperrte lokale Support-Route. KI-Mocks werden ebenfalls

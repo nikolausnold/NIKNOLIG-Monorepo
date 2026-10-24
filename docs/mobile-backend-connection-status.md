@@ -3,16 +3,19 @@
 **Prüfdatum:** 2026-10-22  
 **Status: TEILWEISE IMPLEMENTIERT, PRODUKTIONSVERBINDUNG BLOCKIERT** – Beide
 Android-Apps enthalten jetzt getrennte HTTPS-Clients für `GET /health/ready`.
-Eine erfolgreiche Verbindung zu einem deployten Backend ist nicht nachgewiesen;
-es wurde keine Produktionsadresse angenommen oder erfunden.
+Nachtrag 2026-10-24: `https://api.niknolig.com` ist auftragsgemäß als Standard-
+Origin für die bestehenden Health-Clients und im OpenAPI-Vertrag eingetragen;
+Android-App-Umgebungsvariablen und iOS-Build-Einstellungen bleiben getrennt
+überschreibbar. Eine erfolgreiche Verbindung zu einem deployten Backend,
+DNS-/TLS-Zuordnung oder Produkt-API ist nicht nachgewiesen.
 
 ## Tatsächlicher Netzwerkpfad
 
 | Plattform/App | Befund |
 | --- | --- |
-| Android NIKNOLIG (`:niknolig`) | Eigener `BackendHealthClient`, eigene `INTERNET`-Berechtigung und eigene Build-Konfiguration. Die Support-Ansicht ruft nach Nutzeraktion ausschließlich `GET /health/ready` ab. Die Assistentenanfrage bleibt lokal; E-Mail öffnet nach Bestätigung nur einen Entwurf. |
-| Android NIKNOLIG Defense (`:niknolig-defense`) | Separater `BackendHealthClient`, eigene `INTERNET`-Berechtigung und eigene Build-Konfiguration. Die Support-Ansicht ruft nach Nutzeraktion ausschließlich `GET /health/ready` ab. Keine geteilten App-Clients, Credentials oder Defense-Funktionen. E-Mail öffnet nur einen Entwurf. |
-| iOS NIKNOLIG und Defense | Zwei native Targets in `apps/ios/NIKNOLIG.xcodeproj` enthalten getrennte Health-Clients und getrennte leere Build-URL-Einstellungen. Der Check läuft nur nach Nutzeraktion, akzeptiert nur HTTPS ohne Redirect und sendet keine Credentials oder Nutzdaten. Ohne konfigurierte URL meldet die UI „nicht konfiguriert“. Kein iOS-Build, Simulator-, Geräte- oder echter Servertest wurde ausgeführt. |
+| Android NIKNOLIG (`:niknolig`) | Eigener `BackendHealthClient`, eigene `INTERNET`-Berechtigung und eigene Build-Konfiguration. Standard-Origin `https://api.niknolig.com`, überschreibbar über `NIKNOLIG_BACKEND_URL` oder Gradle-Property. Die Support-Ansicht ruft nach Nutzeraktion ausschließlich `GET /health/ready` ab. |
+| Android NIKNOLIG Defense (`:niknolig-defense`) | Separater `BackendHealthClient`, eigene `INTERNET`-Berechtigung und eigene Build-Konfiguration. Dieselbe Standard-Origin, separat überschreibbar über `NIKNOLIG_DEFENSE_BACKEND_URL` oder Gradle-Property. Keine geteilten App-Clients, Credentials oder Defense-Funktionen. |
+| iOS NIKNOLIG und Defense | Zwei native Targets in `apps/ios/NIKNOLIG.xcodeproj` enthalten getrennte Health-Clients und getrennte Build-Einstellungen mit derselben Standard-Origin. Der Check läuft nur nach Nutzeraktion, akzeptiert nur HTTPS ohne Redirect und sendet keine Credentials oder Nutzdaten. Xcode-Build, Simulator-, Geräte- oder echter Servertest wurden nicht ausgeführt. |
 
 Die Android-Clients verwenden `HttpsURLConnection` mit System-Zertifikatsprüfung,
 ohne Redirects, mit 5-Sekunden-Verbindungs-/Lese-Timeout, begrenzter JSON-Antwort,
@@ -23,10 +26,10 @@ keinen Login oder Zugriff auf geschützte Funktionen.
 
 Beide Manifeste verbieten Klartextverkehr ausdrücklich. Die Verbindung kann
 nach Fehlern oder Netzwerkwechsel erneut geprüft werden; während einer Anfrage
-ist die Prüftaste deaktiviert. Debug-CI übernimmt jetzt wie Release-CI die
-getrennten Repository-Variablen `NIKNOLIG_BACKEND_URL` und
-`NIKNOLIG_DEFENSE_BACKEND_URL`. Ohne bestätigte Werte bleibt der Zustand
-„nicht konfiguriert“; es wird kein Ersatzserver gewählt.
+ist die Prüftaste deaktiviert. Die getrennten Variablen
+`NIKNOLIG_BACKEND_URL` und `NIKNOLIG_DEFENSE_BACKEND_URL` überschreiben den
+Standard-Origin für app-spezifische Umgebungen. Es wird kein anderer
+Ersatzserver gewählt.
 
 ## URL-Konfiguration und vorhandene Routen
 
@@ -36,15 +39,15 @@ getrennten Repository-Variablen `NIKNOLIG_BACKEND_URL` und
   Health-Server auf `127.0.0.1:8000`.
 - [`backend/ai-support.openapi.yaml`](../backend/ai-support.openapi.yaml) nennt
   `http://127.0.0.1:8000` ausschließlich als lokales Vorbereitungsbeispiel.
-- Es gibt keine bestätigte Produktions-URL. Android-Releases benötigen
-  app-spezifische URLs; iOS-Build-Einstellungen sind leer, bis ein Betreiber
-  eine freigegebene URL bereitstellt.
+- Die Standard-Origin ist auftragsgemäß `https://api.niknolig.com`; dies belegt
+  weder DNS-/TLS-Erreichbarkeit noch einen deployten oder freigegebenen
+  Produktdienst.
 - Android NIKNOLIG nimmt `NIKNOLIG_BACKEND_URL` oder
   `-PniknoligBackendUrl=...`; Defense nimmt getrennt
   `NIKNOLIG_DEFENSE_BACKEND_URL` oder `-PniknoligDefenseBackendUrl=...`.
-  Release-Aufgaben schlagen ohne eigene App-URL fehl. Nicht-HTTPS-, lokale,
-  Loopback- und `.invalid`-Hosts werden abgelehnt. Debug-Builds ohne Konfiguration
-  bleiben möglich und melden im UI klar, dass kein Verbindungsversuch stattfand.
+  Release-Aufgaben verwenden standardmäßig die offizielle Origin und erlauben
+  getrennte Overrides. Nicht-HTTPS-, lokale, Loopback- und `.invalid`-Hosts
+  werden abgelehnt.
   Manuelle und automatische Android-Releases verwenden dieselbe URL-Prüfung,
   bevor Signiergeheimnisse bereitgestellt oder Release-Artefakte gebaut werden.
 

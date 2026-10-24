@@ -51,6 +51,21 @@ class BackendContractTests(unittest.TestCase):
             project,
         )
 
+    def test_security_decision_proposals_keep_p0_gated_and_backup_restore_isolated(self):
+        proposals = (
+            BACKEND.parent / "docs/securitychain-d02-d12-decision-proposals.md"
+        ).read_text(encoding="utf-8")
+        for number in range(2, 13):
+            with self.subTest(decision=number):
+                self.assertIn(f"**D-{number:02}", proposals)
+        self.assertIn("nicht genehmigt", proposals)
+        self.assertIn("bleiben", proposals)
+
+        runbook = (BACKEND / "README.md").read_text(encoding="utf-8")
+        self.assertIn("Suffix `_restore_test`", runbook)
+        self.assertIn("Es wird bewusst kein `--clean` verwendet.", runbook)
+        self.assertIn("kein Restore-Testnachweis vor.", runbook)
+
     def test_migration_separates_app_domains_and_does_not_store_private_keys(self):
         migration = (BACKEND / "migrations/001_initial_contract.sql").read_text(
             encoding="utf-8"
