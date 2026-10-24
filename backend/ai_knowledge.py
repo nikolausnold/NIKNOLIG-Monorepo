@@ -208,6 +208,10 @@ class InMemoryKnowledgeRepository:
             candidate = self._candidates.get(candidate_id)
             if candidate is None or candidate.state != "pending":
                 return None
+            solution_versions = self._versions.get(candidate.solution_entry_id, ())
+            if (not solution_versions or
+                    solution_versions[-1].version != candidate.solution_entry_version):
+                return None
             versions = self._versions.get(entry.entry_id, ())
             if entry.version != len(versions) + 1:
                 raise ValueError("Knowledge versions must be sequential")

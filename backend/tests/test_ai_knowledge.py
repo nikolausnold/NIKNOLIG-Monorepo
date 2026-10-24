@@ -207,6 +207,37 @@ class KnowledgeServiceTests(unittest.TestCase):
         self.assertEqual("rejected", self.repository.get_candidate(candidate.candidate_id).state)
         self.assertEqual(before, len(self.repository.search(())))
 
+    def test_atomic_approval_rechecks_the_feedback_entry_version(self):
+        entry = self.publish()
+        for _ in range(3):
+            self.service.record_feedback(
+                principal(), issue_code="installation",
+                solution_entry_id=entry.entry_id, positive=True,
+            )
+        candidate = self.service.stage_learning(
+            principal(), issue_code="installation",
+            solution_entry_id=entry.entry_id,
+        )
+        before = len(self.repository.search(()))
+        approve_candidate = self.repository.approve_candidate
+
+        def revise_solution_before_approval(candidate_id, promoted):
+            current = self.repository.current(entry.entry_id)
+            self.repository.publish(replace(
+                current, version=current.version + 1, content="Revised solution.",
+            ))
+            return approve_candidate(candidate_id, promoted)
+
+        self.repository.approve_candidate = revise_solution_before_approval
+        with self.assertRaises(RuntimeError):
+            self.service.approve_learning(
+                principal(), candidate.candidate_id, source_id="manual",
+                title="Stale confirmation", content="Must not be promoted.",
+            )
+        self.assertEqual("pending", self.repository.get_candidate(candidate.candidate_id).state)
+        self.assertEqual(2, self.repository.current(entry.entry_id).version)
+        self.assertEqual(before, len(self.repository.search(())))
+
     def test_learning_candidate_can_be_rejected_without_publishing(self):
         entry = self.publish()
         for _ in range(3):
