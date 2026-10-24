@@ -1,11 +1,25 @@
 import unittest
 import xml.etree.ElementTree as ET
+from html.parser import HTMLParser
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
 ANDROID = "{http://schemas.android.com/apk/res/android}"
 APPS = ("niknolig", "niknolig-defense")
+
+
+class DownloadPageParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.elements = []
+        self.text = []
+
+    def handle_starttag(self, tag, attrs):
+        self.elements.append((tag, dict(attrs)))
+
+    def handle_data(self, data):
+        self.text.append(data)
 
 
 def resources(app):
@@ -198,6 +212,68 @@ class AppDesignTests(unittest.TestCase):
                 )
                 self.assertLess(support, status)
                 self.assertLess(support, profile)
+
+    def test_defense_preview_access_copy_is_consistent_and_noninteractive(self):
+        german = values("niknolig-defense", "strings.xml")["defense_access_notice"]
+        swift = (ROOT / "apps/ios/NIKNOLIGDefenseApp.swift").read_text()
+        for paragraph in german.split("\\n\\n"):
+            self.assertIn(f'Text("{paragraph}")', swift)
+        english = {
+            element.attrib["name"]: element.text
+            for element in ET.parse(
+                resources("niknolig-defense") / "values-en/strings.xml"
+            ).getroot()
+        }["defense_access_notice"]
+        for phrase in (
+            "five consecutive 24-hour periods", "No payment method required",
+            "separate 48 hours of free Defense access",
+            "not be blocked solely because the trial expired or payment is missing",
+            "Neither a trial nor emergency access starts here",
+            "one-time €0.75", "No subscription",
+            "NIKNOLIG remains usable without the upgrade",
+        ):
+            self.assertIn(phrase, english)
+        layout = ET.parse(resources("niknolig-defense") / "layout/activity_main.xml")
+        notice = next(
+            view for view in layout.iter("TextView")
+            if view.get(ANDROID + "text") == "@string/defense_access_notice"
+        )
+        self.assertNotEqual("true", notice.get(ANDROID + "clickable"))
+        self.assertEqual(
+            {"@+id/support_contact_button", "@+id/learning_profile_button"},
+            {button.get(ANDROID + "id") for button in layout.iter("Button")},
+        )
+
+    def test_download_page_does_not_invent_installable_releases(self):
+        page = DownloadPageParser()
+        page.feed((ROOT / "docs/download/index.html").read_text())
+        links = [attrs["href"] for tag, attrs in page.elements if tag == "a"]
+        self.assertEqual(
+            {
+                "#inhalt", "#installation", "#defense-zugang",
+                "https://niknolig.com/", "https://defense.niknolig.com/",
+            },
+            set(links),
+        )
+        ids = {attrs["id"] for _, attrs in page.elements if "id" in attrs}
+        for link in links:
+            if link.startswith("#"):
+                self.assertIn(link[1:], ids)
+        text = " ".join(" ".join(page.text).split())
+        self.assertEqual(2, text.count("Google Play: Veröffentlichung nicht verifiziert"))
+        self.assertEqual(2, text.count("App Store: Veröffentlichung nicht verifiziert"))
+        self.assertEqual(2, text.count("Kein bestätigter TestFlight-Einladungslink"))
+        for phrase in (
+            "fünf aufeinanderfolgende 24-Stunden-Zeiträume",
+            "getrennter kostenloser Defense-Zugang für 48 Stunden",
+            "nicht allein wegen eines abgelaufenen Tests oder fehlender Zahlung",
+            "Prüfung ist noch nicht festgelegt",
+            "Keine Zahlungsmethode", "keine automatische Zahlung",
+            "nicht der Zugang zu NIKNOLIG", "keine Notfallhilfe",
+        ):
+            self.assertIn(phrase, text)
+        self.assertIn("48 Stunden", text)
+        self.assertFalse(any(tag in ("form", "script") for tag, _ in page.elements))
 
 
 if __name__ == "__main__":
