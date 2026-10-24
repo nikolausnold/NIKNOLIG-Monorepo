@@ -292,7 +292,7 @@ class KnowledgeService:
         if source.shared_approved:
             self._require(principal, "knowledge:share")
         self._audit({
-            "event": "knowledge_source_registered", "app": principal.app,
+            "event": "knowledge_source_registration_requested", "app": principal.app,
             "sourceId": source.source_id, "trust": source.trust,
         })
         self.repository.add_source(source)
@@ -326,7 +326,7 @@ class KnowledgeService:
     def _prepare_publication(self, principal: Principal, *, scope: str, category: str,
                              source_id: str, title: str, content: str,
                              entry_id: UUID | None = None,
-                             _audit_event="knowledge_published",
+                             _audit_event="knowledge_publication_requested",
                              _candidate_id: UUID | None = None) -> KnowledgeEntry:
         self._require(principal, "knowledge:curate")
         if scope == "shared":
@@ -410,7 +410,7 @@ class KnowledgeService:
         if entry.scope == "shared":
             self._require(principal, "knowledge:shared:read")
         self._audit({
-            "event": "learning_feedback_recorded", "app": principal.app,
+            "event": "learning_feedback_recording_requested", "app": principal.app,
             "issueCode": issue_code, "entryId": str(solution_entry_id),
             "version": solution_entry_version,
         })
@@ -444,7 +444,7 @@ class KnowledgeService:
             solution_entry_version, positive, negative, self._now(),
         )
         self._audit({
-            "event": "learning_candidate_staged", "app": principal.app,
+            "event": "learning_candidate_staging_requested", "app": principal.app,
             "candidateId": str(candidate.candidate_id), "issueCode": issue_code,
             "entryId": str(solution_entry_id),
             "version": solution_entry_version,

@@ -132,7 +132,7 @@ class KnowledgeServiceTests(unittest.TestCase):
 
                 def audit(event):
                     write(event)
-                    if event["event"] == "knowledge_published":
+                    if event["event"] == "knowledge_publication_requested":
                         if change is None:
                             self.repository._sources.pop("manual")
                         else:
@@ -143,6 +143,9 @@ class KnowledgeServiceTests(unittest.TestCase):
                         self.publish(entry_id=identifier)
                 self.assertIsNone(self.repository.current(identifier))
                 self.assertEqual((), self.repository.search(()))
+                self.assertEqual(
+                    "knowledge_publication_requested", self.audit.events[-1]["event"]
+                )
 
     def test_learning_approval_rechecks_revocation_after_audit(self):
         candidate = self.stage(self.publish())
@@ -199,6 +202,20 @@ class KnowledgeServiceTests(unittest.TestCase):
             self.service.register_source(principal(app), own)
             self.assertEqual(own, self.repository.get_source(own.source_id))
 
+    def test_source_registration_audit_is_a_request_when_repository_rejects(self):
+        registered = source("immutable")
+        self.repository.add_source(registered)
+        changed = replace(registered, uri="repo://docs/changed")
+
+        with self.assertRaisesRegex(ValueError, "immutable"):
+            self.service.register_source(principal(), changed)
+
+        self.assertEqual(registered, self.repository.get_source("immutable"))
+        self.assertEqual(
+            "knowledge_source_registration_requested",
+            self.audit.events[-1]["event"],
+        )
+
     def test_versions_are_immutable_and_sequential(self):
         first = self.publish()
         second = self.publish(entry_id=first.entry_id, title="Install reliably")
@@ -225,7 +242,7 @@ class KnowledgeServiceTests(unittest.TestCase):
 
         def audit(event):
             write(event)
-            if event["event"] == "learning_feedback_recorded":
+            if event["event"] == "learning_feedback_recording_requested":
                 self.repository.revoke_source(entry.source_id)
 
         with patch.object(self.audit, "write", side_effect=audit):
@@ -237,6 +254,9 @@ class KnowledgeServiceTests(unittest.TestCase):
         self.assertEqual((0, 0), self.repository.feedback_counts(
             "niknolig", "installation", entry.entry_id, entry.version,
         ))
+        self.assertEqual(
+            "learning_feedback_recording_requested", self.audit.events[-1]["event"]
+        )
 
     def test_staging_rechecks_source_revocation_after_audit(self):
         entry = self.publish()
@@ -250,7 +270,7 @@ class KnowledgeServiceTests(unittest.TestCase):
 
         def audit(event):
             write(event)
-            if event["event"] == "learning_candidate_staged":
+            if event["event"] == "learning_candidate_staging_requested":
                 candidate_ids.append(event["candidateId"])
                 self.repository.revoke_source(entry.source_id)
 
@@ -262,6 +282,9 @@ class KnowledgeServiceTests(unittest.TestCase):
                 )
         self.assertEqual(1, len(candidate_ids))
         self.assertEqual({}, self.repository._candidates)
+        self.assertEqual(
+            "learning_candidate_staging_requested", self.audit.events[-1]["event"]
+        )
 
     def test_feedback_and_candidates_stay_bound_to_entry_version(self):
         first = self.publish()
@@ -339,7 +362,7 @@ class KnowledgeServiceTests(unittest.TestCase):
         )
         self.assertEqual(3, candidate.positive_count)
         staged = [event for event in self.audit.events
-                  if event["event"] == "learning_candidate_staged"]
+                  if event["event"] == "learning_candidate_staging_requested"]
         self.assertEqual(1, len(staged))
         self.assertNotIn("comment", staged[0])
         promoted = self.service.approve_learning(
@@ -468,7 +491,8 @@ class KnowledgeServiceTests(unittest.TestCase):
                 events = [event for event in self.audit.events
                           if event.get("candidateId") == str(candidate.candidate_id)]
                 self.assertEqual(
-                    {"learning_candidate_staged", "learning_candidate_approval_requested",
+                    {"learning_candidate_staging_requested",
+                     "learning_candidate_approval_requested",
                      "learning_candidate_rejection_requested"},
                     {event["event"] for event in events},
                 )
