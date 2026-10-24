@@ -1,3 +1,7 @@
+import os
+import subprocess
+import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -28,8 +32,16 @@ class AutobuildTests(unittest.TestCase):
         release_guard = workflow.split("jobs:", 1)[1].split("runs-on:", 1)[0]
         self.assertIn("github.event_name == 'workflow_dispatch'", release_guard)
         self.assertIn("github.ref == 'refs/heads/main'", release_guard)
-        self.assertIn("vars.NIKNOLIG_BACKEND_URL != ''", release_guard)
-        self.assertIn("vars.NIKNOLIG_DEFENSE_BACKEND_URL != ''", release_guard)
+        self.assertNotIn("vars.", release_guard)
+        for guard in (
+            "github.event_name == 'workflow_run'",
+            "github.event.workflow_run.conclusion == 'success'",
+            "github.event.workflow_run.head_repository.full_name == github.repository",
+            "github.event.workflow_run.head_branch == 'main'",
+            'contains(fromJSON(\'["push", "schedule", "workflow_dispatch"]\'), github.event.workflow_run.event)',
+        ):
+            with self.subTest(release_guard=guard):
+                self.assertIn(guard, release_guard)
         for guard in (
             "workflows: [\"Android apps build\", \"Backend contracts and tooling\"]",
             "github.event.workflow_run.conclusion == 'success'",
@@ -72,6 +84,66 @@ class AutobuildTests(unittest.TestCase):
             workflow.index("- name: Validate and stage release keystores"),
         )
         self.assertNotIn("pull_request_target", workflow)
+
+    def test_release_backend_url_preflight_runs_before_gradle(self):
+        workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
+        validation = workflow.split(
+            "- name: Validate approved production backend URLs", 1
+        )[1].split("- name: Verify validation results for release commit", 1)[0]
+        script = textwrap.dedent(validation.split("run: |\n", 1)[1])
+        configured = {
+            "NIKNOLIG_BACKEND_URL": "https://api.example.com",
+            "NIKNOLIG_DEFENSE_BACKEND_URL": "https://defense.example.com",
+        }
+        cases = [
+            (name, value, 0)
+            for name in configured
+            for value in (None, "", " \t\n")
+        ] + [(None, None, exit_code) for exit_code in (0, 23)]
+        for name, value, gradle_exit_code in cases:
+            with self.subTest(name=name, value=value, gradle_exit_code=gradle_exit_code):
+                with tempfile.TemporaryDirectory(dir="/tmp", prefix=".release-preflight-") as directory:
+                    workdir = Path(directory)
+                    gradlew = workdir / "gradlew"
+                    gradlew.write_text(
+                        "#!/bin/bash\n"
+                        'printf "%s\\n" "$@" "$NIKNOLIG_BACKEND_URL" '
+                        '"$NIKNOLIG_DEFENSE_BACKEND_URL" > gradlew-invocation\n'
+                        'exit "$MOCK_GRADLE_EXIT_CODE"\n'
+                    )
+                    gradlew.chmod(0o755)
+                    env = {**os.environ, **configured, "MOCK_GRADLE_EXIT_CODE": str(gradle_exit_code)}
+                    if name is not None:
+                        if value is None:
+                            env.pop(name)
+                        else:
+                            env[name] = value
+                    result = subprocess.run(
+                        ["bash"],
+                        input=script,
+                        text=True,
+                        capture_output=True,
+                        cwd=workdir,
+                        env=env,
+                        timeout=10,
+                    )
+                    invocation = workdir / "gradlew-invocation"
+                    if name is not None:
+                        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                        self.assertFalse(invocation.exists())
+                        if value is not None:
+                            self.assertIn(f"Missing {name}", result.stdout)
+                    else:
+                        self.assertEqual(result.returncode, gradle_exit_code, result.stderr)
+                        self.assertEqual(
+                            invocation.read_text().splitlines(),
+                            [
+                                ":niknolig:verifyReleaseBackendUrl",
+                                ":niknolig-defense:verifyReleaseBackendUrl",
+                                "--no-daemon",
+                                *configured.values(),
+                            ],
+                        )
 
     def test_both_apps_keep_local_versions_and_validate_update_versions(self):
         for app in ("niknolig", "niknolig-defense"):

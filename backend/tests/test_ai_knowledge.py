@@ -118,6 +118,51 @@ class KnowledgeServiceTests(unittest.TestCase):
                 source_id="shared-pending", title="Cross-scope", content="No grant.",
             )
 
+    def test_publication_rechecks_source_after_audit_before_storage(self):
+        for change in (
+            None, replace(source(), trust="pending"),
+            replace(source(), trust="revoked"),
+            replace(source(), scope="niknolig-defense"),
+            source(scope="shared", shared=False),
+        ):
+            with self.subTest(source=change):
+                self.repository._sources["manual"] = source()
+                identifier = uuid4()
+                write = self.audit.write
+
+                def audit(event):
+                    write(event)
+                    if event["event"] == "knowledge_published":
+                        if change is None:
+                            self.repository._sources.pop("manual")
+                        else:
+                            self.repository._sources["manual"] = change
+
+                with patch.object(self.audit, "write", side_effect=audit):
+                    with self.assertRaises(PermissionError):
+                        self.publish(entry_id=identifier)
+                self.assertIsNone(self.repository.current(identifier))
+                self.assertEqual((), self.repository.search(()))
+
+    def test_learning_approval_rechecks_revocation_after_audit(self):
+        candidate = self.stage(self.publish())
+        before = self.repository.search(())
+        write = self.audit.write
+
+        def audit(event):
+            write(event)
+            if event["event"] == "learning_candidate_approval_requested":
+                self.repository.revoke_source("manual")
+
+        with patch.object(self.audit, "write", side_effect=audit):
+            with self.assertRaises(PermissionError):
+                self.service.approve_learning(
+                    principal(), candidate.candidate_id, source_id="manual",
+                    title="Reviewed solution", content="Use approved steps.",
+                )
+        self.assertEqual(before, self.repository.search(()))
+        self.assertEqual("pending", self.repository.get_candidate(candidate.candidate_id).state)
+
     def test_registration_rejects_other_app_before_audit_or_storage(self):
         for app, other in (
             ("niknolig", "niknolig-defense"), ("niknolig-defense", "niknolig"),
@@ -311,7 +356,7 @@ class KnowledgeServiceTests(unittest.TestCase):
                     write(event)
                     actions = {
                         "learning_candidate_approval_requested": "approve",
-                        "learning_candidate_rejected": "reject",
+                        "learning_candidate_rejection_requested": "reject",
                     }
                     if event["event"] in actions:
                         barrier.wait(timeout=5)
@@ -347,6 +392,18 @@ class KnowledgeServiceTests(unittest.TestCase):
                                  len(self.repository.search(())))
                 self.assertEqual("approved" if winner == "approve" else "rejected",
                                  self.repository.get_candidate(candidate.candidate_id).state)
+                events = [event for event in self.audit.events
+                          if event.get("candidateId") == str(candidate.candidate_id)]
+                self.assertEqual(
+                    {"learning_candidate_staged", "learning_candidate_approval_requested",
+                     "learning_candidate_rejection_requested"},
+                    {event["event"] for event in events},
+                )
+                self.assertEqual(3, len(events))
+                for event in events:
+                    self.assertIn("at", event)
+                    self.assertEqual("niknolig", event["app"])
+                    self.assertFalse({"content", "title", "principal"} & event.keys())
 
     def test_failed_approval_commits_neither_publication_nor_state(self):
         entry = self.publish()
@@ -400,10 +457,28 @@ class KnowledgeServiceTests(unittest.TestCase):
                 )
 
     def test_audit_failure_prevents_knowledge_mutations(self):
+        identifier = uuid4()
         self.audit.fail = True
         with self.assertRaises(RuntimeError):
-            self.publish()
-        self.assertIsNone(self.repository.current(uuid4()))
+            self.publish(entry_id=identifier)
+        self.assertIsNone(self.repository.current(identifier))
+        self.assertEqual((), self.repository.search(()))
+
+    def test_audit_failure_preserves_existing_version_and_pending_rejection(self):
+        entry = self.publish()
+        candidate = self.stage(entry)
+        before = self.repository.search(())
+        events = list(self.audit.events)
+        self.audit.fail = True
+        with self.assertRaises(RuntimeError):
+            self.publish(entry_id=entry.entry_id, title="Unaudited version")
+        with self.assertRaises(RuntimeError):
+            self.service.reject_learning(principal(), candidate.candidate_id)
+        self.assertEqual(before, self.repository.search(()))
+        self.assertEqual(entry, self.repository.current(entry.entry_id))
+        self.assertIsNone(self.repository.get_version(entry.entry_id, 2))
+        self.assertEqual("pending", self.repository.get_candidate(candidate.candidate_id).state)
+        self.assertEqual(events, self.audit.events)
 
     def test_disabled_research_never_calls_external_service(self):
         with self.assertRaises(RuntimeError):
@@ -487,9 +562,40 @@ class KnowledgeServiceTests(unittest.TestCase):
 
     def test_revoked_source_is_excluded_from_search(self):
         entry = self.publish()
+        hits = self.service.search(principal(), "restart")
         self.service.revoke_source(principal(), "manual")
         self.assertEqual((), self.service.search(principal(), "restart"))
+        self.assertEqual(self.service.retrieval_context(()),
+                         self.service.retrieval_context(hits))
         self.assertIsNotNone(self.repository.current(entry.entry_id))
+
+    def test_cached_retrieval_rechecks_current_source_approval_and_scope(self):
+        self.publish()
+        hits = self.service.search(principal(), "restart")
+        header = self.service.retrieval_context(())
+        for changed in (
+            None, replace(source(), trust="pending"),
+            replace(source(), trust="revoked"),
+            replace(source(), scope="niknolig-defense"),
+            source(scope="shared", shared=False),
+        ):
+            with self.subTest(source=changed):
+                with patch.object(self.repository, "get_source", return_value=changed):
+                    self.assertEqual(header, self.service.retrieval_context(hits))
+
+    def test_cached_retrieval_uses_current_provenance_and_shared_approval(self):
+        self.service.register_source(principal(), source("shared-docs", "shared", True))
+        self.publish(scope="shared", source_id="shared-docs")
+        hits = self.service.search(principal(), "restart", include_shared=True)
+        updated = replace(hits[0].source, uri="repo://docs/current-guide", version="v2")
+        with patch.object(self.repository, "get_source", return_value=updated):
+            context = self.service.retrieval_context(hits)
+        self.assertIn(updated.uri, context)
+        self.assertNotIn(hits[0].source.uri, context)
+        with patch.object(self.repository, "get_source",
+                          return_value=replace(updated, shared_approved=False)):
+            self.assertEqual(self.service.retrieval_context(()),
+                             self.service.retrieval_context(hits))
 
     def test_authentication_permissions_and_expiration_are_checked(self):
         with self.assertRaises(PermissionError):

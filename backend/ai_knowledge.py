@@ -93,13 +93,24 @@ class ResearchResult:
     conflicting_topics: frozenset[str]
 
 
+def _source_allows_scope(source: KnowledgeSource | None, scope: str) -> bool:
+    return (
+        source is not None and source.trust == "approved"
+        and source.scope in (scope, "shared")
+        and (source.scope != "shared" or source.shared_approved)
+        and (scope != "shared" or source.shared_approved)
+    )
+
+
 class KnowledgeRepository(Protocol):
     """Storage boundary; production persistence requires an approved adapter."""
 
     def add_source(self, source: KnowledgeSource) -> None: ...
     def revoke_source(self, source_id: str) -> KnowledgeSource | None: ...
     def get_source(self, source_id: str) -> KnowledgeSource | None: ...
-    def publish(self, entry: KnowledgeEntry) -> KnowledgeEntry: ...
+    def publish(self, entry: KnowledgeEntry) -> KnowledgeEntry:
+        """Revalidate source approval and scope atomically with storage and revocation."""
+        ...
     def current(self, entry_id: UUID) -> KnowledgeEntry | None: ...
     def get_version(self, entry_id: UUID, version: int) -> KnowledgeEntry | None: ...
     def search(self, terms: tuple[str, ...]) -> tuple[KnowledgeEntry, ...]: ...
@@ -112,7 +123,7 @@ class KnowledgeRepository(Protocol):
     def set_candidate_state(self, candidate_id: UUID, state: str) -> LearningCandidate | None: ...
     def approve_candidate(self, candidate_id: UUID,
                           entry: KnowledgeEntry) -> KnowledgeEntry | None:
-        """Atomically publish and approve only if pending, serialized with rejection."""
+        """Revalidate source and publish/approve if pending, serialized with revocation/rejection."""
         ...
 
 
@@ -151,6 +162,8 @@ class InMemoryKnowledgeRepository:
 
     def publish(self, entry):
         with self._lock:
+            if not _source_allows_scope(self._sources.get(entry.source_id), entry.scope):
+                raise PermissionError("Knowledge source is not approved for this scope")
             versions = self._versions.setdefault(entry.entry_id, [])
             expected_version = len(versions) + 1
             if entry.version != expected_version:
@@ -308,10 +321,7 @@ class KnowledgeService:
                 type(category) is not str or not re.fullmatch(r"[a-z][a-z0-9_-]{1,47}", category)):
             raise ValueError("Invalid knowledge scope or category")
         source = self.repository.get_source(source_id)
-        if (source is None or source.trust != "approved" or
-                source.scope not in (scope, "shared") or
-                (source.scope == "shared" and not source.shared_approved) or
-                (scope == "shared" and not source.shared_approved)):
+        if not _source_allows_scope(source, scope):
             raise PermissionError("Knowledge source is not approved for this scope")
         identifier = entry_id or uuid4()
         if not isinstance(identifier, UUID):
@@ -352,9 +362,7 @@ class KnowledgeService:
                     include_shared and entry.scope == "shared"):
                 continue
             source = self.repository.get_source(entry.source_id)
-            if source is None or source.trust != "approved":
-                continue
-            if entry.scope == "shared" and not source.shared_approved:
+            if not _source_allows_scope(source, entry.scope):
                 continue
             searchable = (entry.title + " " + entry.category + " " +
                           entry.content).casefold()
@@ -451,7 +459,7 @@ class KnowledgeService:
                 candidate.state != "pending"):
             raise PermissionError("Learning candidate is unavailable in this app scope")
         self._audit({
-            "event": "learning_candidate_rejected", "app": principal.app,
+            "event": "learning_candidate_rejection_requested", "app": principal.app,
             "candidateId": str(candidate_id),
         })
         if self.repository.set_candidate_state(candidate_id, "rejected") is None:
@@ -486,10 +494,13 @@ class KnowledgeService:
         if type(max_chars) is not int or not size <= max_chars <= 12000:
             raise ValueError("Invalid context size")
         for hit in hits:
+            source = self.repository.get_source(hit.entry.source_id)
+            if not _source_allows_scope(source, hit.entry.scope):
+                continue
             excerpt = (
                 f"[{hit.entry.scope} v{hit.entry.version}; source "
-                f"{hit.source.source_id}, {hit.source.uri}, "
-                f"verified {hit.source.verified_at.isoformat()}] "
+                f"{source.source_id}, {source.uri}, "
+                f"verified {source.verified_at.isoformat()}] "
                 f"{hit.entry.title}: {hit.entry.content}"
             )
             if size + len(excerpt) + 1 > max_chars:
