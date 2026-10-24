@@ -80,11 +80,15 @@ paths:
         No conversation state is stored or shared between apps.
         Enabled, provider-approved and cost-approved gates must all be true,
         with offline and kill-switch gates false; defaults fail closed.
-        The preferred adapter uses a fixed server-side Cloudflare Workers AI
-        candidate @cf/meta/llama-3.1-8b-instruct-fp8-fast and an injected
-        server-side transport, with max_tokens 256 and a
-        5-second transport timeout requirement. The model is a preparation
-        candidate, not a production approval or availability promise.
+        The external preparation candidate is the fixed server-side Cloudflare
+        Workers AI model @cf/meta/llama-3.1-8b-instruct-fp8-fast with an injected
+        server-side transport, max_tokens 256 and a 5-second transport timeout
+        requirement. A separate LocalModelProvider interface accepts an
+        operator-supplied local runtime and fixed model identifier; it does not
+        install model weights or select a local model. Both require the same
+        independent provider and cost approval gates. Neither is a production
+        approval or availability promise. Audit metadata includes the
+        server-selected provider and model identifiers, never customer content.
         Local atomic limits default to 5 calls per principal/app per minute,
         20000 reserved tokens and 50 calls per app per UTC day, 80 calls globally
         per UTC day, 1024 tracked principals and 2 concurrent provider calls.
@@ -96,8 +100,9 @@ paths:
         after audit hooks immediately before dispatch and again before release.
         An audit reservation must persist to the injected sink before dispatch;
         audit completion failure withholds the answer. Audit contains generated
-        request ID, app, feature, approved provider label, outcome and token
-        metadata only, never prompt, answer, authorization or principal identity.
+        request ID, app, feature, server-selected provider/model identifiers,
+        outcome and token metadata only, never prompt, answer, authorization or
+        principal identity.
         Authenticator and QuotaStore protocols allow later externally reviewed
         authentication and durable quota implementations. An unavailable quota
         store fails closed; concurrency release never refunds charged budgets.
