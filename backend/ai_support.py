@@ -84,7 +84,7 @@ class CloudflareWorkersAI:
 class LocalModelRuntime(Protocol):
     """An operator-supplied local runner; this interface does not install weights."""
 
-    def generate(self, prompt: str, *, max_tokens: int,
+    def generate(self, prompt: str, *, system_prompt: str, max_tokens: int,
                  timeout_seconds: float) -> ProviderResult: ...
 
 
@@ -105,7 +105,8 @@ class LocalModelProvider:
                 len(prompt.encode("utf-8")) > MAX_PROMPT_BYTES):
             raise ValueError("Unsupported local model input")
         return self._runtime.generate(
-            prompt, max_tokens=MAX_OUTPUT_TOKENS, timeout_seconds=5.0,
+            prompt, system_prompt=SYSTEM_PROMPT,
+            max_tokens=MAX_OUTPUT_TOKENS, timeout_seconds=5.0,
         )
 
 

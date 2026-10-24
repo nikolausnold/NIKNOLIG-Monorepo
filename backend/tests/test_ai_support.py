@@ -191,8 +191,8 @@ class SupportServiceTests(unittest.TestCase):
             def __init__(self):
                 self.calls = []
 
-            def generate(self, prompt, *, max_tokens, timeout_seconds):
-                self.calls.append((prompt, max_tokens, timeout_seconds))
+            def generate(self, prompt, *, system_prompt, max_tokens, timeout_seconds):
+                self.calls.append((prompt, system_prompt, max_tokens, timeout_seconds))
                 return ProviderResult("Local inference.", 10, 4)
 
         runtime = Runtime()
@@ -202,7 +202,8 @@ class SupportServiceTests(unittest.TestCase):
         self.assertEqual(200, status)
         self.assertEqual("Local inference.", response["text"])
         self.assertEqual(
-            [("Local support question.", MAX_OUTPUT_TOKENS, 5.0)], runtime.calls
+            [("Local support question.", SYSTEM_PROMPT, MAX_OUTPUT_TOKENS, 5.0)],
+            runtime.calls,
         )
         self.assertEqual("local/approved-model-q4", self.audit.events[0]["model"])
 
