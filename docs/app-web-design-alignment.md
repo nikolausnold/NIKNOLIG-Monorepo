@@ -1,10 +1,17 @@
-# App-Web-Designabgleich
+# App-Web-Designabgleich – Implementierungsinventar
 
-## Getrennte Android-Produktidentitäten
+> Dieses Dokument hält ausgewählte bestehende Implementierungsdetails fest. Es
+> ist keine normative Tokenquelle; verbindlich für den Sollzustand ist die
+> [Design-Governance](design/DESIGN_GOVERNANCE.md). Abweichungen zwischen
+> Implementierung und Governance sind offen und werden nicht durch dieses
+> Inventar freigegeben.
+
+## Android-Bestand: getrennte Produktidentitäten
 
 NIKNOLIG und NIKNOLIG Defense bleiben getrennte Apps mit eigenen Installationen,
 Kennungen und Ressourcen. Die Android-Apps unterscheiden sich nicht nur durch
-Farbe, sondern auch durch Formen, Produktzeichen und Einstieg:
+die derzeit implementierten Farben, sondern auch durch Formen, Produktzeichen
+und Einstieg:
 
 | Merkmal | NIKNOLIG | NIKNOLIG Defense |
 | --- | --- | --- |

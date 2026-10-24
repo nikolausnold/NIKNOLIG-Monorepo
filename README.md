@@ -47,8 +47,11 @@ scheiterte für beide Domains bereits an der DNS-Auflösung (`curl`-Fehler 6);
 HTTP-Antwort, TLS-Zertifikat und Redirects konnten daher nicht geprüft werden.
 Das ist kein Nachweis allgemeiner Nichterreichbarkeit.
 
-Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
-die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
+Die [Design-Governance](docs/design/DESIGN_GOVERNANCE.md) ist die zentrale,
+verbindliche Quelle für Tokens und Freigaben beider Marken. Der
+[App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
+ausgewählte Bestandsdetails; er ist keine Freigabe der dort erfassten
+abweichenden Farbwerte.
 
 Die ursprünglichen App-Verzeichnisse beider Quell-Commits hatten denselben Git-Tree-Stand.
 Darum starteten die Module mit denselben Vorschau-Funktionen. Die
