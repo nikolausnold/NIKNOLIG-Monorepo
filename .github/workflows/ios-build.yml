@@ -7,12 +7,14 @@ on:
       - modules/electro-engel/ios/**
       - modules/support/ios/**
       - .github/workflows/ios-build.yml
+      - tools/validate_ios_backend.py
   pull_request:
     paths:
       - apps/ios/**
       - modules/electro-engel/ios/**
       - modules/support/ios/**
       - .github/workflows/ios-build.yml
+      - tools/validate_ios_backend.py
   workflow_dispatch:
 
 permissions:
@@ -44,3 +46,18 @@ jobs:
           -configuration Debug
           CODE_SIGNING_ALLOWED=NO
           build
+      - name: Build ${{ matrix.target }} Release for iOS Simulator only
+        run: >-
+          xcodebuild
+          -project apps/ios/NIKNOLIG.xcodeproj
+          -target "${{ matrix.target }}"
+          -sdk iphonesimulator
+          -configuration Release
+          CODE_SIGNING_ALLOWED=NO
+          NIKNOLIG_BACKEND_URL=https://niknolig.example.com
+          NIKNOLIG_DEFENSE_BACKEND_URL=https://defense.example.com
+          build
+      - name: Record scope of validation
+        run: |
+          echo '### iOS simulator compilation only' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Debug/Release compilation uses no signing; Release origins are fixtures, not approved production configuration. There is no signed device archive, production API validation or release authorization.' >> "$GITHUB_STEP_SUMMARY"

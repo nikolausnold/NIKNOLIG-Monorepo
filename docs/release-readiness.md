@@ -480,3 +480,112 @@ automatisierter Vertragstest würde diesen physischen Nachweis nicht ersetzen.
 **Freigabeentscheidung:** **BLOCKED** bis mindestens die geforderte
 Zwei-Geräte-Funktion implementiert und auf beiden Smartphones erfolgreich
 getestet ist. Ein erfolgreicher APK-Build allein hebt diesen Blocker nicht auf.
+
+## Ergänzung: technische Release-Gates vom 24.10.2026
+
+**Keine Produktionsfreigabe.** Diese Ergänzung ersetzt keine Produkt-, Rechts-
+oder SecurityChain-P0-Abnahme. Insbesondere sind die oben beschriebenen Konto-,
+Entitlement-, Billing- und Zwei-Geräte-Funktionen durch diese Prüfungen nicht
+implementiert oder freigegeben.
+
+Geprüfter Ausgangsstand ist
+`590d02982ab02d85b19f73bb75329966e7e7271d`, PR #166, Branch
+`copilot/fix-follow-up-fixes-pr-165`. Der im Auftrag enthaltene längere
+`590d0299…`-Wert entspricht nicht dem tatsächlichen HEAD. Die folgenden
+Bestandsnachweise gelten nur für den tatsächlichen Ausgangsstand, nicht
+automatisch für den Commit mit den neuen Gates:
+
+| Bereich | Beleg am Ausgangsstand | Grenze |
+| --- | --- | --- |
+| Android Debug, Unit-Tests, IDs, APK-Signaturen | [Android PR-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40119280288), erfolgreiche Jobs | Kein Release-Zertifikat-/Produktionsnachweis |
+| Portabler iOS-Analysekern | Derselbe Lauf, 8 erfolgreiche Swift-Tests | Kein App-Archiv |
+| Backend und Tooling | [Backend PR-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40119280277), 183 und 63 bestandene Tests | Kein Nachweis produktiver Migrationen oder Erreichbarkeit |
+| Historischer Android-Release | [Main-Lauf](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40107818793) auf `0ae2898ec98bec2ad60a28a9047afbcae2667ffe`: URL-, Keystore-, Paket-/Signaturprüfungen erfolgreich | Nicht auf den PR übertragbar; keine Live-API-Prüfung |
+| Historischer iOS-Debug-App-Build | [Main-Lauf](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40108368581) auf demselben älteren Main-Stand erfolgreich | Kein Release-Konfigurations-, Geräte- oder Signierungsnachweis für den PR |
+
+### Neu implementierte Gates, noch keine erfolgreichen CI-Ergebnisse
+
+- Der bestehende Android-Workflow führt beide `lintDebug`-Aufgaben aus und
+  bewahrt Lint-Berichte als SHA-bezogenes Artefakt sieben Tage auf. Fehlende
+  Berichte sind kein Erfolg; der Gradle-Schritt bleibt fehlschlagend.
+- Der bestehende iOS-Workflow behält Debug-App-Builds und Support-Core-Tests
+  bei und ergänzt Release-Simulator-Builds für beide getrennten Targets.
+  Keine doppelte Workflow-Infrastruktur und keine neuen Berechtigungen.
+- Beide Xcode-Targets validieren ihre eigene Backend-URL vor dem Kompilieren.
+  Nur Debug darf leer bleiben. Release benötigt eine nichtleere HTTPS-Origin;
+  ungültige Werte führen ohne Ausgabe des Werts zum Fehler.
+  Die URL-Prüfung ist netzwerkfrei und bestätigt keine Betreiberfreigabe.
+- Die Release-Simulator-Builds verwenden getrennte `*.example.com`-Fixtures
+  und `CODE_SIGNING_ALLOWED=NO`. Sie erzeugen weder signierte Gerätearchive
+  noch Store-/TestFlight-Freigaben oder Produktionsverbindungsnachweise.
+- Die bestehenden Android-Release-Gates verlangen erfolgreiche Android- und
+  Backend-Workflows für exakt denselben Release-SHA. Damit umfasst der
+  Android-Workflow künftig auch Lint; das ersetzt keine menschliche Freigabe.
+
+Versionen unverändert: AGP `9.4.1`, Gradle `9.8.2`, Kotlin `2.4.21`,
+Android-JUnit `4.13.2`. Die erfolgreichen Bestandsbuilds belegen deren
+Build-/Test-Verwendung. Im Bearbeitungsrunner scheitert DNS für
+`dl.google.com` weiterhin mit `No address associated with hostname`.
+Deshalb wurde der bereits erfolglos versuchte lokale Lint nicht erneut
+gestartet. Ein Versionsdefekt ist daraus nicht belegt. Xcode steht im
+Linux-Bearbeitungsrunner nicht zur Verfügung; native Ergebnisse müssen aus
+dem aktualisierten macOS-Workflow stammen.
+
+### Backend: Implementierung ist nicht Deployment
+
+Das produktive Docker-CMD startet `uvicorn asgi:app`. In `backend/asgi.py`
+sind `/health/live` (`200`, JSON `status=live`) und `/health/ready`
+(`200`, JSON `status=ready`; bei fehlender Bereitschaft `503` mit
+vertraglichem Fehlerkörper) implementiert. Readiness prüft mit dem
+Health-Datenbankbenutzer Migrationen und Schema-Invarianten, nicht nur TCP.
+Docker kopiert die Migrationen; Production Compose startet Migrationen vor
+API und Proxy. Caddy reicht die beiden Health-Routen an die API weiter,
+verwendet vorhandene TLS-Dateien und veröffentlicht allein Port 443.
+Es wurde kein Fehler festgestellt, der eine Änderung dieser
+Produktionskonfiguration rechtfertigt.
+
+Für `api.niknolig.com` schlägt die DNS-Auflösung im Bearbeitungsrunner weiter
+fehl. TCP/443, TLS und HTTP sind deshalb **nicht nachgewiesen**, nicht als
+jeweils fehlerhaft diagnostiziert. Die erwartete öffentliche Server-IP und
+die tatsächlich installierte Revision fehlen. Keine CI-Mock-/Datenbankprobe
+beweist ein Deployment. Ein lokaler DNS-Fehler beweist keinen globalen Ausfall.
+
+### Präzise Betreiber-Checkliste
+
+1. **DNS-/Serverbetreiber:** vorgesehene öffentliche IPv4/IPv6 bzw.
+   CNAME-Zielkette, maßgebliche DNS-Zone und installierte Commit-/Image-Digests
+   benennen. Aus dem vorgesehenen Clientnetz A/AAAA und autoritative Antworten
+   mit dem vorgesehenen Server vergleichen; danach TCP/443 prüfen. Erst bei
+   erfolgreicher Verbindung TLS mit SNI `api.niknolig.com`, vertrauenswürdiger
+   Kette, Gültigkeitszeitraum und passendem SAN prüfen, ohne
+   Zertifikatsprüfung abzuschalten. Anschließend
+   [live](https://api.niknolig.com/health/live) und
+   [ready](https://api.niknolig.com/health/ready) ohne Redirect-Folgen abrufen:
+   Status, JSON-Content-Type und Vertragskörper dokumentieren. Bei `503`
+   serverseitig Migrationserfolg und Health-Rolle prüfen; keine
+   Datenbankpasswörter oder internen Fehlerdetails veröffentlichen.
+2. **GitHub-/Android-Verantwortliche:** unter
+   [Environments](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/environments)
+   `android-release` nur lesend auf beide app-spezifisch freigegebenen
+   URL-Variablen, die sechs vorhandenen Signiersecret-Namen und erforderliche
+   Reviewer/Branchbeschränkungen prüfen; keine Secret-Werte abrufen.
+   [Branchschutz](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/branches)
+   bzw. [Rulesets](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/rules)
+   prüfen, ohne Schutzregeln abzuschwächen. Diese Einstellungen sind über die
+   verfügbaren autorisierten Leseschnittstellen nicht nachgewiesen.
+   Leere Debug-Variablen bedeuten nicht leere Release-Variablen. Vor einer
+   späteren autorisierten Veröffentlichung den Paketnamen, nicht-debuggable
+   Zustand und Signaturfingerprint unabhängig gegen die genehmigte
+   Produktidentität prüfen, nicht nur gegen den Keystore desselben Jobs.
+3. **Apple-/Produktverantwortliche:** die
+   [iOS-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/ios-build.yml)
+   für den neuen Commit auswerten. Danach für beide Apps Betreiber-Origin,
+   bestehendes Apple-Team, Zertifikate/Profiles und Verteilungsweg bestätigen;
+   auf autorisiertem macOS-Host signierte Gerätearchive und Exportvalidierung
+   nachweisen, ohne Veröffentlichung. App-spezifische Freigaben, Datenschutz
+   und offene P0-/Produktfunktionen separat abnehmen.
+
+**Restentscheidung: BLOCKIERT.** Die neuen Gates schließen Repository-Lücken,
+aber erst erfolgreiche neue CI-Läufe, externe Betriebsnachweise und die
+ausstehenden Produkt-/Sicherheitsfreigaben können die jeweilige Prüflücke
+schließen. Dieser Auftrag startet kein Deployment, Merge oder Release.

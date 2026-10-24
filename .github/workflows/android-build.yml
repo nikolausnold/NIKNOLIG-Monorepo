@@ -29,6 +29,18 @@ jobs:
         run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon
       - name: Test both backend health clients
         run: ./gradlew :electro-engel-core:test :support-core:test :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon
+      - name: Lint both Android apps
+        run: ./gradlew :niknolig:lintDebug :niknolig-defense:lintDebug --no-daemon
+      - name: Preserve Android lint evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: android-lint-${{ github.sha }}
+          path: |
+            apps/niknolig/build/reports/lint-results-debug.*
+            apps/niknolig-defense/build/reports/lint-results-debug.*
+          if-no-files-found: warn
+          retention-days: 7
       - name: Preserve backend client test evidence
         if: always()
         uses: actions/upload-artifact@v7.0.2
