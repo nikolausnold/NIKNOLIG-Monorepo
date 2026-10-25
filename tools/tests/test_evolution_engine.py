@@ -1,5 +1,6 @@
 import copy
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -49,6 +50,28 @@ class EvolutionEngineTests(unittest.TestCase):
     def test_stale_or_changed_citation_is_rejected(self):
         modified = copy.deepcopy(self.backlog)
         modified["ideas"][0]["evidence"][0]["excerpt"] = "invented repository finding"
+        with self.assertRaisesRegex(BacklogError, "does not match cited lines"):
+            validate_backlog(modified, ROOT)
+
+    def test_readme_evidence_survives_three_line_inventory_expansion(self):
+        backlog = copy.deepcopy(self.backlog)
+        backlog["ideas"] = [backlog["ideas"][0]]
+        excerpt = backlog["ideas"][0]["evidence"][0]["excerpt"]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for start_line in (106, 109):
+                with self.subTest(start_line=start_line):
+                    source = "\n" * (start_line - 1) + excerpt + "\n" * 4
+                    (root / "README.md").write_text(source, encoding="utf-8")
+                    self.assertEqual(1, len(validate_backlog(backlog, root)))
+
+    def test_existing_excerpt_outside_cited_line_range_is_rejected(self):
+        modified = copy.deepcopy(self.backlog)
+        citation = modified["ideas"][0]["evidence"][0]
+        source = (ROOT / citation["path"]).read_text(encoding="utf-8")
+        self.assertIn(citation["excerpt"], source)
+        citation["startLine"] = 1
+        citation["endLine"] = 1
         with self.assertRaisesRegex(BacklogError, "does not match cited lines"):
             validate_backlog(modified, ROOT)
 

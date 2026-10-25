@@ -3,13 +3,221 @@
 **Ergebnis: BLOCKED**
 
 **Audit-Baseline:** 2026-10-15, Bestandsaufnahme ab 15:03 UTC
-**Letzte Aktualisierung:** 2026-10-16, 06:32 UTC
+**Letzte Aktualisierung:** 2026-10-23 (zusätzliche Notfallzugangsregel)
 
 **Repository:** `nikolausnold/NIKNOLIG-Monorepo`
 
 **Baseline-Prüfstand:** Commit `37b2f163312bc9611ed1bf4d2fa2056b4108777d` (erfolgreicher `main`-Build)
 
 **Audit-Branch:** `copilot/audit-release-integration`
+
+## Defense-Zugang und App-Verteilung – Stand 23.10.2026
+
+**Teilumsetzung, nicht betriebsbereit.** Die nachfolgenden Angaben sind aktuell
+für diesen Auftrag; die älteren Auditabschnitte darunter bleiben historische
+Nachweise. Insbesondere existieren inzwischen App-Testquellen, ein lokales
+iOS-Projekt und Health-/Support-Laufzeiten, aber keine Konto-/Entitlement-API.
+Der reguläre Fünf-Tage-Test und der zusätzliche kostenlose 48-Stunden-
+Notfallzugang sind getrennte Regeln. Der Notfallzugang gilt für Personen, die
+sich nachweislich nicht selbst aus einer Notlage befreien können, und darf nicht
+allein wegen eines abgelaufenen Tests oder fehlender Zahlung blockiert werden.
+Die konkrete Prüfung ist nicht festgelegt oder implementiert und darf nicht
+durch ein unbelegtes Verfahren ersetzt werden. Für den regulären Test ist kein
+Notlagen- oder Gesundheitsnachweis erforderlich.
+
+### Geänderte Bereiche und Veröffentlichungsnachweise
+
+- `docs/download/index.html`: vorbereitete statische Downloadseite mit getrennten
+  Android-/iOS-Verfügbarkeitszuständen für beide Apps, Installationshinweisen,
+  Trial-/Einmalkaufbedingungen und Links zu den beiden offiziellen Websites.
+  Keine Store-, APK-, IPA- oder TestFlight-Installationslinks erfunden.
+- `apps/niknolig-defense/src/main/res/layout/activity_main.xml` und
+  `res/values{,-en}/strings.xml`: lesbarer, nicht interaktiver Zugangshinweis
+  in der Android-Defense-Vorschau, ohne Zeitstempel oder lokalen Grant.
+- `apps/ios/NIKNOLIGDefenseApp.swift`: inhaltlich gleicher deutscher Hinweis.
+  Das iOS-Projekt verwendet bisher deutsche Inline-Texte; die Android-Vorschau
+  enthält zusätzlich Englisch. Keine Kaufbuttons ohne funktionierende Anbindung.
+- `README.md`, `backend/README.md`, `docs/BUSINESSPLAN.md`,
+  `docs/AGB-ENTWURF.md` und `docs/LEGAL-CHECKLIST.md`: Status und neue Produktregel
+  vereinheitlicht. Rechtliche Texte bleiben ungeprüfte Entwürfe.
+- `tools/tests/test_app_design.py`: statische Regressionen für Verfügbarkeit,
+  sichere Linkziele und übereinstimmende deutsche Vorschauhinweise.
+
+| Prüfung am 23.10.2026 | Befund / Grenze |
+| --- | --- |
+| https://niknolig.com/ und https://defense.niknolig.com/ | Live-Abruf scheitert in dieser Umgebung an DNS-Auflösung. HTTP/TLS, Redirects und produktive Links nicht geprüft; kein Beweis allgemeiner Nichterreichbarkeit. |
+| NIKNOLIG-Website-Quelle | GitHub-API liest `nikolausnold/NIKNOLIG/index.html`, SHA `27534569b14b951910b0602a3abbf8b199c60ced`: keine Store-/Installationslinks vorhanden. Die Website liegt nicht in diesem Monorepo. |
+| Aktive Defense-Quelle | GitHub-API für `nikolausnold/-niknolig-defense` liefert 404: Inhalt, Releases und Veröffentlichungsweg nicht verifizierbar, keine Aussage über Nichtexistenz. |
+| Monorepo-Releases | GitHub-API liefert eine leere Release-Liste. CI-Artefakte sind keine öffentlichen Installationslinks. |
+| NIKNOLIG-Quellrepository | [Prerelease `13.10.2026`](https://github.com/nikolausnold/NIKNOLIG/releases/tag/13.10.2026) existiert, enthält aber **keine Assets**. Source-ZIP/Tarball ist keine installierbare App. |
+| Google Play / App Store | Keine verifizierte öffentliche Produkt-URL für beide Produkte gefunden. Websuche ohne relevante Treffer ist kein Nachweis, dass weltweit keine Veröffentlichung existiert. Keine geratenen Paket-/Store-URLs verlinkt. |
+| iOS | Lokale SwiftUI-Vorschauziele, kein verifiziertes signiertes Archiv, App-Store-Listing oder TestFlight-Link. Simulator-Build ist kein installierbarer Release. |
+
+**Website-Blocker:** Dieses Monorepo veröffentlicht die offizielle Website nicht.
+Die vorbereitete Downloadseite ist weder als `https://niknolig.com/download/`
+noch als andere Live-URL nachgewiesen. Nach separater Freigabe muss der
+Website-Verantwortliche die Seite in der tatsächlichen Website-Quelle integrieren,
+von Hauptnavigation/Startseite verlinken und den Live-Pfad prüfen. Dieser Auftrag
+ändert keine anderen Repositories, DNS, Serverkonfigurationen oder Deployments.
+Die Website-Verteilung ist daher **nicht abgeschlossen**.
+
+**Freigabe von Installationslinks:** Pro Produkt und Plattform erst das echte
+öffentliche Storelisting einschließlich Anbieter, App-Identität, Region und
+Installierbarkeit verifizieren. Android-APK nur als zusätzlich freigegebenes
+signiertes Release auf stabilem HTTPS-Pfad, mit SHA-256, Version, unabhängig
+genehmigtem Zertifikat-Fingerprint, nicht-debuggable Manifest und dokumentiertem
+Updatepfad; kein Verweis auf kurzlebige CI-Artefakte. Für APK-Updates müssen
+Paketname, kompatible Signatur und höhere Versionscodes erhalten bleiben.
+Sideloading und eigene Updateverantwortung erklären. iOS nur App Store oder
+konkret freigegebene Apple-Verteilung (z. B. bestätigte TestFlight-Einladung,
+ausdrücklich als Beta); kein direkter IPA-Download als Installation.
+
+### Fehlende Komponenten und kleinster sicherer Anschluss
+
+`backend/ai_support.py` besitzt `Principal`/`Authenticator` als austauschbare
+Schnittstellen, standardmäßig aber `RejectAllAuthenticator`. Die ASGI stellt
+Health-/Projekt-/Datenbankdiagnose und gesperrten Support bereit. Es fehlen
+Login, Konto-Verknüpfung, Eligibility, Trialtabellen, Billingadapter, Storeprodukte
+und Receipt-/Transaction-Verifikation. Migration `001_initial_contract.sql`
+ist ein gesperrter Gerätevertragsentwurf, kein Konten- oder Lizenzmodell.
+Weder Health-Readiness, Supportberechtigung noch Geräte-Linkstatus gewähren Defense.
+In Android fehlt Play Billing, in iOS StoreKit; kein Kauf wurde getestet.
+
+Der sichere Mindestumfang nach Identitäts-/SecurityChain-P0-Freigabe ist:
+
+1. **Gemeinsame Identität, getrennte App-Autorisierung:** An die vorhandene
+   Authenticator-Grenze eine verifizierte Kontoidentität anschließen, statt
+   Client-Konto-IDs, E-Mail-Strings oder Installationskennungen zu vertrauen.
+   Aussteller, Signatur, Audience/App-Scope, Ablauf und Widerruf prüfen;
+   Android/iOS müssen bewusst dasselbe berechtigte Konto verknüpfen können.
+   Eligibility fachlich festlegen (z. B. verifiziertes, aktives NIKNOLIG-Konto).
+   Ein gemeinsames Konto gibt weder Sensorrechte noch Zugriff auf andere Appdaten.
+2. **Persistenter Trial-Ledger:** Neue separat freizugebende Migration mit
+   eindeutiger `(account_id, defense_product)`-Zuordnung, `trial_started_at`
+   und `trial_expires_at` als UTC-Zeitstempel. Aktivierung erst nach expliziter
+   Nutzerbestätigung in einer atomaren Servertransaktion: einmaliges Einfügen
+   mit Datenbankzeit, Ablauf exakt **432000 Sekunden** später. Gleichzeitige
+   oder wiederholte Requests liefern denselben Datensatz, auch nach Timeout
+   mit unklarer Antwort. Kein Reset bei Reinstall, Logout oder Plattformwechsel.
+   Aktivierung und Statusabfrage dürfen keine Zahlung auslösen; eine reine
+   Statusabfrage startet niemals einen Test.
+3. **Accountbezogene Status-API und Enforcement:** Authentifizierte Lese-API
+   liefert Serverzeit, Aktivierungszeit, Ablauf, Restsekunden und Zustand
+   `not_started`, `trial_active`, `expired` oder `permanent`; bei fehlender
+   Synchronisierung separat `unavailable`, niemals fälschlich `expired`.
+   Trialzugriff gilt bei `started_at <= server_now < expires_at`, Restzeit
+   mindestens null; Zeitzonen/Sommerzeit ändern die Dauer nicht.
+   Bezahlte Defense-Operationen prüfen die Berechtigung serverseitig bei jeder
+   Ausführung. Gerätedatum und lokale Flags dürfen nur Darstellung beeinflussen.
+4. **Storeprodukte und Verifikation:** Play als nicht konsumierbares
+   Einmalkaufprodukt, Apple als Non-Consumable-In-App-Purchase konfigurieren,
+   keine Subscription und kein externes Payment-Checkout als Umgehung.
+   Produkt-IDs sind noch nicht vergeben. Zielpreis **0,75 € Gesamtpreis** je
+   freigegebenem EUR-Storefront bestätigen; Store-Preisstufen, Steuern und
+   Länder können das verhindern. Keine eigenmächtige Preisänderung: bei
+   fehlendem passenden Produkt/Preis Kauf deaktiviert lassen.
+   Vor dem Storedialog aktuelle lokalisierte Produktdaten mit endgültigem
+   Preis und „einmalig, dauerhaft“ anzeigen; ausdrückliche Bestätigung verlangen.
+5. **Vertrauenswürdiger Kauf-Ledger:** Backend validiert Play-Purchase-Token
+   über die Google Play Developer API und Apples signierte Transaktion mit
+   vertrauenswürdiger Signatur-/Zertifikatsprüfung und App Store Server API.
+   Paket-/Bundle-ID, Produkt, Umgebung, Kaufstatus, Kontobindung
+   (`obfuscatedAccountId`/`appAccountToken`) sowie Erstattung/Widerruf prüfen.
+   Sandbox bleibt strikt von Produktionsrechten getrennt.
+   `(store, environment, transaction_id/purchase_token)` global eindeutig
+   binden: derselbe Kauf darf weder doppelt noch für ein anderes Konto gelten.
+   Alte Nachrichten niemals einen späteren Widerruf überschreiben lassen;
+   relevante Zustände bei der Plattform erneut abgleichen.
+6. **Atomarer Grant und Wiederherstellung:** Nur ein verifizierter abgeschlossener
+   Kauf gewährt dauerhaftes `defense_product`-Entitlement. Android-Käufe nicht
+   konsumieren; erst nach durablem Grant fristgerecht bestätigen, Apple-
+   Transaktionen nach Verarbeitung abschließen. Timeouts/Wiederholungen sind
+   idempotent und dürfen weder Verlust noch Doppelgrant erzeugen.
+   „Käufe wiederherstellen“ ruft vorhandene Käufe ab, prüft serverseitig erneut
+   und synchronisiert für dasselbe Konto auf beiden unterstützten Plattformen.
+   Bereits Berechtigte bekommen keinen erneuten Kauf angeboten.
+7. **Lifecycle, Offline und Datenschutz:** Verifizierte Play-Notifications und
+   App Store Server Notifications V2 authentifizieren; deduplizieren und bei
+   Empfang sowie regelmäßig mit Storezustand abgleichen. Geheimnisse nur in
+   genehmigter Server-Secretverwaltung. Minimale pseudonyme Kontoreferenz,
+   Trialzeiten, Storetransaktionsreferenz, Prüf-/Widerrufsstatus und begrenztes
+   Audit speichern; keine Karten-, Notlagen-, Gesundheits- oder Standortdaten.
+   Receipt-/Tokenwerte nicht protokollieren, notwendigen Speicher schützen.
+   Rechtsgrundlage, Aufbewahrung und Kontolöschung einschließlich minimalem
+   Verbrauchsnachweis gegen Neuanlage-Missbrauch vorab klären; keine verdeckte
+   ewige Personenverfolgung. Bis zu einem separat geprüften signierten,
+   zeitlich begrenzten Offlineverfahren keine neuen geschützten Aktionen bei
+   fehlender verifizierbarer Berechtigung; kein lokaler Trialreset oder
+   dauerhafter Offline-Grant. NIKNOLIG und lokale Vorschau bleiben nutzbar.
+
+### Zustände und plattformgleiche Nutzerführung
+
+| Ereignis | Erwartetes Verhalten nach Implementierung |
+| --- | --- |
+| Noch nicht aktiviert | „Fünf Tage kostenlos aktivieren“, Laufzeit/keine Zahlungsmethode erklären; nur bewusste Bestätigung startet serverseitig. Der separate Notfallzugang ist davon unabhängig. |
+| Aktiver Test | Aktivierungszeit, Endzeit mit Zeitzone, Restdauer aus Serverzeit; Geräteuhränderung verlängert nichts. |
+| Exakt am Ablauf / abgelehntes Upgrade | „Dein kostenloser Defense-Test ist beendet.“ Optional „Dauerhaft für einmalig 0,75 € freischalten“ nur bei bestätigtem Storepreis; kein automatischer Dialog, keine Zahlung bei Ablehnung. NIKNOLIG bleibt nutzbar. |
+| Erfolgreicher verifizierter Kauf / Restore | Dauerhaft freigeschaltet, Konto synchronisieren, keinen erneuten Kauf anbieten. |
+| Abgebrochen / fehlgeschlagen | Kein neuer Grant, keine automatische Wiederholung; bestehender gültiger Test/Kauf bleibt unverändert. |
+| Pending / Verifikation nicht erreichbar | „Kauf ausstehend“ bzw. „Prüfung nicht verfügbar“, kein vorzeitiger Grant, keinen zweiten Kauf anstoßen; später synchronisieren. |
+| Erstattet / widerrufen | Betroffenen Kaufgrant entziehen, keine neue Trialaktivierung; andere unabhängig gültige Kaufgrants oder ein noch laufender Originaltest bleiben maßgeblich. Kein Neuverkauf ohne neue ausdrückliche Entscheidung. |
+| Offline / Serverfehler | „Berechtigung nicht synchronisierbar“, nicht „Test beendet“ behaupten; keine erfundenen Zeitwerte und keine neuen Grants. Nach Verbindung neu prüfen. |
+| Notfallzugang | Separater kostenloser Defense-Zugang für 48 Stunden für Personen, die sich nachweislich nicht selbst aus einer Notlage befreien können; nicht allein wegen abgelaufenem Test oder fehlender Zahlung sperren. Die konkrete sichere, datensparsame und dokumentierte Prüfung muss vor Umsetzung festgelegt werden; derzeit weder umgesetzt noch verfügbar. |
+
+Die Zugangsregeln schalten keine Funktion frei: Defense-Sicherheits-,
+Notfall-, Infrastruktur-Erkennungs- und Reparaturhinweisfunktionen sind aktuell
+nicht implementiert. Der konkrete freigegebene Funktionskatalog ist ein
+Veröffentlichungsblocker. Die eigenständige 48-Stunden-Regel darf nicht allein
+am Ablauf des regulären Tests oder an fehlender Zahlung scheitern, ist aber noch
+nicht technisch verfügbar.
+Ein kostenpflichtiges Upgrade garantiert keine Notfallhilfe. Bei akuter Gefahr
+örtliche Notrufnummer verwenden; keine Zahlung oder Nachweisprüfung vor Notruf
+suggerieren. Verbraucherrechte, Storebedingungen, GDPR-Rechtsgrundlagen und
+Datenschutzhinweise müssen vor Einführung fachlich geprüft werden.
+
+### Tests und Abnahme
+
+- Statische Vorschauprüfungen sind keine Entitlement- oder Zahlungstests.
+- Lokaler erster Lauf: 9 vorhandene Design-/Theme-Tests erfolgreich.
+  Nach Ergänzung der statischen Regressionen: `python3 -m unittest discover -s tools/tests`
+  mit **61 Tests erfolgreich**, einschließlich der zwei neuen Vorschau-/Downloadtests;
+  `git diff --check` erfolgreich. Der erste Gesamtlauf hatte vier Fehler durch
+  verschobene README-Zeilenbelege; durch Anhängen statt Einschieben des neuen
+  README-Abschnitts behoben, ohne die bestehenden Belegtests abzuschwächen.
+  Ein Android-Build-/Lint-/Unit-Testversuch scheitert **vor Taskausführung**:
+  `com.android.application:9.4.1` kann aus den konfigurierten Repositories nicht
+  aufgelöst werden. Keine Wiederholung oder Änderung der Buildversionen.
+  Xcode/iOS-SDK ist in dieser Linux-Umgebung nicht vorhanden.
+- Baseline-CI vor diesen Änderungen: [Backend #317 erfolgreich](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39993489397)
+  und [Android #975 erfolgreich](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39993489393),
+  beide auf `31d61b4119f1505bb443e23badd2934fa4ab6d19`. Kein Nachweis dieser Änderungen.
+- Branch-CI für Implementierungscommit `7e48eba`:
+  [Android #976](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39994528545),
+  [iOS #38](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39994528307)
+  und [Backend #318](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/39994528281)
+  stehen auf **`action_required`**, jeweils null Jobs laut Logabfrage.
+  Keine ausgeführten Build-/Testjobs und kein CI-Erfolg für diese Änderungen;
+  keine Wiederholung angefordert.
+- Secret-Scan aller zwölf geänderten Dateien ohne Treffer.
+  Parallele Validierung aufgerufen: automatischer Reviewer konnte wegen
+  fehlendem Modell nicht initialisieren (trotz „Success“-Hülle kein bestandener
+  Review). Separater read-only Code-Review fand keine signifikanten Probleme.
+  CodeQL überspringt diese ausschließlich informativen UI-/Dokumentations- und
+  Teständerungen als trivial; kein durchgeführter CodeQL-Scan behauptet.
+  Keine offene Reviewbeanstandung, technische Freigaben bleiben ausstehend.
+  Bei der abschließenden Abfrage kein Pull Request für den Branch gefunden.
+- Noch **nicht ausführbar/abgenommen**: erstmalige Aktivierung; Grenze eine
+  Sekunde vor, exakt bei und nach 432000 Sekunden; parallele/duplizierte
+  Aktivierung einschließlich verlorener Antwort; Reinstall/Logout/Gerätewechsel;
+  Android→iOS und iOS→Android; Restore für dasselbe/falsches Konto;
+  fremde/ungültige/replayte Transaktionen; Erfolg/Abbruch/Pending/Fehler;
+  Refund/Widerruf und verspätete doppelte Notifications; Offline, Uhrmanipulation
+  und erneute Synchronisierung; fehlende Storepreise; reale Website-Installation
+  und Updatepfad. Diese Fälle erfordern die fehlenden Komponenten und
+  Play-Lizenztester-/Apple-Sandboxkonten, keine echten Käufe.
+- Keine neuen Dienste gekauft, keine Secrets/Signierschlüssel angelegt, keine
+  Stores beschrieben oder veröffentlicht, kein Merge und kein Produktionsrollout.
+  Vollständige Betriebsbereitschaft darf erst nach dieser Abnahme behauptet werden.
 
 ## Aktualisierung 2026-10-16
 
@@ -183,7 +391,7 @@ oder Retries werden nicht gestartet.
 | Support | Beide Startseiten öffnen per `ACTION_SENDTO`/`mailto` eine externe E-Mail-App; fehlende App wird abgefangen. Dies ist keine Backend- oder Defense-Verbindung. Versand wurde nicht getestet. |
 | Elektro-Engel | Anfrage wird nur als lokaler Status angezeigt. Profil, Stil und Feedback liegen lokal in `MODE_PRIVATE`-SharedPreferences; keine KI-Antwort, Synchronisation oder Geräteaktion. |
 | APIs und Verträge | Keine API-Clientimplementierung, Endpoint-Konfiguration, OpenAPI-/Swagger-Spezifikation oder versioniertes App-zu-App-Nachrichtenmodell im geprüften Dateibestand. Datenformate, Rollen, Autorisierung, Fehlercodes, Timeouts, Replay-Schutz und Widerruf sind nicht vereinbart. |
-| Websites/Cloudflare | Im Monorepo keine Website, Wrangler-Konfiguration oder Deploymentverbindung. Historische Links im Master-Integrationsplan sind keine aktuelle Live-Prüfung; separate Repositories und externe Kontoeinstellungen wurden in diesem Auftrag nicht geprüft oder verändert. |
+| Websites/Cloudflare | Website-Quellen und GitHub-Pages-Deployments wurden am 23.10.2026 read-only geprüft: NIKNOLIG-Lauf [#36](https://github.com/nikolausnold/NIKNOLIG/actions/runs/39954787871) auf `6eec28f` und Defense-Lauf [#35](https://github.com/nikolausnold/-NIKNOLIG-Defense-Website/actions/runs/39912347042) auf `2692285` erfolgreich; deren Workflow-Logs nennen `https://niknolig.com/` bzw. `https://defense.niknolig.com/`. DNS-Auflösung scheiterte in der Prüfungsumgebung, daher kein Live-Erreichbarkeitsnachweis. Keine Wrangler-Konfiguration oder Cloudflare-Verbindung im Monorepo nachgewiesen; externe Repositories wurden nicht verändert. |
 
 Quellnachweise am unveränderlichen Prüfstand:
 [Modulzuordnung](https://github.com/nikolausnold/NIKNOLIG-Monorepo/blob/37b2f163312bc9611ed1bf4d2fa2056b4108777d/settings.gradle.kts#L21-L24),
@@ -272,3 +480,112 @@ automatisierter Vertragstest würde diesen physischen Nachweis nicht ersetzen.
 **Freigabeentscheidung:** **BLOCKED** bis mindestens die geforderte
 Zwei-Geräte-Funktion implementiert und auf beiden Smartphones erfolgreich
 getestet ist. Ein erfolgreicher APK-Build allein hebt diesen Blocker nicht auf.
+
+## Ergänzung: technische Release-Gates vom 24.10.2026
+
+**Keine Produktionsfreigabe.** Diese Ergänzung ersetzt keine Produkt-, Rechts-
+oder SecurityChain-P0-Abnahme. Insbesondere sind die oben beschriebenen Konto-,
+Entitlement-, Billing- und Zwei-Geräte-Funktionen durch diese Prüfungen nicht
+implementiert oder freigegeben.
+
+Geprüfter Ausgangsstand ist
+`590d02982ab02d85b19f73bb75329966e7e7271d`, PR #166, Branch
+`copilot/fix-follow-up-fixes-pr-165`. Der im Auftrag enthaltene längere
+`590d0299…`-Wert entspricht nicht dem tatsächlichen HEAD. Die folgenden
+Bestandsnachweise gelten nur für den tatsächlichen Ausgangsstand, nicht
+automatisch für den Commit mit den neuen Gates:
+
+| Bereich | Beleg am Ausgangsstand | Grenze |
+| --- | --- | --- |
+| Android Debug, Unit-Tests, IDs, APK-Signaturen | [Android PR-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40119280288), erfolgreiche Jobs | Kein Release-Zertifikat-/Produktionsnachweis |
+| Portabler iOS-Analysekern | Derselbe Lauf, 8 erfolgreiche Swift-Tests | Kein App-Archiv |
+| Backend und Tooling | [Backend PR-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40119280277), 183 und 63 bestandene Tests | Kein Nachweis produktiver Migrationen oder Erreichbarkeit |
+| Historischer Android-Release | [Main-Lauf](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40107818793) auf `0ae2898ec98bec2ad60a28a9047afbcae2667ffe`: URL-, Keystore-, Paket-/Signaturprüfungen erfolgreich | Nicht auf den PR übertragbar; keine Live-API-Prüfung |
+| Historischer iOS-Debug-App-Build | [Main-Lauf](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40108368581) auf demselben älteren Main-Stand erfolgreich | Kein Release-Konfigurations-, Geräte- oder Signierungsnachweis für den PR |
+
+### Neu implementierte Gates, noch keine erfolgreichen CI-Ergebnisse
+
+- Der bestehende Android-Workflow führt beide `lintDebug`-Aufgaben aus und
+  bewahrt Lint-Berichte als SHA-bezogenes Artefakt sieben Tage auf. Fehlende
+  Berichte sind kein Erfolg; der Gradle-Schritt bleibt fehlschlagend.
+- Der bestehende iOS-Workflow behält Debug-App-Builds und Support-Core-Tests
+  bei und ergänzt Release-Simulator-Builds für beide getrennten Targets.
+  Keine doppelte Workflow-Infrastruktur und keine neuen Berechtigungen.
+- Beide Xcode-Targets validieren ihre eigene Backend-URL vor dem Kompilieren.
+  Nur Debug darf leer bleiben. Release benötigt eine nichtleere HTTPS-Origin;
+  ungültige Werte führen ohne Ausgabe des Werts zum Fehler.
+  Die URL-Prüfung ist netzwerkfrei und bestätigt keine Betreiberfreigabe.
+- Die Release-Simulator-Builds verwenden getrennte `*.example.com`-Fixtures
+  und `CODE_SIGNING_ALLOWED=NO`. Sie erzeugen weder signierte Gerätearchive
+  noch Store-/TestFlight-Freigaben oder Produktionsverbindungsnachweise.
+- Die bestehenden Android-Release-Gates verlangen erfolgreiche Android- und
+  Backend-Workflows für exakt denselben Release-SHA. Damit umfasst der
+  Android-Workflow künftig auch Lint; das ersetzt keine menschliche Freigabe.
+
+Versionen unverändert: AGP `9.4.1`, Gradle `9.8.2`, Kotlin `2.4.21`,
+Android-JUnit `4.13.2`. Die erfolgreichen Bestandsbuilds belegen deren
+Build-/Test-Verwendung. Im Bearbeitungsrunner scheitert DNS für
+`dl.google.com` weiterhin mit `No address associated with hostname`.
+Deshalb wurde der bereits erfolglos versuchte lokale Lint nicht erneut
+gestartet. Ein Versionsdefekt ist daraus nicht belegt. Xcode steht im
+Linux-Bearbeitungsrunner nicht zur Verfügung; native Ergebnisse müssen aus
+dem aktualisierten macOS-Workflow stammen.
+
+### Backend: Implementierung ist nicht Deployment
+
+Das produktive Docker-CMD startet `uvicorn asgi:app`. In `backend/asgi.py`
+sind `/health/live` (`200`, JSON `status=live`) und `/health/ready`
+(`200`, JSON `status=ready`; bei fehlender Bereitschaft `503` mit
+vertraglichem Fehlerkörper) implementiert. Readiness prüft mit dem
+Health-Datenbankbenutzer Migrationen und Schema-Invarianten, nicht nur TCP.
+Docker kopiert die Migrationen; Production Compose startet Migrationen vor
+API und Proxy. Caddy reicht die beiden Health-Routen an die API weiter,
+verwendet vorhandene TLS-Dateien und veröffentlicht allein Port 443.
+Es wurde kein Fehler festgestellt, der eine Änderung dieser
+Produktionskonfiguration rechtfertigt.
+
+Für `api.niknolig.com` schlägt die DNS-Auflösung im Bearbeitungsrunner weiter
+fehl. TCP/443, TLS und HTTP sind deshalb **nicht nachgewiesen**, nicht als
+jeweils fehlerhaft diagnostiziert. Die erwartete öffentliche Server-IP und
+die tatsächlich installierte Revision fehlen. Keine CI-Mock-/Datenbankprobe
+beweist ein Deployment. Ein lokaler DNS-Fehler beweist keinen globalen Ausfall.
+
+### Präzise Betreiber-Checkliste
+
+1. **DNS-/Serverbetreiber:** vorgesehene öffentliche IPv4/IPv6 bzw.
+   CNAME-Zielkette, maßgebliche DNS-Zone und installierte Commit-/Image-Digests
+   benennen. Aus dem vorgesehenen Clientnetz A/AAAA und autoritative Antworten
+   mit dem vorgesehenen Server vergleichen; danach TCP/443 prüfen. Erst bei
+   erfolgreicher Verbindung TLS mit SNI `api.niknolig.com`, vertrauenswürdiger
+   Kette, Gültigkeitszeitraum und passendem SAN prüfen, ohne
+   Zertifikatsprüfung abzuschalten. Anschließend
+   [live](https://api.niknolig.com/health/live) und
+   [ready](https://api.niknolig.com/health/ready) ohne Redirect-Folgen abrufen:
+   Status, JSON-Content-Type und Vertragskörper dokumentieren. Bei `503`
+   serverseitig Migrationserfolg und Health-Rolle prüfen; keine
+   Datenbankpasswörter oder internen Fehlerdetails veröffentlichen.
+2. **GitHub-/Android-Verantwortliche:** unter
+   [Environments](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/environments)
+   `android-release` nur lesend auf beide app-spezifisch freigegebenen
+   URL-Variablen, die sechs vorhandenen Signiersecret-Namen und erforderliche
+   Reviewer/Branchbeschränkungen prüfen; keine Secret-Werte abrufen.
+   [Branchschutz](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/branches)
+   bzw. [Rulesets](https://github.com/nikolausnold/NIKNOLIG-Monorepo/settings/rules)
+   prüfen, ohne Schutzregeln abzuschwächen. Diese Einstellungen sind über die
+   verfügbaren autorisierten Leseschnittstellen nicht nachgewiesen.
+   Leere Debug-Variablen bedeuten nicht leere Release-Variablen. Vor einer
+   späteren autorisierten Veröffentlichung den Paketnamen, nicht-debuggable
+   Zustand und Signaturfingerprint unabhängig gegen die genehmigte
+   Produktidentität prüfen, nicht nur gegen den Keystore desselben Jobs.
+3. **Apple-/Produktverantwortliche:** die
+   [iOS-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/workflows/ios-build.yml)
+   für den neuen Commit auswerten. Danach für beide Apps Betreiber-Origin,
+   bestehendes Apple-Team, Zertifikate/Profiles und Verteilungsweg bestätigen;
+   auf autorisiertem macOS-Host signierte Gerätearchive und Exportvalidierung
+   nachweisen, ohne Veröffentlichung. App-spezifische Freigaben, Datenschutz
+   und offene P0-/Produktfunktionen separat abnehmen.
+
+**Restentscheidung: BLOCKIERT.** Die neuen Gates schließen Repository-Lücken,
+aber erst erfolgreiche neue CI-Läufe, externe Betriebsnachweise und die
+ausstehenden Produkt-/Sicherheitsfreigaben können die jeweilige Prüflücke
+schließen. Dieser Auftrag startet kein Deployment, Merge oder Release.

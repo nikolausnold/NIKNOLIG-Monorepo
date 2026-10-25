@@ -78,10 +78,16 @@ Sensorfreigabe oder Übertragung privater Daten.
 
 - **NIKNOLIG Founder Owner:** NIKNOLIG-Produkt- und Mitgliedschaftsverwaltung
   erst nach Freigabe. Elektro-Engel erhält keine implizite Berechtigung, auf
-  Defense-Daten oder Geräte zuzugreifen.
+  Defense-Daten oder Geräte zuzugreifen. Allgemeine Systemfunktionen, keine
+  Infrastruktur-Erkennung in der normalen NIKNOLIG-App.
 - **NIKNOLIG Defense Founder Owner:** Defense-Verantwortung beschränkt sich auf
-  die gesondert freigegebenen Defense-Funktionen. Sie erteilt keine
-  NIKNOLIG- oder Elektro-Engel-Rechte.
+  die gesondert freigegebenen Defense-Funktionen. Der bestätigte Produktumfang
+  umfasst zusätzliche Sicherheits-/Notfallfunktionen sowie ausschließlich hier
+  Elektro-Engels Infrastruktur-Erkennung und Reparaturhinweise. Daraus folgen
+  weder automatische Elektro-Engel-Zugriffsrechte noch NIKNOLIG-Rechte.
+  [D-01-Prüfprotokoll](securitychain-p0-specification.md#d-01-prüfprotokoll-bestätigte-produktgrenzen-und-offene-detailfreigaben):
+  Datenzugriffe, Berechtigungen, automatische Aktionen und Datenschutzdetails
+  bleiben offen; D-01 ist nicht abgeschlossen.
 - **Gleiche Person in beiden Bereichen:** Zwei getrennte App-Scope-Zuweisungen,
   getrennte Sitzungs-/Tokenkontexte und getrennte Audit-Abfragen. Keine
   Cross-App-Rolle und kein „linked account“-Shortcut für Autorisierung.
@@ -126,7 +132,7 @@ Backendimplementierung:
   Rollenstatus-Client unter `app/src/main/java/com/niknolig/app/`, UI in
   `app/src/main/res/`, Tests in `app/src/test/` und
   `app/src/androidTest/`; keine Defense-Berechtigungsdaten.
-- [NIKNOLIG Defense](https://github.com/nikolausnold/NIKNOLIG-Defense): eigener
+- [NIKNOLIG Defense](https://github.com/nikolausnold/-NIKNOLIG-Defense-Website): eigener
   Login- und Rollenstatus-Client unter `app/src/main/java/com/niknolig/defense/`,
   UI in `app/src/main/res/`, Tests in `app/src/test/` und
   `app/src/androidTest/`; keine NIKNOLIG-Berechtigungsdaten.

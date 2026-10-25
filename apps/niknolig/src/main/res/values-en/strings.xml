@@ -5,13 +5,28 @@
     <string name="assistant_description">Your assistant for transparent, controlled technology.</string>
     <string name="assistant_open_button">Open Elektro-Engel</string>
     <string name="assistant_screen_title">Elektro-Engel</string>
-    <string name="assistant_screen_description">Local preview within NIKNOLIG. Your request is not sent to an AI service or server.</string>
-    <string name="assistant_help_heading">WHAT DO YOU NEED HELP WITH?</string>
-    <string name="assistant_help_description">Enter a request. This preview only displays it here and does not generate an automatic answer.</string>
-    <string name="assistant_request_hint">Your request (max. 500 characters)</string>
-    <string name="assistant_request_button">Display request locally</string>
-    <string name="assistant_request_empty">Please enter a request first.</string>
-    <string name="assistant_request_local_only">Request, displayed here only:\n%1$s\n\nNothing was transmitted, and no action was taken.</string>
+    <string name="assistant_screen_description">Local, rule-based German-language analysis. Your text stays on this device; no external AI is connected.</string>
+    <string name="assistant_help_heading">DECODE THE EVERYDAY</string>
+    <string name="assistant_help_description">Explore German terms and statements in four separate modes. Results are language-based cues, not verified facts.</string>
+    <string name="assistant_request_hint">Term or statement (max. 1000 characters)</string>
+    <string name="assistant_analysis_mode_description">Select an analysis mode</string>
+    <string-array name="assistant_analysis_modes">
+        <item>Word breakdown</item>
+        <item>Convention scanner</item>
+        <item>Perspective shift</item>
+        <item>Fact and reasoning check</item>
+    </string-array>
+    <string name="assistant_request_button">Analyze locally</string>
+    <string name="assistant_analysis_loading">Local analysis in progress …</string>
+    <string name="assistant_analysis_failed">The input could not be analyzed. Check the text and try again.</string>
+    <string name="assistant_analysis_empty">Enter a term or statement first.</string>
+    <string name="assistant_analysis_error_invalid">The input is too long or contains invalid control characters.</string>
+    <string name="assistant_analysis_error_ai_disabled">External AI is not approved. Local analysis remains available.</string>
+    <string name="assistant_analysis_error_timeout">Analysis timed out. No result was presented as verified.</string>
+    <string name="assistant_analysis_error_unavailable">The analysis source is unavailable. No facts were verified.</string>
+    <string name="assistant_analysis_sources_unchecked">Source status: not checked; no external source was queried.</string>
+    <string name="assistant_refinement_hint">Follow-up question (optional, max. 500 characters)</string>
+    <string name="assistant_refine_button">Refine analysis</string>
     <string name="assistant_task_heading">TASKS</string>
     <string name="assistant_task_status">No tasks available. Task management is not configured in this preview.</string>
     <string name="assistant_device_heading">DEVICE STATUS</string>
@@ -22,13 +37,14 @@
     <string name="system_status_heading">SYSTEM STATUS</string>
     <string name="system_status">Development scaffold</string>
     <string name="device_status">Device status: unknown — device discovery is unavailable</string>
-    <string name="support_heading">TECHNICAL SUPPORT</string>
-    <string name="support_description">For technical questions, contact us at n_nold@hotmail.com.</string>
+    <string name="support_heading">YOUR SUPPORT</string>
+    <string name="support_description">Check AI assistance first. If AI help is unavailable, you can deliberately prepare an email to the operator. No AI service is connected yet.</string>
     <string name="support_payment_notice">Payment questions are not handled here. Please contact your payment provider or merchant directly. Do not send payment details to technical support.</string>
-    <string name="support_contact_button">Contact technical support</string>
+    <string name="support_contact_button">Open AI support</string>
     <string name="support_email">n_nold@hotmail.com</string>
-    <string name="support_email_subject">Technical support request – NIKNOLIG</string>
-    <string name="support_email_body">Please describe your technical issue. Do not send passwords or payment details.</string>
+    <string name="official_website_url" translatable="false">https://niknolig.com/</string>
+    <string name="support_email_subject">Technical support request – NIKNOLIG · %1$s</string>
+    <string name="support_email_body">Request ID: %1$s\nApp: %2$s\nIssue class: %3$s\nDiagnostic: %4$s\n\nNo question text or conversation content was included. You must review and send this email yourself.</string>
     <string name="support_email_unavailable">No email app found on this device.</string>
     <string name="demo_notice">Preview — no device connection, security approval, or production feature is available yet.</string>
     <string name="learning_profile_button">Learning profile and privacy</string>

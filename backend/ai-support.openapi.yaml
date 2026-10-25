@@ -1,0 +1,252 @@
+openapi: 3.1.0
+info:
+  title: NIKNOLIG AI Support - Local Preparation Only
+  version: 0.1.0
+  description: >-
+    Not deployed, activated, or production-approved. The default backend returns
+    AI_DISABLED and cannot invoke a provider. This separate contract does not
+    extend the approved health-only contract in openapi.yaml. No environment
+    variable enables AI. Local tests explicitly inject mocks, verified principals,
+    audit sinks and approval gates. No authentication issuer, account, secret,
+    production credentials or paid API activation is supplied. A server-side
+    Workers AI HTTPS transport is available but is never constructed by default.
+    SecurityChain-P0,
+    provider/model approval, operator cost approval, durable distributed quotas
+    and audit storage, privacy review and production authentication remain blockers.
+servers:
+  - url: http://127.0.0.1:8000
+    description: Local preparation example only; not a deployed service.
+paths:
+  /support:
+    post:
+      operationId: submitSupportMessage
+      summary: Submit a support message for either app.
+      description: >-
+        This shared local-preparation route accepts exactly app and message.
+        Message is non-blank and limited to 2048 UTF-8 bytes. The selected app
+        must match the independently authenticated, active, unexpired principal
+        and its ai:support permission. NIKNOLIG and NIKNOLIG Defense remain
+        separately scoped. The default runtime is disabled and returns
+        AI_DISABLED; ASGI and Caddy now expose the same fail-closed route.
+        It uses the same limits, audit requirements, generic errors and
+        untrusted plain-text response as the legacy compatibility route below.
+        No external provider or network transport is enabled.
+      security:
+        - VerifiedPrincipal: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommonSupportRequest"
+      responses:
+        "200":
+          description: Untrusted text only; clients must not execute or render as HTML.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportReply"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "408":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+  /v1/ai/support:
+    post:
+      operationId: prepareSupportReply
+      summary: Prepare an untrusted plain-text support reply.
+      description: >-
+        Request body is at most 8192 bytes; socket read timeout is 2 seconds.
+        Exactly one decimal Content-Length and application/json Content-Type
+        (optionally charset=utf-8) are required. Transfer-Encoding,
+        Content-Encoding, duplicate Authorization headers, duplicate JSON fields
+        and non-JSON constants are rejected. No body/header app claim is trusted:
+        the verified active, unexpired principal must have the exact app scope
+        and ai:support or ai:electro-engel permission scoped to the same app.
+        Elektro-Engel support can be requested independently by either app; this
+        does not grant cross-app access or install its local runtime in Defense.
+        No client provider, model, URL,
+        credential, conversation history, tool or action fields are accepted.
+        Replies are untrusted text, never commands, HTML or tool invocations.
+        No conversation state is stored or shared between apps.
+        Enabled, provider-approved and cost-approved gates must all be true,
+        with offline and kill-switch gates false; defaults fail closed.
+        The external preparation candidate is the fixed server-side Cloudflare
+        Workers AI model @cf/meta/llama-3.1-8b-instruct-fp8-fast with an injected
+        server-side transport, max_tokens 256 and a 5-second transport timeout
+        requirement. A separate LocalModelProvider interface accepts an
+        operator-supplied local runtime and fixed model identifier; it does not
+        install model weights or select a local model. Both require the same
+        independent provider and cost approval gates. Neither is a production
+        approval or availability promise. Audit metadata includes the
+        server-selected provider and model identifiers, never customer content.
+        Local atomic limits default to 5 calls per principal/app per minute,
+        20000 reserved tokens and 50 calls per app per UTC day, 80 calls globally
+        per UTC day, 1024 tracked principals and 2 concurrent provider calls.
+        Reservations include bounded maximum input plus output and are never
+        refunded, including failures. These are not monetary billing guarantees
+        or durable/distributed production controls. The kill switch prevents
+        subsequent dispatch and withholds text if gates close before release,
+        but cannot cancel provider work already in flight. Gates are checked
+        after audit hooks immediately before dispatch and again before release.
+        An audit reservation must persist to the injected sink before dispatch;
+        audit completion failure withholds the answer. Audit contains generated
+        request ID, app, feature, server-selected provider/model identifiers,
+        outcome and token metadata only, never prompt, answer, authorization or
+        principal identity.
+        Authenticator and QuotaStore protocols allow later externally reviewed
+        authentication and durable quota implementations. An unavailable quota
+        store fails closed; concurrency release never refunds charged budgets.
+      security:
+        - VerifiedPrincipal: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportRequest"
+      responses:
+        "200":
+          description: Untrusted text only; clients must not execute or render as HTML.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportReply"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "408":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    VerifiedPrincipal:
+      type: http
+      scheme: bearer
+      description: >-
+        External verified authentication is required before quotas or dispatch.
+        Default authenticator rejects every credential. No token issuance,
+        test credential, production verifier or client-key forwarding is provided.
+        Disabled mode returns 503 before authentication.
+  responses:
+    Error:
+      description: >-
+        Generic failure only, without provider exceptions or sensitive content.
+        400 VALIDATION_FAILED; 401 AUTHENTICATION_INVALID;
+        403 APP_AREA_MISMATCH or AUTHORIZATION_DENIED; 408 REQUEST_TIMEOUT;
+        413 PAYLOAD_TOO_LARGE; 429 RATE_LIMITED or BUDGET_EXHAUSTED;
+        503 AI_DISABLED, AUDIT_UNAVAILABLE, QUOTA_UNAVAILABLE,
+        PROVIDER_UNAVAILABLE or SERVICE_UNAVAILABLE.
+        Provider timeout, exception or invalid/uncertain output requires escalation.
+        Disabled, offline or killed AI also requires escalation to a non-AI
+        fallback; authentication, authorization and quota denials do not.
+        Audit failure after provider invocation also requires escalation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SupportError"
+  schemas:
+    CommonSupportRequest:
+      type: object
+      additionalProperties: false
+      required: [app, message]
+      properties:
+        app:
+          type: string
+          enum: [niknolig, niknolig-defense]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: Non-blank; an additional strict 2048 UTF-8 byte limit applies.
+    SupportRequest:
+      type: object
+      additionalProperties: false
+      required: [app, feature, prompt]
+      properties:
+        app:
+          type: string
+          enum: [niknolig, niknolig-defense]
+        feature:
+          type: string
+          enum: [support, electro-engel]
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: Non-blank; an additional strict 2048 UTF-8 byte limit applies.
+    SupportReply:
+      type: object
+      additionalProperties: false
+      required: [requestId, app, feature, text, contentType, untrusted, escalationRequired]
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        app:
+          type: string
+          enum: [niknolig, niknolig-defense]
+        feature:
+          type: string
+          enum: [support, electro-engel]
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Non-blank, maximum 1024 UTF-8 bytes; untrusted plain text.
+        contentType:
+          const: text/plain
+        untrusted:
+          const: true
+        escalationRequired:
+          const: false
+    SupportError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, requestId, escalationRequired]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_FAILED
+                - AUTHENTICATION_INVALID
+                - APP_AREA_MISMATCH
+                - AUTHORIZATION_DENIED
+                - REQUEST_TIMEOUT
+                - PAYLOAD_TOO_LARGE
+                - RATE_LIMITED
+                - BUDGET_EXHAUSTED
+                - AI_DISABLED
+                - AUDIT_UNAVAILABLE
+                - QUOTA_UNAVAILABLE
+                - PROVIDER_UNAVAILABLE
+                - SERVICE_UNAVAILABLE
+            message:
+              const: Support request could not be completed.
+            requestId:
+              type: string
+              format: uuid
+            escalationRequired:
+              type: boolean

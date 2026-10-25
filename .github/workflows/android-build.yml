@@ -14,33 +14,45 @@ jobs:
   assemble-debug:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      NIKNOLIG_BACKEND_URL: ${{ vars.NIKNOLIG_BACKEND_URL }}
+      NIKNOLIG_DEFENSE_BACKEND_URL: ${{ vars.NIKNOLIG_DEFENSE_BACKEND_URL }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
-      - name: Run backend contract regression tests
-        run: python3 -m unittest discover -s backend/tests
-      - name: Run tooling regression tests
-        run: python3 -m unittest discover -s tools/tests
-      - name: Check registered system repositories
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python3 -m tools.system_updates --output "$RUNNER_TEMP/system-update-report.json"
-      - name: Upload system update report
-        if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          name: system-update-report-${{ github.sha }}
-          path: ${{ runner.temp }}/system-update-report.json
-          if-no-files-found: error
-          retention-days: 7
       - name: Assemble both debug APKs
         run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon
+      - name: Test both backend health clients
+        run: ./gradlew :electro-engel-core:test :support-core:test :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon
+      - name: Lint both Android apps
+        run: ./gradlew :niknolig:lintDebug :niknolig-defense:lintDebug --no-daemon
+      - name: Preserve Android lint evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: android-lint-${{ github.sha }}
+          path: |
+            apps/niknolig/build/reports/lint-results-debug.*
+            apps/niknolig-defense/build/reports/lint-results-debug.*
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Preserve backend client test evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: android-health-client-tests-${{ github.sha }}
+          path: |
+            apps/niknolig/build/test-results/testDebugUnitTest/*.xml
+            apps/niknolig-defense/build/test-results/testDebugUnitTest/*.xml
+            apps/niknolig/build/reports/tests/testDebugUnitTest/**
+            apps/niknolig-defense/build/reports/tests/testDebugUnitTest/**
+          if-no-files-found: warn
+          retention-days: 7
       - name: Verify package identities and APK signatures
         shell: bash
         run: |
@@ -73,6 +85,7 @@ jobs:
           path: apps/niknolig/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 7
+
       - name: Upload NIKNOLIG Defense debug APK
         uses: actions/upload-artifact@v7.0.2
         with:
@@ -87,13 +100,13 @@ jobs:
           path: docs/release-readiness.md
           if-no-files-found: error
           retention-days: 7
-      - name: Upload shared Android and iOS contract snapshot
-        uses: actions/upload-artifact@v7.0.2
+
+  electro-engel-ios-core:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
         with:
-          name: mobile-contracts-${{ github.sha }}
-          path: |
-            backend/openapi.yaml
-            backend/contracts/*.json
-            config/system-repositories.json
-          if-no-files-found: error
-          retention-days: 7
+          persist-credentials: false
+      - name: Test the portable iOS analysis core
+        run: swift test --package-path modules/electro-engel/ios

@@ -1,0 +1,115 @@
+# Standalone file: do not merge with the loopback-only development compose.yaml.
+# Required secret files are provisioned by the operator, never generated or committed here.
+x-backend: &backend
+  image: niknolig-health-backend:local
+  build:
+    context: .
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  preflight:
+    <<: *backend
+    command: ["python", "deployment.py"]
+    environment:
+      BACKEND_HOSTNAME: ${BACKEND_HOSTNAME:?Set an operator-confirmed real hostname}
+      BACKEND_HOSTNAME_CONFIRMED: ${BACKEND_HOSTNAME_CONFIRMED:?Repeat the approved real hostname}
+    secrets: [tls_certificate, tls_private_key]
+    network_mode: none
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  postgres:
+    image: postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
+    environment:
+      POSTGRES_DB: niknolig_health
+      POSTGRES_USER: backend_migrator
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [postgres_password]
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    networks: [database]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backend_migrator -d niknolig_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+
+  migrate:
+    <<: *backend
+    command: ["python", "migrate.py"]
+    environment:
+      PGHOST: postgres
+      PGDATABASE: niknolig_health
+      PGUSER: backend_migrator
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      HEALTH_DB_PASSWORD_FILE: /run/secrets/health_password
+    secrets: [postgres_password, health_password]
+    networks: [database]
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  api:
+    <<: *backend
+    environment:
+      PGHOST: postgres
+      PGDATABASE: niknolig_health
+      PGUSER: backend_health
+      PGPASSWORD_FILE: /run/secrets/health_password
+    secrets: [health_password]
+    networks: [database, edge]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  proxy:
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    user: "10001:10001"
+    environment:
+      BACKEND_HOSTNAME: ${BACKEND_HOSTNAME:?Set an operator-confirmed real hostname}
+    ports: ["443:443"]
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro"]
+    secrets: [tls_certificate, tls_private_key]
+    networks: [edge]
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /data:uid=10001,gid=10001,mode=0700
+      - /config:uid=10001,gid=10001,mode=0700
+    restart: unless-stopped
+
+networks:
+  database:
+    internal: true
+  edge:
+
+volumes:
+  postgres-data:
+
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_SECRET_FILE:?Set path to operator-provisioned migration password}
+  health_password:
+    file: ${HEALTH_PASSWORD_SECRET_FILE:?Set path to separate operator-provisioned health password}
+  tls_certificate:
+    file: ${TLS_CERTIFICATE_FILE:?Set path to real certificate chain}
+  tls_private_key:
+    file: ${TLS_PRIVATE_KEY_FILE:?Set path to matching private key}
