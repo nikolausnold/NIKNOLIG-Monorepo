@@ -4,9 +4,11 @@ import java.io.IOException
 import java.io.ByteArrayOutputStream
 import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.URI
 import javax.net.ssl.HttpsURLConnection
 
 internal sealed class BackendHealthResult {
+    data object Live : BackendHealthResult()
     data object Ready : BackendHealthResult()
     data object NotConfigured : BackendHealthResult()
     data object InvalidResponse : BackendHealthResult()
@@ -15,19 +17,29 @@ internal sealed class BackendHealthResult {
     data class HttpError(val statusCode: Int) : BackendHealthResult()
 }
 
+internal enum class BackendHealthEndpoint(val path: String, val status: String) {
+    LIVE("/health/live", "live"),
+    READY("/health/ready", "ready"),
+}
+
 internal class BackendHealthClient(
     private val baseUrl: String,
     private val openConnection: (URL) -> HttpsURLConnection = {
         it.openConnection() as HttpsURLConnection
     },
 ) {
-    fun check(): BackendHealthResult {
+    fun check(endpoint: BackendHealthEndpoint = BackendHealthEndpoint.READY): BackendHealthResult {
         if (baseUrl.isBlank() || !baseUrl.startsWith("https://", ignoreCase = true)) {
             return BackendHealthResult.NotConfigured
         }
 
         val url = runCatching {
-            URL("${baseUrl.trimEnd('/')}/health/ready")
+            val origin = URI(baseUrl)
+            require(origin.host != null && origin.rawUserInfo == null &&
+                origin.rawQuery == null && origin.rawFragment == null &&
+                origin.path in listOf("", "/") &&
+                (origin.port == -1 || origin.port in 1..65535))
+            origin.resolve(endpoint.path).toURL()
         }.getOrNull() ?: return BackendHealthResult.NotConfigured
 
         var connection: HttpsURLConnection? = null
@@ -38,6 +50,7 @@ internal class BackendHealthClient(
             connection.requestMethod = "GET"
             connection.instanceFollowRedirects = false
             connection.useCaches = false
+            connection.setRequestProperty("Accept", "application/json")
 
             val statusCode = connection.responseCode
             if (statusCode != 200) {
@@ -62,7 +75,12 @@ internal class BackendHealthClient(
                     }
                     output.toByteArray().toString(Charsets.UTF_8)
                 }
-                if (ReadyResponseJsonParser(body).isReady()) BackendHealthResult.Ready
+                if (ReadyResponseJsonParser(body).matches(endpoint.status)) {
+                    when (endpoint) {
+                        BackendHealthEndpoint.LIVE -> BackendHealthResult.Live
+                        BackendHealthEndpoint.READY -> BackendHealthResult.Ready
+                    }
+                }
                 else BackendHealthResult.InvalidResponse
             }
         } catch (_: SocketTimeoutException) {
@@ -85,7 +103,7 @@ internal class BackendHealthClient(
 private class ReadyResponseJsonParser(private val text: String) {
     private var position = 0
 
-    fun isReady(): Boolean = runCatching {
+    fun matches(expectedStatus: String): Boolean = runCatching {
         skipWhitespace()
         expect('{')
         skipWhitespace()
@@ -97,7 +115,7 @@ private class ReadyResponseJsonParser(private val text: String) {
         skipWhitespace()
         expect('}')
         skipWhitespace()
-        position == text.length && key == "status" && value == "ready"
+        position == text.length && key == "status" && value == expectedStatus
     }.getOrDefault(false)
 
     private fun parseString(): String {

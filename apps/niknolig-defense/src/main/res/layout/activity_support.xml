@@ -93,6 +93,13 @@
             android:textColor="@color/text_primary"
             android:textSize="18sp" />
         <Button
+            android:id="@+id/support_check_live"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:minHeight="48dp"
+            android:text="@string/support_check_live" />
+        <Button
             android:id="@+id/support_check_ai"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

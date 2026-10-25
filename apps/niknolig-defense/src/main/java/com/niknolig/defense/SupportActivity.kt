@@ -21,6 +21,7 @@ import org.niknolig.support.SupportPayloadCipher
 class SupportActivity : Activity() {
     private var backendStatus: Int? = null
     private lateinit var checkButton: Button
+    private lateinit var liveButton: Button
     private lateinit var questionInput: EditText
     private lateinit var answerView: TextView
     private lateinit var payloadCipher: SupportPayloadCipher
@@ -42,11 +43,13 @@ class SupportActivity : Activity() {
         }.getOrNull()
         payloadCipher = AndroidSupportPayloadCipher()
         checkButton = findViewById(R.id.support_check_ai)
+        liveButton = findViewById(R.id.support_check_live)
         questionInput = findViewById(R.id.support_question)
         answerView = findViewById(R.id.support_answer_result)
         showSupportState()
 
         checkButton.setOnClickListener { checkBackend() }
+        liveButton.setOnClickListener { checkBackend(BackendHealthEndpoint.LIVE) }
         findViewById<Button>(R.id.support_answer).setOnClickListener { answerQuestion() }
         findViewById<Button>(R.id.support_escalate).setOnClickListener {
             AlertDialog.Builder(this)
@@ -128,13 +131,15 @@ class SupportActivity : Activity() {
         }
     }
 
-    private fun checkBackend() {
+    private fun checkBackend(endpoint: BackendHealthEndpoint = BackendHealthEndpoint.READY) {
         checkButton.isEnabled = false
+        liveButton.isEnabled = false
         findViewById<TextView>(R.id.support_ai_status)
             .setText(R.string.support_backend_checking)
         Thread({
-            val result = BackendHealthClient(BuildConfig.BACKEND_BASE_URL).check()
+            val result = BackendHealthClient(BuildConfig.BACKEND_BASE_URL).check(endpoint)
             val message = when (result) {
+                BackendHealthResult.Live -> R.string.support_backend_live
                 BackendHealthResult.Ready -> R.string.support_backend_ready
                 BackendHealthResult.NotConfigured -> R.string.support_backend_not_configured
                 BackendHealthResult.InvalidResponse -> R.string.support_backend_invalid_response
@@ -143,6 +148,7 @@ class SupportActivity : Activity() {
                 is BackendHealthResult.HttpError -> R.string.support_backend_http_error
             }
             val diagnostic = when (result) {
+                BackendHealthResult.Live -> BackendDiagnostic.LIVE
                 BackendHealthResult.Ready -> BackendDiagnostic.READY
                 BackendHealthResult.NotConfigured -> BackendDiagnostic.NOT_CONFIGURED
                 BackendHealthResult.InvalidResponse -> BackendDiagnostic.INVALID_RESPONSE
@@ -155,6 +161,7 @@ class SupportActivity : Activity() {
                     backendStatus = message
                     lastDiagnostic = diagnostic.name
                     checkButton.isEnabled = true
+                    liveButton.isEnabled = true
                     showSupportState()
                     if (SupportAssistant.diagnose(diagnostic).escalationRequired) {
                         val encrypted = runCatching { payloadCipher.encrypt("") }.getOrNull()

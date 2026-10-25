@@ -14,11 +14,21 @@ BACKEND = Path(__file__).resolve().parents[1]
 
 
 class BackendContractTests(unittest.TestCase):
-    def test_openapi_only_exposes_non_sensitive_health_operations(self):
+    def test_openapi_exposes_health_and_static_metadata_without_product_operations(self):
         contract = (BACKEND / "openapi.yaml").read_text(encoding="utf-8")
         self.assertIn("openapi: 3.1.0", contract)
         self.assertIn("/health/live:", contract)
         self.assertIn("/health/ready:", contract)
+        self.assertIn("/health:", contract)
+        self.assertIn("/projects:", contract)
+        self.assertIn("/db/health:", contract)
+        self.assertIn("https://api.niknolig.com", contract)
+        liveness = contract.split("    LivenessStatus:", 1)[1].split("    ReadinessStatus:", 1)[0]
+        readiness = contract.split("    ReadinessStatus:", 1)[1].split("    ApiError:", 1)[0]
+        self.assertIn("const: live", liveness)
+        self.assertNotIn("ready", liveness)
+        self.assertIn("const: ready", readiness)
+        self.assertNotIn("live", readiness)
         self.assertIn("security: []", contract)
         self.assertIn("AUTHENTICATION_REQUIRED", contract)
         self.assertIn("APP_AREA_MISMATCH", contract)
