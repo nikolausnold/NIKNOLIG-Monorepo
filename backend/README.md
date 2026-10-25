@@ -1192,7 +1192,7 @@ Die Testresultate belegen weder eine öffentliche HTTPS-Adresse noch einen
 Serverbetrieb, SecurityChain-P0-Freigabe, produktive Backup-Ausführung oder
 Restore-/Incident-Übung.
 
-### Aktualisierte Bestandsprüfung (25.10.2026, Branch-Commit `7b83e3b`)
+### Aktualisierte Bestandsprüfung (25.10.2026; geprüfter Quell-/CI-Stand `7b83e3b`)
 
 - **Backend:** `app.py` ist die lokale stdlib-Laufzeit; `asgi.py` stellt die
   PostgreSQL-abhängigen Health-Routen bereit und registriert zusätzlich die
