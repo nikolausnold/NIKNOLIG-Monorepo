@@ -42,7 +42,9 @@ Elektro-Engel-Ansicht in NIKNOLIG bietet diesen Einstieg.
    Gesprächsdaten, Lernprofile, Anhänge oder Gerätekennungen. Der Nutzer ergänzt,
    prüft und versendet selbst. Ohne E-Mail-App wird der Empfänger angezeigt.
 5. Die nativen iOS-Supportansichten zeigen denselben KI-/Health-Grenzstatus und
-   öffnen nach Bestätigung ebenfalls nur einen E-Mail-Entwurf.
+   öffnen nach Bestätigung ebenfalls nur einen E-Mail-Entwurf. Die Android-
+   Startseiten benennen den Einstieg als Hilfe/Support und versprechen keine
+   KI-Unterstützung.
 
 Die Empfängeradresse kommt weiterhin aus der bestehenden app-lokalen
 `support_email`-Ressource. Es gibt keinen automatischen Mailversand und keine
@@ -69,6 +71,14 @@ und mobile KI-Integration stehen weiterhin aus.
   Defense erhält keinen kopierten Geräte- oder Assistenzruntime.
 - Defense meldet unbekannten Gerätestatus und keinen aktiven Schutzdienst,
   statt eine Überwachung oder Einsatzbereitschaft vorzutäuschen.
+- Defense zeigt den Notfallhinweis auf Android und iOS vor den weiteren
+  Startseiteninhalten: Die Vorschau bietet keinen Schutz- oder Notruf, ersetzt
+  nicht den örtlichen Notruf und verweist bei akuter Gefahr auf die lokalen
+  Rettungsdienste.
+- Der iOS-Healthstatus unterscheidet fehlende Konfiguration, Timeout,
+  Netzwerkfehler, HTTP-Fehler und ungültige Antwort. Eine erfolgreiche
+  Readiness-Antwort belegt nur die Backend-Gesundheit, keine KI- oder
+  Produktfunktion.
 - Apps verwenden mobile Bedienflächen, flexible Texthöhen und scrollbare
   Inhalte; sie werden nicht als Desktop-Webseiten nachgebaut.
 - Animationen und ein tatsächlicher Gerätewechsel des Elektro-Engels sind

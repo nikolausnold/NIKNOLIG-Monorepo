@@ -7,9 +7,9 @@
     <string name="system_status">Vorschau · kein aktiver Schutzdienst</string>
     <string name="device_status">Gerätestatus: unbekannt – keine Geräteerkennung oder Überwachung verfügbar</string>
     <string name="support_heading">SUPPORT-ZENTRALE</string>
-    <string name="support_description">Zuerst KI-Unterstützung prüfen. Bei fehlender KI-Hilfe ist persönliche Hilfe per E-Mail möglich – nur nach deiner Bestätigung. Noch kein KI-Dienst angeschlossen.</string>
+    <string name="support_description">Offline-Hilfe lesen oder nach deiner Bestätigung eine E-Mail an den Support vorbereiten. Ein KI-Dienst ist nicht angeschlossen.</string>
     <string name="support_payment_notice">Zahlungsfragen werden hier nicht bearbeitet. Bitte wende dich dafür direkt an den Zahlungsanbieter oder Händler. Sende keine Zahlungsdaten an den technischen Support.</string>
-    <string name="support_contact_button">KI-Support prüfen</string>
+    <string name="support_contact_button">Hilfe und Support öffnen</string>
     <string name="support_email">n_nold@hotmail.com</string>
     <string name="official_website_url" translatable="false">https://defense.niknolig.com/</string>
     <string name="support_email_subject">Technische Supportanfrage – NIKNOLIG Defense · %1$s</string>
@@ -18,6 +18,8 @@
     <string name="demo_notice">Vorschau – noch keine Geräteverbindung, Sicherheitsfreigabe oder produktive Funktion.</string>
     <string name="defense_access_heading">DEFENSE-ZUGANG · NOCH NICHT VERFÜGBAR</string>
     <string name="defense_access_notice">Geplant: einmalig fünf aufeinanderfolgende 24-Stunden-Zeiträume kostenlos je berechtigtem NIKNOLIG-Konto, ab der ersten bewusst bestätigten, serverseitig erfolgreichen Defense-Aktivierung. Keine Zahlungsmethode erforderlich. Neuinstallation, Geräte- oder Plattformwechsel starten keinen neuen Test.\n\nZusätzlich ist ein getrennter, kostenloser Defense-Zugang für 48 Stunden für Personen vorgesehen, die sich nachweislich nicht selbst aus einer Notlage befreien können. Er darf nicht allein wegen eines abgelaufenen Tests oder fehlender Zahlung blockiert werden. Die konkrete sichere und datensparsame Prüfung ist noch nicht festgelegt.\n\nHier wird weder ein Test noch Notfallzugang gestartet. Aktivierungszeit, Restzeit und Ablauf sind ohne sichere Kontosynchronisierung nicht verfügbar. Aktivierung, Notfallprüfung, Kauf und Wiederherstellung sind noch nicht angeschlossen.\n\nNach Ablauf des regulären Tests ist optional ein dauerhaftes Upgrade für einmalig 0,75 € auf unterstützten Plattformen für dasselbe Konto vorgesehen. Kein Abo, keine automatische Verlängerung, keine wiederkehrenden Kosten und keine automatische Zahlung. Ein Kauf erfordert deine ausdrückliche Bestätigung im Store; vorher muss der endgültige Gesamtpreis einschließlich Steuern bestätigt sein. NIKNOLIG bleibt ohne Upgrade nutzbar.\n\nSicherheits-, Notfall- und Infrastruktur-Erkennungsfunktionen sind in dieser Vorschau nicht verfügbar. Ein Upgrade garantiert keine Notfallhilfe. Bei akuter Gefahr die örtliche Notrufnummer verwenden.</string>
+    <string name="defense_emergency_heading">WICHTIG BEI AKUTER GEFAHR</string>
+    <string name="defense_emergency_notice">Diese Vorschau bietet keine Schutz- oder Notruffunktion und übermittelt keinen Standort. Sie ersetzt keinen örtlichen Notruf. Bei akuter Gefahr direkt die örtlichen Rettungsdienste unter der geltenden Notrufnummer kontaktieren.</string>
     <string name="learning_profile_button">Lernprofil und Datenschutz</string>
     <string name="learning_profile_title">Lernprofil</string>
     <string name="learning_profile_description">Lege fest, wie Elektro-Engel dir antworten soll und ob einfache Rückmeldungen lokal gezählt werden dürfen.</string>

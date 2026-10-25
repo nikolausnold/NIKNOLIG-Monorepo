@@ -7,9 +7,9 @@
     <string name="system_status">Preview · no active protection service</string>
     <string name="device_status">Device status: unknown — device discovery and monitoring are unavailable</string>
     <string name="support_heading">SUPPORT CENTER</string>
-    <string name="support_description">Check AI assistance first. If AI help is unavailable, personal help by email is possible – only with your confirmation. No AI service is connected yet.</string>
+    <string name="support_description">Read offline help or prepare an email to support after confirmation. No AI service is connected.</string>
     <string name="support_payment_notice">Payment questions are not handled here. Please contact your payment provider or merchant directly. Do not send payment details to technical support.</string>
-    <string name="support_contact_button">Check AI support</string>
+    <string name="support_contact_button">Open help and support</string>
     <string name="support_email">n_nold@hotmail.com</string>
     <string name="official_website_url" translatable="false">https://defense.niknolig.com/</string>
     <string name="support_email_subject">Technical support request – NIKNOLIG Defense · %1$s</string>
@@ -18,6 +18,8 @@
     <string name="demo_notice">Preview — no device connection, security approval, or production feature is available yet.</string>
     <string name="defense_access_heading">DEFENSE ACCESS · NOT AVAILABLE YET</string>
     <string name="defense_access_notice">Planned: one free trial per eligible NIKNOLIG account lasting five consecutive 24-hour periods from the first explicitly confirmed, successful server-side Defense activation. No payment method required. Reinstalling, changing devices or switching platforms does not restart the trial.\n\nAdditionally, a separate 48 hours of free Defense access is intended for people demonstrably unable to get themselves out of an emergency. It must not be blocked solely because the trial expired or payment is missing. The specific safe, data-minimizing verification has not been defined.\n\nNeither a trial nor emergency access starts here. Activation time, remaining time and expiration are unavailable without secure account synchronization. Trial activation, emergency verification, purchase and restoration are not connected yet.\n\nAfter the regular trial expires, an optional permanent upgrade for a one-time €0.75 payment is planned for the same account on supported platforms. No subscription, automatic renewal, recurring charges or automatic payment. A purchase requires your explicit confirmation in the store; the final total price including taxes must be confirmed beforehand. NIKNOLIG remains usable without the upgrade.\n\nSecurity, emergency and infrastructure-discovery features are unavailable in this preview. An upgrade does not guarantee emergency assistance. In immediate danger, use the local emergency number.</string>
+    <string name="defense_emergency_heading">IMPORTANT IN AN EMERGENCY</string>
+    <string name="defense_emergency_notice">This preview has no protection or emergency-calling feature and does not share your location. It does not replace local emergency services. If you are in immediate danger, contact your local emergency services directly using the applicable emergency number.</string>
     <string name="learning_profile_button">Learning profile and privacy</string>
     <string name="learning_profile_title">Learning profile</string>
     <string name="learning_profile_description">Choose how Elektro-Engel should explain things and whether simple feedback may be counted locally.</string>

@@ -38,9 +38,9 @@
     <string name="system_status">Development scaffold</string>
     <string name="device_status">Device status: unknown — device discovery is unavailable</string>
     <string name="support_heading">YOUR SUPPORT</string>
-    <string name="support_description">Check AI assistance first. If AI help is unavailable, you can deliberately prepare an email to the operator. No AI service is connected yet.</string>
+    <string name="support_description">Read offline help or prepare an email to the operator after confirmation. No AI service is connected.</string>
     <string name="support_payment_notice">Payment questions are not handled here. Please contact your payment provider or merchant directly. Do not send payment details to technical support.</string>
-    <string name="support_contact_button">Open AI support</string>
+    <string name="support_contact_button">Open help and support</string>
     <string name="support_email">n_nold@hotmail.com</string>
     <string name="official_website_url" translatable="false">https://niknolig.com/</string>
     <string name="support_email_subject">Technical support request – NIKNOLIG · %1$s</string>

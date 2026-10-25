@@ -223,7 +223,8 @@ class SupportFlowTests(unittest.TestCase):
         self.assertIn("kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly", support_core)
         defense = (ios / "NIKNOLIGDefenseApp.swift").read_text()
         self.assertIn("kein Notfallkanal", defense)
-        self.assertIn("löst keinen Notruf aus", defense)
+        self.assertIn("keine Schutz- oder Notruffunktion", defense)
+        self.assertIn("örtlichen Rettungsdienste", defense)
 
     def test_support_strings_are_localized_and_honest_about_missing_ai(self):
         for app in APPS:

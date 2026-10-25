@@ -322,7 +322,7 @@ keine Produktionsfreigabe.
 | Migration / Datenbank | Teilweise implementiert | `000_health_runtime.sql` ist die Infrastruktur-Basis; `001_initial_contract.sql` bleibt ein separat freizugebendes Geräte-Modell. Keine produktive Migration ausgeführt. |
 | Konfiguration / Deployment / Rollback | Teilweise implementiert | `compose.production.yaml`, `deployment.py`, `Caddyfile` und die Betriebsabschnitte unten existieren. Domain, TLS-Erneuerung, vorhandene Server-/DB-Ressourcen, Backup-Wiederherstellung und Monitoring sind extern zu bestätigen. Keine Infrastruktur ersetzt. |
 | Anmeldung, Autorisierung, Sitzungen | Vollständig fehlend als Produktlaufzeit | `ai_support.py` hat nur ein Authenticator-Protokoll und standardmäßige Ablehnung, keinen Aussteller, Login, Widerrufsspeicher oder produktiven Validator. Die Health-DB-Rolle ersetzt keine Benutzeranmeldung. |
-| Echte KI-Antworten über das Backend | Implementiert als Vorbereitung, aber nicht verbunden | `ai_support.py` und `ai-support.openapi.yaml`: Adaptergrenze, App-Scope, Audit-/Quota-Gates und lokale Tests. Kein realer Netzwerktransport und kein Anbieteraufruf; ASGI registriert keine KI-Route. |
+| Echte KI-Antworten über das Backend | Transport implementiert, aber nicht aktiviert oder verbunden | `ai_support.py`, `workers_ai.py` und `ai-support.openapi.yaml`: Adaptergrenze, app-spezifische Gates und lokale Tests. Der feste HTTPS-Transport ist vorhanden, wird aber nicht in den ASGI-Standard injiziert; dessen Support-Routen verwenden weiter den fail-closed Standarddienst. Kein echter Anbieteraufruf. |
 | KI-Freigabe / Kostenkontrolle | Blockiert durch externe Voraussetzungen und fehlende Laufzeit | Anbieter-/Modell-/Datenschutz-/Kostenfreigabe und serverseitige Zugangsdaten fehlen. In-Memory-Quoten sind keine dauerhafte instanzübergreifende Kostenbegrenzung; Audit- und Quota-Speicher müssen noch implementiert werden. |
 | Elektro-Engel-Analyse | Implementiert, aber nicht mit echter KI verbunden | `modules/electro-engel/`: lokale deterministische Analyse, kein Beleg für generative KI oder Faktenprüfung. Keine Änderung an BUILD TO RUN. |
 | Gemeinsame Supportantworten | Teilweise implementiert | `modules/support/` wird von beiden Android- und iOS-Apps verwendet: lokale FAQs und Diagnosecodes. Kein authentifizierter Netzwerk-Chat, kein Empfang menschlicher Antworten. |
@@ -625,11 +625,12 @@ Provider-Aufrufe, neuen Tokens, Konten, Deployments oder Abonnements.
   explizit in `SupportService` injiziert. Ein freigegebener Adapter muss einen
   festen Anbieter/Host, begrenzte Timeouts und Ausgaben, sichere Credential-
   Ablage sowie Datenschutz-, Lizenz-, Kosten-, Authentifizierungs-, Quota- und
-  Audit-Freigaben umsetzen. Bis dahin gibt es weder Netzwerktransport noch
-  kostenpflichtige Provider-Aufrufe; die Standardkonfiguration bleibt gesperrt.
-- Der vorbereitete Cloudflare-Adapter verwendet ausschließlich einen injizierten
-  Transport. Ein authentifizierter Netzwerktransport wird **nicht** mitgeliefert.
-  Anbieter, Modell und Provider-Ziel sind keine frei wählbaren Request-Felder.
+  Audit-Freigaben umsetzen. Der feste Netzwerktransport ist vorhanden, aber weder
+  aktiviert noch freigegeben; kostenpflichtige Provider-Aufrufe bleiben gesperrt.
+- `CloudflareWorkersAI` verwendet injizierten Transport; `workers_ai.py` liefert
+  den festen HTTPS-Transport, der weder in ASGI aktiviert noch durch echte
+  Anbieteraufrufe verifiziert ist. Anbieter, Modell und Provider-Ziel bleiben
+  keine frei wählbaren Request-Felder.
 - Der Authenticator muss eine serverseitig verifizierte, aktive, nicht
   abgelaufene Identität mit App-Bereich und minimalen Berechtigungen liefern.
   Der Standard verweigert Zugriff; Test-Authentifizierung ist kein Login-System
@@ -665,7 +666,7 @@ Produktionsschalter:
 | --- | --- |
 | `RuntimeControls` | `enabled`, `provider_approved`, `cost_approved` müssen wahr sein; `offline` oder `killed` sperren; Standard verweigert |
 | `Authenticator` / `Principal` | Verifizierter `subject`, `app`, `permissions`, Ablaufzeit und aktiver Status; `ai:support` bzw. `ai:electro-engel` separat und jeweils an dieselbe App gebunden |
-| `Provider` / `CloudflareWorkersAI` | Austauschbares `generate`-Protokoll; Cloudflare nur mit injiziertem `WorkersAITransport`, ohne mitgelieferten Netzwerkzugang |
+| `Provider` / `CloudflareWorkersAI` | Austauschbares `generate`-Protokoll; der feste HTTPS-Transport ist vorhanden, wird aber nicht in den Standarddienst injiziert oder aktiviert |
 | `AuditSink` | Verpflichtender injizierter Metadaten-Sink; Standard nicht verfügbar und damit sperrend |
 | `Limits` / `QuotaStore` / `LocalQuotas` | Austauschbarer Kontingentspeicher; lokal Standard 5 Aufrufe je Minute/Principal/App, 20.000 reservierte Tokens und 50 Aufrufe je App/UTC-Tag, global 80/Tag, 2 gleichzeitige Aufrufe; maximal 1.024 aktive Principal-Einträge |
 | Größen / Timeout | Maximal 2.048 UTF-8-Bytes Prompt, 1.024 UTF-8-Bytes Antwort, 256 Output-Tokens; HTTP-Body maximal 8.192 Bytes mit 2 Sekunden Lesefrist; Adapter fordert 5 Sekunden Transporttimeout an |
@@ -673,9 +674,9 @@ Produktionsschalter:
 Der Input wird konservativ nach UTF-8-Bytes einschließlich Systemtext und
 Framing reserviert, nicht nach der unsicheren Faustregel „vier Zeichen je
 Token“. Lokale Limits sind Test-/Vorbereitungswerte und **keine genehmigten
-Produktionsbudgets**. Der injizierte echte Transport muss Timeout,
-Antwortgrößen, festen Provider-Host und Abbruch später selbst erzwingen; der
-Protokollparameter allein unterbricht keinen beliebigen blockierenden Code.
+Produktionsbudgets**. `WorkersAIHTTPTransport` erzwingt festen Provider-Host,
+TLS, Timeout und Antwortgrößen; ohne Freigabe und explizite Injektion bleibt er
+ungenutzt. Der Protokollparameter allein unterbricht keinen beliebigen Code.
 Lokale Audit-Ereignisse erfassen akzeptierte Reservierungen, Provider-Ergebnisse
 und nachträgliche Gate-Sperren. Frühe Ablehnungen wegen Authentifizierung,
 Validierung, Autorisierung, Rate/Budget oder anfänglicher Deaktivierung sind
@@ -690,7 +691,7 @@ Betriebsvarianten sind zu unterscheiden:
 
 | Variante | Benötigt nach ausdrücklicher Freigabe | Nicht in dieser Änderung |
 | --- | --- | --- |
-| Bestehendes Python-Backend → Workers AI REST | Cloudflare-Konto, Account-ID, accountbeschränkter API-Token mit Workers AI Read/Edit, serverseitiger Secret Store, fester HTTPS-Transport mit Timeout und ohne Redirects | Kein Token erstellt, kein echter Transport oder REST-Aufruf |
+| Bestehendes Python-Backend → Workers AI REST | Cloudflare-Konto, Account-ID, accountbeschränkter API-Token mit Workers AI Read/Edit und serverseitiger Secret Store; der feste HTTPS-Transport mit Timeout und ohne Redirects ist inzwischen in `workers_ai.py` implementiert | Kein Token erstellt, keine Betreiber-/Datenschutz-/Kostenfreigabe und kein echter REST-Aufruf; Transport nicht im Standarddienst aktiviert |
 | Separater Cloudflare Worker mit AI-Binding | Freigegebener Worker und `AI`-Binding; Modellaufruf serverseitig über `env.AI.run` ohne Provider-Token im Mobilclient | Kein Worker-Gerüst, Binding, Wrangler-Deployment oder Dienst aktiviert |
 
 Ein neuer Worker ist keine Voraussetzung für die Vorbereitung des vorhandenen
@@ -1190,3 +1191,51 @@ bleiben unbestätigt.
 Die Testresultate belegen weder eine öffentliche HTTPS-Adresse noch einen
 Serverbetrieb, SecurityChain-P0-Freigabe, produktive Backup-Ausführung oder
 Restore-/Incident-Übung.
+
+### Aktualisierte Bestandsprüfung (25.10.2026; geprüfter Quell-/CI-Stand `7b83e3b`)
+
+- **Backend:** `app.py` ist die lokale stdlib-Laufzeit; `asgi.py` stellt die
+  PostgreSQL-abhängigen Health-Routen bereit und registriert zusätzlich die
+  fail-closed Support-Routen `/support` und `/v1/ai/support`. Der Standard-
+  `SupportService` lehnt weiter ab; es gibt keinen produktiven Login-, Token-,
+  Geräte-, Pairing- oder Produktdatenfluss. `openapi.yaml` beschreibt Health,
+  nicht die Support-Testlaufzeit. Migration `000_health_runtime` ist die
+  Infrastrukturgrundlage; `001_initial_contract.sql` bleibt ein nicht
+  angewendeter Entwurf.
+- **Vier App-Varianten:** NIKNOLIG Android (`com.niknolig.app`), NIKNOLIG
+  Defense Android (`com.niknolig.defense`), NIKNOLIG iOS und NIKNOLIG Defense
+  iOS bleiben getrennte Identitäten. Alle vier können nur Health prüfen;
+  geschützte Produktoperationen, authentifizierter Support und App-zu-App-
+  Datenaustausch sind nicht implementiert oder nachgewiesen.
+- **Offizielle API-Adresse:** `https://api.niknolig.com` ist das vorgegebene
+  Produktziel, aber kein hier bestätigter Live-Dienst. Der einmalige HTTPS-
+  Readiness-Aufruf am 25.10.2026 endete vor HTTP mit `Could not resolve host`
+  (curl exit 6, HTTP 000). Das belegt weder einen allgemeinen DNS-Ausfall noch
+  Erreichbarkeit. Android-Releasewerte und iOS-Buildwerte werden extern
+  konfiguriert; die `*.example.com`-Werte im iOS-Simulator-CI sind ausschließlich
+  Build-Fixtures, keine Produktionsziele. Keine der Apps hat damit eine
+  bestätigte Live-Verbindung.
+- **Tatsächliche CI-Nachweise:** Backend-Verträge/Tooling und beide Android-
+  Builds/Tests/Lint waren für genau diesen Branch-Commit erfolgreich:
+  [Backend](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40196168740),
+  [Android](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40196168739).
+  Der letzte erfolgreiche iOS-Simulatorlauf für beide Targets (Debug/Release,
+  ohne Signierung) ist
+  [Run 40195943970](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40195943970)
+  auf Commit `057a3ca`; er ist kein Geräte-, Signierungs- oder Live-API-Nachweis.
+  Ein früherer Backend-CI-Lauf schlug im Tooling-Schritt fehl; der spätere
+  Backend-Lauf auf `7b83e3b` bestand.
+- **Lokale Prüfung:** 13 portable Backend-Vertragstests bestanden. Die komplette
+  Backend-Suite konnte in dieser Umgebung wegen fehlendem `psycopg` nicht
+  importiert werden (vier Importfehler; kein Testfehlernachweis). Die CI
+  installierte die festgeschriebenen Abhängigkeiten und bestand. Ein erneuter
+  lokaler Android-Build wurde nicht gestartet; der zuvor dokumentierte
+  AGP-Auflösungsfehler und der fehlende Xcode/Linux-Gerätepfad bleiben
+  Umgebungsgrenzen.
+- **SecurityChain-P0:** weiter **nicht freigegeben und nicht abgeschlossen**.
+  Die Spezifikation ist Reviewentwurf v0.6; D-01 bis D-12 enthalten weiterhin
+  offene menschliche Entscheidungen/Nachweise (D-07 nur technisch
+  nachgewiesen). Authentifizierung, serverseitige Produktautorisierung,
+  Installationsidentität, Pairing, Widerruf und BLE sind nicht aktiviert.
+  Diese Arbeiten werden nicht durch willkürliche Anbieter-, Rollen-, Daten-,
+  Schlüssel- oder Transportentscheidungen vorweggenommen.
