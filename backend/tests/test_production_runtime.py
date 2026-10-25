@@ -26,6 +26,7 @@ import database
 import deployment
 import migrate
 from asgi import _check_database, app as production_app, create_app
+from app import create_server
 from ai_support import Principal, ProviderResult, RuntimeControls, SupportService
 
 
@@ -827,6 +828,70 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
             if thread.ident is not None:
                 thread.join(5)
             listener.close()
+            self.assertFalse(thread.is_alive())
+
+    def test_stdlib_http_readiness_uses_dedicated_role_and_rejects_schema_drift(self):
+        from psycopg.conninfo import make_conninfo
+        with patch("database.read_secret", return_value="integration-test-only"):
+            migrate.migrate(self.connection, health_secret_path="mock-only")
+        dsn = make_conninfo(
+            os.environ["BACKEND_TEST_DATABASE_URL"], user="backend_health",
+            **{"password": "integration-test-only"},
+        )
+        server = create_server("127.0.0.1", 0)
+        url = f"http://127.0.0.1:{server.server_port}"
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+
+        def request(path, data=None):
+            headers = {"Content-Type": "application/json"} if data is not None else {}
+            try:
+                response = urlopen(Request(url + path, data=data, headers=headers), timeout=5)
+            except HTTPError as failure:
+                response = failure
+            with response:
+                self.assertEqual("no-store", response.headers["Cache-Control"])
+                self.assertEqual("nosniff", response.headers["X-Content-Type-Options"])
+                return response.status, json.load(response)
+
+        try:
+            with patch.dict(os.environ, {"DATABASE_URL": dsn, "PGPASSWORD_FILE": ""}):
+                thread.start()
+                self.assertEqual((200, {"status": "ready"}), request("/health/ready"))
+                self.connection.execute(
+                    "UPDATE backend_schema_migrations SET checksum = repeat('0', 64)"
+                )
+                status, body = request("/health/ready")
+                self.assertEqual(503, status)
+                self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
+                self.assertNotIn("checksum", json.dumps(body))
+                self.assertEqual((200, {"status": "live"}), request("/health/live"))
+                self.connection.execute(
+                    "UPDATE backend_schema_migrations SET checksum = %s",
+                    (migrate.checksum(migrate.BASELINE),),
+                )
+                self.assertEqual((200, {"status": "ready"}), request("/health/ready"))
+                with patch.dict(os.environ, {
+                    "DATABASE_URL": os.environ["BACKEND_TEST_DATABASE_URL"],
+                }):
+                    self.assertEqual(503, request("/health/ready")[0])
+                    self.assertEqual((200, {"status": "live"}), request("/health/live"))
+                for app in ("niknolig", "niknolig-defense"):
+                    for path, payload in (
+                        ("/support", {"app": app, "message": "Help"}),
+                        ("/v1/ai/support", {"app": app, "feature": "support", "prompt": "Help"}),
+                    ):
+                        with self.subTest(app=app, path=path):
+                            status, body = request(path, json.dumps(payload).encode())
+                            self.assertEqual(503, status)
+                            self.assertEqual("AI_DISABLED", body["error"]["code"])
+                self.assertIsNone(self.connection.execute(
+                    "SELECT to_regclass('public.device_installations')"
+                ).fetchone()[0])
+        finally:
+            if thread.ident is not None:
+                server.shutdown()
+                thread.join(5)
+            server.server_close()
             self.assertFalse(thread.is_alive())
 
     def test_production_readiness_rejects_privilege_drift_after_provisioning(self):

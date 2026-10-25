@@ -12,6 +12,82 @@ NIKNOLIG Defense bleiben getrennte Sicherheits- und Release-Domänen; gemeinsame
 Verträge verleihen keine Rechte.
 Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 
+## Integrationsfortsetzung – verifizierter Stand 25.10.2026
+
+Die Entwicklungsfreigabe und die Bestätigung der offiziellen URLs ersetzen keine
+fehlende Identitätsanbieter-, App-Audience-, Widerrufs- oder Pairing-Entscheidung.
+Die P0-Spezifikation bleibt laut ihrem Status ein nicht genehmigter Reviewentwurf;
+es wurde keine produktive Freigabe daraus abgeleitet.
+
+**Implementiert:** Die lokale `app.py`-Readiness verwendet jetzt wie `asgi.py`
+`check_health_ready_async`: direkte Anmeldung als `backend_health`, Prüfung der
+minimalen Rollenrechte und der Migrationen. Damit meldet auch die lokale Laufzeit
+bei versehentlich verwendeten Migrator-Rechten keine Bereitschaft. Ein zusätzlicher
+echter HTTP-/PostgreSQL-Test prüft gültige Readiness, Schemaabweichung und Erholung,
+Ablehnung der Admin-Konfiguration, unabhängige Liveness und gesperrten Support für
+beide App-Bereiche.
+
+**In dieser Entwicklungsumgebung tatsächlich ausgeführt:**
+
+- Das bereits in CI gepinnte PostgreSQL-17.9-Image
+  `sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609`
+  wurde in isolierten, wegwerfbaren Containern mit ausschließlich lokalen Ports
+  gestartet. Testdatenbank und separate Entwicklungsdatenbank wurden getrennt.
+- 149 Backendtests bestanden ohne übersprungene Tests, einschließlich echter
+  Migrationen, HTTP→Backend→PostgreSQL und Rollen-/Schema-Negativtests.
+- Beide tatsächlichen HTTP-Laufzeiten wurden auf `127.0.0.1:18000` (ASGI) und
+  `127.0.0.1:18001` (stdlib) mit einer separaten Health-Anmeldung gestartet.
+  Beide lieferten `live` und `ready`; `/support` blieb für beide App-Bereiche mit
+  `503 AI_DISABLED` gesperrt, `/login`, `/v1/devices` und `/v1/device-links`
+  lieferten 404. Der Datenbanklogin konnte das Ledger lesen, aber nicht löschen.
+  Nur `000_health_runtime` wurde für diesen lokalen Betrieb angewendet;
+  keine Produkt-Tabellen wurden eingerichtet.
+  Beim Pausieren nur dieses lokalen PostgreSQL-Containers antworteten beide
+  Readiness-Routen mit 503, Liveness weiter mit 200; nach Fortsetzung wieder
+  Readiness 200. Kein Produktionsdienst wurde angehalten.
+- Neun portable Swift-Supporttests und acht Analysekerntests bestanden unter
+  Linux. Dies ist kein nativer iOS-App-, Simulator-, Signierungs- oder Gerätetest.
+- Ein gebündelter Android-Build-/Clienttest-Aufruf scheiterte vor der
+  Projektkonfiguration an der Auflösung von `com.android.application:9.4.1`.
+  Der direkte Google-Maven-Abruf scheiterte ebenfalls an DNS. Deshalb keine
+  unbelegte Versionsänderung und kein erneuter Buildversuch.
+- HTTPS-Abrufe von `api.niknolig.com`, `niknolig.com` und
+  `defense.niknolig.com` scheiterten hier vor HTTP an der DNS-Auflösung.
+  Dies belegt weder einen Produktionsausfall noch eine erfolgreiche Verbindung.
+
+**Vorhandene, nicht erneut ausgeführte CI-Nachweise:** Für PR #167 auf
+`e2d3bfdb36a0616af711ec456792e0e6712fdac0` meldet GitHub erfolgreiche
+[Android-Prüfungen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40167289546),
+[iOS-Simulator-Prüfungen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40167289531)
+und [Backend-Prüfungen](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40167289484).
+Der [signierte Android-Release-Lauf](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/40167084537)
+ist für `main` auf `67e39f284812f2a9931d54c5b7c6fb69028133ae` erfolgreich,
+nicht für den PR-Commit oder diese Änderungen. Diese Nachweise sind keine
+Geräte-/Produktionsabnahme. Die lokale Arbeitsbasis dieser Fortsetzung ist
+`47035e3bc9c758020cecf4a03e37eba491754c03`; Änderungen anderer Branches wurden nicht
+still übernommen. PR #167 wurde weiterhin als `blocked` gemeldet; erfolgreiche
+Checks und eine vorhandene Genehmigung beweisen nicht die Erfüllung aller
+Branch-Regeln.
+
+**Konkrete externe Blockaden und noch notwendige Entscheidungen:**
+
+- Authentifizierung/Sitzungen: Aussteller, getrennte App-Audiences und Rechte,
+  Token-Ausgabe/-Prüfung, Rotation, Widerruf und Recovery verbindlich festlegen.
+  `Authenticator` ist nur die Schnittstelle; `RejectAllAuthenticator` bleibt der
+  tatsächliche Standard, kein Login- oder Sitzungsdienst.
+- Geräteidentität/Kopplung: P0-Version, Transport, Besitznachweis,
+  Schlüssel-/Sitzungslebenszyklus, Zustimmung, erlaubte Daten/Aktionen und
+  unterstützte Geräte freigeben. SQL-/JSON-Entwürfe sind keine Laufzeit.
+- KI/Support: Anbieter-/Daten-/Kostenfreigabe, dauerhafte Quoten/Auditregeln und
+  autorisierte Ticket- und Aufbewahrungsverträge fehlen. Keine echte
+  Anbieterkommunikation, keine produktiven Tokens und kein Mailversand aktiviert.
+- Produktivbetrieb: bestätigte URLs liegen als Betreiberangabe vor; Remote-Zugang,
+  tatsächliche DNS-/TLS-/Readiness-Nachweise aus dem Zielnetz und Betriebsabnahme
+  fehlen dieser Umgebung. Kein Remote-Deployment oder Produktionsmigration.
+- iOS-Geräte: macOS/Xcode, freigegebene Apple-Signieridentität und Provisionierung
+  sowie physische Testgeräte fehlen. Android-Geräte-/Mobilfunkabnahmen fehlen
+  ebenfalls; CI-Artefakte ersetzen sie nicht.
+
 ## Fortsetzung nach #148: produktiver HTTP-Pfad und Anbietertransport
 
 Ausgangsstand `97e4e796c0a9b7dc2d94d20c372becabab81364a`; #146–#148 und
@@ -305,7 +381,9 @@ bestimmt.
 
 ## Lokaler Health-Server
 
-Mit Python 3 starten:
+Nach Installation der gepinnten Abhängigkeiten und der unten beschriebenen
+Baseline-Migration mit Python 3 starten. Zuvor auf die direkte
+`backend_health`-Anmeldung und deren separates Secret umstellen:
 
 ```sh
 python3 backend/app.py
@@ -314,7 +392,8 @@ python3 backend/app.py
 Die Standardbindung ist `127.0.0.1:8000`. `BACKEND_HOST` und `BACKEND_PORT`
 können als Umgebungsvariablen gesetzt werden. Die Anwendung lädt `.env` nicht
 automatisch. `/health/live` meldet Prozessverfügbarkeit. `/health/ready` erfordert
-eine explizite PostgreSQL-Konfiguration und eine gültige, geprüfte Migration;
+eine explizite PostgreSQL-Konfiguration mit direkter `backend_health`-Anmeldung,
+minimalen Rollenrechten und einer gültigen, geprüften Migration;
 andernfalls antwortet es mit einer generischen 503-Antwort. Andere GET-Pfade geben
 eine generische 404-Antwort zurück. Es gibt keine Anmeldung, Gerätefunktion oder
 freigegebene Produkt-API.
@@ -665,7 +744,7 @@ python3 -m pip install -r backend/requirements.txt
 # PGPASSWORD_FILE konfigurieren; keine Credentials in Git oder Shell-History.
 # Für die Rollenbereitstellung zusätzlich HEALTH_DB_PASSWORD_FILE setzen.
 python3 backend/migrate.py
-# Vor ASGI auf die direkte backend_health-Anmeldung und deren separates
+# Vor beiden HTTP-Laufzeiten auf die direkte backend_health-Anmeldung und deren separates
 # Passwort umstellen, auch in DATABASE_URL; niemals Migrator-Zugang verwenden.
 python3 -m uvicorn asgi:app --app-dir backend --host 127.0.0.1 --port 8000 \
   --no-proxy-headers --no-server-header --no-access-log
@@ -681,8 +760,9 @@ Die vorhandene `001_initial_contract.sql` bleibt unverändert und gesperrt:
 Architektur-/Security-/Datenmodell-Freigabe** verwendet werden. Das Flag ist
 kein Freigabenachweis und wird im Produktions-Compose nicht gesetzt.
 Kein automatisches Downgrade oder Löschen vorhandener Daten wird durchgeführt.
-Der ASGI-Readiness-Aufruf benötigt die separate `backend_health`-Anmeldung;
-die Migrationsanmeldung ist dort auch bei gültigem Schema nicht zulässig.
+Die Readiness-Aufrufe beider HTTP-Laufzeiten benötigen die separate
+`backend_health`-Anmeldung; die Migrationsanmeldung ist auch bei gültigem Schema
+nicht zulässig.
 Integrationstests laufen zusätzlich bei `BACKEND_TEST_DATABASE_URL`; sie
 löschen das `public`-Schema und verlangen deshalb ausdrücklich eine wegwerfbare
 Testdatenbank mit Namenssuffix `_backend_test`, niemals eine Betriebsdatenbank.
