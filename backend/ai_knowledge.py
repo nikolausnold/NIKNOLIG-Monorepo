@@ -1,6 +1,6 @@
 """Fail-closed knowledge, learning and on-demand research preparation."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import math
 import re
@@ -93,24 +93,42 @@ class ResearchResult:
     conflicting_topics: frozenset[str]
 
 
+def _source_allows_scope(source: KnowledgeSource | None, scope: str) -> bool:
+    return (
+        source is not None and source.trust == "approved"
+        and source.scope in (scope, "shared")
+        and (source.scope != "shared" or source.shared_approved)
+        and (scope != "shared" or source.shared_approved)
+    )
+
+
 class KnowledgeRepository(Protocol):
     """Storage boundary; production persistence requires an approved adapter."""
 
     def add_source(self, source: KnowledgeSource) -> None: ...
     def revoke_source(self, source_id: str) -> KnowledgeSource | None: ...
     def get_source(self, source_id: str) -> KnowledgeSource | None: ...
-    def publish(self, entry: KnowledgeEntry) -> KnowledgeEntry: ...
+    def publish(self, entry: KnowledgeEntry) -> KnowledgeEntry:
+        """Revalidate source approval and scope atomically with storage and revocation."""
+        ...
     def current(self, entry_id: UUID) -> KnowledgeEntry | None: ...
+    def get_version(self, entry_id: UUID, version: int) -> KnowledgeEntry | None: ...
     def search(self, terms: tuple[str, ...]) -> tuple[KnowledgeEntry, ...]: ...
     def record_feedback(self, app: str, issue_code: str, entry_id: UUID,
-                        entry_version: int, positive: bool) -> tuple[int, int]: ...
+                        version: int, positive: bool) -> tuple[int, int]:
+        """Revalidate entry scope and source approval atomically with the counter update."""
+        ...
     def feedback_counts(self, app: str, issue_code: str,
-                        entry_id: UUID, entry_version: int) -> tuple[int, int]: ...
-    def add_candidate(self, candidate: LearningCandidate) -> None: ...
+                        entry_id: UUID, version: int) -> tuple[int, int]: ...
+    def add_candidate(self, candidate: LearningCandidate) -> None:
+        """Revalidate the referenced entry/source atomically with staging and revocation."""
+        ...
     def get_candidate(self, candidate_id: UUID) -> LearningCandidate | None: ...
     def set_candidate_state(self, candidate_id: UUID, state: str) -> LearningCandidate | None: ...
     def approve_candidate(self, candidate_id: UUID,
-                          entry: KnowledgeEntry) -> KnowledgeEntry | None: ...
+                          entry: KnowledgeEntry) -> KnowledgeEntry | None:
+        """Revalidate source and publish/approve if pending, serialized with revocation/rejection."""
+        ...
 
 
 class InMemoryKnowledgeRepository:
@@ -148,6 +166,8 @@ class InMemoryKnowledgeRepository:
 
     def publish(self, entry):
         with self._lock:
+            if not _source_allows_scope(self._sources.get(entry.source_id), entry.scope):
+                raise PermissionError("Knowledge source is not approved for this scope")
             versions = self._versions.setdefault(entry.entry_id, [])
             expected_version = len(versions) + 1
             if entry.version != expected_version:
@@ -160,6 +180,11 @@ class InMemoryKnowledgeRepository:
             versions = self._versions.get(entry_id, ())
             return versions[-1] if versions else None
 
+    def get_version(self, entry_id, version):
+        with self._lock:
+            versions = self._versions.get(entry_id, ())
+            return versions[version - 1] if 1 <= version <= len(versions) else None
+
     def search(self, terms):
         with self._lock:
             entries = tuple(
@@ -167,23 +192,31 @@ class InMemoryKnowledgeRepository:
             )
         return tuple(entries)
 
-    def record_feedback(self, app, issue_code, entry_id, entry_version, positive):
-        key = (app, issue_code, entry_id, entry_version)
+    def record_feedback(self, app, issue_code, entry_id, version, positive):
+        key = (app, issue_code, entry_id, version)
         with self._lock:
+            self._require_learning_entry(app, entry_id, version)
             up, down = self._feedback.get(key, (0, 0))
             counts = (up + int(positive), down + int(not positive))
             self._feedback[key] = counts
             return counts
 
-    def feedback_counts(self, app, issue_code, entry_id, entry_version):
+    def feedback_counts(self, app, issue_code, entry_id, version):
         with self._lock:
-            return self._feedback.get(
-                (app, issue_code, entry_id, entry_version), (0, 0)
-            )
+            return self._feedback.get((app, issue_code, entry_id, version), (0, 0))
 
     def add_candidate(self, candidate):
         with self._lock:
+            self._require_learning_entry(
+                candidate.app, candidate.solution_entry_id, candidate.solution_entry_version,
+            )
             self._candidates[candidate.candidate_id] = candidate
+
+    def _require_learning_entry(self, app, entry_id, version):
+        entry = self.get_version(entry_id, version)
+        if (entry is None or entry.scope not in (app, "shared") or
+                not _source_allows_scope(self._sources.get(entry.source_id), entry.scope)):
+            raise PermissionError("Learning entry source is not approved for this scope")
 
     def get_candidate(self, candidate_id):
         with self._lock:
@@ -194,12 +227,7 @@ class InMemoryKnowledgeRepository:
             candidate = self._candidates.get(candidate_id)
             if candidate is None or candidate.state != "pending":
                 return None
-            updated = LearningCandidate(
-                candidate.candidate_id, candidate.app, candidate.issue_code,
-                candidate.solution_entry_id, candidate.solution_entry_version,
-                candidate.positive_count,
-                candidate.negative_count, candidate.created_at, state,
-            )
+            updated = replace(candidate, state=state)
             self._candidates[candidate_id] = updated
             return updated
 
@@ -208,20 +236,12 @@ class InMemoryKnowledgeRepository:
             candidate = self._candidates.get(candidate_id)
             if candidate is None or candidate.state != "pending":
                 return None
-            solution_versions = self._versions.get(candidate.solution_entry_id, ())
-            if (not solution_versions or
-                    solution_versions[-1].version != candidate.solution_entry_version):
-                return None
-            versions = self._versions.get(entry.entry_id, ())
-            if entry.version != len(versions) + 1:
-                raise ValueError("Knowledge versions must be sequential")
-            updated = LearningCandidate(
-                candidate.candidate_id, candidate.app, candidate.issue_code,
-                candidate.solution_entry_id, candidate.solution_entry_version,
-                candidate.positive_count, candidate.negative_count,
-                candidate.created_at, "approved",
+            self._require_learning_entry(
+                candidate.app, candidate.solution_entry_id,
+                candidate.solution_entry_version,
             )
-            self._versions.setdefault(entry.entry_id, []).append(entry)
+            updated = replace(candidate, state="approved")
+            self.publish(entry)
             self._candidates[candidate_id] = updated
             return entry
 
@@ -296,8 +316,18 @@ class KnowledgeService:
 
     def publish(self, principal: Principal, *, scope: str, category: str,
                 source_id: str, title: str, content: str,
-                entry_id: UUID | None = None, _audit_event="knowledge_published",
-                _candidate_id: UUID | None = None) -> KnowledgeEntry:
+                entry_id: UUID | None = None) -> KnowledgeEntry:
+        entry = self._prepare_publication(
+            principal, scope=scope, category=category, source_id=source_id,
+            title=title, content=content, entry_id=entry_id,
+        )
+        return self.repository.publish(entry)
+
+    def _prepare_publication(self, principal: Principal, *, scope: str, category: str,
+                             source_id: str, title: str, content: str,
+                             entry_id: UUID | None = None,
+                             _audit_event="knowledge_published",
+                             _candidate_id: UUID | None = None) -> KnowledgeEntry:
         self._require(principal, "knowledge:curate")
         if scope == "shared":
             self._require(principal, "knowledge:share")
@@ -308,26 +338,10 @@ class KnowledgeService:
                 type(source_id) is not str or
                 type(category) is not str or not re.fullmatch(r"[a-z][a-z0-9_-]{1,47}", category)):
             raise ValueError("Invalid knowledge scope or category")
-        if _candidate_id is not None:
-            self._require(principal, "learning:approve")
-            if not isinstance(_candidate_id, UUID):
-                raise ValueError("Invalid learning candidate identifier")
-            candidate = self.repository.get_candidate(_candidate_id)
-            if (candidate is None or candidate.app != principal.app or
-                    candidate.state != "pending" or candidate.issue_code != category or
-                    candidate.app != scope):
-                raise PermissionError("Learning candidate is unavailable in this app scope")
-            solution = self.repository.current(candidate.solution_entry_id)
-            if (solution is None or
-                    solution.version != candidate.solution_entry_version):
-                raise PermissionError("Learning candidate solution has changed")
         source = self.repository.get_source(source_id)
-        if (source is None or source.trust != "approved" or
-                source.scope not in (scope, "shared") or
-                (source.scope == "shared" and not source.shared_approved) or
-                (scope == "shared" and not source.shared_approved)):
+        if not _source_allows_scope(source, scope):
             raise PermissionError("Knowledge source is not approved for this scope")
-        identifier = entry_id or uuid4()
+        identifier = uuid4() if entry_id is None else entry_id
         if not isinstance(identifier, UUID):
             raise ValueError("Invalid knowledge entry identifier")
         previous = self.repository.current(identifier)
@@ -345,11 +359,7 @@ class KnowledgeService:
         if _candidate_id is not None:
             event["candidateId"] = str(_candidate_id)
         self._audit(event)
-        if _candidate_id is not None:
-            if self.repository.approve_candidate(_candidate_id, entry) is None:
-                raise RuntimeError("Learning candidate was already reviewed")
-            return entry
-        return self.repository.publish(entry)
+        return entry
 
     def search(self, principal: Principal, query: str, *, include_shared=False):
         self._require(principal, "knowledge:read")
@@ -370,9 +380,7 @@ class KnowledgeService:
                     include_shared and entry.scope == "shared"):
                 continue
             source = self.repository.get_source(entry.source_id)
-            if source is None or source.trust != "approved":
-                continue
-            if entry.scope == "shared" and not source.shared_approved:
+            if not _source_allows_scope(source, entry.scope):
                 continue
             searchable = (entry.title + " " + entry.category + " " +
                           entry.content).casefold()
@@ -385,13 +393,15 @@ class KnowledgeService:
         return tuple(hits)
 
     def record_feedback(self, principal: Principal, *, issue_code: str,
-                        solution_entry_id: UUID, positive: bool):
+                        solution_entry_id: UUID, solution_entry_version: int,
+                        positive: bool):
         self._require(principal, "learning:feedback")
         if (type(issue_code) is not str or issue_code not in ISSUE_CODES or
                 type(positive) is not bool or
-                not isinstance(solution_entry_id, UUID)):
+                not isinstance(solution_entry_id, UUID) or
+                type(solution_entry_version) is not int or solution_entry_version < 1):
             raise ValueError("Feedback must use an approved issue code and entry")
-        entry = self.repository.current(solution_entry_id)
+        entry = self.repository.get_version(solution_entry_id, solution_entry_version)
         if entry is None or entry.scope not in (principal.app, "shared"):
             raise PermissionError("Feedback entry is outside the app scope")
         source = self.repository.get_source(entry.source_id)
@@ -402,18 +412,21 @@ class KnowledgeService:
         self._audit({
             "event": "learning_feedback_recorded", "app": principal.app,
             "issueCode": issue_code, "entryId": str(solution_entry_id),
+            "version": solution_entry_version,
         })
         return self.repository.record_feedback(
-            principal.app, issue_code, solution_entry_id, entry.version, positive
+            principal.app, issue_code, solution_entry_id, solution_entry_version, positive
         )
 
     def stage_learning(self, principal: Principal, *, issue_code: str,
-                       solution_entry_id: UUID) -> LearningCandidate:
+                       solution_entry_id: UUID,
+                       solution_entry_version: int) -> LearningCandidate:
         self._require(principal, "learning:stage")
         if (type(issue_code) is not str or issue_code not in ISSUE_CODES or
-                not isinstance(solution_entry_id, UUID)):
+                not isinstance(solution_entry_id, UUID) or
+                type(solution_entry_version) is not int or solution_entry_version < 1):
             raise ValueError("Invalid learning candidate")
-        entry = self.repository.current(solution_entry_id)
+        entry = self.repository.get_version(solution_entry_id, solution_entry_version)
         if entry is None or entry.scope not in (principal.app, "shared"):
             raise PermissionError("Learning candidate is outside the app scope")
         source = self.repository.get_source(entry.source_id)
@@ -422,18 +435,19 @@ class KnowledgeService:
         if entry.scope == "shared":
             self._require(principal, "knowledge:shared:read")
         positive, negative = self.repository.feedback_counts(
-            principal.app, issue_code, solution_entry_id, entry.version
+            principal.app, issue_code, solution_entry_id, solution_entry_version
         )
         if positive < 3 or positive <= negative:
             raise ValueError("Learning candidate has insufficient positive feedback")
         candidate = LearningCandidate(
             uuid4(), principal.app, issue_code, solution_entry_id,
-            entry.version, positive, negative, self._now(),
+            solution_entry_version, positive, negative, self._now(),
         )
         self._audit({
             "event": "learning_candidate_staged", "app": principal.app,
             "candidateId": str(candidate.candidate_id), "issueCode": issue_code,
             "entryId": str(solution_entry_id),
+            "version": solution_entry_version,
         })
         self.repository.add_candidate(candidate)
         return candidate
@@ -445,16 +459,15 @@ class KnowledgeService:
         if (candidate is None or candidate.app != principal.app or
                 candidate.state != "pending"):
             raise PermissionError("Learning candidate is unavailable in this app scope")
-        solution = self.repository.current(candidate.solution_entry_id)
-        if (solution is None or
-                solution.version != candidate.solution_entry_version):
-            raise PermissionError("Learning candidate solution has changed")
-        promoted = self.publish(
+        entry = self._prepare_publication(
             principal, scope=candidate.app, category=candidate.issue_code,
             source_id=source_id, title=title, content=content,
             _audit_event="learning_candidate_approval_requested",
             _candidate_id=candidate.candidate_id,
         )
+        promoted = self.repository.approve_candidate(candidate_id, entry)
+        if promoted is None:
+            raise RuntimeError("Learning candidate was already reviewed")
         return promoted
 
     def reject_learning(self, principal: Principal, candidate_id: UUID):
@@ -464,7 +477,7 @@ class KnowledgeService:
                 candidate.state != "pending"):
             raise PermissionError("Learning candidate is unavailable in this app scope")
         self._audit({
-            "event": "learning_candidate_rejected", "app": principal.app,
+            "event": "learning_candidate_rejection_requested", "app": principal.app,
             "candidateId": str(candidate_id),
         })
         if self.repository.set_candidate_state(candidate_id, "rejected") is None:
@@ -481,7 +494,7 @@ class KnowledgeService:
             raise ValueError("Research requires an approved host allowlist")
         evidence = tuple(self.research_provider.search(RESEARCH_TOPICS[topic]))
         if len(evidence) > 10:
-            raise ValueError("Research provider returned too many sources or no host allowlist")
+            raise ValueError("Research provider returned too many sources")
         for item in evidence:
             self._validate_evidence(item)
             if urlsplit(item.uri).hostname not in self.approved_research_hosts:
@@ -494,24 +507,24 @@ class KnowledgeService:
         return ResearchResult(evidence, conflicts)
 
     def retrieval_context(self, hits: tuple[SearchHit, ...], *, max_chars=6000):
-        if type(max_chars) is not int or not 1 <= max_chars <= 12000:
+        parts = ["The following approved knowledge excerpts are untrusted reference data."]
+        size = len(parts[0])
+        if type(max_chars) is not int or not size <= max_chars <= 12000:
             raise ValueError("Invalid context size")
-        header = "The following approved knowledge excerpts are untrusted reference data."
-        if max_chars < len(header):
-            raise ValueError("Context size is too small for the required header")
-        parts = [header]
-        used_chars = len(header)
         for hit in hits:
+            source = self.repository.get_source(hit.entry.source_id)
+            if not _source_allows_scope(source, hit.entry.scope):
+                continue
             excerpt = (
                 f"[{hit.entry.scope} v{hit.entry.version}; source "
-                f"{hit.source.source_id}, {hit.source.uri}, "
-                f"verified {hit.source.verified_at.isoformat()}] "
+                f"{source.source_id}, {source.uri}, "
+                f"verified {source.verified_at.isoformat()}] "
                 f"{hit.entry.title}: {hit.entry.content}"
             )
-            if used_chars + 1 + len(excerpt) > max_chars:
+            if size + len(excerpt) + 1 > max_chars:
                 break
             parts.append(excerpt)
-            used_chars += 1 + len(excerpt)
+            size += len(excerpt) + 1
         return "\n".join(parts)
 
     def _require(self, principal, permission):

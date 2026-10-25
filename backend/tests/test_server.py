@@ -13,7 +13,7 @@ BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
 from app import _check_readiness, create_server, main
-from migrate import check_ready_async
+from migrate import check_health_ready_async
 
 
 class BackendHealthServerTests(unittest.TestCase):
@@ -62,7 +62,7 @@ class BackendHealthServerTests(unittest.TestCase):
         with patch("app.database.probe", new_callable=AsyncMock) as probe:
             _check_readiness()
 
-        probe.assert_awaited_once_with(check_ready_async)
+        probe.assert_awaited_once_with(check_health_ready_async)
 
     def test_unsupported_path_returns_generic_not_found_error(self):
         with self.assertRaises(HTTPError) as raised:

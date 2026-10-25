@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from ai_support import SupportService, error_response
 import database
-from migrate import check_ready_async
+from migrate import check_health_ready_async
 from support_http import (
     MAX_SUPPORT_BODY_BYTES, SUPPORT_READ_TIMEOUT_SECONDS,
     _is_supported_content_type, _normalize_common_support_payload,
@@ -16,7 +16,7 @@ from support_http import (
 
 
 def _check_readiness():
-    asyncio.run(database.probe(check_ready_async))
+    asyncio.run(database.probe(check_health_ready_async))
 
 
 class HealthHandler(BaseHTTPRequestHandler):
