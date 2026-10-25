@@ -24,7 +24,10 @@ private enum NIKNOLIGHealthState: Equatable {
     case notConfigured
     case checking
     case ready
-    case unavailable
+    case timedOut
+    case networkError
+    case httpError(Int)
+    case invalidResponse
 }
 
 private struct NIKNOLIGHomeView: View {
@@ -357,8 +360,11 @@ private struct NIKNOLIGSupportView: View {
         switch healthState {
         case .notConfigured: "Nicht konfiguriert. Es wurde keine Verbindung versucht."
         case .checking: "Verbindung wird geprüft …"
-        case .ready: "Backend meldet Bereitschaft. Dies bestätigt keine KI-Verfügbarkeit."
-        case .unavailable: "Backend nicht erreichbar oder Antwort ungültig. Erneut prüfen, wenn online."
+        case .ready: "Backend meldet Bereitschaft. Das bestätigt weder KI- noch Produktfunktionen."
+        case .timedOut: "Zeitüberschreitung. Prüfe deine Internetverbindung und versuche es erneut."
+        case .networkError: "Backend nicht erreichbar. Prüfe Internetverbindung und HTTPS-Verbindung; versuche es später erneut."
+        case .httpError(let status): "Backend antwortet mit HTTP \(status). Versuche es später erneut oder nutze den E-Mail-Support."
+        case .invalidResponse: "Backend-Antwort ungültig. Der Health-Vertrag wurde nicht bestätigt. Versuche es später erneut."
         }
     }
 
@@ -588,10 +594,18 @@ private final class NIKNOLIGHealthProbe: NSObject, URLSessionDataDelegate, URLSe
         didReceive response: URLResponse,
         completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
     ) {
-        guard let http = response as? HTTPURLResponse,
-              http.statusCode == 200,
-              http.mimeType?.lowercased() == "application/json" else {
-            complete(.unavailable)
+        guard let http = response as? HTTPURLResponse else {
+            complete(.invalidResponse)
+            completionHandler(.cancel)
+            return
+        }
+        guard http.statusCode == 200 else {
+            complete(.httpError(http.statusCode))
+            completionHandler(.cancel)
+            return
+        }
+        guard http.mimeType?.lowercased() == "application/json" else {
+            complete(.invalidResponse)
             completionHandler(.cancel)
             return
         }
@@ -601,7 +615,7 @@ private final class NIKNOLIGHealthProbe: NSObject, URLSessionDataDelegate, URLSe
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive chunk: Data) {
         guard data.count + chunk.count <= 4_096 else {
-            complete(.unavailable)
+            complete(.invalidResponse)
             dataTask.cancel()
             return
         }
@@ -610,8 +624,8 @@ private final class NIKNOLIGHealthProbe: NSObject, URLSessionDataDelegate, URLSe
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard !completed else { return }
-        if let error = error as? URLError, error.code == .timedOut {
-            complete(.unavailable)
+        if let error = error as? URLError {
+            complete(error.code == .timedOut ? .timedOut : .networkError)
             return
         }
         guard error == nil,
@@ -619,7 +633,7 @@ private final class NIKNOLIGHealthProbe: NSObject, URLSessionDataDelegate, URLSe
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               object.count == 1,
               object["status"] as? String == "ready" else {
-            complete(.unavailable)
+            complete(.invalidResponse)
             return
         }
         complete(.ready)

@@ -9,6 +9,10 @@ The apps implement local learning-profile preferences, a truthful local
 assistant preview in NIKNOLIG, offline FAQs and typed escalation tickets through
 the shared support core, the existing health-only readiness check, and
 user-confirmed email handoff. The iOS code does not call the AI-support endpoint.
+The Defense home screen places the emergency limitation first and directs users
+in immediate danger to local emergency services. Health results distinguish
+unconfigured, timeout, network, HTTP, and invalid-response states; `ready` only
+describes the health endpoint and does not enable product or AI functions.
 It adds no camera,
 microphone, location, Bluetooth, or background permissions. Defense explicitly
 states that emergency and infrastructure-detection features are unavailable;

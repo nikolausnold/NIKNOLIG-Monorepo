@@ -26,9 +26,20 @@
     <string name="assistant_analysis_error_unavailable">The analysis source is unavailable. No facts were verified.</string>
     <string name="assistant_analysis_sources_unchecked">Source status: not checked; no external source was queried.</string>
     <string name="assistant_refinement_hint">Follow-up question (optional, max. 500 characters)</string>
+    <string name="assistant_summary_insert_description">A saved summary is inserted only after you tap and remains part of the local analysis.</string>
+    <string name="assistant_insert_summary_button">Insert saved summary</string>
+    <string name="assistant_summary_replace_confirmation">Your saved summary will replace the follow-up text.</string>
+    <string name="assistant_summary_replace_action">Replace and insert</string>
     <string name="assistant_refine_button">Refine analysis</string>
     <string name="assistant_task_heading">TASKS</string>
     <string name="assistant_task_status">No tasks available. Task management is not configured in this preview.</string>
+    <string name="assistant_task_input_hint">Your task (max. 120 characters)</string>
+    <string name="assistant_task_add_button">Add task</string>
+    <string name="assistant_task_remove_button">Remove</string>
+    <string name="assistant_task_empty">No local tasks yet.</string>
+    <string name="assistant_task_invalid">Enter a task with 1 to 120 characters.</string>
+    <string name="assistant_task_limit">You can save up to 50 local tasks.</string>
+    <string name="assistant_task_count">%1$d local tasks. Check a box to mark a task complete.</string>
     <string name="assistant_device_heading">DEVICE STATUS</string>
     <string name="assistant_device_status_unknown">Unknown: this preview does not discover devices or check connections.</string>
     <string name="assistant_warning_heading">WARNINGS AND SAFETY</string>
@@ -38,9 +49,9 @@
     <string name="system_status">Development scaffold</string>
     <string name="device_status">Device status: unknown — device discovery is unavailable</string>
     <string name="support_heading">YOUR SUPPORT</string>
-    <string name="support_description">Check AI assistance first. If AI help is unavailable, you can deliberately prepare an email to the operator. No AI service is connected yet.</string>
+    <string name="support_description">Read offline help or prepare an email to the operator after confirmation. No AI service is connected.</string>
     <string name="support_payment_notice">Payment questions are not handled here. Please contact your payment provider or merchant directly. Do not send payment details to technical support.</string>
-    <string name="support_contact_button">Open AI support</string>
+    <string name="support_contact_button">Open help and support</string>
     <string name="support_email">n_nold@hotmail.com</string>
     <string name="official_website_url" translatable="false">https://niknolig.com/</string>
     <string name="support_email_subject">Technical support request – NIKNOLIG · %1$s</string>
