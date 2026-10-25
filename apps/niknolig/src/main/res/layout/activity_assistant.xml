@@ -117,6 +117,21 @@
             android:textColor="@color/text_primary"
             android:textColorHint="@color/text_secondary" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:text="@string/assistant_summary_insert_description"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/assistant_insert_summary_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:text="@string/assistant_insert_summary_button" />
+
         <Button
             android:id="@+id/assistant_refine_button"
             android:layout_width="match_parent"
@@ -161,12 +176,40 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/assistant_task_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_small"
-            android:text="@string/assistant_task_status"
+            android:accessibilityLiveRegion="polite"
             android:textColor="@color/text_primary"
             android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/assistant_task_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:background="@drawable/card_surface"
+            android:hint="@string/assistant_task_input_hint"
+            android:inputType="textCapSentences"
+            android:maxLength="120"
+            android:minHeight="@dimen/touch_target"
+            android:padding="@dimen/space_medium"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary" />
+
+        <Button
+            android:id="@+id/assistant_task_add_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_small"
+            android:text="@string/assistant_task_add_button" />
+
+        <LinearLayout
+            android:id="@+id/assistant_task_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
         </LinearLayout>
 
         <LinearLayout
