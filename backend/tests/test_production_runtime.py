@@ -35,7 +35,11 @@ class ProductionRuntimeTests(unittest.TestCase):
     def setUpClass(cls):
         cls.factory = AsyncMock()
         cls.support = SupportService()
-        cls.application = create_app(readiness_probe=cls.factory, support_service=cls.support)
+        cls.application = create_app(
+            readiness_probe=cls.factory,
+            support_service=cls.support,
+            environment="staging",
+        )
         cls.socket = socket.socket()
         cls.socket.bind(("127.0.0.1", 0))
         cls.url = f"http://127.0.0.1:{cls.socket.getsockname()[1]}"
@@ -372,12 +376,44 @@ class ProductionRuntimeTests(unittest.TestCase):
         self.assertIsNone(production_app.redoc_url)
         self.assertIsNone(production_app.openapi_url)
 
-        for path in ("/docs", "/redoc", "/openapi.json"):
+        for path in ("/docs", "/redoc"):
             with self.subTest(path=path):
-                status, body = self.request(path)
-                self.assertEqual(404, status)
-                self.assertEqual("NOT_FOUND", body["error"]["code"])
+                with urlopen(self.url + path, timeout=5) as response:
+                    self.assertEqual(200, response.status)
+                    self.assertEqual("no-store", response.headers["Cache-Control"])
+                    self.assertEqual(
+                        "nosniff", response.headers["X-Content-Type-Options"]
+                    )
+                    self.assertIn("text/html", response.headers["Content-Type"])
+                    self.assertIn("/openapi.json", response.read().decode("utf-8"))
+        status, body = self.request("/openapi.json")
+        self.assertEqual(200, status)
+        self.assertEqual({"/health/live", "/health/ready"}, set(body["paths"]))
+        self.assertNotIn("/support", body["paths"])
+        self.assertNotIn("/v1/ai/support", body["paths"])
+        self.assertNotIn("/projects", body["paths"])
+        self.assertNotIn("/db/health", body["paths"])
         self.factory.assert_not_called()
+
+    def test_documentation_is_not_enabled_by_default_or_unknown_environment(self):
+        for environment in (None, "production", "Production", "preview"):
+            with self.subTest(environment=environment):
+                if environment is None:
+                    with patch.dict(os.environ, {}, clear=True):
+                        application = create_app()
+                else:
+                    application = create_app(environment=environment)
+                self.assertIsNone(application.docs_url)
+                self.assertIsNone(application.redoc_url)
+                self.assertIsNone(application.openapi_url)
+
+    def test_documentation_can_only_be_enabled_in_development_or_staging(self):
+        for environment in ("development", "staging"):
+            with self.subTest(environment=environment):
+                application = create_app(environment=environment)
+                self.assertEqual("/docs", application.docs_url)
+                self.assertEqual("/redoc", application.redoc_url)
+                self.assertEqual("/openapi.json", application.openapi_url)
 
     def test_environment_cannot_enable_ai_or_product_routes(self):
         with patch.dict(os.environ, {"AI_ENABLED": "true", "SUPPORT_ENABLED": "true"}):

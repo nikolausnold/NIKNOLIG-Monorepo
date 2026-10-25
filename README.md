@@ -67,6 +67,15 @@ werden nicht übertragen oder automatisch beantwortet; Geräteerkennung,
 Verbindungen und Steuerbefehle sind nicht verfügbar. Es gibt keine gemeinsame
 Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
+**Verbindliches Produktziel:** Ein kontrollierter, authentifizierter
+Datenaustausch zwischen NIKNOLIG und NIKNOLIG Defense auf Android und iOS über
+das gemeinsame Backend `https://api.niknolig.com`, bei weiterhin getrennten
+App-Identitäten und Berechtigungen. Dieses Ziel ist noch nicht implementiert:
+die vorhandenen Verbindungen prüfen ausschließlich Health-Endpunkte. Die
+Sicherheits- und Produktentscheidungen für konkrete Datenflüsse, Identitäten,
+Gerätekopplung und Widerruf bleiben erforderlich; bis dahin findet kein
+produktiver Datenaustausch statt.
+
 **Bestätigte Produktgrenzen (D-01, 21.10.2026):** NIKNOLIG umfasst allgemeine
 Systemfunktionen; NIKNOLIG Defense zusätzliche Sicherheits- und Notfallfunktionen.
 Elektro-Engels Infrastruktur-Erkennung und Reparaturhinweise gehören
