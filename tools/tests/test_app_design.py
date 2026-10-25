@@ -213,6 +213,65 @@ class AppDesignTests(unittest.TestCase):
                 self.assertLess(support, status)
                 self.assertLess(support, profile)
 
+    def test_support_entry_describes_available_help_in_both_android_locales(self):
+        for app in APPS:
+            for locale in ("values", "values-en"):
+                with self.subTest(app=app, locale=locale):
+                    strings = {
+                        element.attrib["name"]: element.text
+                        for element in ET.parse(
+                            resources(app) / locale / "strings.xml"
+                        ).getroot()
+                    }
+                    self.assertIn("offline", strings["support_description"].lower())
+                    self.assertIn("support", strings["support_contact_button"].lower())
+                    self.assertNotIn("KI-Support", strings["support_contact_button"])
+                    self.assertNotIn("AI support", strings["support_contact_button"])
+
+    def test_defense_emergency_notice_is_prominent_and_truthful_on_all_platforms(self):
+        layout = ET.parse(resources("niknolig-defense") / "layout/activity_main.xml")
+        views = list(layout.iter())
+        heading = next(
+            index for index, view in enumerate(views)
+            if view.get(ANDROID + "text") == "@string/defense_emergency_heading"
+        )
+        notice = next(
+            index for index, view in enumerate(views)
+            if view.get(ANDROID + "text") == "@string/defense_emergency_notice"
+        )
+        support = next(
+            index for index, view in enumerate(views)
+            if view.get(ANDROID + "id") == "@+id/support_contact_button"
+        )
+        self.assertLess(heading, notice)
+        self.assertLess(notice, support)
+        german = values("niknolig-defense", "strings.xml")["defense_emergency_notice"]
+        english = {
+            element.attrib["name"]: element.text
+            for element in ET.parse(
+                resources("niknolig-defense") / "values-en/strings.xml"
+            ).getroot()
+        }["defense_emergency_notice"]
+        self.assertIn("örtlichen Rettungsdienste", german)
+        self.assertIn("ersetzt keinen örtlichen Notruf", german)
+        self.assertIn("local emergency services", english)
+        self.assertIn("does not replace", english)
+        ios = (ROOT / "apps/ios/NIKNOLIGDefenseApp.swift").read_text()
+        self.assertIn('Section("Wichtig bei akuter Gefahr")', ios)
+        self.assertIn("örtlichen Rettungsdienste", ios)
+
+    def test_ios_health_messages_distinguish_failure_states_without_claiming_features(self):
+        for source in (
+            ROOT / "apps/ios/NIKNOLIGApp.swift",
+            ROOT / "apps/ios/NIKNOLIGDefenseApp.swift",
+        ):
+            text = source.read_text()
+            with self.subTest(source=source.name):
+                for state in ("timedOut", "networkError", "httpError", "invalidResponse"):
+                    self.assertIn(f"case {state}", text)
+                    self.assertIn(f"case .{state}", text)
+                self.assertIn("Das bestätigt weder KI- noch Produktfunktionen.", text)
+
     def test_defense_preview_access_copy_is_consistent_and_noninteractive(self):
         german = values("niknolig-defense", "strings.xml")["defense_access_notice"]
         swift = (ROOT / "apps/ios/NIKNOLIGDefenseApp.swift").read_text()
