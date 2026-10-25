@@ -9,7 +9,7 @@ class AssistantTaskStorageTest {
     fun roundTripsTaskTitlesAndCompletionState() {
         val tasks = listOf(
             AssistantTask("first", "Review the draft", completed = true),
-            AssistantTask("second", "Prüfe ✓ Eingabe\tmit Trennzeichen"),
+            AssistantTask("second", "Prüfe ✓ Eingabe | mit Trennzeichen"),
         )
 
         assertEquals(tasks, AssistantTaskStorage.decode(AssistantTaskStorage.encode(tasks)))

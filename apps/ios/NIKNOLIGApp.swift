@@ -30,6 +30,12 @@ private enum NIKNOLIGHealthState: Equatable {
     case invalidResponse
 }
 
+private struct LocalAssistantTask: Codable, Identifiable {
+    let id: UUID
+    var title: String
+    var isComplete: Bool
+}
+
 private struct NIKNOLIGHomeView: View {
     @State private var path: [NIKNOLIGRoute] = []
 
@@ -63,12 +69,18 @@ private struct NIKNOLIGHomeView: View {
 }
 
 private struct NIKNOLIGAssistantView: View {
+    @AppStorage("session_summary") private var savedSessionSummary = ""
+    @AppStorage("assistant_tasks") private var serializedTasks = "[]"
     @State private var request = ""
     @State private var refinement = ""
+    @State private var taskInput = ""
+    @State private var taskStatus = ""
+    @State private var tasks: [LocalAssistantTask] = []
     @State private var mode = ElectroEngelMode.wordBreakdown
     @State private var result: ElectroEngelResult?
     @State private var failure: ElectroEngelFailure?
     @State private var isAnalyzing = false
+    @State private var showingSummaryReplaceConfirmation = false
 
     var body: some View {
         Form {
@@ -94,8 +106,41 @@ private struct NIKNOLIGAssistantView: View {
                     .onChange(of: refinement) { value in
                         if value.count > 500 { refinement = String(value.prefix(500)) }
                     }
+                Text("Die gespeicherte Zusammenfassung wird nur nach deiner Auswahl eingefügt und bleibt lokal.")
+                    .foregroundStyle(.secondary)
+                Button("Gespeicherte Zusammenfassung einfügen", action: insertSavedSummary)
+                    .disabled(savedSessionSummary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 Button("Analyse verfeinern", action: analyze)
                     .disabled(isAnalyzing)
+            }
+            Section("Lokale Aufgaben") {
+                Text("Aufgaben bleiben auf diesem Gerät und werden weder übertragen noch automatisch ausgeführt.")
+                    .foregroundStyle(.secondary)
+                TextField("Eigene Aufgabe (max. 120 Zeichen)", text: $taskInput)
+                    .onChange(of: taskInput) { value in
+                        if value.count > 120 { taskInput = String(value.prefix(120)) }
+                    }
+                Button("Aufgabe hinzufügen", action: addTask)
+                    .disabled(tasks.count >= 50)
+                if !taskStatus.isEmpty {
+                    Text(taskStatus)
+                        .foregroundStyle(.secondary)
+                        .accessibilityAddTraits(.updatesFrequently)
+                }
+                if tasks.isEmpty {
+                    Text("Noch keine lokalen Aufgaben.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(tasks) { task in
+                        Toggle(task.title, isOn: Binding(
+                            get: { tasks.first(where: { $0.id == task.id })?.isComplete ?? false },
+                            set: { updateTask(task.id, isComplete: $0) }
+                        ))
+                        Button("Aufgabe entfernen", role: .destructive) {
+                            removeTask(task.id)
+                        }
+                    }
+                }
             }
             if isAnalyzing {
                 Section {
@@ -127,6 +172,81 @@ private struct NIKNOLIGAssistantView: View {
             }
         }
         .navigationTitle("Elektro-Engel")
+        .onAppear(perform: loadTasks)
+        .confirmationDialog(
+            "Vertiefungstext ersetzen?",
+            isPresented: $showingSummaryReplaceConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Ersetzen und Zusammenfassung einfügen") {
+                refinement = savedSessionSummary.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Dein bisheriger Vertiefungstext wird ersetzt.")
+        }
+    }
+
+    private func insertSavedSummary() {
+        let summary = savedSessionSummary.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !summary.isEmpty else { return }
+        if refinement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            refinement = summary
+        } else {
+            showingSummaryReplaceConfirmation = true
+        }
+    }
+
+    private func loadTasks() {
+        guard let data = serializedTasks.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([LocalAssistantTask].self, from: data) else {
+            tasks = []
+            return
+        }
+        tasks = Array(decoded.filter(isValidTask).prefix(50))
+    }
+
+    private func isValidTask(_ task: LocalAssistantTask) -> Bool {
+        !task.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            task.title.count <= 120 &&
+            !task.title.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+    }
+
+    private func saveTasks() {
+        guard let data = try? JSONEncoder().encode(tasks),
+              let value = String(data: data, encoding: .utf8) else {
+            taskStatus = "Aufgaben konnten nicht lokal gespeichert werden."
+            return
+        }
+        serializedTasks = value
+    }
+
+    private func addTask() {
+        let title = taskInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let task = LocalAssistantTask(id: UUID(), title: title, isComplete: false)
+        guard isValidTask(task) else {
+            taskStatus = "Gib eine Aufgabe mit 1 bis 120 Zeichen ein."
+            return
+        }
+        guard tasks.count < 50 else {
+            taskStatus = "Es können höchstens 50 lokale Aufgaben gespeichert werden."
+            return
+        }
+        tasks.append(task)
+        taskInput = ""
+        taskStatus = ""
+        saveTasks()
+    }
+
+    private func updateTask(_ id: UUID, isComplete: Bool) {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        tasks[index].isComplete = isComplete
+        saveTasks()
+    }
+
+    private func removeTask(_ id: UUID) {
+        tasks.removeAll { $0.id == id }
+        saveTasks()
     }
 
     private func analyze() {
@@ -184,7 +304,7 @@ private struct NIKNOLIGProfileView: View {
     var body: some View {
         Form {
             Section("Lernsitzung") {
-                Text("Die App sendet diese Zusammenfassung nicht an ein Backend.")
+                Text("Die App sendet diese Zusammenfassung nicht an ein Backend. Du kannst sie nach ausdrücklicher Auswahl als lokalen Analysekontext einfügen.")
                     .foregroundStyle(.secondary)
                 TextField("Zusammenfassung (max. 500 Zeichen)", text: $sessionSummary, axis: .vertical)
                     .lineLimit(3...6)
