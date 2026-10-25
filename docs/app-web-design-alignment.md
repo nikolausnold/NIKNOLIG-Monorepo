@@ -69,6 +69,9 @@ und mobile KI-Integration stehen weiterhin aus.
 
 - Die lokale Elektro-Engel-Assistenzvorschau bleibt NIKNOLIG-spezifisch;
   Defense erhält keinen kopierten Geräte- oder Assistenzruntime.
+- NIKNOLIG-Aufgaben sind manuell erstellte lokale Notizen: sie werden weder
+  übertragen noch automatisch ausgeführt. Eine gespeicherte Sitzungszusammenfassung
+  wird nur nach ausdrücklicher Auswahl in den lokalen Analysekontext eingefügt.
 - Defense meldet unbekannten Gerätestatus und keinen aktiven Schutzdienst,
   statt eine Überwachung oder Einsatzbereitschaft vorzutäuschen.
 - Defense zeigt den Notfallhinweis auf Android und iOS vor den weiteren
