@@ -17,9 +17,11 @@ it does not claim to dispatch assistance or transmit location.
 The iOS 16.0 deployment target is a provisional technical baseline for
 `NavigationStack`, not an approved support matrix or store decision. App Store
 identifiers, account ownership, privacy declarations, signing team, release
-approvals, and an approved production backend URL remain to be verified. The
-backend URL build settings default to empty and must not be replaced with an
-unapproved endpoint.
+approvals remain to be verified. Both targets default to the operator-specified
+existing API origin `https://api.niknolig.com`, with separate per-app overrides.
+The website origins remain `https://niknolig.com/` and
+`https://defense.niknolig.com/`; they are not backend addresses. A configured
+origin does not establish live connectivity, login or protected product access.
 
 Open the project on macOS with Xcode and build each target separately. No shared
 schemes are committed; CI uses explicit `-target` builds. The Linux editing
@@ -45,7 +47,9 @@ exactly one setting:
 | NIKNOLIG | `NIKNOLIG_BACKEND_URL` | `BackendBaseURL` |
 | NIKNOLIG Defense | `NIKNOLIG_DEFENSE_BACKEND_URL` | `BackendBaseURL` |
 
-Only Debug permits an empty value; its health client reports not configured.
+The default origin is set independently in Debug and Release for each target.
+An explicitly empty override is still permitted only in Debug; its health
+client reports not configured.
 Release and other configurations require the target's own nonempty HTTPS origin.
 Nonempty Debug values undergo the same syntax checks. Credentials, paths beyond
 `/`, queries, fragments, invalid ports, placeholder and loopback hosts fail the
@@ -54,7 +58,7 @@ requests and does not certify operator approval or production availability.
 No fallback from one app's setting to the other is allowed. Two apps may use the
 same origin only if the operator explicitly approves it for each app.
 
-The simulator CI's `*.example.com` values are isolated compilation fixtures,
+The simulator CI's explicit `*.example.com` overrides are isolated compilation fixtures,
 never approved production settings. For actual device archives, the Apple
 release operator must supply separately approved origins, an authorized signing
 team, existing certificates/profiles and approved distribution/export settings.
