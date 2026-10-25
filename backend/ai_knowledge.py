@@ -308,6 +308,19 @@ class KnowledgeService:
                 type(source_id) is not str or
                 type(category) is not str or not re.fullmatch(r"[a-z][a-z0-9_-]{1,47}", category)):
             raise ValueError("Invalid knowledge scope or category")
+        if _candidate_id is not None:
+            self._require(principal, "learning:approve")
+            if not isinstance(_candidate_id, UUID):
+                raise ValueError("Invalid learning candidate identifier")
+            candidate = self.repository.get_candidate(_candidate_id)
+            if (candidate is None or candidate.app != principal.app or
+                    candidate.state != "pending" or candidate.issue_code != category or
+                    candidate.app != scope):
+                raise PermissionError("Learning candidate is unavailable in this app scope")
+            solution = self.repository.current(candidate.solution_entry_id)
+            if (solution is None or
+                    solution.version != candidate.solution_entry_version):
+                raise PermissionError("Learning candidate solution has changed")
         source = self.repository.get_source(source_id)
         if (source is None or source.trust != "approved" or
                 source.scope not in (scope, "shared") or

@@ -180,6 +180,37 @@ class KnowledgeServiceTests(unittest.TestCase):
                 title="Stale confirmation", content="Must not be promoted.",
             )
 
+    def test_publish_cannot_bypass_learning_approval_or_app_scope(self):
+        entry = self.publish()
+        for _ in range(3):
+            self.service.record_feedback(
+                principal(), issue_code="installation",
+                solution_entry_id=entry.entry_id, positive=True,
+            )
+        candidate = self.service.stage_learning(
+            principal(), issue_code="installation",
+            solution_entry_id=entry.entry_id,
+        )
+        before_entries = len(self.repository.search(()))
+        before_audit = len(self.audit.events)
+        curator = principal(permissions=frozenset({"knowledge:curate"}))
+        with self.assertRaises(PermissionError):
+            self.service.publish(
+                curator, scope="niknolig", category="installation",
+                source_id="manual", title="Unauthorized", content="Must not publish.",
+                _candidate_id=candidate.candidate_id,
+            )
+        with self.assertRaises(PermissionError):
+            self.service.publish(
+                principal("niknolig-defense"), scope="niknolig-defense",
+                category="installation", source_id="manual",
+                title="Cross-app", content="Must not publish.",
+                _candidate_id=candidate.candidate_id,
+            )
+        self.assertEqual(before_entries, len(self.repository.search(())))
+        self.assertEqual(before_audit, len(self.audit.events))
+        self.assertEqual("pending", self.repository.get_candidate(candidate.candidate_id).state)
+
     def test_approval_does_not_publish_if_candidate_is_rejected_before_atomic_commit(self):
         entry = self.publish()
         for _ in range(3):
