@@ -53,10 +53,7 @@ die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
 Die ursprünglichen App-Verzeichnisse beider Quell-Commits hatten denselben Git-Tree-Stand.
 Darum starteten die Module mit denselben Vorschau-Funktionen. Die
 NIKNOLIG-App enthält zusätzlich eine lokale Elektro-Engel-Oberfläche ohne
-KI-/Backend-Anbindung oder Gerätezugriff. Eigene Aufgaben bleiben lokal, werden
-nicht übertragen und nicht automatisch ausgeführt. Eine gespeicherte
-Sitzungskurzfassung kann nach ausdrücklicher Auswahl als lokaler Analysekontext
-eingefügt werden. Die Defense-App bleibt separat; für
+KI-/Backend-Anbindung oder Gerätezugriff. Die Defense-App bleibt separat; für
 sie ist darüber hinaus keine Defense-spezifische Funktion belegt. Änderungen
 an den Quell-Repositories wurden nicht vorgenommen.
 
@@ -65,11 +62,8 @@ an den Quell-Repositories wurden nicht vorgenommen.
 Elektro-Engel ist eine Funktion des NIKNOLIG-Systems, kein eigenes Projekt,
 Repository oder eine separate App. NIKNOLIG und NIKNOLIG Defense bleiben
 getrennte Apps mit eigenen Identitäten und Installationen. Die NIKNOLIG-App
-enthält eine lokale Assistenzvorschau, eine lokale Aufgabenliste und ein lokales
-Lernprofil. Aufgaben werden nicht übertragen oder automatisch ausgeführt.
-Anfragen werden nicht übertragen oder automatisch beantwortet; eine gespeicherte
-Sitzungszusammenfassung wird nur nach ausdrücklicher Auswahl als lokaler
-Analysekontext eingefügt. Geräteerkennung,
+enthält eine lokale Assistenzvorschau und ein lokales Lernprofil. Anfragen
+werden nicht übertragen oder automatisch beantwortet; Geräteerkennung,
 Verbindungen und Steuerbefehle sind nicht verfügbar. Es gibt keine gemeinsame
 Laufzeit oder einen Datenaustausch mit NIKNOLIG Defense.
 
