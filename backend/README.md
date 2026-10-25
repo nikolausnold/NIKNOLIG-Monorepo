@@ -12,6 +12,13 @@ NIKNOLIG Defense bleiben getrennte Sicherheits- und Release-Domänen; gemeinsame
 Verträge verleihen keine Rechte.
 Elektro-Engel ist eine NIKNOLIG-Systemfunktion, keine dritte App.
 
+Die ASGI-Laufzeit stellt `/docs`, `/redoc` und `/openapi.json` nur bereit, wenn
+`BACKEND_ENV` ausdrücklich `development` oder `staging` ist. Ohne diese
+Konfiguration und in `production` bleiben alle drei Pfade deaktiviert. Die
+automatisch erzeugte Dokumentation enthält ausschließlich den nicht-sensiblen
+Health-Vertrag; Support-, Projekt- und interne Datenbankrouten werden nicht
+dokumentiert. Das ergänzt keine Produktdaten- oder Authentifizierungs-API.
+
 ## Integrationsfortsetzung – verifizierter Stand 25.10.2026
 
 Die Entwicklungsfreigabe und die Bestätigung der offiziellen URLs ersetzen keine

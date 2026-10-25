@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import sys
 from uuid import uuid4
 
@@ -47,10 +48,16 @@ def error(status, code, message):
     )
 
 
-def create_app(*, readiness_probe=None, support_service=None):
+def create_app(*, readiness_probe=None, support_service=None, environment=None):
+    if environment is None:
+        environment = os.environ.get("BACKEND_ENV", "production")
+    docs_enabled = environment in {"development", "staging"}
     application = FastAPI(
         title="NOLD API", version="0.2.0",
-        docs_url=None, redoc_url=None, openapi_url=None, redirect_slashes=False,
+        docs_url="/docs" if docs_enabled else None,
+        redoc_url="/redoc" if docs_enabled else None,
+        openapi_url="/openapi.json" if docs_enabled else None,
+        redirect_slashes=False,
     )
     probe = readiness_probe if readiness_probe is not None else database.probe
     support = support_service if support_service is not None else SupportService()
@@ -68,15 +75,15 @@ def create_app(*, readiness_probe=None, support_service=None):
     async def unsupported(request, exception):
         return error(404, "NOT_FOUND", "Resource was not found.")
 
-    @application.get("/health")
+    @application.get("/health", include_in_schema=False)
     async def health():
         return {"status": "ok", "service": "NOLD API", "version": "0.2.0"}
 
-    @application.get("/projects")
+    @application.get("/projects", include_in_schema=False)
     async def projects():
         return {"projects": list(PROJECTS)}
 
-    @application.get("/db/health")
+    @application.get("/db/health", include_in_schema=False)
     async def db_health():
         try:
             await probe(_check_database)
@@ -101,8 +108,8 @@ def create_app(*, readiness_probe=None, support_service=None):
             return error(503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable.")
         return JSONResponse({"status": "ready"}, headers=HEADERS)
 
-    @application.post("/support")
-    @application.post("/v1/ai/support")
+    @application.post("/support", include_in_schema=False)
+    @application.post("/v1/ai/support", include_in_schema=False)
     async def submit_support(request: Request):
         def failure(status, code):
             status, body = error_response(status, code)
