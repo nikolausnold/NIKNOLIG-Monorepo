@@ -35,8 +35,8 @@
       "evidence": [
         {
           "path": "README.md",
-          "startLine": 106,
-          "endLine": 111,
+          "startLine": 114,
+          "endLine": 117,
           "excerpt": "Zusätzlich laufen\ndie Android-Health-Client-Unit-Tests beider Module. Sie verwenden simulierte\nHTTPS-Verbindungen und ersetzen keinen realen Server- oder Gerätetest.",
           "state": "hypothesis"
         }
@@ -86,8 +86,8 @@
         },
         {
           "path": "backend/README.md",
-          "startLine": 537,
-          "endLine": 539,
+          "startLine": 563,
+          "endLine": 565,
           "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,\nHealthchecks und die gesperrte lokale Support-Route. KI-Mocks werden ebenfalls\ngeprüft.",
           "state": "verified"
         }

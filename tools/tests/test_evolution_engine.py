@@ -59,7 +59,7 @@ class EvolutionEngineTests(unittest.TestCase):
         excerpt = backlog["ideas"][0]["evidence"][0]["excerpt"]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for start_line in (106, 109):
+            for start_line in (114, 115):
                 with self.subTest(start_line=start_line):
                     source = "\n" * (start_line - 1) + excerpt + "\n" * 4
                     (root / "README.md").write_text(source, encoding="utf-8")

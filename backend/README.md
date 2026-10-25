@@ -88,6 +88,32 @@ Branch-Regeln.
   sowie physische Testgeräte fehlen. Android-Geräte-/Mobilfunkabnahmen fehlen
   ebenfalls; CI-Artefakte ersetzen sie nicht.
 
+### Fortsetzungsregister: echter Datenaustausch zwischen den Apps
+
+Das verbindliche Produktziel ist ein kontrollierter Datenaustausch zwischen den
+getrennten NIKNOLIG- und NIKNOLIG-Defense-Apps auf Android und iOS über das
+gemeinsame Backend `https://api.niknolig.com`. Das Ziel genehmigt noch keine
+konkreten Daten, Aktionen oder Berechtigungen. Der aktuelle Stand ist nach
+Funktion getrennt:
+
+| Kategorie | Verifizierter Stand | Nächster konkreter Schritt |
+| --- | --- | --- |
+| Bereits umgesetzt | PR #171 ist in `main` integriert: beide Backend-Laufzeiten prüfen PostgreSQL-Readiness und minimale Health-Rollenrechte; echte lokale HTTP-/PostgreSQL-Integration einschließlich Schemafehler, Erholung und verweigerter Produktzugriffe ist getestet. Beide Android-Apps und beide iOS-Targets haben getrennte Health-Clients für `GET /health/ready`. | Vorhandene Backend- und Android-CI-Nachweise wiederverwenden; Health-Checks nicht als Produktdatenaustausch ausgeben. |
+| Bereits in bestehendem PR, nicht integriert | PR #167 ergänzt nutzerinitiierte Liveness-/Readiness-Prüfungen und offizielle API-Defaults für alle vier Health-Clients. Die Android-, iOS-Simulator- und Backend-CI-Läufe sind auf dem PR-Commit erfolgreich; der PR ist weiterhin offen und GitHub meldet `blocked`. Das sind keine geschützten Produkt-API-Aufrufe. | PR-Blockierung und verbleibende menschliche Prüfungen anhand der PR-Regeln klären; keinen erfolgreichen Produktdatenaustausch daraus ableiten. |
+| Echte Sicherheitsentscheidungen (D-01/D-02/D-03/D-04/D-05/D-06/D-09/D-10/D-12) | Offen sind: erlaubte Ressourcen, Datenfelder, Aktionen, Richtung und Zielinstallation; Identitätsanbieter, Issuer/Audience, Rollen und Tokenvertrag; Installations-/Gerätebesitznachweis; geprüftes Sitzungs-/Kopplungsprotokoll; Plattform-Schlüsselrichtlinie und Rotation; Ablauf/Widerrufsfrist; Consent-Zweck, Gültigkeit und Löschung; Audit-Zugriff/Aufbewahrung; unabhängige Security- und Geräteabnahme. | Die jeweils zuständigen Produkt-, Security-, Datenschutz-, Identitäts- und Plattformverantwortlichen entscheiden und dokumentieren nur diese konkreten Punkte. Eine pauschale Freigabe des Gesamtsystems ist dafür nicht erforderlich. |
+| Architektur-/Plattformentscheidungen (D-07/D-08) | Backend-Relay ist das Produktziel, aber Relay-/Pairing-Verhalten, unterstützte OS-/Gerätematrix und etwaige zusätzliche Plattformberechtigungen sind nicht genehmigt. BLE bleibt ausdrücklich deaktiviert; Backend-HTTPS oder Health-Erreichbarkeit ersetzt keine Geräteidentität. | Minimalen genehmigten Transport, Plattformmatrix und benötigte Berechtigungen festlegen; keine BLE- oder Direktverbindung ergänzen, solange dafür keine separate Freigabe vorliegt. |
+| Fehlende Implementierung | Es gibt keine produktive Login-/Tokenvalidierung, Installationsregistrierung, Pairing-/Consent-Laufzeit, Produktressourcen-API, Cross-App-Autorisierung oder Client-Datenoperation für eine der vier Apps. `001_initial_contract.sql` ist ein nicht angewendeter Entwurf. | Nach Festlegung der obigen Verträge Backend-Routen, persistentes Datenmodell/Migration, getrennte Android-/iOS-Clients und positive wie negative Integrationstests gegen den genehmigten Vertrag implementieren. |
+| Fehlerhafte/fehlende Konfiguration | PR #30 schlägt Supabase-JWKS/JWT vor, ist aber ein offener, nicht integrierter PR mit Merge-Konflikten und einem ungelösten Security-Review-Befund. Kein Supabase-Projekt, Issuer, Audience, JWKS-Endpunkt oder App-Metadaten sind für dieses Produkt bestätigt. Ein deployter, bestätigter Staging-Endpunkt für Produktdaten ist nicht belegt. | Keine Werte aus PR #30 als genehmigte Konfiguration übernehmen. Betreiber/Identitätsverantwortliche stellen bestätigte nichtproduktive Konfiguration und getrennte Testidentitäten bereit; Geheimnisse ausschließlich im genehmigten Secret-Manager hinterlegen. |
+| Fehlende Testumgebung/Abnahme | CI verfügt über wegwerfbares PostgreSQL und deckt lokale Backend-/Health-Integration ab. Es fehlen nichtproduktive API-Identitäten und ein Staging-Produktendpunkt für autorisierte Datenflüsse sowie Zwei-Geräte-Abnahmen. PR-#167-iOS-Läufe sind Simulator-Builds, keine Geräte-/Produktdatentests. | Sobald Staging-Konfiguration und Identitätsvertrag vorliegen, Integrationstests mit synthetischen Daten/Identitäten ausführen; danach getrennte Android- und iOS-Geräteabnahme für erlaubte, verweigerte und widerrufene Zugriffe. |
+| Betriebs-/Release-Blocker (D-11) | Produktions-Deployment, DNS/TLS/Readiness-Nachweis aus dem Zielnetz, Betreiberverfahren und Datenbankmigration für Produktdaten sind nicht bestätigt. | Erst nach Betriebs-, Datenschutz- und Security-Nachweisen deployen; keine Produktionsmigration oder kostenpflichtige Ressource ohne Betreiberfreigabe. |
+
+**Status der vier Apps:** NIKNOLIG Android, NIKNOLIG Defense Android,
+NIKNOLIG iOS und NIKNOLIG Defense iOS können ausschließlich den vorhandenen
+Health-Endpunkt prüfen. Für keine App ist ein Produktdaten-Client oder ein
+erfolgreicher autorisierter appübergreifender Datenaustausch nachgewiesen. Die
+D-01–D-12-Matrix der SecurityChain-P0-Spezifikation bleibt maßgeblich; dieser
+Registereintrag genehmigt weder Anbieter noch Datenumfang oder Produktionszugriff.
+
 ## Elektro-Engel: Wissens-, Lern- und Modelladapter (lokale Vorbereitung)
 
 `ai_knowledge.py` implementiert eine app-bereichsgebundene Katalog- und
