@@ -105,6 +105,24 @@ class ProductionRuntimeTests(unittest.TestCase):
         self.assertEqual(1, handlers["@support {"])
         self.assertEqual(1, handlers["@health {"])
 
+    def test_proxy_public_diagnostics_are_exact_get_paths_to_existing_api(self):
+        config = (BACKEND / "Caddyfile").read_text()
+        matcher = config.split("@health {", 1)[1].split("}", 1)[0]
+        self.assertIn("method GET", matcher)
+        paths = next(line.strip().split()[1:] for line in matcher.splitlines()
+                     if line.strip().startswith("path "))
+        self.assertEqual(
+            {"/health/live", "/health/ready", "/health", "/projects", "/db/health"},
+            set(paths),
+        )
+        self.assertFalse(any("*" in path for path in paths))
+        handler = config.split("handle @health {", 1)[1].split("}", 1)[0]
+        self.assertIn("reverse_proxy api:8000", handler)
+        for path in paths:
+            with self.subTest(path=path):
+                self.assertEqual(200, self.request(path)[0])
+        self.factory.assert_any_await(_check_database)
+
     def request(self, path, method="GET"):
         try:
             response = urlopen(Request(self.url + path, method=method), timeout=5)

@@ -892,14 +892,31 @@ Readiness prüft weiterhin PostgreSQL und Migrationsinvarianten statt konstant
 `ok` zu melden. `/projects/{name}/health` und der zugehörige Konfigurationsleser
 sind nicht übernommen; es gibt keine neuen externen Anbieteraufrufe, Secret-Mounts
 oder Authentifizierungsfreigaben. Der versionierte OpenAPI-Vertrag bleibt der
-Health-Vertrag; die drei Kompatibilitätsrouten sind hier beschrieben und separat
-getestet. Caddy bleibt unverändert auf die beiden bisherigen Health-Pfade begrenzt:
-die neuen Routen sind in dieser Compose-Konfiguration nicht öffentlich erreichbar.
+Diagnosevertrag einschließlich der drei Kompatibilitätsrouten; diese sind
+separat getestet. Caddy leitet ausschließlich `GET /health/live`,
+`GET /health/ready`, `GET /health`, `GET /projects` und `GET /db/health`
+an denselben bestehenden Upstream `api:8000` weiter. Es gibt keinen
+Wildcard-Projektproxy und keinen zweiten API-Dienst. Der Katalog ist statisch;
+die Datenbankdiagnose führt eine echte, zeitbegrenzte Read-only-Abfrage aus.
+Beide Routen sind weder Produktfunktionsnachweis noch Autorisierung.
 Das Repository-Image ist daher **kein funktionsgleicher Produktionsersatz**.
 Die vom Betreiber genannte Produktion startet `app.main:app`; weder deren
 Image-Identität noch eine Synchronisierung oder ein Deployment werden hier bestätigt.
 PR #123 prüfte die Registrierung der Health-Routen, nicht die Identität eines
 entfernten Containers.
+
+**Integrationsstand 25.10.2026:** Der Betreiber nennt
+`https://api.niknolig.com` als bestehende API für beide getrennten Produkte.
+Android- und iOS-Konfigurationen dieses Monorepos verwenden diese Origin
+standardmäßig, behalten aber getrennte app-spezifische Overrides. Die Websites
+bleiben `https://niknolig.com/` und `https://defense.niknolig.com/`; sie sind
+keine API-Basisadressen. Aus der aktuellen Ausführungsumgebung scheitert der
+öffentliche HTTPS-Versuch bereits mit DNS-Fehler (`curl: (6)`); dies widerlegt
+die vom Betreiber gemeldeten Health-Ergebnisse nicht. Es wurde nichts auf dem
+Produktivserver deployt, neugestartet oder verändert. Projekt-Upstream-Ziele
+und die Identität des laufenden Images sind hier weiterhin nicht verifiziert.
+Ohne deren Konfiguration wird `/projects/{name}/health` nicht durch eine
+erfundene konstante Erfolgsantwort ersetzt.
 
 Nach Merge dieser Korrektur darf ein autorisierter Betreiber auf dem Server
 zuerst nur Zustand und laufenden Befehl prüfen. Zugangsdaten, vollständige
