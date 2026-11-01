@@ -56,6 +56,24 @@ class PeerAuthenticator(
         AUTH_CONTEXT + nonce + verifier.value.toByteArray() + prover.value.toByteArray()
 }
 
+/**
+ * Remembers every session ID this device has used, including closed sessions, so an ID can never be
+ * reused and a new session can never reset the counter of an old one. Fail closed when full.
+ */
+class SessionIdGuard(private val capacity: Int = 1000) {
+    private val used = HashSet<String>()
+
+    @Synchronized
+    fun register(sessionId: ByteArray): Boolean {
+        if (sessionId.size < MIN_SESSION_ID_BYTES || used.size >= capacity) return false
+        return used.add(Crypto.base64Url(sessionId))
+    }
+
+    companion object {
+        const val MIN_SESSION_ID_BYTES = 16
+    }
+}
+
 class SignedMessage(
     val sessionId: ByteArray,
     val counter: Long,
@@ -75,12 +93,18 @@ class SecureSession(
     private val registry: PeerRegistry,
     private val audit: AuditSink,
     val sessionId: ByteArray,
+    sessionIds: SessionIdGuard,
     private val maxPayloadBytes: Int = 4096,
 ) {
     private var sendCounter = 0L
     private var lastReceived = 0L
     var isOpen = true
         private set
+
+    init {
+        // Too short or already used IDs create a closed session: no message can ever pass.
+        if (!sessionIds.register(sessionId)) fail<Unit>(AuditResult.SESSION_INVALID)
+    }
 
     fun close() { isOpen = false }
 
@@ -99,6 +123,7 @@ class SecureSession(
     fun seal(scope: DataScope, payload: ByteArray): SignedMessage? {
         if (!isOpen || payload.size > maxPayloadBytes) return fail(AuditResult.MALFORMED)
         if (registry.authorize(peer, scope, Direction.SEND) is Decision.Deny) return fail(null)
+        if (sendCounter == Long.MAX_VALUE) return fail(AuditResult.SESSION_INVALID)
         val counter = ++sendCounter
         return SignedMessage(sessionId, counter, scope, payload, keys.sign(data(sessionId, counter, scope, payload)))
     }
