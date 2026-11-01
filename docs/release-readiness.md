@@ -62,8 +62,8 @@ Verantwortlichen als Release-Zertifikat verbindlich.
 
 **Offene Voraussetzungen vor einem Release:**
 
-1. Maßgeblichen Release-Pfad festlegen (Monorepo oder Standalone).
-2. Tag `v1.0.0` auf `main` setzen und den Lauf prüfen (APK, AAB, `SHA256SUMS` als Assets).
+1. ~~Maßgeblichen Release-Pfad festlegen~~ **Entschieden (2026-11-01): Monorepo-Workflow** (`android-release.yml`, Environment `android-release`). Die Standalone-Release-Pfade (`ANDROID_KEYSTORE_*`, Tag `v*`) sind nicht maßgeblich und dürfen keine Releases veröffentlichen.
+2. Monorepo-Workflow um Veröffentlichung erweitern (GitHub-Release mit APK, AAB und `SHA256SUMS`), danach Tag `v1.0.0` auf `main` setzen und den Lauf prüfen. Bis dahin wird kein Tag gesetzt.
 3. Defense-Zertifikat-Fingerprint unabhängig freigeben und sicher dokumentieren; Keystore-Backup außerhalb von GitHub.
 4. Fehlerhaftes Release `1.11.2026` nach eigener Entscheidung als Pre-Release markieren oder entfernen (nicht Teil dieses Audits).
 5. Installation auf einem Android-Gerät testen (nicht automatisiert geprüft).
