@@ -25,15 +25,22 @@ nichts geöffnet.
 ## Neu in diesem Paket: Memory Engine
 
 `backend/memory_engine.py` (Tests: `backend/tests/test_memory_engine.py`):
-ausdrückliche Einwilligung (`user_confirmed is True`), getrennt nach
+verlangt opake Einwilligungsnachweise, die ein injizierter `ConsentVerifier`
+für Zweck `long-term-memory`, Principal-Scope, Gültigkeit und aktuellen Widerruf
+prüfen muss. Es gibt keinen freigegebenen produktiven Verifier; der Standard
+lehnt ab. Die Test-Suite verwendet ausschließlich einen Mock-Verifier. Die Engine
+ist getrennt nach
 `(app, subject)`, Berechtigungen `memory:read`/`memory:write`, Zugangsdaten-
 Erkennung und einfache Ablehnung erkennbarer E-Mail-, internationaler
 Telefonnummern- und Luhn-gültiger Kartennummern, 500 Zeichen, max. 100 Einträge je Principal und 10.000 je
 In-Memory-Store, Aufbewahrung 1–365 Tage (Standard 90),
 Aktualisieren, Löschen, Gesamtlöschung. Gesprächsverläufe, Wissenseinträge und
 Modelltraining bleiben getrennte Funktionen; Erinnerungen trainieren kein Modell.
-Härtung (PR #189): Gespeichert wird nur mit `user_confirmed is True` (auch beim
-Aktualisieren); IDs müssen `UUID` sein; abgelaufene Datensätze werden unabhängig
+Härtung (PR #189): Speichern, Aktualisieren und Abruf verlangen dieselbe
+aktuelle, durch den Verifier bestätigte Einwilligung; ein Boolean genügt nicht.
+Abgelehnte/veraltete/widerrufene Nachweise blockieren Operationen; autorisiertes
+Löschen bleibt ohne Einwilligungsnachweis möglich. IDs müssen `UUID` sein;
+abgelaufene Datensätze werden unabhängig
 von weiterem Nutzerzugriff terminiert und zusätzlich bei Zugriff physisch
 bereinigt; Store und Ablauf-Queue sind begrenzt. Speicher-/Löschfehler und fehlgeschlagene
 Bereinigung enden als `STORE_UNAVAILABLE` (ohne Ursache/Inhalt), ein
@@ -213,8 +220,9 @@ Zugänge deaktiviert.
 - Inhaltserkennung weist einige bekannte Credentials, Kontaktinformationen und
   Kartennummern zurück; sie ist ein best-effort Eingabefilter, keine DLP oder
   Datenschutzgarantie. Gesundheits-, Religions-, Identitäts- und sonstige
-  sensible Freitextangaben können weiterhin durchkommen. `user_confirmed=True`
-  ist ein boolesches Signal, kein nachprüfbarer UI-Einwilligungsbeleg. Deshalb
+  sensible Freitextangaben können weiterhin durchkommen. Der `ConsentVerifier`
+  ist nur ein Provider-Vertrag; es gibt keine genehmigte Implementierung, keine
+  persistente Consent-Historie und keine verifizierte UI-Einwilligung. Deshalb
   bleiben Engine und Routen deaktiviert; vor jeder Freigabe sind eine engere
   Datenklassifikation, tatsächliche nutzerseitige Vorschau/Einwilligung und
   unabhängige Datenschutzprüfung erforderlich. Gesprächsverläufe werden nicht
@@ -222,6 +230,6 @@ Zugänge deaktiviert.
 - iOS-App-Simulator-Builds wurden nicht ausgeführt; die erfolgreichen CI-Läufe
   validieren portable Core-Tests, keine iOS-App-Targets.
 - `Principal` wird von der Memory Engine als bereits authentifiziert vorausgesetzt;
-  die Engine selbst prüft keine Signatur, Sitzung oder Widerruf. `user_confirmed`
-  ist ein API-Boolean, kein eigenständiger Nachweis einer UI-Einwilligung.
+  die Engine selbst prüft keine Identitäts-Signatur oder Sitzung. Diese Prüfung
+  und ein persistenter Widerrufs-/Einwilligungsnachweis bleiben externe Aufgaben.
 - Kein echter KI-Aufruf; P0 bleibt ungeprüft und nicht freigegeben.
