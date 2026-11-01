@@ -363,7 +363,13 @@ class BackendContractTests(unittest.TestCase):
         support_core = (
             root / "modules/support/ios/Sources/SupportCore/SupportCore.swift"
         ).read_text(encoding="utf-8")
-        self.assertIn(".isExcludedFromBackupKey", support_core)
+        for target in ("directory", "protectedURL"):
+            with self.subTest(backup_exclusion_target=target):
+                self.assertIn(
+                    "resourceValues.isExcludedFromBackup = true\n"
+                    f"        try {target}.setResourceValues(resourceValues)",
+                    support_core,
+                )
         self.assertIn("completeUntilFirstUserAuthentication", support_core)
         self.assertIn("defaults.removeObject(forKey: key)", support_core)
 
