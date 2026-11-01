@@ -175,6 +175,62 @@ final class SupportCoreTests: XCTestCase {
         #endif
     }
 
+    func testLoadCleansAbandonedStagingFileFromInterruptedLegacyImport() throws {
+        let suiteName = "SupportCoreTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(suiteName, isDirectory: true)
+        let fileURL = directory.appendingPathComponent("support_queue_v1.json")
+        let stagingURL = directory.appendingPathComponent(
+            ".support-queue-\(UUID().uuidString).tmp"
+        )
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        let legacy = EscalationTicket(
+            app: .niknolig,
+            requestKey: "interrupted-import",
+            issueCode: "UNRESOLVED",
+            diagnosticCode: "NO_MATCH",
+            encryptedPayload: "legacy-ciphertext",
+            createdAtMilliseconds: 42
+        )
+        let legacyData = try JSONEncoder().encode([legacy])
+        defaults.set(legacyData, forKey: "support_queue_v1")
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        try legacyData.write(to: stagingURL)
+        XCTAssertTrue(
+            String(data: try Data(contentsOf: stagingURL), encoding: .utf8)?
+                .contains("legacy-ciphertext") == true
+        )
+
+        let store = UserDefaultsSupportTicketStore(
+            defaults: defaults,
+            key: "support_queue_v1",
+            fileURL: fileURL
+        )
+        XCTAssertEqual(try store.load(), [legacy])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagingURL.path))
+        XCTAssertNil(defaults.data(forKey: "support_queue_v1"))
+
+        let queue = SupportEscalationQueue(store: store)
+        XCTAssertTrue(try queue.remove(legacy.id, app: .niknolig))
+        XCTAssertTrue(try queue.tickets().isEmpty)
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: directory.path),
+            [fileURL.lastPathComponent]
+        )
+        XCTAssertFalse(
+            String(data: try Data(contentsOf: fileURL), encoding: .utf8)?
+                .contains("legacy-ciphertext") == true
+        )
+    }
+
     func testFileStoreProtectionFailurePreservesQueueAfterWriting() throws {
         let suiteName = "SupportCoreTests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

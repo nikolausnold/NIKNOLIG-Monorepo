@@ -196,6 +196,8 @@ public struct SecureSupportPayloadCipher: SupportPayloadCipher {
 #endif
 
 public final class UserDefaultsSupportTicketStore: SupportTicketStore {
+    private static let fileAccessLock = NSRecursiveLock()
+
     private let defaults: UserDefaults
     private let key: String
     private let fileURL: URL
@@ -227,7 +229,10 @@ public final class UserDefaultsSupportTicketStore: SupportTicketStore {
     }
 
     public func load() throws -> [EscalationTicket] {
+        Self.fileAccessLock.lock()
+        defer { Self.fileAccessLock.unlock() }
         try prepareDirectory()
+        try removeAbandonedStagingFiles()
         if FileManager.default.fileExists(atPath: fileURL.path) {
             try protectFile(fileURL)
             let tickets = try JSONDecoder().decode(
@@ -244,8 +249,23 @@ public final class UserDefaultsSupportTicketStore: SupportTicketStore {
     }
 
     public func save(_ tickets: [EscalationTicket]) throws {
+        Self.fileAccessLock.lock()
+        defer { Self.fileAccessLock.unlock() }
         try prepareDirectory()
+        try removeAbandonedStagingFiles()
         try write(tickets)
+    }
+
+    private func removeAbandonedStagingFiles() throws {
+        let directory = fileURL.deletingLastPathComponent()
+        let prefix = ".support-queue-"
+        let suffix = ".tmp"
+        for name in try FileManager.default.contentsOfDirectory(atPath: directory.path) {
+            guard name.hasPrefix(prefix), name.hasSuffix(suffix) else { continue }
+            let identifier = name.dropFirst(prefix.count).dropLast(suffix.count)
+            guard UUID(uuidString: String(identifier)) != nil else { continue }
+            try FileManager.default.removeItem(at: directory.appendingPathComponent(name))
+        }
     }
 
     private func write(_ tickets: [EscalationTicket]) throws {
