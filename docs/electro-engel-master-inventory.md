@@ -29,6 +29,12 @@ ausdrückliche Einwilligung (`user_confirmed is True`), getrennt nach
 Erkennung, 500 Zeichen, max. 100 Einträge, Aufbewahrung 1–365 Tage (Standard 90),
 Aktualisieren, Löschen, Gesamtlöschung. Gesprächsverläufe, Wissenseinträge und
 Modelltraining bleiben getrennte Funktionen; Erinnerungen trainieren kein Modell.
+Härtung (PR #189): Gespeichert wird nur mit `user_confirmed is True` (auch beim
+Aktualisieren); IDs müssen `UUID` sein; abgelaufene Datensätze werden bei jedem
+Zugriff physisch gelöscht; Speicher-/Löschfehler und fehlgeschlagene
+Bereinigung enden als `STORE_UNAVAILABLE` (ohne Ursache/Inhalt), ein
+fehlgeschlagenes Löschen wird nie als Erfolg gemeldet; fremde Datensätze eines
+fehlerhaften Adapters werden ignoriert. Es wird nichts protokolliert.
 `remember()` liefert einen Beleg – nur dieser darf eine „gespeichert“-Aussage
 begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 
@@ -58,8 +64,9 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 
 ## Tests (tatsächlich)
 
-- Backend: `python -m unittest discover -s backend/tests` im venv mit `requirements.txt` → 198 Tests OK, 20 übersprungen (benötigen PostgreSQL). Vorher 190 OK.
-- Android-Gradle-Build/Unit-Tests, iOS, CI-Lauf, echter KI-Aufruf: **nicht ausgeführt**.
+- Backend: `python -m unittest discover -s backend/tests` im venv mit `requirements.txt` → 205 Tests OK, 20 übersprungen (benötigen PostgreSQL). Ausgangsstand 190 OK. Darin 15 Memory-Tests, u. a. App-/Nutzertrennung, Einwilligung, Ablauf, Löschfehler und Regression „keine HTTP-Route, `RuntimeControls` geschlossen, Modul nicht in `asgi.py`/`app.py` eingebunden“.
+- Die bestehenden Contract-Tests zur Isolation der beiden Android-Module liefen mit.
+- Android-Gradle-Build/Unit-Tests: **nicht ausführbar** (kein Android SDK in dieser Umgebung). iOS, CI-Lauf, echter KI-Aufruf: **nicht ausgeführt**.
 - Echter KI-Test: **nicht erbracht**; Definition of Done für „online“ nicht erfüllt.
 
 ## Nächster Schritt
@@ -67,3 +74,20 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 Betreiber stellt freigegebene Backend-Origin, Auth-Aussteller und serverseitigen
 Provider-Zugang bereit; danach P0-Freigabe, Audit-Sink/Quotas, dann Android-
 Gateway-Client je App mit eigenem Scope.
+
+## Spezifikation für späteren dauerhaften Memory-Speicher (nicht implementiert)
+
+`InMemoryMemoryStore` ist flüchtig und **keine** Produktionsspeicherung. Vor
+einer Aktivierung sind mit separater P0-Freigabe erforderlich:
+
+1. Verschlüsselung at rest (verwaltete Schlüssel, nicht im Repo/APK/Logs) und TLS.
+2. Mandanten-Trennung auf Datenbankebene: Schlüssel `(app, subject)`, getrennte Rollen je App; Zugriff nur über den authentifizierten `Principal`.
+3. Atomares Limit (100 Einträge) und Retention per Datenbank-Job; Löschung nachprüfbar (Lösch-Quittung, keine Soft-Deletes ohne Frist; Backups mit definierter Löschfrist).
+4. Audit-Sink ohne Inhalte (nur Ereignis, App, pseudonymisierte ID, Ergebnis), mit Aufbewahrungsregel.
+5. DSGVO: Auskunft, Berichtigung, Löschung, Widerruf der Einwilligung, Verzeichnis der Verarbeitung, Löschpfad bei Konto-Löschung.
+6. Erst danach: HTTP-Route mit serverseitiger Auth, Rate-Limit und Kostenkontrolle. Bis dahin bleiben `enabled=False` und `RuntimeControls` geschlossen.
+
+## Offene Risiken
+- Keine Persistenz, kein Audit, keine Verschlüsselung, keine Nutzer-Auth (siehe Blocker).
+- Erkennung von Zugangsdaten ist nur ein Muster-Filter, keine DLP; sensible Inhalte in freiem Text sind möglich.
+- Android-Builds und CI-Läufe dieser Änderung nicht verifiziert (Änderung betrifft nur Backend/Docs).

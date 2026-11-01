@@ -30,7 +30,7 @@ _CREDENTIAL_MARKER = re.compile(
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 
 
-class MemoryError_(Exception):
+class MemoryEngineError(Exception):
     """Carries only a stable, non-sensitive reason code."""
 
     def __init__(self, code):
@@ -112,9 +112,28 @@ class MemoryService:
         self.enabled = enabled
         self.clock = clock
 
+    def _store_call(self, operation, *args, **kwargs):
+        # Any storage fault is reported as a stable code; no detail or content leaks.
+        try:
+            return operation(*args, **kwargs)
+        except Exception:
+            raise MemoryEngineError("STORE_UNAVAILABLE") from None
+
+    @staticmethod
+    def _own(principal, records):
+        # Defence in depth against a faulty adapter returning foreign records.
+        return tuple(r for r in records if isinstance(r, MemoryRecord) and
+                     r.app == principal.app and r.subject == principal.subject)
+
+    @staticmethod
+    def _record_id(record_id):
+        if type(record_id) is not UUID:
+            raise MemoryEngineError("VALIDATION_FAILED")
+        return record_id
+
     def _authorize(self, principal, permission):
         if not self.enabled:
-            raise MemoryError_("MEMORY_DISABLED")
+            raise MemoryEngineError("MEMORY_DISABLED")
         now = self.clock()
         if (type(now) not in (int, float) or not math.isfinite(now) or
                 not isinstance(principal, Principal) or principal.active is not True or
@@ -123,17 +142,17 @@ class MemoryService:
                 principal.app not in APPS or
                 type(principal.expires_at) not in (int, float) or
                 not principal.expires_at > now):
-            raise MemoryError_("AUTHENTICATION_INVALID")
+            raise MemoryEngineError("AUTHENTICATION_INVALID")
         if (type(principal.permissions) is not frozenset or
                 permission not in principal.permissions):
-            raise MemoryError_("AUTHORIZATION_DENIED")
+            raise MemoryEngineError("AUTHORIZATION_DENIED")
         return now
 
     @staticmethod
     def _content(content):
         if (type(content) is not str or not content.strip() or
                 len(content) > MAX_CONTENT_CHARS or _CREDENTIAL_MARKER.search(content)):
-            raise MemoryError_("VALIDATION_FAILED")
+            raise MemoryEngineError("VALIDATION_FAILED")
         return content.strip()
 
     def remember(self, principal, *, content, kind, user_confirmed,
@@ -141,27 +160,30 @@ class MemoryService:
         """Returns the stored record; callers may claim storage only from this receipt."""
         now = self._authorize(principal, "memory:write")
         if user_confirmed is not True:
-            raise MemoryError_("CONSENT_REQUIRED")
+            raise MemoryEngineError("CONSENT_REQUIRED")
         if (kind not in KINDS or type(retention_days) is not int or
                 not 1 <= retention_days <= MAX_RETENTION_DAYS):
-            raise MemoryError_("VALIDATION_FAILED")
+            raise MemoryEngineError("VALIDATION_FAILED")
         record = MemoryRecord(
             uuid4(), principal.app, principal.subject, kind, self._content(content),
             now, now, now + retention_days * 86400,
         )
         self._purge_expired(principal, now)
-        if not self.store.put(record, limit=MAX_RECORDS_PER_PRINCIPAL):
-            raise MemoryError_("QUOTA_EXCEEDED")
+        if not self._store_call(self.store.put, record,
+                                limit=MAX_RECORDS_PER_PRINCIPAL):
+            raise MemoryEngineError("QUOTA_EXCEEDED")
         return record
 
     def recall(self, principal, query, *, limit=MAX_RECALL):
         now = self._authorize(principal, "memory:read")
         if (type(query) is not str or not query.strip() or len(query) > 256 or
                 type(limit) is not int or not 1 <= limit <= MAX_RECALL):
-            raise MemoryError_("VALIDATION_FAILED")
+            raise MemoryEngineError("VALIDATION_FAILED")
+        self._purge_expired(principal, now)
         terms = _terms(query)
         scored = []
-        for record in self.store.list(principal.app, principal.subject):
+        for record in self._own(principal, self._store_call(
+                self.store.list, principal.app, principal.subject)):
             if record.expires_at <= now:
                 continue
             score = len(terms & _terms(record.content))
@@ -173,26 +195,37 @@ class MemoryService:
     def update(self, principal, record_id, *, content, user_confirmed):
         now = self._authorize(principal, "memory:write")
         if user_confirmed is not True:
-            raise MemoryError_("CONSENT_REQUIRED")
-        current = self.store.get(principal.app, principal.subject, record_id)
-        if current is None or current.expires_at <= now:
-            raise MemoryError_("NOT_FOUND")
-        updated = replace(current, content=self._content(content), updated_at=now)
-        if not self.store.replace(updated):
-            raise MemoryError_("NOT_FOUND")
+            raise MemoryEngineError("CONSENT_REQUIRED")
+        self._record_id(record_id)
+        new_content = self._content(content)
+        self._purge_expired(principal, now)
+        current = self._own(principal, (self._store_call(
+            self.store.get, principal.app, principal.subject, record_id),))
+        if not current or current[0].id != record_id:
+            raise MemoryEngineError("NOT_FOUND")
+        updated = replace(current[0], content=new_content, updated_at=now)
+        if self._store_call(self.store.replace, updated) is not True:
+            raise MemoryEngineError("NOT_FOUND")
         return updated
 
     def forget(self, principal, record_id):
         self._authorize(principal, "memory:write")
-        if not self.store.delete(principal.app, principal.subject, record_id):
-            raise MemoryError_("NOT_FOUND")
+        self._record_id(record_id)
+        if self._store_call(self.store.delete, principal.app, principal.subject,
+                            record_id) is not True:
+            raise MemoryEngineError("NOT_FOUND")
 
     def forget_all(self, principal):
         """Erasure of everything this principal stored in its own app area."""
         self._authorize(principal, "memory:write")
-        return self.store.delete_all(principal.app, principal.subject)
+        count = self._store_call(self.store.delete_all, principal.app, principal.subject)
+        if type(count) is not int or count < 0:
+            raise MemoryEngineError("STORE_UNAVAILABLE")
+        return count
 
     def _purge_expired(self, principal, now):
-        for record in self.store.list(principal.app, principal.subject):
-            if record.expires_at <= now:
-                self.store.delete(record.app, record.subject, record.id)
+        for record in self._own(principal, self._store_call(
+                self.store.list, principal.app, principal.subject)):
+            if (record.expires_at <= now and self._store_call(
+                    self.store.delete, record.app, record.subject, record.id) is not True):
+                raise MemoryEngineError("STORE_UNAVAILABLE")
