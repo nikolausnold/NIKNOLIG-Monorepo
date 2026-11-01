@@ -41,6 +41,45 @@ Wiederverbindungsimplementierung nach.
    Architektur-/Security-Freigabe. Keine Änderungen an separaten
    App-Repositories oder Cloud-/Backend-Systemen im Rahmen dieses Plans.
 
+### Entscheidungspaket: Elektro-Engel in Defense und Datenaustausch
+
+**Status: offen; die Implementierung bleibt P0-blockiert.** Der Wunsch, Elektro-
+Engel in NIKNOLIG Defense bereitzustellen und Datenaustausch zwischen den Apps
+zu ermöglichen, bestätigt weder konkrete Datenflüsse noch Berechtigungen,
+automatische Aktionen oder SecurityChain-P0-Konformität. Die folgenden Punkte
+müssen von den jeweils zuständigen Rollen schriftlich entschieden werden. Eine
+Entscheidung für eine App oder Datenrichtung gilt nicht automatisch für die
+andere.
+
+| Entscheidung | Vor Implementierung konkret festzulegen | Zuständige Bestätigung / Nachweis |
+| --- | --- | --- |
+| Zweck und Produktumfang | Welche Infrastrukturarten Defense erkennen soll; welche Eingaben, Ergebnisse und Reparaturhinweise dazugehören; ausdrücklich, dass Hinweise keine automatische Reparatur oder Steuerung erlauben. NIKNOLIG erhält keine Infrastruktur-Erkennung. | Produktverantwortliche von NIKNOLIG und Defense; versionierte Funktions- und Aktions-Allowlist |
+| Austauschfluss | Für jeden einzelnen Fluss Quell-App, Ziel-App/-Installation, Sender, Empfänger, Richtung, Zweck und Auslöser; auch ausdrücklich festhalten, was nicht ausgetauscht wird. Ohne benannten Fluss bleibt Austausch deaktiviert. | Produktverantwortliche beider Apps; freigegebene Datenflussübersicht |
+| Datenumfang und Verarbeitung | Zulässige Datenkategorien, minimale Felder, lokale Vorverarbeitung, Empfänger und verbotene Inhalte; Rohdaten, Profile, Zugangsdaten und freie Inhalte sind nicht durch allgemeine Zustimmung oder vorhandene Schemas freigegeben. | Produkt, Datenschutz und Security; versionierter Nachrichten-/Datensatzvertrag |
+| Identität und Vertrauensbindung | Nutzer- und Installationsidentität je App, Peer-Besitznachweis, Bindung an App-Scope und Ziel, Registrierung, Schlüsselwechsel, Geräteverlust und Recovery. Gerätename, UUID oder OS-Pairing allein genügen nicht. | Security- und Plattformverantwortliche; geprüfter Identitäts- und Lebenszyklusvertrag |
+| Zustimmung, Widerruf und Rollen | Verständliche Zustimmung beider Seiten je Zweck, Datenfluss und Ziel; Laufzeit, erneute Zustimmung, Widerruf, Rollen und Folgen bei Ablehnung oder nicht erreichbarem Widerruf. | Produkt, Datenschutz/Recht und Security; freigegebene Texte und Zustands-/Widerrufsregeln |
+| Protokoll und Transport | Bedrohungsmodell, geprüfte Protokoll-/Bibliotheksoption, gegenseitige Authentifizierung, Integrität, Frische, Replay-/Downgrade-Schutz, erlaubte Aktionen, Fehler- und Wiederverbindungsverhalten. Keine Auswahl oder Eigenentwicklung vor Review. | Unabhängiger Security-Review plus Android-/Backend-Verantwortliche; versionierter Protokollvorschlag und Review-Nachweis |
+| Plattform, Rechte und Betrieb | Unterstützte Geräte/OS-Versionen je App; minimal notwendige Runtime-Rechte; lokaler oder Backend-vermittelter Betrieb, Datenregion, Verfügbarkeit, Schlüssel-/Secret-Betrieb und Offlineverhalten. Der vorhandene Backend-Health-Endpunkt ist keine Geräte-API. | Android-/Backend-Betrieb, Security und Datenschutz; freigegebene Plattform-/Betriebsmatrix |
+| Aufbewahrung, Audit und Löschung | Welche minimierten Ereignismetadaten erfasst werden, Zugriff, Rechtsgrundlage, Aufbewahrung, Löschung und Verhalten bei Audit-Ausfall; keine Nutzdaten, Schlüssel oder Tokens im Audit. | Datenschutz/Recht, Betrieb und Security; genehmigte Audit-/Löschpolicy |
+| Abnahme und Freigabe | Negative Tests je App und Richtung, Missbrauchs-/Widerrufsfälle, physische Zwei-Geräte-Abnahme, unabhängiger Review und Signoff für konkrete Spezifikationsversion, Commit und Release-Artefakt. | Unabhängige Prüfer sowie Produkt-, Plattform- und Release-Verantwortliche; nachvollziehbare Abnahmebelege |
+
+**Reihenfolge des Freigabepfads:** (1) Produktverantwortliche bestätigen
+Umfang, Daten und einzelne Flüsse; (2) Datenschutz und Security bewerten Zweck,
+Risiken und Bedrohungsmodell; (3) zuständige Plattform-/Betriebsverantwortliche
+bestätigen Protokoll, Rechte, Betrieb und Lebenszyklus; (4) die verbindliche
+SecurityChain-P0-Version und alle einschlägigen D-01–D-12-Punkte werden
+schriftlich freigegeben; (5) erst danach werden Implementierungsplan,
+Negativtests, unabhängige Prüfung und Geräteabnahme verbindlich. Die vorhandenen
+[D-01–D-12-Entscheidungsvorlagen](securitychain-d01-d12-abschlussstatus.md)
+führen die übergreifenden Status und Nachweise; dieses Paket konkretisiert nur
+den hier angefragten App-zu-App-Anwendungsfall und schließt keinen dieser Punkte.
+
+Bis alle für den gewählten Fluss einschlägigen Freigaben vorliegen, bleiben
+Elektro-Engel-Infrastrukturzugriffe in Defense, Pairing, Discovery, Berechtigungen,
+App-zu-App-Übertragung und produktive APIs deaktiviert. Dokumentation,
+Mock-Planung mit synthetischen Daten und negative Tests bestehender Grenzen
+erteilen keine Laufzeitfreigabe.
+
 ### Transportoptionen – keine Auswahl getroffen
 
 Die Optionen sind Kandidaten für eine spätere Prüfung, keine

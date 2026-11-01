@@ -9,13 +9,54 @@ They are not generative AI services, do not diagnose user devices beyond the
 existing health check, and do not send requests to a network service.
 
 Both apps preserve their separate package identities, local storage, and
-authorizations. Unresolved question text is encrypted before it is stored:
-Android uses an AES-GCM key in Android Keystore, and iOS uses AES-GCM with a
-device-only key in Keychain. Queue records also contain a random ticket ID, app,
-fixed issue/diagnostic codes, creation time, attempt count, and handoff state.
-Only ciphertext is stored in app-private preferences; Android backup is disabled
-for both apps. The queue is capped at 20 tickets, and launching an email draft
-can be retried at most three times after an explicit launch failure.
+authorizations. New unresolved tickets do not store or transmit the entered
+question text: all four support surfaces (both Android activities and both iOS
+views) encrypt only an empty string as the ticket's payload placeholder
+(enforced by `test_support_queues_do_not_persist_free_text`). The placeholder is
+AES-GCM ciphertext (Android Keystore key on Android, device-only Keychain key on
+iOS), but it protects no content. What remains locally per unresolved question
+is plaintext queue metadata: random ticket ID, app, request key (a random UUID,
+not derived from the text), fixed issue/diagnostic codes, creation time, attempt
+count, and handoff state. No backend ticket store exists, and the backend health
+check receives no question text.
+
+### Legacy ticket cleanup and backups
+
+On the first opening of Support after this update, both Android apps and both
+iOS apps inspect stored ticket payloads. A payload that decrypts to non-empty
+text, or cannot be decrypted, is replaced with a newly encrypted empty string.
+The migration retains the ticket ID, app, request key, issue/diagnostic codes,
+creation time, attempts, and handoff state. If replacement or persistence
+fails, the queue is not exposed for use; the original persisted record is not
+intentionally discarded. Tickets whose payload already decrypts to an empty
+string are left unchanged. No question text is sent to the backend or included
+in an email draft.
+
+Android tickets remain in app-private `SharedPreferences`. Both manifests set
+`android:allowBackup="false"`. Android documents that on some manufacturers
+device-to-device transfer may still occur despite this setting; no physical
+device-transfer test was available ([Android backup documentation](https://developer.android.com/identity/data/autobackup)).
+Restored legacy payloads are subject to the same first-open migration.
+
+iOS tickets are stored in a dedicated file under the app's Application Support
+directory, with the directory and file marked excluded from backup and file
+protection set to `completeUntilFirstUserAuthentication`. On first access, the
+store migrates the former `UserDefaults` value into this file, then removes the
+legacy preference. The migration is exercised by package tests, but iCloud
+backup/restore could not be exercised on this Linux runner. Backups made before
+the update may still contain legacy encrypted payloads; the app cannot revoke or
+edit historical backups. If such a backup restores the old preference, opening
+Support migrates its payload before the ticket can be used.
+The prior implementation had no backup exclusion for this preference. Apple's
+[standard app-data backup](https://developer.apple.com/documentation/foundation/optimizing-your-app-s-data-for-icloud-backup)
+includes Library data; the current exclusion uses
+[`isExcludedFromBackupKey`](https://developer.apple.com/documentation/foundation/urlresourcekey/isexcludedfrombackupkey)
+on the dedicated support directory and file. The payload key is
+`AfterFirstUnlockThisDeviceOnly`; a restored legacy payload whose key is not
+available is replaced with an empty encrypted payload rather than retained.
+
+The queue is capped at 20 tickets, and launching an email draft can be retried
+at most three times after an explicit launch failure.
 
 The existing email path is a user-confirmed `mailto:` draft. The public NIKNOLIG
 website also uses a `mailto:n_nold@hotmail.com` link in its contact section:
@@ -28,13 +69,13 @@ user-confirmed `mailto:` flow. A successful handoff is not proof of delivery.
 Drafts include only the random ticket ID, app identity, and allowlisted fixed
 issue/diagnostic codes. Question text, ciphertext, request keys, learning profiles,
 and conversation content are never included. Stored payloads are not decrypted
-for email; encryption is only for local recovery.
+for email.
 The app won't reopen a handed-off ticket because doing so could create a
 duplicate; the user's mail app owns draft storage, delivery retries, and its
 outbox. The user can mark a handed-off ticket sent to complete it locally, or
 explicitly delete a local ticket in any state (including uncertain or
 retry-exhausted).
-Deletion removes only that app's selected local record and encrypted payload;
+Deletion removes only that app's selected local record (metadata and placeholder);
 it does not delete or recall drafts or sent mail in an external email app.
 
 ## Backend contract diagnosis and AI status
@@ -93,5 +134,8 @@ per-app queue scoping, idempotent ticket creation, failed handoff retention,
 bounded retries, and duplicate-prevention after a successful handoff.
 They also cover metadata allowlisting and app-scoped deletion in every handoff
 state, including exhausted retries, persistence failures, and late callbacks
-after deletion. Flow checks ensure drafts never use question text or decrypted
-payloads and that deletion controls remain available.
+after deletion. Migration tests assert that legacy payloads are replaced without
+dropping metadata, that failed migrations leave the stored record available, and
+that iOS moves the old `UserDefaults` value into its file store. Flow checks
+ensure drafts never use question text or decrypted payloads and that deletion
+controls remain available.

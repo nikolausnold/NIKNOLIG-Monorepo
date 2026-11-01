@@ -37,10 +37,12 @@ class SupportActivity : Activity() {
         setContentView(R.layout.activity_support)
 
         backendStatus = savedInstanceState?.getInt("backendStatus")?.takeIf { it != 0 }
-        supportQueue = runCatching {
-            SupportEscalationQueue(AndroidSupportTicketStore(this))
-        }.getOrNull()
         payloadCipher = AndroidSupportPayloadCipher()
+        supportQueue = runCatching {
+            SupportEscalationQueue(AndroidSupportTicketStore(this)).apply {
+                migrateLegacyPayloads(payloadCipher)
+            }
+        }.getOrNull()
         checkButton = findViewById(R.id.support_check_ai)
         questionInput = findViewById(R.id.support_question)
         answerView = findViewById(R.id.support_answer_result)
@@ -116,7 +118,7 @@ class SupportActivity : Activity() {
         }
         answerView.setText(answerResource)
         if (answer.escalationRequired) {
-            val encrypted = runCatching { payloadCipher.encrypt(question) }.getOrNull()
+            val encrypted = runCatching { payloadCipher.encrypt("") }.getOrNull()
             if (encrypted == null) {
                 findViewById<TextView>(R.id.support_queue_status).apply {
                     visibility = View.VISIBLE
@@ -217,6 +219,9 @@ class SupportActivity : Activity() {
             )
         } else if (supportQueue != null) {
             queueStatus.visibility = View.GONE
+        } else {
+            queueStatus.visibility = View.VISIBLE
+            queueStatus.setText(R.string.support_queue_unavailable)
         }
         findViewById<Button>(R.id.support_mark_sent).visibility =
             if (ticket?.handoffState?.name == "HANDED_OFF") View.VISIBLE else View.GONE
@@ -229,7 +234,7 @@ class SupportActivity : Activity() {
             runCatching { supportQueue?.pending()?.firstOrNull { it.id == id } }.getOrNull()
         }
         if (ticket == null) {
-            val encrypted = runCatching { payloadCipher.encrypt(questionInput.text.toString()) }.getOrNull()
+            val encrypted = runCatching { payloadCipher.encrypt("") }.getOrNull()
             val id = encrypted?.let {
                 ensureTicket("MANUAL_REQUEST", lastDiagnostic, manualRequestKey, it)
             } ?: run {

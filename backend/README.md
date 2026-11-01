@@ -265,7 +265,7 @@ freigegebenes P0 darf kein öffentlicher Chat aktiviert werden. Die Health-Rolle
 
 ### Support und Geräteabnahme
 
-Die bestehenden verschlüsselten lokalen Ticketqueues behalten UUIDs,
+Die bestehenden lokalen Ticketqueues (Metadaten unverschlüsselt, Payload nur ein leerer verschlüsselter Platzhalter; kein Freitext) behalten UUIDs,
 App-Isolation, begrenzte Wiederholungen und `UNCERTAIN` nach unklarer Übergabe.
 Beschädigte lokale Speicherung wird nicht als leere erfolgreiche Queue behandelt
 oder überschrieben. Frageinhalte werden nicht stillschweigend in E-Mails ergänzt.
@@ -326,7 +326,7 @@ keine Produktionsfreigabe.
 | KI-Freigabe / Kostenkontrolle | Blockiert durch externe Voraussetzungen und fehlende Laufzeit | Anbieter-/Modell-/Datenschutz-/Kostenfreigabe und serverseitige Zugangsdaten fehlen. In-Memory-Quoten sind keine dauerhafte instanzübergreifende Kostenbegrenzung; Audit- und Quota-Speicher müssen noch implementiert werden. |
 | Elektro-Engel-Analyse | Implementiert, aber nicht mit echter KI verbunden | `modules/electro-engel/`: lokale deterministische Analyse, kein Beleg für generative KI oder Faktenprüfung. Keine Änderung an BUILD TO RUN. |
 | Gemeinsame Supportantworten | Teilweise implementiert | `modules/support/` wird von beiden Android- und iOS-Apps verwendet: lokale FAQs und Diagnosecodes. Kein authentifizierter Netzwerk-Chat, kein Empfang menschlicher Antworten. |
-| Supportfälle / Wiederherstellung / Duplikate | Teilweise implementiert | `SupportEscalationQueue.kt` und der Swift-Supportkern: lokale verschlüsselte Speicherung, UUID, app-bezogene Idempotenz, Zustände, begrenzte Wiederholungen und Löschung. Kein serverseitiges Ticketregister, keine geräteübergreifende Wiederherstellung oder freigegebene zeitliche Aufbewahrungsregel. |
+| Supportfälle / Wiederherstellung / Duplikate | Teilweise implementiert | `SupportEscalationQueue.kt` und der Swift-Supportkern: neue Tickets speichern keinen Freitext; beim Öffnen des Supports werden nicht-leere oder unlesbare Legacy-Payloads durch einen verschlüsselten leeren Platzhalter ersetzt, Metadaten bleiben erhalten. iOS migriert alte `UserDefaults`-Daten in eine backup-ausgeschlossene Datei; historische Backups können alte Payloads enthalten. UUID, app-bezogene Idempotenz, Zustände, begrenzte Wiederholungen und Löschung bleiben lokal. Kein serverseitiges Ticketregister, keine freigegebene zeitliche Aufbewahrungsregel. |
 | E-Mail-Eskalation | Teilweise implementiert | Bestehender bestätigter `mailto:`-Entwurf an `n_nold@hotmail.com`, nur Ticketmetadaten; kein automatischer Versand und keine Zustellbestätigung. `UNCERTAIN` ist absichtlich kein Erfolg. Siehe `modules/support/README.md`. |
 | Website-Mailversand | Blockiert durch externe Voraussetzungen | Der vorhandene Supportbefund dokumentiert Website-`mailto:`-Links, keinen wiederverwendbaren serverseitigen Versanddienst. Kein SMTP-Zugang oder Zustelltest verfügbar; kein neuer Maildienst eingerichtet. |
 | Geräteidentität / Registrierung / Kopplung | Vollständig fehlend als Laufzeit | SQL-/JSON-Entwürfe sind keine Schlüsselbesitzprüfung, Registrierungs-API oder Kopplung. Identitäts-, Widerrufs- und P0-Regeln müssen freigegeben werden. |
