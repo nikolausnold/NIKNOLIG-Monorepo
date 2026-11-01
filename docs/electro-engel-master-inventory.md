@@ -100,6 +100,11 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
   erfolgreich mit PostgreSQL-Service. Android assemblierte beide Debug-APKs und
   bestand Client-Tests, Lint sowie Paket-/Signaturprüfungen; auch der portable
   Elektro-Engel-iOS-Core-Testjob bestand. Das ist kein iOS-App-Simulator-Build.
+- Für den aktuellen Commit `6388ee1` stehen Push- und PR-Workflows auf
+  `action_required`; es wurden dafür keine Jobs gestartet. Der PR-Status ist
+  deshalb noch offen. Dieser letzte Commit ändert nur Dokumentation und eine
+  statische Backend-Vertragsassertion; die erfolgreichen Android-Builds oben
+  beziehen sich auf den vorherigen Code-Commit, nicht auf `6388ee1`.
 - Swift-Pakettests lokal unter Linux: `modules/support/ios` **15 bestanden**;
   `modules/electro-engel/ios` **8 bestanden**. Das sind portable Core-Tests,
   keine iOS-App-Builds. `xcodebuild`/Simulator-Builds waren unter Linux nicht
