@@ -33,6 +33,7 @@ Die Reparatur löscht **keine** vorhandenen lokalen Tickets aus früheren App-Ve
 | `./gradlew :electro-engel-core:test :support-core:test :niknolig:assembleDebug :niknolig-defense:assembleDebug :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest :niknolig:lintDebug :niknolig-defense:lintDebug --no-daemon` | Fehlgeschlagen, bevor Projektaufgaben liefen: Gradle konnte `com.android.application:9.4.1` in den konfigurierten Repositories nicht auflösen. Versionen wurden deshalb nicht geändert. |
 | `command -v xcodebuild` | Kein `xcodebuild` auf diesem Linux-Runner; native iOS-Appziele konnten nicht gebaut werden. Die erfolgreichen Swift-Pakettests ersetzen diesen Build nicht. |
 | GitHub Actions für den Reparaturcommit | [Android](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41263787624), [Backend/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41263787707), [iOS](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41263787764): jeweils `action_required`; die Joblisten enthielten null Jobs. Daher gibt es aus diesen Läufen weder CI-Ergebnisse noch Joblogs. |
+| CodeQL | Python: keine Alerts. Für Swift konnte keine Datenbank erstellt werden (fehlende Buildabhängigkeiten oder nicht unterstützte Projektkonfiguration). Die Ausgabe enthielt kein Kotlin-Ergebnis; Android-Code ist damit nicht durch diesen Lauf abgedeckt. |
 
 Es wurden keine Produktionsdienste, echten Konten, Geräte, Store-Uploads oder Deployments verwendet. Die PostgreSQL-Integration und native iOS-Appprüfung bleiben ausstehend.
 
