@@ -256,7 +256,8 @@ def _is_finite_number(value):
 
 
 def _terms(text):
-    return {word.casefold() for word in _WORD.findall(text) if len(word) > 2}
+    normalized = unicodedata.normalize("NFKC", text)
+    return {word.casefold() for word in _WORD.findall(normalized) if len(word) > 2}
 
 
 def _contains_luhn_card_number(text):

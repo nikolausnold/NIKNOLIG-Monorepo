@@ -63,6 +63,13 @@ class MemoryEngineTest(unittest.TestCase):
         self.assertEqual(s.recall(p, "ausführliche"), ())
         self.assertEqual(code(lambda: s.forget(p, record.id)), "NOT_FOUND")
 
+    def test_recall_normalizes_unicode_queries(self):
+        s, p = service(), principal()
+        record = s.remember(
+            p, content="ｋｕｒｚｅ Mäuse", kind="preference", user_confirmed=True)
+        self.assertEqual(s.recall(p, "ｋｕｒｚｅ"), (record,))
+        self.assertEqual(s.recall(p, "Ma\u0308use"), (record,))
+
     def test_isolation_between_apps_and_subjects(self):
         s = service()
         a = principal()
