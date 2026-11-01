@@ -1,0 +1,4 @@
+module SupportCore {
+header "SupportCore-Swift.h"
+export *
+}

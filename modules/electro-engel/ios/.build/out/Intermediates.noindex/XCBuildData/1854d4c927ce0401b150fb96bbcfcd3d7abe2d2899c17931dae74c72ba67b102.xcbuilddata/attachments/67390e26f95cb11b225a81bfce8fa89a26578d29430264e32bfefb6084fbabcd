@@ -1,0 +1,19 @@
+{
+  "" : {
+    "diagnostics" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/ElectroEngelCoreTests-test-runner-primary.dia",
+    "emit-module-dependencies" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/ElectroEngelCoreTests-test-runner-primary-emit-module.d",
+    "emit-module-diagnostics" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/ElectroEngelCoreTests-test-runner-primary-emit-module.dia",
+    "pch" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/ElectroEngelCoreTests-test-runner-primary-Bridging-header.pch",
+    "swift-dependencies" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/ElectroEngelCoreTests-test-runner-primary.swiftdeps"
+  },
+  "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/DerivedSources/test_entry_point.swift" : {
+    "const-values" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/test_entry_point.swiftconstvalues",
+    "dependencies" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/test_entry_point.d",
+    "diagnostics" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/test_entry_point.dia",
+    "index-unit-output-path" : "/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/test_entry_point.o",
+    "llvm-bc" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/test_entry_point.bc",
+    "object" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/test_entry_point.o",
+    "swift-dependencies" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/test_entry_point.swiftdeps",
+    "swiftmodule" : "/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/electro-engel/ios/.build/out/Intermediates.noindex/ElectroEngelCore.build/Debug-linux-x86_64/ElectroEngelCoreTests-test-runner.build/Objects-normal/x86_64/test_entry_point~partial.swiftmodule"
+  }
+}
