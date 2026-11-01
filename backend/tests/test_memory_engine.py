@@ -168,6 +168,31 @@ class MemoryEngineTest(unittest.TestCase):
         self.assertEqual(len(s.store.list(p.app, p.subject)), MAX_RECORDS_PER_PRINCIPAL)
         self.assertEqual(s.forget_all(p), MAX_RECORDS_PER_PRINCIPAL)
 
+    def test_concurrent_writes_respect_global_store_limit(self):
+        store = InMemoryMemoryStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        people = [principal(subject=f"global-{index}") for index in range(20)]
+
+        def remember(person):
+            try:
+                return s.remember(
+                    person, content="alpha beta", kind="fact", user_confirmed=True)
+            except MemoryEngineError as exc:
+                return exc.code
+
+        with patch("memory_engine.MAX_RECORDS_TOTAL", 5):
+            with ThreadPoolExecutor(max_workers=20) as pool:
+                results = list(pool.map(remember, people))
+            self.assertEqual(sum(not isinstance(item, str) for item in results), 5)
+            self.assertEqual(
+                [item for item in results if isinstance(item, str)],
+                ["QUOTA_EXCEEDED"] * 15,
+            )
+            self.assertEqual(store._record_count, 5)
+            for person in people:
+                s.forget_all(person)
+        self.assertEqual(store._record_count, 0)
+
     def test_concurrent_forget_all_cannot_cancel_pending_expiry(self):
         class BlockingStore(InMemoryMemoryStore):
             def __init__(self):
@@ -239,7 +264,19 @@ class FaultyStore(InMemoryMemoryStore):
             return self.faults["delete_all_receipt"]
         return super().delete_all(app, subject)
 
+    def get(self, app, subject, record_id):
+        if self.faults.get("get") == "raise":
+            raise RuntimeError("secret-detail")
+        return super().get(app, subject, record_id)
+
+    def replace(self, record):
+        if self.faults.get("replace") == "raise":
+            raise RuntimeError("secret-detail")
+        return super().replace(record)
+
     def list(self, app, subject):
+        if self.faults.get("list") == "raise":
+            raise RuntimeError("secret-detail")
         if self.faults.get("foreign"):
             return tuple(r for recs in self._records.values() for r in recs.values())
         return super().list(app, subject)
@@ -262,6 +299,25 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             p, content="alpha beta", kind="fact", user_confirmed=True)),
             "QUOTA_EXCEEDED")
         self.assertEqual(store.list(p.app, p.subject), ())
+
+    def test_read_and_update_storage_errors_fail_closed_without_details(self):
+        p = principal()
+        store = FaultyStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        record = s.remember(p, content="alpha beta", kind="fact",
+                            user_confirmed=True)
+        for fault, operation in (
+                ("get", lambda: s.update(
+                    p, record.id, content="gamma delta", user_confirmed=True)),
+                ("list", lambda: s.recall(p, "alpha")),
+                ("replace", lambda: s.update(
+                    p, record.id, content="gamma delta", user_confirmed=True))):
+            store.faults = {fault: "raise"}
+            with self.assertRaises(MemoryEngineError) as ctx:
+                operation()
+            self.assertEqual(ctx.exception.code, "STORE_UNAVAILABLE")
+            self.assertNotIn("secret-detail", repr(ctx.exception))
+            self.assertIsNone(ctx.exception.__cause__)
 
     def test_partial_write_failure_rolls_back_or_keeps_expiry_cleanup(self):
         p = principal()

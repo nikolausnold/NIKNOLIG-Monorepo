@@ -38,7 +38,7 @@ _EMAIL_MARKER = re.compile(
     r"(?i)(?<![\w.+-])[\w.!#$%&'*+/=?^`{|}~-]+@[\w-]+(?:\.[\w-]+)+"
 )
 _PHONE_MARKER = re.compile(
-    r"(?<!\w)(?:\+\s?\d{1,3}|00\s?\d{1,3})(?:[\s()./-]?\d){7,14}(?!\w)"
+    r"(?<!\w)(?:\+\s?\d{1,3}|00\s?\d{1,3})(?:[\s()./-]*\d){7,14}(?!\w)"
 )
 _CARD_NUMBER = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
