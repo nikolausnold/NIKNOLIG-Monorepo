@@ -33,6 +33,14 @@ class AssistantActivity : Activity() {
             startActivity(Intent(this, SupportActivity::class.java))
         }
 
+        mapOf(
+            R.id.assistant_open_tasks_button to TasksActivity::class.java,
+            R.id.assistant_open_device_button to DeviceStatusActivity::class.java,
+            R.id.assistant_open_security_button to SecurityActivity::class.java,
+        ).forEach { (id, screen) ->
+            findViewById<Button>(id).setOnClickListener { startActivity(Intent(this, screen)) }
+        }
+
         val requestInput = findViewById<EditText>(R.id.assistant_request_input)
         val refinementInput = findViewById<EditText>(R.id.assistant_refinement_input)
         val modeInput = findViewById<Spinner>(R.id.assistant_analysis_mode)

@@ -136,6 +136,7 @@ class SupportActivity : Activity() {
             .setText(R.string.support_backend_checking)
         Thread({
             val result = BackendHealthClient(BuildConfig.BACKEND_BASE_URL).check()
+            runCatching { connectionLog().record(result.toConnectionCode(), System.currentTimeMillis()) }
             val message = when (result) {
                 BackendHealthResult.Ready -> R.string.support_backend_ready
                 BackendHealthResult.NotConfigured -> R.string.support_backend_not_configured
