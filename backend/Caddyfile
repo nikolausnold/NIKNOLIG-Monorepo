@@ -21,7 +21,7 @@ https://{$BACKEND_HOSTNAME} {
 	}
 	@health {
 		method GET
-		path /health/live /health/ready
+		path /health/live /health/ready /health /projects /db/health
 	}
 	handle @health {
 		reverse_proxy api:8000 {

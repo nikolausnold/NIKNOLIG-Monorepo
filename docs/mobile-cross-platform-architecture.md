@@ -3,8 +3,10 @@
 **Status:** Architekturplanung, gesperrte KI-Support-Vorbereitung und bestehende
 lokale iOS-Vorschauziele. Das iOS-Projekt der NIKNOLIG-Haupt-App liegt im
 separaten Repository [`nikolausnold/NIKNOLIG`](https://github.com/nikolausnold/NIKNOLIG).
-Kein freigegebener API-Endpunkt oder produktiver Dienst. SecurityChain P0 bleibt
-ein verbindliches Stop-Gate.
+Die vom Betreiber vorgegebene bestehende API ist `https://api.niknolig.com`;
+die vier App-Konfigurationen dieses Monorepos verwenden sie standardmäßig für
+den nicht-sensitiven Readiness-Check. Dies aktiviert keine geschützte Produkt-API.
+SecurityChain P0 bleibt für deren Implementierung ein verbindliches Stop-Gate.
 
 **Implementierungsstand 22.10.2026:** Dieses Monorepo enthält zusätzlich die
 bestehenden lokalen Vorschauziele in `apps/ios/NIKNOLIG.xcodeproj`; deren
@@ -27,7 +29,7 @@ bleiben in ihrer Zuständigkeit unverändert. Dieses Dokument autorisiert keine
 
 | Bestehende Quelle | Tatsächlicher Umfang | Grenze |
 | --- | --- | --- |
-| `backend/openapi.yaml` | OpenAPI 3.1 mit nicht-sensitiven Health-Routen und einem stabilen Fehlercode-Katalog | Keine App-, Geräte-, Profil-, Authentifizierungs- oder Synchronisations-API ist implementiert oder freigegeben. |
+| `backend/openapi.yaml` | OpenAPI 3.1 mit nicht-sensitiven Health-/Datenbankdiagnosen, statischem Projektkatalog und stabilem Fehlercode-Katalog | Keine App-, Geräte-, Profil-, Authentifizierungs- oder Synchronisations-API ist implementiert oder freigegeben. |
 | `backend/contracts/device-consent-v1.schema.json` | Geräte- und zweckgebundener Zustimmungsentwurf | Ein gültiges JSON-Objekt beweist weder Identität noch Berechtigung. |
 | `backend/contracts/consent-audit-event-v1.schema.json` | Minimierte Metadaten für Consent-Ereignisse | Keine Nachrichten-, Sensor- oder sonstigen Nutzdaten. |
 | `backend/contracts/sensor-capability-v1.schema.json` und `sensor-summary-v1.schema.json` | Laufzeitfähigkeit und abgeleitete Sensordaten | Deklarative Verträge, keine Sensor-Runtime und keine Übertragungsfreigabe. |

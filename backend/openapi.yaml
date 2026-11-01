@@ -3,16 +3,95 @@ info:
   title: NIKNOLIG Shared Backend Contract
   version: 0.1.0
   description: >-
-    Contract-first proposal. Only health operations are defined; no operational
-    app, device, profile, or pairing API is implemented or approved. Production
-    integration is blocked pending SecurityChain-P0 and product/security review.
+    Public health operations and a static project catalog for the existing API.
+    No operational app, device, profile, or pairing API is implemented or
+    approved. Protected product integration remains blocked pending
+    SecurityChain-P0 and product/security review.
 servers:
-  - url: https://backend.invalid
-    description: Placeholder only; not a deployed or approved endpoint.
+  - url: https://api.niknolig.com
+    description: Operator-specified existing API; availability is checked separately.
 tags:
   - name: Health
     description: Non-sensitive process and dependency health contract.
 paths:
+  /health:
+    get:
+      operationId: getApiHealth
+      tags: [Health]
+      summary: Report API process metadata, not database or product readiness.
+      security: []
+      responses:
+        "200":
+          description: The API process is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status, service, version]
+                properties:
+                  status:
+                    const: ok
+                  service:
+                    const: NOLD API
+                  version:
+                    const: 0.2.0
+  /projects:
+    get:
+      operationId: getProjectCatalog
+      tags: [Health]
+      summary: List static project identifiers, without authorization or upstream checks.
+      security: []
+      responses:
+        "200":
+          description: Metadata only; not evidence that project services are available.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [projects]
+                properties:
+                  projects:
+                    type: array
+                    minItems: 3
+                    maxItems: 3
+                    uniqueItems: true
+                    items:
+                      type: string
+                      enum: [niknolig, defense, monorepo]
+  /db/health:
+    get:
+      operationId: getDatabaseConnectivity
+      tags: [Health]
+      summary: Execute SELECT 1 using the bounded read-only database connection.
+      description: Does not verify migration invariants; use /health/ready for readiness.
+      security: []
+      responses:
+        "200":
+          description: PostgreSQL answered the connectivity probe.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status, service]
+                properties:
+                  status:
+                    const: ok
+                  service:
+                    const: NOLD PostgreSQL
+        "503":
+          description: Connectivity failed; the legacy format exposes no connection details.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [detail]
+                properties:
+                  detail:
+                    const: database_unavailable
   /health/live:
     get:
       operationId: getLiveness

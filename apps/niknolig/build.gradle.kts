@@ -16,7 +16,8 @@ val backendBaseUrl = providers.gradleProperty("niknoligBackendUrl")
     .orElse(providers.environmentVariable("NIKNOLIG_BACKEND_URL"))
     .orNull
     ?.trim()
-    .orEmpty()
+    ?.takeIf { it.isNotEmpty() }
+    ?: "https://api.niknolig.com"
 
 fun validateBackendBaseUrl(value: String) {
     if (value.isEmpty()) return
