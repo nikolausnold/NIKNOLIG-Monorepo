@@ -407,22 +407,25 @@ class MemoryService:
         return record
 
     def recall(self, principal, query, *, limit=MAX_RECALL):
-        now = self._authorize(principal, "memory:read")
+        self._authorize(principal, "memory:read")
         if (type(query) is not str or not query.strip() or len(query) > 256 or
                 type(limit) is not int or not 1 <= limit <= MAX_RECALL):
             raise MemoryEngineError("VALIDATION_FAILED")
-        self._purge_expired(principal, now)
         terms = _terms(query)
-        scored = []
-        for record in self._own(principal, self._store_call(
-                self.store.list, principal.app, principal.subject)):
-            if record.expires_at <= now:
-                continue
-            score = len(terms & _terms(record.content))
-            if score:
-                scored.append((score, record.updated_at, record))
-        scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
-        return tuple(record for _, _, record in scored[:limit])
+        with self._write_lock:
+            now = self._authorize(principal, "memory:read")
+            self._purge_expired(principal, now)
+            records = self._own(principal, self._store_call(
+                self.store.list, principal.app, principal.subject))
+            scored = []
+            for record in records:
+                score = len(terms & _terms(record.content))
+                if score:
+                    scored.append((score, record.updated_at, record))
+            now = self._authorize(principal, "memory:read")
+            scored = [item for item in scored if item[2].expires_at > now]
+            scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+            return tuple(record for _, _, record in scored[:limit])
 
     def update(self, principal, record_id, *, content, user_confirmed):
         self._authorize(principal, "memory:write")

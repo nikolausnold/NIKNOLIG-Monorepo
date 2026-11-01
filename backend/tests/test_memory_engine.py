@@ -622,6 +622,53 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             self.assertEqual(recall.result(timeout=2), ())
         self.assertEqual(store.list(p.app, p.subject), ())
 
+    def test_recall_rechecks_authorization_and_expiry_after_slow_cleanup(self):
+        class BlockingListStore(InMemoryMemoryStore):
+            def __init__(self):
+                super().__init__()
+                self.block_list = False
+                self.list_started = threading.Event()
+                self.release_list = threading.Event()
+
+            def list(self, app, subject):
+                records = super().list(app, subject)
+                if self.block_list:
+                    self.list_started.set()
+                    if not self.release_list.wait(2):
+                        raise RuntimeError("slow recall test timed out")
+                return records
+
+        for advance, principal_expiry, expected in (
+                (2, 1001.0, "AUTHENTICATION_INVALID"),
+                (86401, 10**9, ())):
+            with self.subTest(expected=expected):
+                now = [1000.0]
+                store = BlockingListStore()
+                s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
+                p = principal(expires=principal_expiry)
+                record = s.remember(
+                    p, content="alpha beta", kind="fact", user_confirmed=True,
+                    retention_days=1)
+                store.block_list = True
+
+                def recall():
+                    try:
+                        return s.recall(p, "alpha")
+                    except MemoryEngineError as exc:
+                        return exc.code
+
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(recall)
+                    self.assertTrue(store.list_started.wait(1))
+                    now[0] += advance
+                    store.release_list.set()
+                    result = future.result(timeout=2)
+                if expected == "AUTHENTICATION_INVALID":
+                    self.assertEqual(result, expected)
+                else:
+                    self.assertEqual(result, ())
+                    self.assertIsNotNone(store.get(p.app, p.subject, record.id))
+
     def test_foreign_records_from_faulty_store_are_ignored(self):
         store = FaultyStore()
         s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
