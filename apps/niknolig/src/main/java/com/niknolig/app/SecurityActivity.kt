@@ -1,6 +1,7 @@
 package com.niknolig.app
 
 import android.app.Activity
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -11,6 +12,14 @@ import android.widget.Toast
 
 class SecurityActivity : Activity() {
     private val log by lazy { connectionLog() }
+    private val connectionPreferences by lazy {
+        getSharedPreferences("connection_log", MODE_PRIVATE)
+    }
+    private val connectionListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "events") runOnUiThread {
+            if (!isFinishing && !isDestroyed) render()
+        }
+    }
     private lateinit var content: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,6 +37,17 @@ class SecurityActivity : Activity() {
             render()
         }
         render()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        connectionPreferences.registerOnSharedPreferenceChangeListener(connectionListener)
+        render()
+    }
+
+    override fun onPause() {
+        connectionPreferences.unregisterOnSharedPreferenceChangeListener(connectionListener)
+        super.onPause()
     }
 
     private fun render() {

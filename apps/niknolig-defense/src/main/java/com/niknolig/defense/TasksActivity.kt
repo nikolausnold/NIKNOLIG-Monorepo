@@ -19,8 +19,19 @@ internal class SharedPreferencesText(
     private val preferences: SharedPreferences,
     private val key: String,
 ) : TextPersistence {
-    override fun read(): String? = preferences.getString(key, null)
-    override fun write(value: String): Boolean = preferences.edit().putString(key, value).commit()
+    private val persistence = RestoringTextPersistence(
+        readValue = { preferences.getString(key, null) },
+        writeValue = { preferences.edit().putString(key, it).commit() },
+        restoreValue = { value ->
+            val editor = preferences.edit()
+            if (value == null) editor.remove(key) else editor.putString(key, value)
+            editor.commit()
+        },
+        lock = preferences,
+    )
+
+    override fun read(): String? = persistence.read()
+    override fun write(value: String): Boolean = persistence.write(value)
 }
 
 internal fun Context.localTaskRepository() = LocalTaskRepository(

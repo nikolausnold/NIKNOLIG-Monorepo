@@ -13,7 +13,7 @@ internal data class ConnectionState(val lastSuccessMillis: Long?, val failures: 
  * failed attempt, and is therefore never logged as a failure.
  */
 internal class ConnectionLog(private val persistence: TextPersistence) {
-    fun state(): ConnectionState {
+    fun state(): ConnectionState = synchronized(operationLock) {
         var success: Long? = null
         val failures = mutableListOf<ConnectionFailure>()
         persistence.read().orEmpty().lineSequence().forEach { line ->
@@ -26,10 +26,10 @@ internal class ConnectionLog(private val persistence: TextPersistence) {
                 }?.let { failures += ConnectionFailure(time, it) }
             }
         }
-        return ConnectionState(success, failures.takeLast(MAX_FAILURES))
+        ConnectionState(success, failures.takeLast(MAX_FAILURES))
     }
 
-    fun record(code: ConnectionCode, nowMillis: Long): Boolean {
+    fun record(code: ConnectionCode, nowMillis: Long): Boolean = synchronized(operationLock) {
         if (code == ConnectionCode.NOT_CONFIGURED) return true
         val current = state()
         val lines = mutableListOf<String>()
@@ -38,13 +38,14 @@ internal class ConnectionLog(private val persistence: TextPersistence) {
         val failures = if (code == ConnectionCode.READY) current.failures
         else (current.failures + ConnectionFailure(nowMillis, code)).takeLast(MAX_FAILURES)
         failures.forEach { lines += "F|${it.timeMillis}|${it.code.name}" }
-        return persistence.write(lines.joinToString("\n"))
+        persistence.write(lines.joinToString("\n"))
     }
 
-    fun clear(): Boolean = persistence.write("")
+    fun clear(): Boolean = synchronized(operationLock) { persistence.write("") }
 
     companion object {
         const val MAX_FAILURES = 20
+        private val operationLock = Any()
     }
 }
 

@@ -76,6 +76,28 @@ class LocalTaskRepositoryTest {
     }
 
     @Test
+    fun restoresVisibleValueWhenACommitFailsAfterChangingMemory() {
+        var stored: String? = null
+        var failNextWrite = false
+        val persistence = RestoringTextPersistence(
+            readValue = { stored },
+            writeValue = { value ->
+                stored = value
+                if (failNextWrite) {
+                    failNextWrite = false
+                    false
+                } else true
+            },
+        )
+        val repo = repo(persistence)
+        repo.add("bleibt")
+        failNextWrite = true
+
+        assertEquals(TaskResult.Failure(TaskError.STORAGE_FAILED), repo.add("nicht gespeichert"))
+        assertEquals(listOf("bleibt"), repo.list().map { it.title })
+    }
+
+    @Test
     fun ignoresCorruptStoredLines() {
         val store = MemoryPersistence("garbage\nid1|1|Hallo\nid2|x|bad\nid3|0|%ZZ")
         assertEquals(listOf(LocalTask("id1", "Hallo", true)), LocalTaskRepository(store).list())

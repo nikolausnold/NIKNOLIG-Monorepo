@@ -48,7 +48,7 @@
     <string name="security_event_line">%1$s – %2$s</string>
     <string name="security_checks_heading">SECURITY CHECKS</string>
     <string name="security_check_passed">✔ %1$s</string>
-    <string name="security_check_failed">✘ Warning: %1$s</string>
+    <string name="security_check_failed">✘ Security check failed: %1$s</string>
     <string name="security_check_backup">App data backup is turned off</string>
     <string name="security_check_cleartext">Unencrypted network traffic is blocked</string>
     <string name="security_check_debuggable">App is not debuggable</string>
