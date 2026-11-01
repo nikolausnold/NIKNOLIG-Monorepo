@@ -64,7 +64,7 @@ class SecurityActivity : Activity() {
     private fun section(heading: Int) {
         content.addView(TextView(this).apply {
             setText(heading)
-            if (Build.VERSION.SDK_INT >= 28) accessibilityHeading = true
+            if (Build.VERSION.SDK_INT >= 28) isAccessibilityHeading = true
             setTextColor(getColor(R.color.gold))
             textSize = 14f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
