@@ -238,13 +238,15 @@ public final class UserDefaultsSupportTicketStore: SupportTicketStore {
     }
 
     private func prepareDirectory() throws {
-        let directory = fileURL.deletingLastPathComponent()
+        var directory = fileURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(
             at: directory,
             withIntermediateDirectories: true
         )
         #if os(iOS)
-        try directory.setResourceValue(true, forKey: .isExcludedFromBackupKey)
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try directory.setResourceValues(resourceValues)
         try FileManager.default.setAttributes(
             [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
             ofItemAtPath: directory.path
@@ -254,7 +256,10 @@ public final class UserDefaultsSupportTicketStore: SupportTicketStore {
 
     private func protect(_ url: URL) throws {
         #if os(iOS)
-        try url.setResourceValue(true, forKey: .isExcludedFromBackupKey)
+        var protectedURL = url
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try protectedURL.setResourceValues(resourceValues)
         try FileManager.default.setAttributes(
             [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
             ofItemAtPath: url.path
