@@ -9,7 +9,7 @@
     <string name="support_answer_troubleshooting">Restart the app and retry the step. For connection problems, check the backend status below. If the issue persists, describe it in the email draft.</string>
     <string name="support_answer_account">Accounts and password recovery are not available yet. Never send your password. This request is queued for personal review.</string>
     <string name="support_answer_unresolved">There is no reliable offline answer for this. The request is queued with a technical identifier; after confirmation, you can describe it by email.</string>
-    <string name="support_ticket_queued">Queued locally (without question text): %1$s. Only the ID, fixed codes, and status are stored; question text is neither stored nor added to email drafts.</string>
+    <string name="support_ticket_queued">New ticket queued without question text: %1$s. Restored older tickets may still contain encrypted question text until deleted. Email drafts do not include question text.</string>
     <string name="support_ticket_delete">Delete local ticket (does not recall email)</string>
     <string name="support_ticket_deleted">Local ticket deleted. External email drafts and sent emails were not deleted or recalled.</string>
     <string name="support_ticket_delete_failed">The local ticket could not be deleted.</string>

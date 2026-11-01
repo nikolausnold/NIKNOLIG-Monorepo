@@ -318,7 +318,7 @@ private struct NIKNOLIGSupportView: View {
                 }
             }
             Section("E-Mail-Support") {
-                Text("Der Fragetext wird weder gespeichert noch übertragen. Lokal bleiben nur Vorgangskennung, App, feste Codes, Zeitpunkt und Status samt leerem Platzhalter. Nach Bestätigung enthält der E-Mail-Entwurf nur Vorgangskennung, App und feste Codes, keinen Fragetext.")
+                Text("Bei neu angelegten Vorgängen wird der Fragetext weder gespeichert noch übertragen. Lokal bleiben nur Vorgangskennung, App, feste Codes, Zeitpunkt und Status samt leerem Platzhalter. Wiederhergestellte ältere Vorgänge können bis zur Löschung noch verschlüsselten Fragetext enthalten. Nach Bestätigung enthält der E-Mail-Entwurf nur Vorgangskennung, App und feste Codes, keinen Fragetext.")
                     .foregroundStyle(.secondary)
                 Button("E-Mail-Entwurf öffnen") {
                     showingEmailConfirmation = true
