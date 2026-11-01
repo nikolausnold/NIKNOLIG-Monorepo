@@ -284,3 +284,64 @@ Transportwahl und Protokollvertrag freigegeben sind. Danach sind die
 Dateiänderungen schrittweise umzusetzen und die Tests in Abschnitt 5 als
 verbindliche Gates in CI und Geräteabnahme zu verankern. Keine bestehende
 Sicherheitsregel oder App-/Repository-Grenze darf dafür abgeschwächt werden.
+
+## 8. Vorschlag zur Entscheidung (Stand 01.11.2026; nicht genehmigt, nicht umgesetzt)
+
+Dieser Abschnitt ist ein Entscheidungsvorschlag für D-04/D-05/D-06 und kein
+Freigabenachweis. Es gibt keinen Code, keine Berechtigung und keinen Transport
+dazu; die Kopplung bleibt deaktiviert.
+
+### 8.1 Vorgeschlagenes kryptografisches Verfahren
+
+- **Geräteidentität:** Pro Installation ein eigenes EC-P-256-Schlüsselpaar im
+  Android Keystore (`KeyGenParameterSpec`, nicht exportierbar, StrongBox wenn
+  verfügbar, sonst TEE; Verhalten ohne Hardware-Backing ist zu entscheiden).
+  Der private Schlüssel verlässt den Keystore nie. Die Zuordnung zum Gerät erfolgt
+  über Key-Attestation (Android-Zertifikatskette) bei der Registrierung.
+- **Sitzungsprotokoll:** Kein Eigenentwurf. Kandidaten für den Review:
+  (a) gegenseitig authentifiziertes TLS 1.3 mit Pinning der beim Pairing
+  bestätigten Schlüssel, oder (b) ein etabliertes Noise-Muster (z. B. `XX`/`IK`)
+  einer gepflegten Bibliothek. Auswahl erst nach unabhängigem Kryptografie-Review.
+- **Pairing-Bindung:** Der QR-Token authentifiziert nur den Erstkontakt
+  (einmalig, kurze Gültigkeit, kein Geheimnis mit Langzeitwirkung). Der
+  Vergleichscode wird aus dem Handshake-Transcript beider öffentlichen
+  Schlüssel abgeleitet, damit ein Man-in-the-Middle sichtbar wird.
+- **Annahmen/Grenzen:** Ein kompromittiertes (gerootetes) Gerät oder ein
+  Nutzer, der einen falschen Vergleichscode bestätigt, wird dadurch nicht
+  verhindert. Keystore-Schutz variiert je Gerät. Nachweise liegen nicht vor.
+
+### 8.2 Widerruf und Schlüsselverwaltung (Vorschlag)
+
+- **Widerruf:** Lokal sofort wirksam (Beziehung und Zustimmungen gesperrt,
+  Sitzungsschlüssel verworfen). Der Peer wird per signierter Widerrufsnachricht
+  informiert, sobald erreichbar.
+- **Offline-Peer:** Der Status bleibt „lokal widerrufen, Peer nicht
+  bestätigt“; es darf nie „vollständig widerrufen“ angezeigt werden. Der
+  Peer lehnt Verbindungen ab, sobald er die Nachricht erhält oder beim
+  nächsten Handshake der Widerruf bekannt wird. Ein Fallback ohne Peer-
+  Bestätigung ist ein zu genehmigendes Restrisiko (Widerrufs-SLA, D-06).
+- **Verlorenes/kompromittiertes Gerät:** Sperrung über das verbleibende
+  Gerät (Beziehung löschen, Schlüssel-ID in eine lokale Sperrliste); ohne
+  Backend wirkt die Sperrung nur lokal.
+- **Schlüsselerneuerung:** Neues Schlüsselpaar, erneute beidseitige
+  Bestätigung; alter öffentlicher Schlüssel wird gesperrt. Kein stilles Ersetzen.
+- **Neu-Kopplung:** Immer vollständiger Ablauf aus 3a; alte Zustimmungen
+  gelten nicht fort.
+
+### 8.3 Nachgewiesene Blocker (Stand der Prüfung)
+
+| Blocker | Beleg |
+| --- | --- |
+| SecurityChain-P0 nicht genehmigt | Spezifikation v0.6 „Reviewentwurf, noch nicht genehmigt“ |
+| D-02–D-06, D-08–D-12 offen; D-03, D-11 blockiert | `securitychain-d01-d12-abschlussstatus.md` |
+| Kein Transport freigegeben (BLE nur mit separater Freigabe) | D-07; keine BLE-/Netzwerkrechte in den Manifesten |
+| Keine Identitäts-/Registrierungsruntime, kein Audit-Sink | D-03, D-05, D-10 |
+| `:device-link-core` nicht freigegeben | Abschnitt 3 |
+| Kein unabhängiger Review, keine Zwei-Geräte-Abnahme | D-12 |
+
+### 8.4 Nächste Aktion
+
+Verantwortliche entscheiden schriftlich D-04, D-05, D-06, D-07 und D-12 gemäß
+Abschnitt 2 (Vorschlag oben annehmen, ändern oder ablehnen). Erst danach
+beginnt die Implementierung in kleinen PRs: zuerst `:device-link-core`
+(reine Zustandsmaschine/Validierung mit Tests), dann App-Integration.

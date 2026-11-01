@@ -136,6 +136,19 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn("minSdk 26", plan)
         self.assertIn("nicht durchgeführt", plan)
 
+    def test_device_link_stays_disabled_until_p0_approval(self):
+        root = BACKEND.parent
+        doc = (root / "docs/device-link-security-design.md").read_text(encoding="utf-8")
+        self.assertIn("P0-blockiert", doc)
+        self.assertIn("Vorschlag zur Entscheidung", doc)
+        for app in ("niknolig", "niknolig-defense"):
+            manifest = (root / f"apps/{app}/src/main/AndroidManifest.xml").read_text(
+                encoding="utf-8"
+            )
+            for forbidden in ("BLUETOOTH", "CAMERA", "NEARBY", "ACCESS_FINE_LOCATION"):
+                self.assertNotIn(forbidden, manifest)
+        self.assertFalse((root / "modules/device-link-core").exists())
+
     def test_electro_engel_architecture_preserves_app_boundaries(self):
         root = BACKEND.parent
         settings = (root / "settings.gradle.kts").read_text(encoding="utf-8")
