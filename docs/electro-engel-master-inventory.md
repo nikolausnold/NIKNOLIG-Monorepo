@@ -89,11 +89,13 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 
 ## Tests (tatsächlich)
 
-- Backend lokal: `python -m unittest discover -s backend/tests` mit
-  `backend/requirements.txt` → **219 Tests OK, 19 übersprungen** (lokal nicht
-  verfügbares PostgreSQL). Contract-/App-Isolationsprüfungen liefen in der Suite;
-  Regressionstests decken persistierte Schreibfehler, nicht bestätigte
-  Rückgabewerte, Scheduler-/Klartextbereinigung und ungültige Löschbelege ab.
+- Backend lokal: `python -m unittest discover -s backend/tests` mit den gepinnten
+  `backend/requirements.txt`-Abhängigkeiten und einem kurzlebigen PostgreSQL-
+  17.9-Container nach CI-Konfiguration → **223 Tests bestanden, keine
+  übersprungen**. Damit wurden auch die PostgreSQL-Integrationen ausgeführt.
+  Regressionen decken Authentifizierung/Einwilligung, App-/Subject-Isolation,
+  parallele Principal- und globale Quoten, sensible Eingaben, Löschung,
+  Retention und Speicherfehler ab.
 - Tooling lokal: `python -m unittest discover -s tools/tests` → **74 Tests OK**.
 - GitHub Actions auf Code-Commit `e5a7bf7`: [Backend Contracts/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41316873061)
   und [Android Build](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41316873042)
@@ -101,11 +103,11 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
   erfolgreich mit PostgreSQL-Service. Android assemblierte beide Debug-APKs und
   bestand Client-Tests, Lint sowie Paket-/Signaturprüfungen; auch der portable
   Elektro-Engel-iOS-Core-Testjob bestand. Das ist kein iOS-App-Simulator-Build.
-- Für den aktuellen Commit `6388ee1` stehen Push- und PR-Workflows auf
-  `action_required`; es wurden dafür keine Jobs gestartet. Der PR-Status ist
-  deshalb noch offen. Dieser letzte Commit ändert nur Dokumentation und eine
-  statische Backend-Vertragsassertion; die erfolgreichen Android-Builds oben
-  beziehen sich auf den vorherigen Code-Commit, nicht auf `6388ee1`.
+- Der Backend-Contracts/Tooling-Workflow auf `562b765` ist nach Retry
+  erfolgreich und nutzte den CI-PostgreSQL-Service. Die aktuellen
+  Memory-Engine-Änderungen wurden lokal mit derselben gepinnten PostgreSQL-
+  Imageversion verifiziert; ein Android-Build wurde dafür nicht erneut
+  ausgeführt.
 - Swift-Pakettests lokal unter Linux: `modules/support/ios` **15 bestanden**;
   `modules/electro-engel/ios` **8 bestanden**. Das sind portable Core-Tests,
   keine iOS-App-Builds. `xcodebuild`/Simulator-Builds waren unter Linux nicht
