@@ -126,6 +126,40 @@ und Kompatibilitätsprüfung sowie Abnahmekriterien sind offene Freigabepunkte.
   Wiederverbindung authentifiziert den Peer erneut. Widerruf löscht die
   Vertrauensbeziehung und erfordert ein neues beidseitig bestätigtes Pairing.
 
+### 3a. Entwurf: QR-Pairing (nicht aktiviert, ohne Datenübertragung)
+
+**Status: Entwurf zur Prüfung; keine Implementierung, kein Code, keine Berechtigung.**
+Der Entwurf wählt keinen Transport und erteilt keine P0-Freigabe. Er konkretisiert
+nur den Pairing-Ablauf, damit Produkt, Datenschutz und Security ihn bewerten können.
+
+1. **Auslöser:** Nur durch aktives Tippen in einer der Apps (z. B. „Gerät koppeln“);
+   standardmäßig deaktiviert, kein Hintergrund-Discovery.
+2. **QR-Angebot (Gerät A):** Zeigt einen QR-Code mit Protokollversion, App-Bereich
+   (`niknolig` oder `niknolig-defense`), zufälligem einmaligem Pairing-Token
+   (kryptografisch zufällig, kurze Gültigkeit, nur ein Versuch) und dem
+   öffentlichen Teil der Geräteidentität. Keine Nutzdaten, keine langlebigen
+   Geheimnisse, kein Gerätename als Vertrauensanker.
+3. **Scan (Gerät B):** Die andere App scannt den Code. Gleicher App-Bereich, abgelaufene
+   oder bereits benutzte Token und unbekannte Versionen werden abgelehnt.
+4. **Beidseitige Bestätigung:** Beide Geräte zeigen einen kurzen Vergleichscode und
+   den Namen der Gegen-App; ohne ausdrückliche Zustimmung auf beiden Seiten kein
+   Abschluss. Timeout und Abbruch führen zu `failed` ohne gespeicherte Beziehung.
+5. **Vertrauensbeziehung:** Erst nach Bestätigung wird eine Beziehung gespeichert,
+   gebunden an App-Bereich und Ziel-Installation. Sie gibt **keine** Datenfreigabe;
+   jeder Zweck erfordert eine eigene Zustimmung gemäß `device-consent-v1`.
+6. **Widerruf:** Jederzeit in beiden Apps; löscht die Beziehung lokal, ein
+   Neu-Pairing erfordert wieder Schritt 1–4. Ist der Peer nicht erreichbar, gilt der
+   lokale Widerruf sofort; das Verhalten für den Peer ist zu entscheiden.
+7. **Zustände:** Wie in Abschnitt 3 (`idle`, `pairing`, `connected`, `revoked`,
+   `failed`); in diesem Entwurf wird kein Nachrichtenaustausch über `pairing` hinaus
+   definiert.
+
+**Offene Entscheidungen vor Umsetzung:** Kryptografisches Verfahren und Bibliothek
+(kein Eigenbau), Schlüsselspeicherung, Kamera-Berechtigung und Zeitlimits,
+Behandlung des Peer-Widerrufs, Zugehörigkeit zum optionalen `:device-link-core`
+sowie die Freigaben aus Abschnitt 2. Bis dahin bleiben Pairing, Discovery und
+App-zu-App-Übertragung deaktiviert.
+
 ## 4. Erwartete Änderungsorte
 
 Änderungen erfolgen erst nach den Freigaben in Abschnitt 2.
