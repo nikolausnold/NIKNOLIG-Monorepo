@@ -149,7 +149,7 @@ class BackendContractTests(unittest.TestCase):
         self.assertIn('implementation(project(":electro-engel-core"))', niknolig_build)
         self.assertIn('implementation(project(":support-core"))', niknolig_build)
         self.assertIn('implementation(project(":support-core"))', defense_build)
-        self.assertNotIn('project(":electro-engel-core")', defense_build)
+        self.assertIn('implementation(project(":electro-engel-core"))', defense_build)
 
         core = root / "modules/electro-engel/core"
         core_source = (

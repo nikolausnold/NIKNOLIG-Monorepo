@@ -16,8 +16,7 @@ sent over a network.
 
 The rule cues and curated glosses currently support German text. The Kotlin/JVM
 core lives in `core/` and has no Android, app, network, or provider dependency.
-NIKNOLIG Android consumes it as `:electro-engel-core`;
-NIKNOLIG Defense does not. The iOS implementation is a Foundation-only Swift
+NIKNOLIG Android and NIKNOLIG Defense each consume it as `:electro-engel-core`. The iOS implementation is a Foundation-only Swift
 package in `ios/`, compiled into the NIKNOLIG target. Its small rule set mirrors
 the Kotlin behavior; there is no common generated implementation, so parity is
 maintained by behavioral tests and review.
