@@ -157,6 +157,7 @@ class Handshake(
 
     fun hello(): Hello = own
 
+    @Synchronized
     fun receiveHello(received: Hello): AuditResult? {
         val reason = when {
             dead || peer != null -> AuditResult.REPLAY
@@ -185,6 +186,7 @@ class Handshake(
 
     private fun roleByte(isInitiator: Boolean): ByteArray = byteArrayOf(if (isInitiator) 1 else 2)
 
+    @Synchronized
     fun proof(): ByteArray {
         check(!dead && !finished) { "handshake is no longer valid" }
         return keys.sign(transcript() + roleByte(initiator))

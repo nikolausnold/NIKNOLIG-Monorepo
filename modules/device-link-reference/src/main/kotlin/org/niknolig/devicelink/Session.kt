@@ -23,6 +23,7 @@ class PeerAuthenticator(
     private val ownId = DeviceId.of(keys.publicKey)
     private val outstanding = mutableMapOf<DeviceId, Challenge>()
 
+    @Synchronized
     fun challenge(peer: DeviceId): Challenge? {
         if (registry.state(peer) != PeerState.TRUSTED) {
             audit.record(AuditType.AUTH_FAILED, peer, if (registry.state(peer) == null) AuditResult.UNKNOWN_PEER else AuditResult.PEER_REVOKED)
@@ -34,6 +35,7 @@ class PeerAuthenticator(
     /** Answers a challenge issued by [verifier]. */
     fun respond(challenge: Challenge, verifier: DeviceId): ByteArray = keys.sign(signedData(challenge.nonce, verifier, ownId))
 
+    @Synchronized
     fun verify(peer: DeviceId, response: ByteArray): AuditResult? {
         val challenge = outstanding.remove(peer) // single use, even when verification fails
         val key = registry.trustedKey(peer)
@@ -106,6 +108,7 @@ class SecureSession(
         if (!sessionIds.register(sessionId)) fail<Unit>(AuditResult.SESSION_INVALID)
     }
 
+    @Synchronized
     fun close() { isOpen = false }
 
     private fun data(sessionId: ByteArray, counter: Long, scope: DataScope, payload: ByteArray): ByteArray {
@@ -120,6 +123,7 @@ class SecureSession(
         return out.toByteArray()
     }
 
+    @Synchronized
     fun seal(scope: DataScope, payload: ByteArray): SignedMessage? {
         if (!isOpen || payload.size > maxPayloadBytes) return fail(AuditResult.MALFORMED)
         if (registry.authorize(peer, scope, Direction.SEND) is Decision.Deny) return fail(null)
@@ -129,6 +133,7 @@ class SecureSession(
     }
 
     /** Returns the payload only if the message is fresh, authentic and currently authorized. */
+    @Synchronized
     fun open(message: SignedMessage): ByteArray? {
         if (!isOpen) return fail(AuditResult.SESSION_INVALID)
         val key = registry.trustedKey(peer) ?: return fail(AuditResult.PEER_REVOKED)

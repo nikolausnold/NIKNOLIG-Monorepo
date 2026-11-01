@@ -639,6 +639,134 @@ class DeviceLinkTest {
         assertFalse(ProductionGate.ENABLED)
     }
 
+    // ---- review follow-up: concurrency, restart, exhausted capacity ----
+
+    private fun runConcurrently(count: Int, block: (Int) -> Unit) {
+        val start = java.util.concurrent.CountDownLatch(1)
+        val threads = (0 until count).map { i -> Thread { start.await(); block(i) } }
+        threads.forEach { it.start() }
+        start.countDown()
+        threads.forEach { it.join() }
+    }
+
+    @Test
+    fun sameMessageDeliveredConcurrentlyIsAcceptedAtMostOnce() {
+        val d = consented()
+        repeat(20) {
+            val (sender, receiver) = link(d.a, d.b)
+            val m = sender.seal(DataScope.STATUS_SUMMARY, byteArrayOf(1))!!
+            val accepted = java.util.concurrent.atomic.AtomicInteger()
+            runConcurrently(8) { if (receiver.open(m) != null) accepted.incrementAndGet() }
+            assertEquals(1, accepted.get())
+        }
+    }
+
+    @Test
+    fun reconnectResponseIsAcceptedAtMostOnceEvenConcurrently() {
+        val d = paired()
+        repeat(20) {
+            val c = d.a.auth.challenge(d.b.id)!!
+            val response = d.b.auth.respond(c, d.a.id)
+            val ok = java.util.concurrent.atomic.AtomicInteger()
+            runConcurrently(8) { if (d.a.auth.verify(d.b.id, response) == null) ok.incrementAndGet() }
+            assertEquals(1, ok.get())
+        }
+    }
+
+    @Test
+    fun parallelAttemptsNeverExceedTheLimitUnderThreads() {
+        val d = devices()
+        val issuer = PairingTokenIssuer(clock, maxAttempts = 3)
+        val token = issuer.issue()
+        val running = List(16) { start(d, issuer, token) }
+        val proofs = running.map { it.second.proof().also { p -> p[p.size - 1] = (p.last() + 1).toByte() } }
+        val results = java.util.Collections.synchronizedList(mutableListOf<HandshakeResult>())
+        runConcurrently(16) { results += running[it].first.verifyProof(proofs[it]) }
+        assertEquals(3, results.count { it == HandshakeResult.Rejected(AuditResult.BAD_SIGNATURE) })
+        assertEquals(13, results.count { it == HandshakeResult.Rejected(AuditResult.TOO_MANY_ATTEMPTS) })
+    }
+
+    @Test
+    fun rotationWhileHandshakesAreRunningNeverYieldsAVerifiedResultForTheOldToken() {
+        repeat(20) {
+            val d = devices()
+            val issuer = PairingTokenIssuer(clock, maxAttempts = 100)
+            val token = issuer.issue()
+            val running = List(6) { start(d, issuer, token) }
+            val proofs = running.map { it.second.proof() }
+            val results = java.util.Collections.synchronizedList(mutableListOf<HandshakeResult>())
+            val rotated = java.util.concurrent.atomic.AtomicBoolean()
+            runConcurrently(7) {
+                if (it == 6) { issuer.issue(); rotated.set(true) } else results += running[it].first.verifyProof(proofs[it])
+            }
+            assertTrue(rotated.get())
+            // Whatever won the race, the token can have been consumed at most once ...
+            assertTrue(results.count { r -> r is HandshakeResult.Verified } <= 1)
+            // ... and after the rotation nothing started with the old token verifies.
+            assertTrue(finish(start(d, issuer, token)) is HandshakeResult.Rejected)
+        }
+    }
+
+    @Test
+    fun revocationBetweenTwoParallelPairingResultsInvalidatesTheSecond() {
+        val d = devices()
+        val issuer = PairingTokenIssuer(clock, maxAttempts = 100)
+        val token = issuer.issue()
+        val h1 = start(d, issuer, token)
+        val h2 = start(d, issuer, token)
+        val p1 = (finish(h1) as HandshakeResult.Verified).pending
+        assertNotNull(d.a.registry.completePairing(p1, true))
+        d.a.registry.revokePeer(d.b.id)
+        // Token is single use, so h2 cannot even verify now.
+        assertEquals(HandshakeResult.Rejected(AuditResult.TOKEN_REUSED), finish(h2))
+        assertNull(d.a.registry.completePairing(p1, true))
+        assertEquals(PeerState.REVOKED, d.a.registry.state(d.b.id))
+    }
+
+    @Test
+    fun exhaustedSessionIdCapacityClosesNewSessionsAndNeverEvicts() {
+        val d = consented()
+        val tiny = SessionIdGuard(capacity = 2)
+        fun make(id: ByteArray) = SecureSession(d.a.keys, d.b.id, d.a.registry, d.a.audit, id, tiny)
+        val first = freshId()
+        assertTrue(make(first).isOpen)
+        assertTrue(make(freshId()).isOpen)
+        assertFalse(make(freshId()).isOpen)
+        assertFalse(make(first).isOpen)
+    }
+
+    @Test
+    fun restartLosesAllPendingStateAndOldHandshakesOrTokensAreRejected() {
+        val d = devices()
+        val issuer = PairingTokenIssuer(clock)
+        val token = issuer.issue()
+        val running = start(d, issuer, token)
+        // "Restart": a fresh issuer without a token, as after process death.
+        val restarted = PairingTokenIssuer(clock)
+        val ha = Handshake(true, d.a.scope, d.a.keys, restarted, ByteArray(32), d.a.audit, ReplayGuard())
+        val hb = Handshake(false, d.b.scope, d.b.keys, null, Crypto.sha256(token), d.b.audit, ReplayGuard())
+        ha.receiveHello(hb.hello()); hb.receiveHello(ha.hello())
+        assertEquals(HandshakeResult.Rejected(AuditResult.TOKEN_INVALID), ha.verifyProof(hb.proof()))
+        assertTrue(finish(running) is HandshakeResult.Verified) // the old object is unaffected, new state is empty
+        // A restarted device has no trusted peers: old signed messages are refused.
+        val consentedPair = consented()
+        val (sender, _) = link(consentedPair.a, consentedPair.b)
+        val m = sender.seal(DataScope.STATUS_SUMMARY, byteArrayOf(1))!!
+        val rebooted = Device(AppScope.DEFENSE, clock)
+        assertNull(SecureSession(rebooted.keys, consentedPair.a.id, rebooted.registry, rebooted.audit, m.sessionId, rebooted.sessionIds).open(m))
+    }
+
+    @Test
+    fun closedSessionCannotSealOrOpenAnything() {
+        val d = consented()
+        val (sender, receiver) = link(d.a, d.b)
+        val m = sender.seal(DataScope.STATUS_SUMMARY, byteArrayOf(1))!!
+        sender.close()
+        assertNull(sender.seal(DataScope.STATUS_SUMMARY, byteArrayOf(2)))
+        receiver.close()
+        assertNull(receiver.open(m))
+    }
+
     // ---- audit policy and production gate ----
 
     @Test
