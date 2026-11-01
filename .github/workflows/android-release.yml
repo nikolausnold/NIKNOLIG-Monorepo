@@ -2,6 +2,12 @@ name: Preparing release APKs
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional: publish a draft GitHub release with this tag (vMAJOR.MINOR.PATCH)"
+        required: false
+        type: string
+        default: ""
   workflow_run:
     workflows: ["Android apps build", "Backend contracts and tooling"]
     branches: [main]
@@ -29,6 +35,17 @@ jobs:
     timeout-minutes: 30
     environment: android-release
     steps:
+      - name: Validate release tag input
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release_tag must match vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+
       - name: Check out repository
         uses: actions/checkout@v7
         with:
@@ -300,3 +317,38 @@ jobs:
           keystore_dir="$RUNNER_TEMP/android-release"
           rm -f "$keystore_dir/niknolig-release.p12" "$keystore_dir/niknolig-defense-release.p12"
           rmdir "$keystore_dir" 2>/dev/null || true
+
+  publish-release:
+    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+    needs: assemble-release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: android-release
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified release artifacts
+        uses: actions/download-artifact@v8.0.2
+        with:
+          path: artifacts
+
+      - name: Create checksums and draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release_tag must match vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          mkdir release
+          cp artifacts/niknolig-release-apk/*.apk release/niknolig-release.apk
+          cp artifacts/niknolig-defense-release-apk/*.apk release/niknolig-defense-release.apk
+          cp artifacts/niknolig-store-aab-*/*.aab release/niknolig-release.aab
+          cp artifacts/niknolig-defense-store-aab-*/*.aab release/niknolig-defense-release.aab
+          (cd release && sha256sum * > SHA256SUMS && cat SHA256SUMS)
+          gh release create "$RELEASE_TAG" release/* --repo "$GITHUB_REPOSITORY" \
+            --target "$RELEASE_SHA" --title "$RELEASE_TAG" --draft \
+            --notes "Signed release artifacts built by workflow run $GITHUB_RUN_ID. Verify with SHA256SUMS."
