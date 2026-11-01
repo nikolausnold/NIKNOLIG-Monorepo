@@ -193,20 +193,83 @@ public struct SecureSupportPayloadCipher: SupportPayloadCipher {
 public final class UserDefaultsSupportTicketStore: SupportTicketStore {
     private let defaults: UserDefaults
     private let key: String
+    private let fileURL: URL
 
-    public init(defaults: UserDefaults = .standard, key: String = "support_queue_v1") {
+    public init(
+        defaults: UserDefaults = .standard,
+        key: String = "support_queue_v1",
+        fileURL: URL? = nil
+    ) {
         self.defaults = defaults
         self.key = key
+        self.fileURL = fileURL ?? Self.defaultFileURL()
     }
 
     public func load() throws -> [EscalationTicket] {
-        guard let data = defaults.data(forKey: key) else { return [] }
-        return try JSONDecoder().decode([EscalationTicket].self, from: data)
+        try prepareDirectory()
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            try protect(fileURL)
+            let tickets = try JSONDecoder().decode(
+                [EscalationTicket].self,
+                from: Data(contentsOf: fileURL)
+            )
+            defaults.removeObject(forKey: key)
+            return tickets
+        }
+        guard let legacyData = defaults.data(forKey: key) else { return [] }
+        let tickets = try JSONDecoder().decode([EscalationTicket].self, from: legacyData)
+        try write(tickets)
+        return tickets
     }
 
     public func save(_ tickets: [EscalationTicket]) throws {
         let data = try JSONEncoder().encode(tickets)
-        defaults.set(data, forKey: key)
+        try prepareDirectory()
+        try data.write(to: fileURL, options: .atomic)
+        try protect(fileURL)
+        defaults.removeObject(forKey: key)
+    }
+
+    private func write(_ tickets: [EscalationTicket]) throws {
+        let data = try JSONEncoder().encode(tickets)
+        try data.write(to: fileURL, options: .atomic)
+        try protect(fileURL)
+        defaults.removeObject(forKey: key)
+    }
+
+    private func prepareDirectory() throws {
+        let directory = fileURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        #if os(iOS)
+        try directory.setResourceValue(true, forKey: .isExcludedFromBackupKey)
+        try FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+            ofItemAtPath: directory.path
+        )
+        #endif
+    }
+
+    private func protect(_ url: URL) throws {
+        #if os(iOS)
+        try url.setResourceValue(true, forKey: .isExcludedFromBackupKey)
+        try FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+            ofItemAtPath: url.path
+        )
+        #endif
+    }
+
+    private static func defaultFileURL() -> URL {
+        let applicationSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first ?? FileManager.default.temporaryDirectory
+        return applicationSupport
+            .appendingPathComponent("NIKNOLIGSupportQueue", isDirectory: true)
+            .appendingPathComponent("support_queue_v1.json", isDirectory: false)
     }
 }
 
@@ -260,6 +323,33 @@ public final class SupportEscalationQueue {
 
     public func tickets() throws -> [EscalationTicket] {
         try store.load()
+    }
+
+    @discardableResult
+    public func migrateLegacyPayloads(using cipher: SupportPayloadCipher) throws -> Bool {
+        let tickets = try store.load()
+        var changed = false
+        let migrated = try tickets.map { ticket -> EscalationTicket in
+            if (try? cipher.decrypt(ticket.encryptedPayload)) == "" {
+                return ticket
+            }
+            changed = true
+            return EscalationTicket(
+                id: ticket.id,
+                app: ticket.app,
+                requestKey: ticket.requestKey,
+                issueCode: ticket.issueCode,
+                diagnosticCode: ticket.diagnosticCode,
+                encryptedPayload: try cipher.encrypt(""),
+                createdAtMilliseconds: ticket.createdAtMilliseconds,
+                handoffAttempts: ticket.handoffAttempts,
+                handoffState: ticket.handoffState
+            )
+        }
+        if changed {
+            try store.save(migrated)
+        }
+        return changed
     }
 
     public func beginHandoff(_ ticketID: UUID) throws -> EscalationTicket? {

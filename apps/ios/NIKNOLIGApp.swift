@@ -277,6 +277,7 @@ private struct NIKNOLIGSupportView: View {
     @State private var question = ""
     @State private var answer = ""
     @State private var ticket: EscalationTicket?
+    @State private var supportQueueReady = false
     @State private var previousQuestion = ""
     @State private var questionRequestKey = UUID().uuidString
     @State private var manualRequestKey = "MANUAL_\(UUID().uuidString)"
@@ -300,7 +301,7 @@ private struct NIKNOLIGSupportView: View {
                             questionRequestKey = UUID().uuidString
                         }
                     }
-                    .accessibilityHint("Der Fragetext wird nicht gespeichert; lokal bleiben nur Kennung, feste Codes und Status. E-Mail-Entwürfe enthalten keinen Fragetext.")
+                    .accessibilityHint("Die eingegebene Frage wird bei neuen Vorgängen nicht gespeichert. Wiederhergestellte ältere Vorgänge können bis zur Migration verschlüsselten Fragetext enthalten.")
                 Button("Offline-Antwort anzeigen", action: answerQuestion)
                 if !answer.isEmpty {
                     Text(answer).accessibilityAddTraits(.updatesFrequently)
@@ -318,7 +319,7 @@ private struct NIKNOLIGSupportView: View {
                 }
             }
             Section("E-Mail-Support") {
-                Text("Bei neu angelegten Vorgängen wird der Fragetext weder gespeichert noch übertragen. Lokal bleiben nur Vorgangskennung, App, feste Codes, Zeitpunkt und Status samt leerem Platzhalter. Wiederhergestellte ältere Vorgänge können bis zur Löschung noch verschlüsselten Fragetext enthalten. Nach Bestätigung enthält der E-Mail-Entwurf nur Vorgangskennung, App und feste Codes, keinen Fragetext.")
+                Text("Bei neu angelegten Vorgängen wird der Fragetext weder gespeichert noch übertragen; verschlüsselt wird nur ein leerer Platzhalter. Wiederhergestellte ältere Vorgänge können bis zur Migration beim Öffnen des Supports oder bis zur Löschung noch verschlüsselten Fragetext enthalten. Die lokale Warteschlange liegt in einer app-privaten Datei, die von iCloud-Backups ausgeschlossen wird; vor der Migration erstellte Backups können alte verschlüsselte Payloads enthalten. Lokal bleiben Vorgangskennung, App, zufälliger Request-Key, feste Codes, Zeitpunkt, Versuche und Übergabestatus. Nach Bestätigung enthält der E-Mail-Entwurf nur Vorgangskennung, App und feste Codes, keinen Fragetext.")
                     .foregroundStyle(.secondary)
                 Button("E-Mail-Entwurf öffnen") {
                     showingEmailConfirmation = true
@@ -400,7 +401,7 @@ private struct NIKNOLIGSupportView: View {
             case .backendHealth:
                 "Der Verbindungstest prüft nur Backend-Erreichbarkeit, nicht die KI-Verfügbarkeit."
             case .privacy:
-                "Fragen werden nur lokal beantwortet. Der Fragetext wird weder gespeichert noch übertragen. Lokal bleiben nur Vorgangskennung, App, feste Codes, Zeitpunkt und Status samt leerem Platzhalter. Nach Bestätigung enthält der E-Mail-Entwurf nur Vorgangskennung, App und feste Codes, keinen Fragetext."
+                "Fragen werden nur lokal beantwortet. Neue Vorgänge speichern oder übertragen keinen Fragetext und verschlüsseln nur einen leeren Platzhalter. Wiederhergestellte ältere Vorgänge können bis zur Migration beim Öffnen des Supports oder bis zur Löschung noch verschlüsselten Fragetext enthalten. Die Warteschlange liegt in einer app-privaten Datei außerhalb von iCloud-Backups; ältere Backups können noch alte verschlüsselte Payloads enthalten. E-Mail-Entwürfe enthalten keinen Fragetext."
             case .payment:
                 "Zahlungsfragen können wir nicht bearbeiten. Wende dich an den Zahlungsanbieter oder Händler; sende keine Zahlungsdaten."
             case .troubleshooting:
@@ -431,6 +432,10 @@ private struct NIKNOLIGSupportView: View {
         requestKey: String,
         encryptedPayload: String
     ) {
+        guard supportQueueReady else {
+            emailMessage = "Die lokale Warteschlange konnte nicht sicher aktualisiert werden. Es wurde keine E-Mail geöffnet."
+            return
+        }
         do {
             ticket = try supportQueue.enqueue(
                 app: .niknolig,
@@ -445,10 +450,22 @@ private struct NIKNOLIGSupportView: View {
     }
 
     private func loadTicket() {
-        ticket = try? supportQueue.tickets().last(where: { $0.app == .niknolig })
+        do {
+            try supportQueue.migrateLegacyPayloads(using: payloadCipher)
+            supportQueueReady = true
+            ticket = try supportQueue.tickets().last(where: { $0.app == .niknolig })
+        } catch {
+            supportQueueReady = false
+            ticket = nil
+            emailMessage = "Die lokale Warteschlange konnte nicht sicher aktualisiert werden. Es wurde keine E-Mail geöffnet."
+        }
     }
 
     private func openSupportEmail() {
+        guard supportQueueReady else {
+            emailMessage = "Die lokale Warteschlange konnte nicht sicher aktualisiert werden. Es wurde keine E-Mail geöffnet."
+            return
+        }
         if ticket == nil {
             guard let encrypted = try? payloadCipher.encrypt("") else {
                 emailMessage = "Die Anfrage konnte lokal nicht vorgemerkt werden."

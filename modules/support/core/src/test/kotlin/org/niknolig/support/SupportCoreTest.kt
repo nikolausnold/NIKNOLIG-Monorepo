@@ -67,6 +67,47 @@ class SupportCoreTest {
     }
 
     @Test
+    fun legacyPayloadMigrationReplacesQuestionAndPreservesMetadata() {
+        val store = MemoryTicketStore()
+        val queue = SupportEscalationQueue(store, clock = { 42L })
+        val legacy = queue.enqueue(
+            SupportApp.NIKNOLIG,
+            "request-legacy",
+            "UNRESOLVED",
+            "NO_MATCH",
+            "legacy-ciphertext",
+        )
+        val cipher = TestPayloadCipher()
+
+        assertTrue(queue.migrateLegacyPayloads(cipher))
+        val migrated = queue.pending().single()
+        assertEquals(legacy.copy(encryptedPayload = "empty-ciphertext"), migrated)
+        assertEquals("", cipher.decrypt(migrated.encryptedPayload))
+        assertFalse(queue.migrateLegacyPayloads(cipher))
+        assertEquals(migrated, queue.pending().single())
+    }
+
+    @Test
+    fun failedLegacyPayloadMigrationLeavesOriginalTicketIntact() {
+        val store = MemoryTicketStore()
+        val queue = SupportEscalationQueue(store, clock = { 42L })
+        val legacy = queue.enqueue(
+            SupportApp.NIKNOLIG,
+            "request-legacy",
+            "UNRESOLVED",
+            "NO_MATCH",
+            "legacy-ciphertext",
+        )
+        val cipher = object : SupportPayloadCipher {
+            override fun encrypt(plaintext: String): String = error("Keystore unavailable")
+            override fun decrypt(ciphertext: String): String = "legacy question"
+        }
+
+        assertTrue(runCatching { queue.migrateLegacyPayloads(cipher) }.isFailure)
+        assertEquals(listOf(legacy), queue.pending())
+    }
+
+    @Test
     fun failedHandoffIsRetainedAndRetriesAreBounded() {
         val store = MemoryTicketStore()
         val queue = SupportEscalationQueue(
@@ -167,6 +208,18 @@ class SupportCoreTest {
         override fun save(tickets: List<EscalationTicket>) {
             check(!failSave)
             this.tickets = tickets.toList()
+        }
+    }
+
+    private class TestPayloadCipher : SupportPayloadCipher {
+        override fun encrypt(plaintext: String): String {
+            require(plaintext.isEmpty())
+            return "empty-ciphertext"
+        }
+
+        override fun decrypt(ciphertext: String): String = when (ciphertext) {
+            "empty-ciphertext" -> ""
+            else -> "legacy question"
         }
     }
 }

@@ -68,3 +68,26 @@ Die folgenden Punkte bleiben gemäß [SecurityChain-P0, Abschnitt 10](securitych
 | D-12 – Entscheidung erforderlich | Unabhängige Reviewer, Prüfplan, physische Geräteabnahme und commit-/versionsgebundene Signoffs benennen; Security, Produkt, Plattform und Release. | CI-Erfolg wird mit unabhängiger Sicherheitsabnahme verwechselt. |
 
 **Abschluss:** Die technische Reparatur dieses Berichts beseitigt nur die beschriebene unnötige lokale Freitextspeicherung. Sie schließt keine D-01–D-12-Entscheidung und erklärt SecurityChain-P0 weder für genehmigt noch erfüllt.
+
+## 6. Nachtrag: PR #178 Abschlussprüfung der Support-Tickets
+
+**Stand: 01.11.2026. Ergebnis: Legacy-Bereinigung und iOS-Backup-Schutz implementiert; keine Sicherheitsfreigabe.**
+
+- **Alt-Tickets:** Frühere Ticket-Payloads konnten verschlüsselten Freitext enthalten. Beim ersten Öffnen des Supports entschlüsselt die App jeden gespeicherten Payload. Nicht-leerer oder nicht lesbarer Inhalt wird durch neu verschlüsselten Leerinhalt ersetzt; Ticket-ID, App, Request-Key, Fehler-/Diagnosecodes, Zeit, Versuche und Übergabestatus bleiben erhalten. Ist Verschlüsselung oder Speicherung nicht möglich, wird die Warteschlange nicht zur Nutzung freigegeben. Tests prüfen Metadatenerhalt, Wiederholbarkeit und fehlgeschlagene Migrationen. Android Keystore/Keychain-Migration wurde nicht auf physischen Geräten ausgeführt.
+- **iOS-Ablage:** Neue Ticketdaten liegen in einer dedizierten Application-Support-Datei. Datei und Verzeichnis setzen die Backup-Ausnahme; der Dateischutz ist `completeUntilFirstUserAuthentication`. Beim ersten Laden wird ein früherer `UserDefaults`-Wert in die Datei überführt und anschließend aus `UserDefaults` entfernt. Der Swift-Pakettest prüft Umzug und Nutzdatenmigration. Ein echtes iCloud-Backup/Restore wurde nicht ausgeführt. Vor der Migration erstellte Backups können alte verschlüsselte Payloads weiterhin enthalten; die App kann historische Backups nicht ändern oder widerrufen.
+- **Android-Backup:** Beide Manifeste setzen weiterhin `allowBackup=false`. Android dokumentiert mögliche herstellerspezifische Geräteübertragungen trotz dieser Einstellung. Es gab keinen Gerätetest; ein solcher Transfer kann nicht ausgeschlossen werden.
+- **Datenschutzhinweise:** Android DE/EN beider Apps und die deutschsprachigen iOS-Hinweise benennen jetzt Legacy-Migration, verbleibende Metadaten und Backup-Grenzen. Der E-Mail-Entwurf enthält weiterhin keine Frage oder Payload.
+
+### Ausgeführte Prüfungen für diesen Nachtrag
+
+| Prüfung | Ergebnis |
+| --- | --- |
+| `python3 -m unittest backend.tests.test_contracts` | **16 Tests bestanden.** |
+| `python3 -m unittest tools.tests.test_support_flow` | **10 Tests bestanden.** |
+| `swift test --package-path modules/support/ios` | **12 Tests bestanden** unter Linux; kein iOS-App-Build. |
+| `kotlinc modules/support/core/src/main/kotlin/org/niknolig/support/SupportEscalationQueue.kt modules/support/core/src/main/kotlin/org/niknolig/support/SupportCore.kt -d /tmp/support-core-check.jar` | **Kotlin-Supportkern kompiliert.** Kein Android-App-Build. |
+| `./gradlew :support-core:test --no-daemon` | **Nicht ausgeführt:** Gradle brach bereits bei der Auflösung von `com.android.application:9.4.1` ab; Projektaufgaben starteten nicht. |
+| Android-XML-Prüfung | **Vier** deutsche/englische Support-XML-Dateien geparst. |
+| `xcodebuild` / physischer iOS-Backup-Test | `xcodebuild` ist nicht installiert; iCloud-Backup/Restore und File-Protection auf iOS-Gerät daher nicht verifiziert. |
+
+Die verfügbaren Tests belegen keine Freigabe der P0-Sicherheitskette. D-01 bis D-12 bleiben separat offen; es erfolgte keine produktive, kryptografische oder geräteübergreifende Sicherheitsabnahme.
