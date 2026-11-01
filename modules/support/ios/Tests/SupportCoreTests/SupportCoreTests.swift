@@ -107,6 +107,23 @@ final class SupportCoreTests: XCTestCase {
         XCTAssertEqual(try queue.tickets(), [legacy])
     }
 
+    func testFailedLegacyPayloadMigrationPersistenceLeavesOriginalTicketIntact() throws {
+        let store = MemoryTicketStore()
+        let queue = SupportEscalationQueue(store: store, clock: { 42 })
+        let legacy = try queue.enqueue(
+            app: .niknolig,
+            requestKey: "legacy-request",
+            issueCode: "UNRESOLVED",
+            diagnosticCode: "NO_MATCH",
+            encryptedPayload: "legacy-ciphertext"
+        )
+        store.failSave = true
+
+        XCTAssertThrowsError(try queue.migrateLegacyPayloads(using: TestPayloadCipher()))
+        store.failSave = false
+        XCTAssertEqual(try queue.tickets(), [legacy])
+    }
+
     func testUserDefaultsQueueMovesLegacyDataToFileAndRemovesDefaultsKey() throws {
         let suiteName = "SupportCoreTests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

@@ -84,10 +84,11 @@ Die folgenden Punkte bleiben gemäß [SecurityChain-P0, Abschnitt 10](securitych
 | --- | --- |
 | `python3 -m unittest backend.tests.test_contracts` | **16 Tests bestanden.** |
 | `python3 -m unittest tools.tests.test_support_flow` | **10 Tests bestanden.** |
-| `swift test --package-path modules/support/ios` | **12 Tests bestanden** unter Linux; kein iOS-App-Build. |
+| `swift test --package-path modules/support/ios` | **13 Tests bestanden** unter Linux; kein iOS-App-Build. |
 | `kotlinc modules/support/core/src/main/kotlin/org/niknolig/support/SupportEscalationQueue.kt modules/support/core/src/main/kotlin/org/niknolig/support/SupportCore.kt -d /tmp/support-core-check.jar` | **Kotlin-Supportkern kompiliert.** Kein Android-App-Build. |
 | `./gradlew :support-core:test --no-daemon` | **Nicht ausgeführt:** Gradle brach bereits bei der Auflösung von `com.android.application:9.4.1` ab; Projektaufgaben starteten nicht. |
 | Android-XML-Prüfung | **Vier** deutsche/englische Support-XML-Dateien geparst. |
 | `xcodebuild` / physischer iOS-Backup-Test | `xcodebuild` ist nicht installiert; iCloud-Backup/Restore und File-Protection auf iOS-Gerät daher nicht verifiziert. |
+| CodeQL | Python: keine Alerts. Für Swift konnte keine Datenbank erstellt werden; Kotlin/Android wurde von diesem Lauf nicht abgedeckt. Kein vollständiger CodeQL-Nachweis. |
 
 Die verfügbaren Tests belegen keine Freigabe der P0-Sicherheitskette. D-01 bis D-12 bleiben separat offen; es erfolgte keine produktive, kryptografische oder geräteübergreifende Sicherheitsabnahme.

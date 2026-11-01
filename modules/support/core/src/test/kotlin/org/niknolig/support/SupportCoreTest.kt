@@ -108,6 +108,24 @@ class SupportCoreTest {
     }
 
     @Test
+    fun failedLegacyPayloadMigrationPersistenceLeavesOriginalTicketIntact() {
+        val store = MemoryTicketStore()
+        val queue = SupportEscalationQueue(store, clock = { 42L })
+        val legacy = queue.enqueue(
+            SupportApp.NIKNOLIG,
+            "request-legacy",
+            "UNRESOLVED",
+            "NO_MATCH",
+            "legacy-ciphertext",
+        )
+        store.failSave = true
+
+        assertTrue(runCatching { queue.migrateLegacyPayloads(TestPayloadCipher()) }.isFailure)
+        store.failSave = false
+        assertEquals(listOf(legacy), queue.pending())
+    }
+
+    @Test
     fun failedHandoffIsRetainedAndRetriesAreBounded() {
         val store = MemoryTicketStore()
         val queue = SupportEscalationQueue(
