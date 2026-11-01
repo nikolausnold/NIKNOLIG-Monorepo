@@ -245,6 +245,8 @@ class FaultyStore(InMemoryMemoryStore):
         self.faults = faults
 
     def put(self, record, *, limit):
+        if self.faults.get("put_lies_true"):
+            return True
         if "put_after_write" in self.faults:
             super().put(record, limit=limit)
             receipt = self.faults["put_after_write"]
@@ -258,6 +260,8 @@ class FaultyStore(InMemoryMemoryStore):
         return super().put(record, limit=limit)
 
     def delete(self, app, subject, record_id):
+        if self.faults.get("delete_lies_true"):
+            return True
         if self.faults.get("delete") == "raise":
             raise RuntimeError("secret-detail")
         if self.faults.get("delete") == "false":
@@ -277,6 +281,8 @@ class FaultyStore(InMemoryMemoryStore):
         return super().get(app, subject, record_id)
 
     def replace(self, record):
+        if self.faults.get("replace_lies_true"):
+            return True
         if self.faults.get("replace") == "raise":
             raise RuntimeError("secret-detail")
         return super().replace(record)
@@ -357,6 +363,81 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             with _EXPIRY_SCHEDULER._condition:
                 self.assertFalse(any(
                     entry[2]() is store for entry in _EXPIRY_SCHEDULER._queue))
+
+    def test_successful_looking_mutation_receipts_are_verified(self):
+        p = principal()
+        store = FaultyStore(put_lies_true=True)
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        self.assertEqual(code(lambda: s.remember(
+            p, content="alpha beta", kind="fact", user_confirmed=True)),
+            "STORE_UNAVAILABLE")
+        self.assertEqual(store.list(p.app, p.subject), ())
+
+        store = FaultyStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        record = s.remember(
+            p, content="alpha beta", kind="fact", user_confirmed=True)
+        store.faults["replace_lies_true"] = True
+        self.assertEqual(code(lambda: s.update(
+            p, record.id, content="gamma delta", user_confirmed=True)),
+            "STORE_UNAVAILABLE")
+        self.assertEqual(store.get(p.app, p.subject, record.id), record)
+
+        store.faults["delete_lies_true"] = True
+        self.assertEqual(code(lambda: s.forget(p, record.id)), "STORE_UNAVAILABLE")
+        self.assertIsNotNone(store.get(p.app, p.subject, record.id))
+        with _EXPIRY_SCHEDULER._condition:
+            self.assertTrue(any(
+                entry[2]() is store and entry[5] == record.id
+                for entry in _EXPIRY_SCHEDULER._queue))
+        store.faults.pop("delete_lies_true")
+        self.assertIsNone(s.forget(p, record.id))
+
+    def test_unconfirmed_bulk_deletion_preserves_expiry_cleanup(self):
+        store = FaultyStore(delete_all_receipt=1)
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        p = principal()
+        record = s.remember(
+            p, content="alpha beta", kind="fact", user_confirmed=True)
+        self.assertEqual(code(lambda: s.forget_all(p)), "STORE_UNAVAILABLE")
+        self.assertIsNotNone(store.get(p.app, p.subject, record.id))
+        with _EXPIRY_SCHEDULER._condition:
+            self.assertTrue(any(
+                entry[2]() is store and entry[5] == record.id
+                for entry in _EXPIRY_SCHEDULER._queue))
+        store.faults.pop("delete_all_receipt")
+        self.assertEqual(s.forget_all(p), 1)
+
+    def test_expiry_worker_retries_a_false_successful_delete(self):
+        class LyingDeleteStore(InMemoryMemoryStore):
+            def __init__(self):
+                super().__init__()
+                self.delete_called = threading.Event()
+
+            def delete(self, app, subject, record_id):
+                self.delete_called.set()
+                return True
+
+        scheduler = _ExpiryScheduler()
+        store = LyingDeleteStore()
+        record = MemoryRecord(
+            uuid4(), "niknolig", "u1", "fact", "private old plaintext", 1, 1, 100,
+        )
+        store.put(record, limit=10)
+        try:
+            scheduler.schedule(store, record, 0.05)
+            self.assertTrue(store.delete_called.wait(1))
+            self.assertIsNotNone(store.get(record.app, record.subject, record.id))
+            deadline = time.monotonic() + 1
+            while time.monotonic() < deadline:
+                with scheduler._condition:
+                    if any(entry[5] == record.id for entry in scheduler._queue):
+                        break
+                time.sleep(0.01)
+            with scheduler._condition:
+                self.assertTrue(any(entry[5] == record.id for entry in scheduler._queue))
+        finally:
+            scheduler.cancel(store, record.app, record.subject)
 
     def test_dead_stores_do_not_consume_expiry_capacity(self):
         scheduler = _ExpiryScheduler()
@@ -553,8 +634,7 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             p = principal()
             r = s.remember(p, content="alpha beta", kind="fact", user_confirmed=True)
             store.faults["delete"] = fault
-            self.assertIn(code(lambda: s.forget(p, r.id)),
-                          ("STORE_UNAVAILABLE", "NOT_FOUND"))
+            self.assertEqual(code(lambda: s.forget(p, r.id)), "STORE_UNAVAILABLE")
             self.assertEqual(len(store.list(p.app, p.subject)), 1)
         store.faults = {"delete_all": True}
         self.assertEqual(code(lambda: s.forget_all(p)), "STORE_UNAVAILABLE")

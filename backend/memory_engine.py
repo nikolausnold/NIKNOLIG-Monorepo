@@ -213,7 +213,8 @@ class _ExpiryScheduler:
                     record = store.get(app, subject, record_id)
                     if record is None or record.expires_at != expires_at:
                         pass
-                    elif store.delete(app, subject, record_id) is not True:
+                    else:
+                        store.delete(app, subject, record_id)
                         record = store.get(app, subject, record_id)
                         retry = record is not None and record.expires_at == expires_at
                 if retry:
@@ -308,9 +309,9 @@ class MemoryService:
                     persisted.id != record.id or persisted.app != record.app or
                     persisted.subject != record.subject):
                 return False
-            deleted = self._store_call(
+            self._store_call(
                 self.store.delete, record.app, record.subject, record.id)
-            if deleted is True or self._store_call(
+            if self._store_call(
                     self.store.get, record.app, record.subject, record.id) is None:
                 _EXPIRY_SCHEDULER.cancel(
                     self.store, record.app, record.subject, record.id)
@@ -404,6 +405,15 @@ class MemoryService:
             if stored is not True:
                 self._rollback_unconfirmed_write(record)
                 raise MemoryEngineError("STORE_UNAVAILABLE")
+            try:
+                persisted = self._store_call(
+                    self.store.get, record.app, record.subject, record.id)
+            except MemoryEngineError:
+                self._rollback_unconfirmed_write(record)
+                raise
+            if type(persisted) is not MemoryRecord or persisted != record:
+                self._rollback_unconfirmed_write(record)
+                raise MemoryEngineError("STORE_UNAVAILABLE")
         return record
 
     def recall(self, principal, query, *, limit=MAX_RECALL):
@@ -441,8 +451,13 @@ class MemoryService:
             if not current or current[0].id != record_id:
                 raise MemoryEngineError("NOT_FOUND")
             updated = replace(current[0], content=new_content, updated_at=now)
-            if self._store_call(self.store.replace, updated) is not True:
+            replaced = self._store_call(self.store.replace, updated)
+            persisted = self._store_call(
+                self.store.get, principal.app, principal.subject, record_id)
+            if replaced is not True and persisted is None:
                 raise MemoryEngineError("NOT_FOUND")
+            if type(persisted) is not MemoryRecord or persisted != updated:
+                raise MemoryEngineError("STORE_UNAVAILABLE")
         return updated
 
     def forget(self, principal, record_id):
@@ -450,9 +465,14 @@ class MemoryService:
             now = self._authorize(principal, "memory:write")
             self._record_id(record_id)
             self._purge_expired(principal, now)
-            if self._store_call(self.store.delete, principal.app, principal.subject,
-                                record_id) is not True:
+            deleted = self._store_call(
+                self.store.delete, principal.app, principal.subject, record_id)
+            remaining = self._store_call(
+                self.store.get, principal.app, principal.subject, record_id)
+            if deleted is not True and remaining is None:
                 raise MemoryEngineError("NOT_FOUND")
+            if remaining is not None:
+                raise MemoryEngineError("STORE_UNAVAILABLE")
             _EXPIRY_SCHEDULER.cancel(
                 self.store, principal.app, principal.subject, record_id)
 
@@ -460,9 +480,16 @@ class MemoryService:
         """Erasure of everything this principal stored in its own app area."""
         with self._write_lock:
             self._authorize(principal, "memory:write")
+            records = self._store_call(
+                self.store.list, principal.app, principal.subject)
+            if type(records) is not tuple or len(self._own(principal, records)) != len(records):
+                raise MemoryEngineError("STORE_UNAVAILABLE")
             count = self._store_call(
                 self.store.delete_all, principal.app, principal.subject)
-            if type(count) is not int or count < 0:
+            if type(count) is not int or count < 0 or count != len(records):
+                raise MemoryEngineError("STORE_UNAVAILABLE")
+            if self._store_call(
+                    self.store.list, principal.app, principal.subject):
                 raise MemoryEngineError("STORE_UNAVAILABLE")
             _EXPIRY_SCHEDULER.cancel(self.store, principal.app, principal.subject)
             return count
@@ -471,15 +498,11 @@ class MemoryService:
         with self._write_lock:
             for record in self._own(principal, self._store_call(
                     self.store.list, principal.app, principal.subject)):
-                if record.expires_at <= now and self._store_call(
-                        self.store.delete, record.app, record.subject, record.id) is not True:
-                    remaining = self._store_call(
-                        self.store.get, record.app, record.subject, record.id)
-                    if remaining is None:
-                        _EXPIRY_SCHEDULER.cancel(
-                            self.store, record.app, record.subject, record.id)
-                        continue
-                    raise MemoryEngineError("STORE_UNAVAILABLE")
-                elif record.expires_at <= now:
+                if record.expires_at <= now:
+                    self._store_call(
+                        self.store.delete, record.app, record.subject, record.id)
+                    if self._store_call(
+                            self.store.get, record.app, record.subject, record.id) is not None:
+                        raise MemoryEngineError("STORE_UNAVAILABLE")
                     _EXPIRY_SCHEDULER.cancel(
                         self.store, record.app, record.subject, record.id)
