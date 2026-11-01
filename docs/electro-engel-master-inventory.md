@@ -98,7 +98,7 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 
 - Backend lokal: `python -m unittest discover -s backend/tests` mit den gepinnten
   `backend/requirements.txt`-Abhängigkeiten und einem kurzlebigen PostgreSQL-
-  17.9-Container nach CI-Konfiguration → **223 Tests bestanden, keine
+  17.9-Container nach CI-Konfiguration → **232 Tests bestanden, keine
   übersprungen**. Damit wurden auch die PostgreSQL-Integrationen ausgeführt.
   Regressionen decken Authentifizierung/Einwilligung, App-/Subject-Isolation,
   parallele Principal- und globale Quoten, sensible Eingaben, Löschung,
@@ -115,7 +115,8 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
   Memory-Engine-Änderungen wurden lokal mit derselben gepinnten PostgreSQL-
   Imageversion verifiziert; ein Android-Build wurde dafür nicht erneut
   ausgeführt.
-- Für den aktuellen Code-Stand `3660516` melden Backend- und Android-Workflows
+- Für den Backend-Code-Stand `981f884` melden [Backend](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41326654020)- und
+  [Android-Workflow](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41326648599)
   `action_required`; für diesen SHA wurden noch keine CI-Jobs ausgeführt. Die
   vollständigen lokalen Backend-Tests oben bestehen, ersetzen aber keinen
   Android-Build auf diesem Commit.
