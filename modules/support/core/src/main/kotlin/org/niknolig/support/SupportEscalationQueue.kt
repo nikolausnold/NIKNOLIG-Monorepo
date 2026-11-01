@@ -86,6 +86,24 @@ class SupportEscalationQueue(
     fun pending(): List<EscalationTicket> = store.load()
 
     @Synchronized
+    fun migrateLegacyPayloads(cipher: SupportPayloadCipher): Boolean {
+        val tickets = store.load()
+        var changed = false
+        val migrated = tickets.map { ticket ->
+            val payloadIsEmpty = runCatching { cipher.decrypt(ticket.encryptedPayload).isEmpty() }
+                .getOrDefault(false)
+            if (payloadIsEmpty) {
+                ticket
+            } else {
+                changed = true
+                ticket.copy(encryptedPayload = cipher.encrypt(""))
+            }
+        }
+        if (changed) store.save(migrated)
+        return changed
+    }
+
+    @Synchronized
     fun beginHandoff(ticketId: String): EscalationTicket? {
         val tickets = store.load()
         val ticket = tickets.firstOrNull { it.id == ticketId } ?: return null

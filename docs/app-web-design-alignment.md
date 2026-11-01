@@ -41,6 +41,14 @@ Elektro-Engel-Ansicht in NIKNOLIG bietet diesen Einstieg.
 4. Der Entwurf enthält nur festen Betreff und Hinweistext, keine Anfrage,
    Gesprächsdaten, Lernprofile, Anhänge oder Gerätekennungen. Der Nutzer ergänzt,
    prüft und versendet selbst. Ohne E-Mail-App wird der Empfänger angezeigt.
+   Neue lokale Supporttickets behalten keinen eingegebenen Freitext; ihr
+   verschlüsselter Payload-Platzhalter ist leer. Beim Öffnen des Supports
+   ersetzen beide Android- und iOS-Apps nicht-leere oder nicht entschlüsselbare
+   Payloads älterer Tickets und behalten deren Metadaten. Android setzt
+   `allowBackup=false`; herstellerspezifische Geräteübertragungen sind nicht
+   geprüft. iOS speichert die Warteschlange in einer von Backups ausgeschlossenen
+   Datei; ältere Backups vor der Migration können alte verschlüsselte Payloads
+   enthalten.
 5. Die nativen iOS-Supportansichten zeigen denselben KI-/Health-Grenzstatus und
    öffnen nach Bestätigung ebenfalls nur einen E-Mail-Entwurf. Die Android-
    Startseiten benennen den Einstieg als Hilfe/Support und versprechen keine

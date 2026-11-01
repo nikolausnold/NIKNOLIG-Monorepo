@@ -145,6 +145,7 @@ private struct DefenseSupportView: View {
     @State private var question = ""
     @State private var answer = ""
     @State private var ticket: EscalationTicket?
+    @State private var supportQueueReady = false
     @State private var previousQuestion = ""
     @State private var questionRequestKey = UUID().uuidString
     @State private var manualRequestKey = "MANUAL_\(UUID().uuidString)"
@@ -168,7 +169,7 @@ private struct DefenseSupportView: View {
                             questionRequestKey = UUID().uuidString
                         }
                     }
-                    .accessibilityHint("Ungeklärte Fragen bleiben verschlüsselt auf diesem Gerät. E-Mail-Entwürfe enthalten keinen Fragetext.")
+                    .accessibilityHint("Die eingegebene Frage wird bei neuen Vorgängen nicht gespeichert. Wiederhergestellte ältere Vorgänge können bis zur Migration verschlüsselten Fragetext enthalten.")
                 Button("Offline-Antwort anzeigen", action: answerQuestion)
                 if !answer.isEmpty {
                     Text(answer).accessibilityAddTraits(.updatesFrequently)
@@ -186,7 +187,7 @@ private struct DefenseSupportView: View {
                 }
             }
             Section("E-Mail-Support") {
-                Text("Ungeklärte Fragen bleiben lokal verschlüsselt. Nach Bestätigung enthält der E-Mail-Entwurf nur eine zufällige Vorgangskennung, die App und feste Fehler- und Diagnosecodes, keinen Fragetext.")
+                Text("Bei neu angelegten Vorgängen wird der Fragetext weder gespeichert noch übertragen; verschlüsselt wird nur ein leerer Platzhalter. Wiederhergestellte ältere Vorgänge können bis zur Migration beim Öffnen des Supports oder bis zur Löschung noch verschlüsselten Fragetext enthalten. Die lokale Warteschlange liegt in einer app-privaten Datei, die von iCloud-Backups ausgeschlossen wird; vor der Migration erstellte Backups können alte verschlüsselte Payloads enthalten. Lokal bleiben Vorgangskennung, App, zufälliger Request-Key, feste Codes, Zeitpunkt, Versuche und Übergabestatus. Nach Bestätigung enthält der E-Mail-Entwurf nur Vorgangskennung, App und feste Codes, keinen Fragetext.")
                     .foregroundStyle(.secondary)
                 Button("E-Mail-Entwurf öffnen") { showingEmailConfirmation = true }
                 if let ticket {
@@ -266,7 +267,7 @@ private struct DefenseSupportView: View {
             case .backendHealth:
                 "Der Verbindungstest prüft nur Backend-Erreichbarkeit, nicht die KI-Verfügbarkeit."
             case .privacy:
-                "Fragen werden nur lokal beantwortet; ungeklärte Fragen bleiben lokal verschlüsselt. E-Mail-Entwürfe enthalten nach Bestätigung nur eine zufällige Vorgangskennung, die App und feste Fehler- und Diagnosecodes, keinen Fragetext."
+                "Fragen werden nur lokal beantwortet. Neue Vorgänge speichern oder übertragen keinen Fragetext und verschlüsseln nur einen leeren Platzhalter. Wiederhergestellte ältere Vorgänge können bis zur Migration beim Öffnen des Supports oder bis zur Löschung noch verschlüsselten Fragetext enthalten. Die Warteschlange liegt in einer app-privaten Datei außerhalb von iCloud-Backups; ältere Backups können noch alte verschlüsselte Payloads enthalten. E-Mail-Entwürfe enthalten keinen Fragetext."
             case .payment:
                 "Zahlungsfragen können wir nicht bearbeiten. Wende dich an den Zahlungsanbieter oder Händler; sende keine Zahlungsdaten."
             case .troubleshooting:
@@ -278,7 +279,7 @@ private struct DefenseSupportView: View {
             }
         }()
         if result.escalationRequired {
-            if let encrypted = try? payloadCipher.encrypt(question) {
+            if let encrypted = try? payloadCipher.encrypt("") {
                 enqueue(
                     issue: result.code.rawValue.uppercased(),
                     diagnostic: "UNRESOLVED",
@@ -286,7 +287,7 @@ private struct DefenseSupportView: View {
                     encryptedPayload: encrypted
                 )
             } else {
-                emailMessage = "Die Anfrage konnte nicht sicher verschlüsselt und vorgemerkt werden."
+                emailMessage = "Die Anfrage konnte lokal nicht vorgemerkt werden."
             }
         }
     }
@@ -297,6 +298,10 @@ private struct DefenseSupportView: View {
         requestKey: String,
         encryptedPayload: String
     ) {
+        guard supportQueueReady else {
+            emailMessage = "Die lokale Warteschlange konnte nicht sicher aktualisiert werden. Es wurde keine E-Mail geöffnet."
+            return
+        }
         do {
             ticket = try supportQueue.enqueue(
                 app: .niknoligDefense,
@@ -311,13 +316,25 @@ private struct DefenseSupportView: View {
     }
 
     private func loadTicket() {
-        ticket = try? supportQueue.tickets().last(where: { $0.app == .niknoligDefense })
+        do {
+            try supportQueue.migrateLegacyPayloads(using: payloadCipher)
+            supportQueueReady = true
+            ticket = try supportQueue.tickets().last(where: { $0.app == .niknoligDefense })
+        } catch {
+            supportQueueReady = false
+            ticket = nil
+            emailMessage = "Die lokale Warteschlange konnte nicht sicher aktualisiert werden. Es wurde keine E-Mail geöffnet."
+        }
     }
 
     private func openSupportEmail() {
+        guard supportQueueReady else {
+            emailMessage = "Die lokale Warteschlange konnte nicht sicher aktualisiert werden. Es wurde keine E-Mail geöffnet."
+            return
+        }
         if ticket == nil {
-            guard let encrypted = try? payloadCipher.encrypt(question) else {
-                emailMessage = "Die Anfrage konnte nicht sicher verschlüsselt und vorgemerkt werden."
+            guard let encrypted = try? payloadCipher.encrypt("") else {
+                emailMessage = "Die Anfrage konnte lokal nicht vorgemerkt werden."
                 return
             }
             enqueue(
