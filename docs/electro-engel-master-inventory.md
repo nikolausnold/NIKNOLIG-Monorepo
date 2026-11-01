@@ -83,24 +83,24 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 ## Tests (tatsächlich)
 
 - Backend lokal: `python -m unittest discover -s backend/tests` mit
-  `backend/requirements.txt` → **215 Tests OK, 19 übersprungen** (lokal nicht
+  `backend/requirements.txt` → **216 Tests OK, 19 übersprungen** (lokal nicht
   verfügbares PostgreSQL). Contract-/App-Isolationsprüfungen liefen in der Suite;
-  der neue Test deckt einen nach Persistierung fehlgeschlagenen Schreibaufruf ab.
-- GitHub Actions auf Vorgängerstand `b6bbed1`: [Backend Contracts/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41314240644)
-  und [Android Build](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41314240829)
-  jeweils erfolgreich. Android CI assemblierte beide Debug-APKs und bestand
-  Unit-Tests, Lint und Paket-/Signaturprüfungen. Diese Läufe enthalten noch nicht
-  den nachfolgenden Memory-Store-Fix.
-- Für Commit `3033631` wurden die Backend- und Android-Push-Läufe mit
-  `action_required` beendet; es wurden **keine Jobs gestartet**. Daher ist der
-  neue Fix durch GitHub Actions noch nicht validiert.
+  Regressionstests decken persistierte Schreibfehler und nicht bestätigte
+  Rückgabewerte ab.
+- GitHub Actions auf Code-Commit `31c1519`: [Backend Contracts/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41315957822)
+  und [Android Build](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41315957682)
+  erfolgreich (Retry, Versuch 2). Backend lief mit PostgreSQL-Service. Android
+  assemblierte beide Debug-APKs und bestand Client-Tests, Lint sowie
+  Paket-/Signaturprüfungen; auch der portable Elektro-Engel-iOS-Core-Testjob
+  bestand. Die ersten Versuche endeten mit `action_required` und starteten keine
+  Jobs; die erfolgreichen Wiederholungen validieren den Code-Commit.
 - Swift-Pakettests lokal unter Linux: `modules/support/ios` **15 bestanden**;
   `modules/electro-engel/ios` **8 bestanden**. Das sind portable Core-Tests,
   keine iOS-App-Builds. `xcodebuild`/Simulator-Builds waren unter Linux nicht
-  ausführbar; der iOS-GitHub-Workflow wartet ebenfalls auf Freigabe und führte
-  keine Jobs aus. Android lokaler Gradle-Build scheiterte zuvor beim Auflösen
-  des Android-Gradle-Plugins `9.5.0`; der erfolgreiche Android-CI-Lauf oben ist
-  der belegte Buildnachweis für den Vorgängerstand.
+  ausführbar; der iOS-Build-Workflow war für den aktuellen backend-only
+  Code-Commit nicht triggerbar. Android lokaler Gradle-Build scheiterte zuvor
+  beim Auflösen des Android-Gradle-Plugins `9.5.0`; der erfolgreiche
+  Android-CI-Lauf oben ist der belegte Buildnachweis für den Vorgängerstand.
 - Echter KI-Test: **nicht erbracht**; Definition of Done für „online“ nicht erfüllt.
 
 ## Nächster Schritt
@@ -124,8 +124,8 @@ einer Aktivierung sind mit separater P0-Freigabe erforderlich:
 ## Offene Risiken
 - Keine Persistenz, kein Audit, keine Verschlüsselung, keine Nutzer-Auth (siehe Blocker).
 - Erkennung von Zugangsdaten ist nur ein Muster-Filter, keine DLP; sensible Inhalte in freiem Text sind möglich.
-- CI für den neuesten Memory-Store-Fix ist blockiert (`action_required`); iOS-App-
-  Simulator-Builds wurden nicht ausgeführt.
+- iOS-App-Simulator-Builds wurden nicht ausgeführt; die erfolgreichen CI-Läufe
+  validieren portable Core-Tests, keine iOS-App-Targets.
 - `Principal` wird von der Memory Engine als bereits authentifiziert vorausgesetzt;
   die Engine selbst prüft keine Signatur, Sitzung oder Widerruf. `user_confirmed`
   ist ein API-Boolean, kein eigenständiger Nachweis einer UI-Einwilligung.
