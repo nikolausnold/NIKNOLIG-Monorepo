@@ -17,7 +17,7 @@ private class MemoryPersistence(var value: String? = null, var fail: Boolean = f
 
 class LocalTaskRepositoryTest {
     private var counter = 0
-    private fun repo(store: MemoryPersistence) = LocalTaskRepository(store) { "id${counter++}" }
+    private fun repo(store: TextPersistence) = LocalTaskRepository(store) { "id${counter++}" }
 
     @Test
     fun addsEditsCompletesReopensAndDeletes() {

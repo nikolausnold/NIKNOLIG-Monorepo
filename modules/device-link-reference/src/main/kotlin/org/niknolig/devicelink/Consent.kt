@@ -47,9 +47,23 @@ class PeerRegistry(
     }
 
     private val peers = mutableMapOf<DeviceId, Entry>()
+    private val revocationSequences = mutableMapOf<DeviceId, Long>()
 
-    /** Completes pairing only after the local user compared the confirmation code. */
+    /**
+     * Completes pairing only after the local user compared the confirmation code. A pairing result is
+     * single-use, and a result whose handshake started before the peer's revocation can never restore
+     * trust: only a handshake started after the revocation may.
+     */
+    @Synchronized
     fun completePairing(pending: PendingPairing, userConfirmed: Boolean): PairedPeer? {
+        if (!pending.consume()) {
+            audit.record(AuditType.PAIRING_FAILED, pending.peerId, AuditResult.REPLAY)
+            return null
+        }
+        if (pending.startSequence <= (revocationSequences[pending.peerId] ?: 0L)) {
+            audit.record(AuditType.PAIRING_FAILED, pending.peerId, AuditResult.PEER_REVOKED)
+            return null
+        }
         if (!userConfirmed) {
             audit.record(AuditType.PAIRING_FAILED, pending.peerId, AuditResult.USER_DECLINED)
             return null
@@ -60,10 +74,13 @@ class PeerRegistry(
         return peer
     }
 
+    @Synchronized
     fun state(id: DeviceId): PeerState? = peers[id]?.state
 
+    @Synchronized
     fun trustedKey(id: DeviceId): ByteArray? = peers[id]?.takeIf { it.state == PeerState.TRUSTED }?.peer?.publicKey
 
+    @Synchronized
     fun grant(id: DeviceId, scope: DataScope, direction: Direction, userConfirmed: Boolean): Boolean {
         val entry = peers[id]?.takeIf { it.state == PeerState.TRUSTED }
         if (entry == null || !userConfirmed || !policy.permits(local, scope, direction)) {
@@ -76,6 +93,7 @@ class PeerRegistry(
         return true
     }
 
+    @Synchronized
     fun revokeConsent(id: DeviceId, scope: DataScope, direction: Direction) {
         val entry = peers[id] ?: return
         entry.grants.removeAll { it.scope == scope && it.direction == direction }
@@ -87,19 +105,24 @@ class PeerRegistry(
      * informed on the next authenticated contact; until then the pending flag stays set.
      * A revoked peer can only return through a completely new, user-confirmed pairing.
      */
+    @Synchronized
     fun revokePeer(id: DeviceId) {
         val entry = peers[id] ?: return
         entry.state = PeerState.REVOKED
+        revocationSequences[id] = PairingSequence.next()
         entry.grants.clear()
         entry.revocationNoticePending = true
         audit.record(AuditType.PEER_REVOKED, id, AuditResult.OK)
     }
 
+    @Synchronized
     fun pendingRevocationNotices(): List<DeviceId> =
         peers.values.filter { it.revocationNoticePending }.map { it.peer.id }
 
+    @Synchronized
     fun noticeDelivered(id: DeviceId) { peers[id]?.revocationNoticePending = false }
 
+    @Synchronized
     fun authorize(id: DeviceId, scope: DataScope, direction: Direction): Decision {
         val entry = peers[id]
         val decision = when {
