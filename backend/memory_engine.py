@@ -323,8 +323,27 @@ class MemoryService:
                 stored = self._store_call(self.store.put, record,
                                           limit=MAX_RECORDS_PER_PRINCIPAL)
             except MemoryEngineError:
-                _EXPIRY_SCHEDULER.cancel(
-                    self.store, principal.app, principal.subject, record.id)
+                try:
+                    persisted = self._store_call(
+                        self.store.get, principal.app, principal.subject, record.id)
+                    if persisted is None:
+                        _EXPIRY_SCHEDULER.cancel(
+                            self.store, principal.app, principal.subject, record.id)
+                    elif (isinstance(persisted, MemoryRecord) and
+                          persisted.id == record.id and
+                          persisted.app == principal.app and
+                          persisted.subject == principal.subject):
+                        deleted = self._store_call(
+                            self.store.delete, principal.app, principal.subject,
+                            record.id)
+                        if deleted is True or self._store_call(
+                                self.store.get, principal.app, principal.subject,
+                                record.id) is None:
+                            _EXPIRY_SCHEDULER.cancel(
+                                self.store, principal.app, principal.subject,
+                                record.id)
+                except MemoryEngineError:
+                    pass
                 raise
             if stored is False:
                 _EXPIRY_SCHEDULER.cancel(

@@ -187,6 +187,9 @@ class FaultyStore(InMemoryMemoryStore):
         self.faults = faults
 
     def put(self, record, *, limit):
+        if self.faults.get("put_after_write") == "raise":
+            super().put(record, limit=limit)
+            raise RuntimeError("secret-detail")
         if self.faults.get("put") == "raise":
             raise RuntimeError("secret-detail")
         if "put" in self.faults:
@@ -220,6 +223,24 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             self.assertEqual(code(lambda: s.remember(
                 p, content="alpha beta", kind="fact", user_confirmed=True)),
                 "STORE_UNAVAILABLE")
+            self.assertEqual(store.list(p.app, p.subject), ())
+
+    def test_partial_write_failure_rolls_back_or_keeps_expiry_cleanup(self):
+            p = principal()
+            store = FaultyStore(put_after_write="raise", delete="raise")
+            s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+            self.assertEqual(code(lambda: s.remember(
+                p, content="alpha beta", kind="fact", user_confirmed=True)),
+                "STORE_UNAVAILABLE")
+            persisted = store.list(p.app, p.subject)
+            self.assertEqual(len(persisted), 1)
+            with _EXPIRY_SCHEDULER._condition:
+                self.assertTrue(any(
+                    entry[2]() is store and entry[3] == p.app and
+                    entry[4] == p.subject and entry[5] == persisted[0].id
+                    for entry in _EXPIRY_SCHEDULER._queue))
+            store.faults.pop("delete")
+            self.assertIsNone(s.forget(p, persisted[0].id))
             self.assertEqual(store.list(p.app, p.subject), ())
 
         store = FaultyStore(put=False)
