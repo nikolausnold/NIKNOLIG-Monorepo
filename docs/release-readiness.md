@@ -55,7 +55,7 @@ Verantwortlichen als Release-Zertifikat verbindlich.
 1. **Zwei parallele Release-Pfade.** Monorepo (`NIKNOLIG_RELEASE_*`/`NIKNOLIG_DEFENSE_RELEASE_*`, Environment `android-release`) und Standalone-Repos (`ANDROID_KEYSTORE_*`, Tag `v*`). Es muss genau ein Pfad als maßgeblich festgelegt werden; sonst entstehen widersprüchliche Signaturen und Versionscodes (Monorepo: `1000 + Run-Nummer`, Standalone: Run-Nummer). Bei APK-Updates müssen Paketname und Signatur gleich bleiben und der Versionscode steigen.
 2. **Falsches Tag-Format.** `1.11.2026` statt `v1.0.0`; die Standalone-Release-Jobs wurden nie ausgelöst, die Releases enthalten keine installierbare App.
 3. **Kurzlebige Artefakte.** Die Monorepo-APKs werden nur 1 Tag aufbewahrt (AABs 14 Tage). Sie sind keine Installationsquelle; vor einem Release herunterladen, prüfen und mit Prüfsumme veröffentlichen.
-4. **Keine Veröffentlichung im Monorepo-Workflow.** Er erzeugt nur Artefakte; kein Release, keine `SHA256SUMS`.
+4. **Draft-Veröffentlichung im Monorepo-Workflow.** Der Workflow kann ein GitHub-Draft-Release mit APK, AAB und `SHA256SUMS` erstellen; die Veröffentlichung bleibt manuell.
 5. **Defense-Android-Lauf 41286847464** lief 1 h 2 min, die Schritte endeten nach etwa 3 Minuten. Ursache nicht geklärt (vermutlich Runner-Verzögerung); kein Fehler im Build.
 6. **Cloudflare "Workers Builds"** ist an den Defense-PRs rot; Ursache nicht geprüft.
 7. **iOS** bleibt zurückgestellt (nur Simulator-Builds, keine Signierung).
