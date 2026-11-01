@@ -14,6 +14,7 @@ import math
 import re
 import threading
 import time
+import unicodedata
 from typing import Protocol
 from uuid import UUID, uuid4
 import weakref
@@ -33,6 +34,13 @@ _CREDENTIAL_MARKER = re.compile(
     r"(?i)\b(password|passwd|secret|token|api[\s_-]?key|authorization|bearer)\b"
     r"(?:\s+(?:(?:is|bearer)\s+)?|[:=]\s*)\S+"
 )
+_EMAIL_MARKER = re.compile(
+    r"(?i)(?<![\w.+-])[\w.!#$%&'*+/=?^`{|}~-]+@[\w-]+(?:\.[\w-]+)+"
+)
+_PHONE_MARKER = re.compile(
+    r"(?<!\w)(?:\+\s?\d{1,3}|00\s?\d{1,3})(?:[\s()./-]?\d){7,14}(?!\w)"
+)
+_CARD_NUMBER = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 _MEMORY_MUTATION_LOCK = threading.RLock()
 
@@ -251,6 +259,23 @@ def _terms(text):
     return {word.casefold() for word in _WORD.findall(text) if len(word) > 2}
 
 
+def _contains_luhn_card_number(text):
+    for candidate in _CARD_NUMBER.findall(text):
+        digits = [int(char) for char in candidate if char.isdigit()]
+        if not 13 <= len(digits) <= 19:
+            continue
+        checksum = 0
+        for index, digit in enumerate(reversed(digits)):
+            if index % 2:
+                digit *= 2
+                if digit > 9:
+                    digit -= 9
+            checksum += digit
+        if checksum % 10 == 0:
+            return True
+    return False
+
+
 class MemoryService:
     """Requires an active principal with memory:read / memory:write for its own app."""
 
@@ -330,10 +355,18 @@ class MemoryService:
 
     @staticmethod
     def _content(content):
-        if (type(content) is not str or not content.strip() or
-                len(content) > MAX_CONTENT_CHARS or _CREDENTIAL_MARKER.search(content)):
+        if type(content) is not str or not content.strip() or len(content) > MAX_CONTENT_CHARS:
             raise MemoryEngineError("VALIDATION_FAILED")
-        return content.strip()
+        normalized = unicodedata.normalize("NFKC", content)
+        if (not normalized.strip() or len(normalized) > MAX_CONTENT_CHARS or
+                any(unicodedata.category(char) in {"Cc", "Cf", "Cs"}
+                    for char in normalized) or
+                _CREDENTIAL_MARKER.search(normalized) or
+                _EMAIL_MARKER.search(normalized) or
+                _PHONE_MARKER.search(normalized) or
+                _contains_luhn_card_number(normalized)):
+            raise MemoryEngineError("VALIDATION_FAILED")
+        return normalized.strip()
 
     def remember(self, principal, *, content, kind, user_confirmed,
                  retention_days=DEFAULT_RETENTION_DAYS):

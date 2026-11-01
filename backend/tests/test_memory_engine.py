@@ -90,6 +90,22 @@ class MemoryEngineTest(unittest.TestCase):
             enabled=True, clock=lambda: -1).recall(principal(), "abc")),
             "AUTHENTICATION_INVALID")
 
+    def test_expired_principal_cannot_write_update_or_delete(self):
+        s, owner = service(), principal()
+        record = s.remember(owner, content="alpha beta", kind="fact",
+                            user_confirmed=True)
+        expired = principal(expires=999.0)
+        self.assertEqual(code(lambda: s.remember(
+            expired, content="gamma delta", kind="fact", user_confirmed=True)),
+            "AUTHENTICATION_INVALID")
+        self.assertEqual(code(lambda: s.update(
+            expired, record.id, content="gamma delta", user_confirmed=True)),
+            "AUTHENTICATION_INVALID")
+        self.assertEqual(code(lambda: s.forget(expired, record.id)),
+                         "AUTHENTICATION_INVALID")
+        self.assertEqual(s.store.get(owner.app, owner.subject, record.id), record)
+        self.assertEqual(len(s.store.list(owner.app, owner.subject)), 1)
+
     def test_rejects_credentials_and_oversize(self):
         s, p = service(), principal()
         for content in (
@@ -97,10 +113,18 @@ class MemoryEngineTest(unittest.TestCase):
                 "password is " + uuid4().hex,
                 "Bearer " + uuid4().hex,
                 "api_key=" + uuid4().hex,
+                "Kontakt: person@example.com",
+                "Ruf mich an: +1 (415) 555-2671",
+                "Kartennummer: 4111 1111 1111 1111",
+                "ｐａｓｓｗｏｒｄ＝" + uuid4().hex,
+                "private\u202econtent",
                 "", "x" * 501, 5):
             self.assertEqual(code(lambda: s.remember(
                 p, content=content, kind="fact", user_confirmed=True)),
                 "VALIDATION_FAILED")
+        normalized = s.remember(
+            p, content="ｋｕｒｚｅ Antworten", kind="preference", user_confirmed=True)
+        self.assertEqual(normalized.content, "kurze Antworten")
         self.assertEqual(code(lambda: s.remember(
             p, content="ok ok", kind="secret", user_confirmed=True)), "VALIDATION_FAILED")
         self.assertEqual(code(lambda: s.remember(
@@ -393,6 +417,15 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         self.assertEqual(code(lambda: s.update(
             p, uuid4(), content="neu neu", user_confirmed=True)), "NOT_FOUND")
         self.assertEqual(s.recall(p, "alpha")[0].content, "alpha beta")
+
+    def test_update_rejects_obvious_sensitive_identifiers_without_mutation(self):
+        s, p = service(), principal()
+        record = s.remember(p, content="alpha beta", kind="fact",
+                            user_confirmed=True)
+        self.assertEqual(code(lambda: s.update(
+            p, record.id, content="Mail me person@example.com",
+            user_confirmed=True)), "VALIDATION_FAILED")
+        self.assertEqual(s.store.get(p.app, p.subject, record.id), record)
 
     def test_cross_app_cannot_update_or_delete(self):
         s = service()

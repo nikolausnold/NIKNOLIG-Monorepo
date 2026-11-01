@@ -27,7 +27,8 @@ nichts geöffnet.
 `backend/memory_engine.py` (Tests: `backend/tests/test_memory_engine.py`):
 ausdrückliche Einwilligung (`user_confirmed is True`), getrennt nach
 `(app, subject)`, Berechtigungen `memory:read`/`memory:write`, Zugangsdaten-
-Erkennung, 500 Zeichen, max. 100 Einträge je Principal und 10.000 je
+Erkennung und einfache Ablehnung erkennbarer E-Mail-, internationaler
+Telefonnummern- und Luhn-gültiger Kartennummern, 500 Zeichen, max. 100 Einträge je Principal und 10.000 je
 In-Memory-Store, Aufbewahrung 1–365 Tage (Standard 90),
 Aktualisieren, Löschen, Gesamtlöschung. Gesprächsverläufe, Wissenseinträge und
 Modelltraining bleiben getrennte Funktionen; Erinnerungen trainieren kein Modell.
@@ -114,6 +115,20 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
   Android-CI-Lauf oben ist der belegte Buildnachweis für den Vorgängerstand.
 - Echter KI-Test: **nicht erbracht**; Definition of Done für „online“ nicht erfüllt.
 
+## Spätere KI-Integration: vorhandener Vertrag, keine Memory-API
+
+Der einzige bestehende Netzwerkvertrag für KI-Vorbereitung ist
+`backend/ai-support.openapi.yaml`: `POST /support` akzeptiert ausschließlich
+`app` und `message`; `POST /v1/ai/support` akzeptiert `app`, `feature` und
+`prompt`. Beide erwarten eine unabhängig verifizierte, aktive und nicht
+abgelaufene Identität mit passender App- und Feature-Berechtigung. Sie nehmen
+weder Gedächtniszugriff noch Gesprächsverlauf entgegen; die Standardruntime
+bleibt deaktiviert. `MemoryService` ist weder in diesen Routen noch in einer
+anderen öffentlichen Schnittstelle verdrahtet. Eine künftige Verbindung darf
+nicht die hier bestehenden Contracts umdeuten oder neue Endpunkte als bereits
+vorhanden ausgeben; sie benötigt eine separat freigegebene Spezifikation,
+Einwilligungsnachweis und P0-Prüfung.
+
 ## Nächster Schritt
 
 Betreiber stellt freigegebene Backend-Origin, Auth-Aussteller und serverseitigen
@@ -189,7 +204,15 @@ Zugänge deaktiviert.
 
 ## Offene Risiken
 - Keine Persistenz, kein Audit, keine Verschlüsselung, keine Nutzer-Auth (siehe Blocker).
-- Erkennung von Zugangsdaten ist nur ein Muster-Filter, keine DLP; sensible Inhalte in freiem Text sind möglich.
+- Inhaltserkennung weist einige bekannte Credentials, Kontaktinformationen und
+  Kartennummern zurück; sie ist ein best-effort Eingabefilter, keine DLP oder
+  Datenschutzgarantie. Gesundheits-, Religions-, Identitäts- und sonstige
+  sensible Freitextangaben können weiterhin durchkommen. `user_confirmed=True`
+  ist ein boolesches Signal, kein nachprüfbarer UI-Einwilligungsbeleg. Deshalb
+  bleiben Engine und Routen deaktiviert; vor jeder Freigabe sind eine engere
+  Datenklassifikation, tatsächliche nutzerseitige Vorschau/Einwilligung und
+  unabhängige Datenschutzprüfung erforderlich. Gesprächsverläufe werden nicht
+  in Memory umgewandelt oder gespeichert.
 - iOS-App-Simulator-Builds wurden nicht ausgeführt; die erfolgreichen CI-Läufe
   validieren portable Core-Tests, keine iOS-App-Targets.
 - `Principal` wird von der Memory Engine als bereits authentifiziert vorausgesetzt;
