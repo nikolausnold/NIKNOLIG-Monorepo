@@ -108,6 +108,10 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
   Memory-Engine-Änderungen wurden lokal mit derselben gepinnten PostgreSQL-
   Imageversion verifiziert; ein Android-Build wurde dafür nicht erneut
   ausgeführt.
+- Für den aktuellen Code-Stand `3660516` melden Backend- und Android-Workflows
+  `action_required`; für diesen SHA wurden noch keine CI-Jobs ausgeführt. Die
+  vollständigen lokalen Backend-Tests oben bestehen, ersetzen aber keinen
+  Android-Build auf diesem Commit.
 - Swift-Pakettests lokal unter Linux: `modules/support/ios` **15 bestanden**;
   `modules/electro-engel/ios` **8 bestanden**. Das sind portable Core-Tests,
   keine iOS-App-Builds. `xcodebuild`/Simulator-Builds waren unter Linux nicht
