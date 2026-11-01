@@ -41,7 +41,7 @@ _PHONE_MARKER = re.compile(
     r"(?<!\w)(?:\+\s?\d{1,3}|00\s?\d{1,3})(?:[\s()./-]*\d){7,14}(?!\w)"
 )
 _CARD_NUMBER = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
-_CONSENT_EVIDENCE = re.compile(r"[A-Za-z0-9._~+/-=]{1,4096}")
+_CONSENT_EVIDENCE = re.compile(r"[-A-Za-z0-9._~+/=]{1,4096}")
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 _MEMORY_MUTATION_LOCK = threading.RLock()
 

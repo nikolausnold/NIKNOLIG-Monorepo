@@ -81,6 +81,15 @@ def code(callable_):
 
 
 class MemoryEngineTest(unittest.TestCase):
+    def test_consent_evidence_rejects_non_token_characters(self):
+        verifier = TestConsentVerifier()
+        s = service(consent_verifier=verifier)
+
+        self.assertEqual(code(lambda: s.remember(
+            principal(), content="alpha beta", kind="fact",
+            consent_evidence="test:signed:consent")), "CONSENT_REQUIRED")
+        self.assertEqual(verifier.calls, [])
+
     def test_disabled_by_default(self):
         self.assertEqual(MemoryService().enabled, False)
         self.assertEqual(code(lambda: MemoryService().recall(
