@@ -188,7 +188,7 @@ class Handshake(
 
     @Synchronized
     fun proof(): ByteArray {
-        check(!dead && !finished) { "handshake is no longer valid" }
+        check(!dead) { "handshake is no longer valid" }
         return keys.sign(transcript() + roleByte(initiator))
     }
 

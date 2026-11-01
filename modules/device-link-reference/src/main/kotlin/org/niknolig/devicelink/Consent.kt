@@ -44,10 +44,10 @@ class PeerRegistry(
     private class Entry(val peer: PairedPeer, var state: PeerState) {
         val grants = mutableListOf<Grant>()
         var revocationNoticePending = false
-        var revokedAtSequence = 0L
     }
 
     private val peers = mutableMapOf<DeviceId, Entry>()
+    private val revocationSequences = mutableMapOf<DeviceId, Long>()
 
     /**
      * Completes pairing only after the local user compared the confirmation code. A pairing result is
@@ -60,8 +60,7 @@ class PeerRegistry(
             audit.record(AuditType.PAIRING_FAILED, pending.peerId, AuditResult.REPLAY)
             return null
         }
-        val existing = peers[pending.peerId]
-        if (existing != null && existing.state == PeerState.REVOKED && pending.startSequence <= existing.revokedAtSequence) {
+        if (pending.startSequence <= (revocationSequences[pending.peerId] ?: 0L)) {
             audit.record(AuditType.PAIRING_FAILED, pending.peerId, AuditResult.PEER_REVOKED)
             return null
         }
@@ -75,10 +74,13 @@ class PeerRegistry(
         return peer
     }
 
+    @Synchronized
     fun state(id: DeviceId): PeerState? = peers[id]?.state
 
+    @Synchronized
     fun trustedKey(id: DeviceId): ByteArray? = peers[id]?.takeIf { it.state == PeerState.TRUSTED }?.peer?.publicKey
 
+    @Synchronized
     fun grant(id: DeviceId, scope: DataScope, direction: Direction, userConfirmed: Boolean): Boolean {
         val entry = peers[id]?.takeIf { it.state == PeerState.TRUSTED }
         if (entry == null || !userConfirmed || !policy.permits(local, scope, direction)) {
@@ -91,6 +93,7 @@ class PeerRegistry(
         return true
     }
 
+    @Synchronized
     fun revokeConsent(id: DeviceId, scope: DataScope, direction: Direction) {
         val entry = peers[id] ?: return
         entry.grants.removeAll { it.scope == scope && it.direction == direction }
@@ -106,17 +109,20 @@ class PeerRegistry(
     fun revokePeer(id: DeviceId) {
         val entry = peers[id] ?: return
         entry.state = PeerState.REVOKED
-        entry.revokedAtSequence = PairingSequence.next()
+        revocationSequences[id] = PairingSequence.next()
         entry.grants.clear()
         entry.revocationNoticePending = true
         audit.record(AuditType.PEER_REVOKED, id, AuditResult.OK)
     }
 
+    @Synchronized
     fun pendingRevocationNotices(): List<DeviceId> =
         peers.values.filter { it.revocationNoticePending }.map { it.peer.id }
 
+    @Synchronized
     fun noticeDelivered(id: DeviceId) { peers[id]?.revocationNoticePending = false }
 
+    @Synchronized
     fun authorize(id: DeviceId, scope: DataScope, direction: Direction): Decision {
         val entry = peers[id]
         val decision = when {

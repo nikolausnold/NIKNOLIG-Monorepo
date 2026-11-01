@@ -94,10 +94,13 @@ class SecureSession(
     private val peer: DeviceId,
     private val registry: PeerRegistry,
     private val audit: AuditSink,
-    val sessionId: ByteArray,
+    sessionId: ByteArray,
     sessionIds: SessionIdGuard,
     private val maxPayloadBytes: Int = 4096,
 ) {
+    private val sessionIdBytes = sessionId.copyOf()
+    val sessionId: ByteArray get() = sessionIdBytes.copyOf()
+
     private var sendCounter = 0L
     private var lastReceived = 0L
     var isOpen = true
@@ -105,7 +108,7 @@ class SecureSession(
 
     init {
         // Too short or already used IDs create a closed session: no message can ever pass.
-        if (!sessionIds.register(sessionId)) fail<Unit>(AuditResult.SESSION_INVALID)
+        if (!sessionIds.register(sessionIdBytes)) fail<Unit>(AuditResult.SESSION_INVALID)
     }
 
     @Synchronized
@@ -129,7 +132,13 @@ class SecureSession(
         if (registry.authorize(peer, scope, Direction.SEND) is Decision.Deny) return fail(null)
         if (sendCounter == Long.MAX_VALUE) return fail(AuditResult.SESSION_INVALID)
         val counter = ++sendCounter
-        return SignedMessage(sessionId, counter, scope, payload, keys.sign(data(sessionId, counter, scope, payload)))
+        return SignedMessage(
+            sessionIdBytes.copyOf(),
+            counter,
+            scope,
+            payload,
+            keys.sign(data(sessionIdBytes, counter, scope, payload)),
+        )
     }
 
     /** Returns the payload only if the message is fresh, authentic and currently authorized. */
@@ -138,7 +147,7 @@ class SecureSession(
         if (!isOpen) return fail(AuditResult.SESSION_INVALID)
         val key = registry.trustedKey(peer) ?: return fail(AuditResult.PEER_REVOKED)
         return when {
-            !Crypto.constantTimeEquals(message.sessionId, sessionId) -> fail(AuditResult.SESSION_INVALID)
+            !Crypto.constantTimeEquals(message.sessionId, sessionIdBytes) -> fail(AuditResult.SESSION_INVALID)
             message.payload.size > maxPayloadBytes -> fail(AuditResult.MALFORMED)
             message.counter <= lastReceived -> fail(AuditResult.REPLAY)
             !Crypto.verify(key, data(message.sessionId, message.counter, message.scope, message.payload), message.signature) ->

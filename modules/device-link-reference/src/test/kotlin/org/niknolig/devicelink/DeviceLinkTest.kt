@@ -1,9 +1,11 @@
 package org.niknolig.devicelink
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -306,8 +308,27 @@ class DeviceLinkTest {
         val attacker = Device(AppScope.DEFENSE, clock)
         val forged = SecureSession(attacker.keys, d.b.id, attacker.registry, attacker.audit, freshId(), attacker.sessionIds)
         // The attacker is not even allowed to seal; craft a message signed with the wrong key directly.
-        val wrongKey = SignedMessage(m.sessionId, 1, m.scope, m.payload, attacker.keys.sign(m.payload))
-        assertNull(session(d.b, d.a, m.sessionId).open(wrongKey))
+        val forgedSessionId = freshId()
+        val signatureData = java.io.ByteArrayOutputStream().also { bytes ->
+            java.io.DataOutputStream(bytes).apply {
+                write("NLDL-MSG-1".toByteArray())
+                writeInt(forgedSessionId.size)
+                write(forgedSessionId)
+                writeLong(1)
+                writeInt(m.scope.ordinal)
+                write(Crypto.sha256(m.payload))
+            }
+        }.toByteArray()
+        val wrongKey = SignedMessage(
+            forgedSessionId,
+            1,
+            m.scope,
+            m.payload,
+            attacker.keys.sign(signatureData),
+        )
+        val freshReceiver = session(d.b, d.a, forgedSessionId)
+        assertNull(freshReceiver.open(wrongKey))
+        assertTrue(auditTypes(d.b).contains(AuditType.SESSION_ERROR to AuditResult.BAD_SIGNATURE))
         assertNull(forged.seal(DataScope.STATUS_SUMMARY, byteArrayOf(1)))
     }
 
@@ -335,6 +356,23 @@ class DeviceLinkTest {
         d.b.registry.revokePeer(d.a.id)
         assertNull(receiver.open(sender.seal(DataScope.STATUS_SUMMARY, byteArrayOf(1))!!))
         assertFalse(receiver.isOpen)
+    }
+
+    @Test
+    fun sessionIdIsDefensivelyCopiedAfterRegistration() {
+        val d = consented()
+        val suppliedId = freshId()
+        val expectedId = suppliedId.copyOf()
+        val sender = session(d.a, d.b, suppliedId)
+        suppliedId.fill(0)
+        val exposedId = sender.sessionId
+        exposedId.fill(1)
+        assertArrayEquals(expectedId, sender.sessionId)
+
+        val receiver = session(d.b, d.a, expectedId)
+        val message = sender.seal(DataScope.STATUS_SUMMARY, byteArrayOf(1))!!
+        assertArrayEquals(expectedId, message.sessionId)
+        assertNotNull(receiver.open(message))
     }
 
     @Test
@@ -627,11 +665,23 @@ class DeviceLinkTest {
         val running = List(8) { start(d, issuer, token) }
         val proofs = running.map { it.second.proof() }
         val results = java.util.Collections.synchronizedList(mutableListOf<HandshakeResult>())
-        val threads = running.indices.map { i -> Thread { results += running[i].first.verifyProof(proofs[i]) } }
-        threads.forEach { it.start() }
-        threads.forEach { it.join() }
+        runConcurrently(running.size) { i -> results += running[i].first.verifyProof(proofs[i]) }
         assertEquals(1, results.count { it is HandshakeResult.Verified })
         assertEquals(7, results.count { it == HandshakeResult.Rejected(AuditResult.TOKEN_REUSED) })
+    }
+
+    @Test
+    fun proofRemainsAvailableAfterSuccessfulVerification() {
+        val d = devices()
+        val issuer = PairingTokenIssuer(clock)
+        val token = issuer.issue()
+        val initiator = Handshake(true, d.a.scope, d.a.keys, issuer, issuer.hash()!!, d.a.audit, d.a.replay)
+        val responder = Handshake(false, d.b.scope, d.b.keys, null, Crypto.sha256(token), d.b.audit, d.b.replay)
+        initiator.receiveHello(responder.hello())
+        responder.receiveHello(initiator.hello())
+
+        assertTrue(responder.verifyProof(initiator.proof()) is HandshakeResult.Verified)
+        assertTrue(initiator.verifyProof(responder.proof()) is HandshakeResult.Verified)
     }
 
     @Test
@@ -643,10 +693,56 @@ class DeviceLinkTest {
 
     private fun runConcurrently(count: Int, block: (Int) -> Unit) {
         val start = java.util.concurrent.CountDownLatch(1)
-        val threads = (0 until count).map { i -> Thread { start.await(); block(i) } }
+        val failures = java.util.Collections.synchronizedList(mutableListOf<Throwable>())
+        val threads = (0 until count).map { i ->
+            Thread {
+                try {
+                    start.await()
+                    block(i)
+                } catch (failure: Throwable) {
+                    failures += failure
+                }
+            }
+        }
         threads.forEach { it.start() }
         start.countDown()
         threads.forEach { it.join() }
+        failures.firstOrNull()?.let { throw AssertionError("Concurrent worker failed", it) }
+    }
+
+    @Test
+    fun concurrentWorkerFailuresAreRethrownOnTheTestThread() {
+        val expected = IllegalStateException("worker failure")
+        try {
+            runConcurrently(1) { throw expected }
+            fail("worker failure was not rethrown")
+        } catch (failure: AssertionError) {
+            assertSame(expected, failure.cause)
+        }
+    }
+
+    @Test
+    fun registrySerializesRevocationAuthorizationAndConsentChanges() {
+        val d = paired()
+        runConcurrently(16) {
+            when (it % 5) {
+                0 -> d.a.registry.revokePeer(d.b.id)
+                1 -> d.a.registry.grant(d.b.id, DataScope.STATUS_SUMMARY, Direction.SEND, true)
+                2 -> d.a.registry.revokeConsent(d.b.id, DataScope.STATUS_SUMMARY, Direction.SEND)
+                3 -> d.a.registry.authorize(d.b.id, DataScope.STATUS_SUMMARY, Direction.SEND)
+                else -> {
+                    d.a.registry.pendingRevocationNotices()
+                    d.a.registry.noticeDelivered(d.b.id)
+                }
+            }
+        }
+        assertEquals(PeerState.REVOKED, d.a.registry.state(d.b.id))
+        assertNull(d.a.registry.trustedKey(d.b.id))
+        assertEquals(
+            Decision.Deny(AuditResult.PEER_REVOKED),
+            d.a.registry.authorize(d.b.id, DataScope.STATUS_SUMMARY, Direction.SEND),
+        )
+        assertFalse(d.a.registry.grant(d.b.id, DataScope.STATUS_SUMMARY, Direction.SEND, true))
     }
 
     @Test
@@ -721,6 +817,22 @@ class DeviceLinkTest {
         assertEquals(HandshakeResult.Rejected(AuditResult.TOKEN_REUSED), finish(h2))
         assertNull(d.a.registry.completePairing(p1, true))
         assertEquals(PeerState.REVOKED, d.a.registry.state(d.b.id))
+    }
+
+    @Test
+    fun stalePairingResultCannotReplaceFreshPairingAfterRevocation() {
+        val d = paired()
+        val staleIssuer = PairingTokenIssuer(clock)
+        val staleToken = staleIssuer.issue()
+        val stale = (finish(start(d, staleIssuer, staleToken)) as HandshakeResult.Verified).pending
+        d.a.registry.revokePeer(d.b.id)
+
+        val (freshResult, _, _) = handshake(d.a, d.b)
+        assertNotNull(d.a.registry.completePairing((freshResult as HandshakeResult.Verified).pending, true))
+        assertTrue(d.a.registry.grant(d.b.id, DataScope.STATUS_SUMMARY, Direction.SEND, true))
+        assertNull(d.a.registry.completePairing(stale, true))
+        assertEquals(PeerState.TRUSTED, d.a.registry.state(d.b.id))
+        assertEquals(Decision.Allow, d.a.registry.authorize(d.b.id, DataScope.STATUS_SUMMARY, Direction.SEND))
     }
 
     @Test

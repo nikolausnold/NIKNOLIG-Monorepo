@@ -4,7 +4,7 @@ Inerte JVM-Referenzimplementierung der Geräteverbindung NIKNOLIG ↔ NIKNOLIG D
 
 **Status: nicht freigegeben, nicht aktiv.**
 
-- Als reines JVM-Modul `:device-link-reference` in `settings.gradle.kts` registriert und im CI-Testschritt (`:device-link-reference:test`) enthalten; keine Abhängigkeit der Apps, keine Android-Anbindung.
+- Reine JVM-Referenz, nicht als Gradle-Modul registriert und nicht im CI enthalten; keine Abhängigkeit der Apps, keine Android-Anbindung.
 - Enthält **keinen Transport** (BLE/Nearby/NSD sind nicht ausgewählt) und `ProductionGate.ENABLED = false`.
 - Die Aufnahme als Gradle-Modul oder in die Apps braucht eine eigene Freigabe (siehe `docs/device-link-security-design.md` §2).
 - Nur JCA (`SHA256withECDSA`, P-256, `SecureRandom`); keine eigene Kryptografie.
@@ -14,7 +14,7 @@ Inhalt: `Crypto`, `Audit`, `Pairing`, `Consent`, `Session` unter `org.niknolig.d
 
 ## Tests lokal ausführen
 
-Mit Gradle: `./gradlew :device-link-reference:test`. Alternativ mit Kotlin-Compiler und JUnit 4.13.2 (Kotlin-Stdlib im Klassenpfad):
+Mit Kotlin-Compiler und JUnit 4.13.2 (Kotlin-Stdlib im Klassenpfad):
 
 ```
 kotlinc src/main/kotlin src/test/kotlin -cp junit-4.13.2.jar -d out

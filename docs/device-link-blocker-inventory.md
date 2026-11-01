@@ -18,14 +18,14 @@ Stand: Entwurf. Dieses Dokument erteilt **keine** Freigabe. Produktive Kopplung 
 | 8 | Fehlerbehandlung | Keine einheitliche Behandlung | Fail-closed, generische Fehler, Sitzung schließt bei jedem Fehler | Tests `tampered…`, `unauthorizedScope…`, `wrongSessionId…`, `connectionLoss…` grün | Referenz | OFFEN |
 | 9 | BLE-Sicherheit | Transport nicht gewählt | Nur falls BLE gewählt: Prüfung nach P0 §6 | Gerätetest mit Sniffer/Reichweite | Nicht implementiert | OFFEN |
 | 10 | Zwei-Geräte-Abnahme | Keine physischen Geräte verfügbar | Durchführung nach `device-link-acceptance-test.md` | Ausgefülltes Protokoll mit zwei echten Android-Geräten | – | **OFFEN** |
-| 11 | Modulaufnahme | Gemeinsames Modul braucht Freigabe (§2) | Entscheidung, ob `:device-link-core` entsteht | Freigabe + CI-Integration | Referenz als reines JVM-Modul `:device-link-reference` registriert und im CI-Schritt „Test inert device-link reference module“; keine App-Abhängigkeit | OFFEN (Freigabe für gemeinsames Modul/Apps) |
+| 11 | Modulaufnahme | Gemeinsames Modul braucht Freigabe (§2) | Entscheidung, ob `:device-link-core` entsteht | Freigabe + CI-Integration | Referenzcode nicht als Gradle-Modul registriert und nicht in CI; keine App-Abhängigkeit | OFFEN (Architektur-/Sicherheitsfreigabe vor Gradle-/CI-Integration) |
 
 ## P0-Reparatur PR #188 – Stand
 
 Behoben (Referenzcode, jeweils mit Negativtest, der ohne die Korrektur fehlschlägt):
 einmalig verwendbare `PendingPairing` und Widerruf-Sequenz (auch gegen Handshakes, die vor dem Widerruf starteten); Token-Generation und -Hash gegen Rotation; endgültig abgelehnte Handshakes; `ReplayGuard`/`SessionIdGuard` ohne Verdrängung (fail closed); atomare Versuchszählung inkl. fehlgeschlagener Hellos; Synchronisierung von `SecureSession`, `PeerAuthenticator`, `Handshake`.
 
-Tests (lokal, kotlinc 2.0.21, JDK 21, JUnit 4.13.2): 53 von 53 bestanden. Gradle lokal nicht ausführbar (Plugin-Repositories im Sandbox-Netz nicht erreichbar); der Gradle-/CI-Lauf ist die maßgebliche Prüfung.
+Tests (lokal, kotlinc 2.4.21, JDK 17, JUnit 4.13.2): 58 von 58 bestanden. Das Referenzmodul ist nicht in Gradle/CI registriert; diese Tests werden dort nicht ausgeführt.
 
 Offene Risiken / nicht getestet:
 - Zustand nur im Speicher: Nonces, Sitzungs-IDs, Token und Widerrufe überleben keinen Neustart; nach Neustart sind alte Sitzungsnachrichten mit wiederverwendeter ID nicht erkennbar (Persistenz nötig).
