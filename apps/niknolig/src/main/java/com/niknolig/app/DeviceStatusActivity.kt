@@ -78,6 +78,11 @@ class DeviceStatusActivity : Activity() {
         showLastSuccess()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::lastConnection.isInitialized) showLastSuccess()
+    }
+
     private fun showLastSuccess() {
         val last = log.state().lastSuccessMillis
         lastConnection.text = if (last == null) getString(R.string.device_status_last_success_none)

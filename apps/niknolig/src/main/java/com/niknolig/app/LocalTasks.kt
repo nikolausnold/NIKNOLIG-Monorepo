@@ -19,6 +19,24 @@ internal interface TextPersistence {
     fun write(value: String): Boolean
 }
 
+internal class RestoringTextPersistence(
+    private val readValue: () -> String?,
+    private val writeValue: (String) -> Boolean,
+    private val restoreValue: (String?) -> Unit = { writeValue(it.orEmpty()) },
+    private val lock: Any = Any(),
+) : TextPersistence {
+    override fun read(): String? = synchronized(lock) { readValue() }
+
+    override fun write(value: String): Boolean = synchronized(lock) {
+        val previous = readValue()
+        if (writeValue(value)) true
+        else {
+            restoreValue(previous)
+            false
+        }
+    }
+}
+
 /**
  * Local-only task list. Tasks live on this device and are not synchronized with
  * any other app, device or backend.

@@ -48,7 +48,7 @@
     <string name="security_event_line">%1$s – %2$s</string>
     <string name="security_checks_heading">SICHERHEITSPRÜFUNGEN</string>
     <string name="security_check_passed">✔ %1$s</string>
-    <string name="security_check_failed">✘ Warnung: %1$s</string>
+    <string name="security_check_failed">✘ Sicherheitsprüfung fehlgeschlagen: %1$s</string>
     <string name="security_check_backup">Daten-Backup der App ist ausgeschaltet</string>
     <string name="security_check_cleartext">Unverschlüsselter Netzwerkverkehr ist blockiert</string>
     <string name="security_check_debuggable">App ist nicht debugbar</string>
