@@ -2,6 +2,7 @@ import unittest
 import json
 import copy
 import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 try:
@@ -305,6 +306,72 @@ class BackendContractTests(unittest.TestCase):
                 )
                 self.assertTrue(encrypted_arguments)
                 self.assertTrue(all(argument.strip() == '""' for argument in encrypted_arguments))
+
+    def test_support_privacy_texts_do_not_claim_encrypted_questions(self):
+        root = BACKEND.parent
+        sources = [
+            *root.glob("apps/*/src/main/res/values*/support_strings.xml"),
+            root / "apps/ios/NIKNOLIGApp.swift",
+            root / "apps/ios/NIKNOLIGDefenseApp.swift",
+        ]
+        self.assertEqual(len(sources), 6)
+        claims = re.compile(
+            r"(Fragen|Anfragen?)\s+bleiben\s+(lokal\s+)?verschlüsselt"
+            r"|questions\s+stay\s+encrypted|(stored|gespeichert)\s+encrypted"
+            r"|lokal\s+verschlüsselt\s+vorgemerkt|sicher verschlüsselt und vorgemerkt",
+            re.IGNORECASE,
+        )
+        for path in sources:
+            with self.subTest(source=str(path.relative_to(root))):
+                self.assertIsNone(claims.search(path.read_text(encoding="utf-8")))
+
+    def test_support_privacy_notices_cover_legacy_tickets_and_backup_limits(self):
+        root = BACKEND.parent
+        for app in ("niknolig", "niknolig-defense"):
+            main = root / "apps" / app / "src/main"
+            for folder, expected in (
+                ("values", ("Wiederhergestellte ältere Vorgänge", "Migration", "allowBackup=false")),
+                ("values-en", ("Restored older tickets", "migrated", "allowBackup=false")),
+            ):
+                with self.subTest(app=app, locale=folder):
+                    resources = ET.parse(main / "res" / folder / "support_strings.xml")
+                    strings = {
+                        item.get("name"): item.text
+                        for item in resources.findall("string")
+                    }
+                    self.assertTrue(all(
+                        term in strings["support_answer_privacy"]
+                        for term in expected
+                    ))
+                    for term in expected[:2]:
+                        self.assertIn(term, strings["support_ticket_queued"])
+            manifest = ET.parse(main / "AndroidManifest.xml")
+            self.assertEqual(
+                "false",
+                manifest.find("./application").get(
+                    "{http://schemas.android.com/apk/res/android}allowBackup"
+                ),
+            )
+
+        for filename in ("NIKNOLIGApp.swift", "NIKNOLIGDefenseApp.swift"):
+            source = (root / "apps/ios" / filename).read_text(encoding="utf-8")
+            with self.subTest(app=filename):
+                self.assertIn("Wiederhergestellte ältere Vorgänge", source)
+                self.assertIn("iCloud-Backups", source)
+                self.assertIn("vor der Migration erstellte Backups", source)
+
+        support_core = (
+            root / "modules/support/ios/Sources/SupportCore/SupportCore.swift"
+        ).read_text(encoding="utf-8")
+        for target in ("directory", "protectedURL"):
+            with self.subTest(backup_exclusion_target=target):
+                self.assertIn(
+                    "resourceValues.isExcludedFromBackup = true\n"
+                    f"        try {target}.setResourceValues(resourceValues)",
+                    support_core,
+                )
+        self.assertIn("completeUntilFirstUserAuthentication", support_core)
+        self.assertIn("defaults.removeObject(forKey: key)", support_core)
 
     @unittest.skipIf(
         Draft202012Validator is None,

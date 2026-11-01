@@ -4,12 +4,12 @@
     <string name="support_answer_button">Show offline answer</string>
     <string name="support_answer_empty">Please enter a short question.</string>
     <string name="support_answer_backend">The connection check only verifies backend reachability and readiness, not AI availability. Check the status below. If it fails, you can prepare an email with the diagnostic.</string>
-    <string name="support_answer_privacy">Questions are processed locally; unresolved questions stay encrypted on this device. After confirmation, email drafts contain only a random ticket ID, the app, and fixed issue and diagnostic codes, never question text.</string>
+    <string name="support_answer_privacy">Questions are answered locally only; new tickets do not store or transmit question text and encrypt only an empty placeholder. Restored older tickets may retain encrypted question text until the support queue is migrated when Support opens or the ticket is deleted. Local data includes the ID, app, random request key, fixed issue and diagnostic codes, creation time, attempts, and handoff state. The manifest sets allowBackup=false; manufacturer-specific device transfers have not been tested. Email drafts contain only the ticket ID, app, and fixed codes, never question text.</string>
     <string name="support_answer_payment">We cannot handle payment questions. Contact your payment provider or merchant, and do not send payment details to technical support.</string>
     <string name="support_answer_troubleshooting">Restart the app and retry the step. For connection problems, check the backend status below. If the issue persists, describe it in the email draft.</string>
     <string name="support_answer_account">Accounts and password recovery are not available yet. Never send your password. This request is queued for personal review.</string>
     <string name="support_answer_unresolved">There is no reliable offline answer for this. The request is queued with a technical identifier; after confirmation, you can describe it by email.</string>
-    <string name="support_ticket_queued">Stored encrypted locally: %1$s. Question text is never added to email drafts.</string>
+    <string name="support_ticket_queued">New ticket queued without question text: %1$s. Restored older tickets may retain encrypted question text until the queue is migrated when Support opens or the ticket is deleted. Email drafts do not include question text.</string>
     <string name="support_ticket_delete">Delete local ticket (does not recall email)</string>
     <string name="support_ticket_deleted">Local ticket deleted. External email drafts and sent emails were not deleted or recalled.</string>
     <string name="support_ticket_delete_failed">The local ticket could not be deleted.</string>
