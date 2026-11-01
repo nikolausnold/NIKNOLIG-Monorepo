@@ -23,6 +23,12 @@ Die Android-Apps sind die bestehenden Gradle-Module `:niknolig` und
 bleiben in ihrer Zuständigkeit unverändert. Dieses Dokument autorisiert keine
 Änderung in den Android-Quell-Repositories.
 
+Beide Module verwenden die gemeinsame Bibliothek `:electro-engel-core` für den
+lokalen Elektro-Engel-Analyzer und `:support-core` für gemeinsame Support-
+Komponenten. Die App-Module hängen nicht voneinander ab; Bibliotheksteilung
+überträgt weder Identitäten noch Daten oder Berechtigungen. Der gemeinsame
+Analyzer ist deterministische lokale Logik, kein KI-Gateway-Client.
+
 `backend/` ist bereits die gemeinsame, plattformneutrale Vertragsquelle:
 
 | Bestehende Quelle | Tatsächlicher Umfang | Grenze |

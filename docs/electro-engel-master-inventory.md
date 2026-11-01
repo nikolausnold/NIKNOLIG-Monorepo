@@ -45,7 +45,10 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 
 ## Gemeinsame Schnittstelle und Trennung
 
-- Beide Apps bleiben getrennte Module/Application-IDs ohne gemeinsame Abhängigkeit.
+- Beide Apps bleiben getrennte Module und Application-IDs. Sie verwenden die
+  gemeinsamen, plattformneutralen Bibliotheken `:electro-engel-core` und
+  `:support-core`; kein App-Modul hängt direkt vom jeweils anderen ab. Gemeinsame
+  Bibliotheksnutzung überträgt weder App-Identität noch Berechtigungen.
 - Der gemeinsame Contract `backend/ai-support.openapi.yaml` beschreibt zwei
   getrennte Requestformate: `POST /support` akzeptiert genau `app` und `message`
   und setzt `feature=support`; `POST /v1/ai/support` akzeptiert `app`, `feature`
@@ -55,14 +58,15 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
   `ai:<feature>`. Der Client-App-Wert ist kein Identitätsnachweis. ASGI und
   Caddy registrieren die Route, aber der Default-Service ist deaktiviert,
   verwendet keinen aktiven Provider und lehnt standardmäßig ab.
-- Beide Apps bleiben getrennte Module/Application-IDs ohne gemeinsame
-  Abhängigkeit. Memory ist nach `(app, subject)` getrennt, erwartet aber einen
-  durch den Aufrufer übergebenen `Principal`; die Engine prüft keine Tokens,
-  Signaturen oder Widerrufe. Ohne Auth-Provider/API bleibt sie nicht verdrahtet.
-  Keine gegenseitigen Rechte.
+- Memory ist nach `(app, subject)` getrennt, erwartet aber einen durch den
+  Aufrufer übergebenen `Principal`; die Engine prüft keine Tokens, Signaturen
+  oder Widerrufe. Ohne Auth-Provider/API bleibt sie nicht verdrahtet. Keine
+  gegenseitigen Rechte.
 - Zwischen den Apps existiert keine direkte Kommunikation; beide sprechen nur
   über die gemeinsame, noch nicht in Apps integrierte Backend-Schnittstelle.
-  **Produktive Authentifizierung und App-Integration sind nicht nachgewiesen.**
+  Beide lokalen Android-Assistenten verwenden den gemeinsamen Analyzer; das ist
+  keine produktive KI-Anbindung. **Produktive Authentifizierung und
+  Gateway-Integration sind nicht nachgewiesen.**
 
 ## Blocker für Online-Betrieb (Priorität)
 
@@ -90,15 +94,12 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
   Regressionstests decken persistierte Schreibfehler, nicht bestätigte
   Rückgabewerte, Scheduler-/Klartextbereinigung und ungültige Löschbelege ab.
 - Tooling lokal: `python -m unittest discover -s tools/tests` → **74 Tests OK**.
-- GitHub Actions auf Code-Commit `31c1519`: [Backend Contracts/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41315957822)
-  und [Android Build](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41315957682)
-  erfolgreich (Retry, Versuch 2). Backend lief mit PostgreSQL-Service. Android
-  assemblierte beide Debug-APKs und bestand Client-Tests, Lint sowie
-  Paket-/Signaturprüfungen; auch der portable Elektro-Engel-iOS-Core-Testjob
-  bestand. Diese CI-Läufe erfolgten vor den neuesten
-  Worker-/Scheduler-/`forget_all()`-Korrekturen und validieren sie noch nicht.
-  Die ersten Versuche endeten mit `action_required` und starteten keine Jobs;
-  die erfolgreichen Wiederholungen validieren Code-Commit `31c1519`.
+- GitHub Actions auf Code-Commit `e5a7bf7`: [Backend Contracts/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41316873061)
+  und [Android Build](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41316873042)
+  erfolgreich (Retry, Versuch 2). Backend-Vertrags- und Tooling-Tests liefen
+  erfolgreich mit PostgreSQL-Service. Android assemblierte beide Debug-APKs und
+  bestand Client-Tests, Lint sowie Paket-/Signaturprüfungen; auch der portable
+  Elektro-Engel-iOS-Core-Testjob bestand. Das ist kein iOS-App-Simulator-Build.
 - Swift-Pakettests lokal unter Linux: `modules/support/ios` **15 bestanden**;
   `modules/electro-engel/ios` **8 bestanden**. Das sind portable Core-Tests,
   keine iOS-App-Builds. `xcodebuild`/Simulator-Builds waren unter Linux nicht
@@ -116,15 +117,70 @@ Gateway-Client je App mit eigenem Scope.
 
 ## Spezifikation für späteren dauerhaften Memory-Speicher (nicht implementiert)
 
-`InMemoryMemoryStore` ist flüchtig und **keine** Produktionsspeicherung. Vor
-einer Aktivierung sind mit separater P0-Freigabe erforderlich:
+`InMemoryMemoryStore` ist flüchtig und **keine** Produktionsspeicherung. Der
+folgende Vorschlag ist keine Freigabe und darf erst nach separater
+SecurityChain-P0- und Datenschutzfreigabe implementiert werden. Bis dahin
+bleiben `enabled=False`, die Runtime-Gates geschlossen und alle produktiven
+Zugänge deaktiviert.
 
-1. Verschlüsselung at rest (verwaltete Schlüssel, nicht im Repo/APK/Logs) und TLS.
-2. Mandanten-Trennung auf Datenbankebene: Schlüssel `(app, subject)`, getrennte Rollen je App; Zugriff nur über den authentifizierten `Principal`.
-3. Atomares Limit (100 Einträge) und Retention per Datenbank-Job; Löschung nachprüfbar (Lösch-Quittung, keine Soft-Deletes ohne Frist; Backups mit definierter Löschfrist).
-4. Audit-Sink ohne Inhalte (nur Ereignis, App, pseudonymisierte ID, Ergebnis), mit Aufbewahrungsregel.
-5. DSGVO: Auskunft, Berichtigung, Löschung, Widerruf der Einwilligung, Verzeichnis der Verarbeitung, Löschpfad bei Konto-Löschung.
-6. Erst danach: HTTP-Route mit serverseitiger Auth, Rate-Limit und Kostenkontrolle. Bis dahin bleiben `enabled=False` und `RuntimeControls` geschlossen.
+1. **Vertrauensgrenze und Mandantenbindung:** Jede Operation erhält App und
+   Subject ausschließlich aus einem unabhängig authentifizierten und
+   autorisierten Principal; Request-Felder sind kein Identitätsbeweis. Datenbank-
+   Primär-/Fremdschlüssel binden jeden Datensatz an `(app, subject, record_id)`.
+   App-spezifische Datenbankrollen und Row-Level-Schutz ergänzen, nicht ersetzen,
+   die serverseitige Prüfung. Quoten und Retention müssen transaktionssicher und
+   über mehrere Prozesse hinweg wirksam sein. Kein App-zu-App-Zugriff.
+2. **Verschlüsselung:** Nur TLS-geschützte Verbindungen; Nutzdaten vor dem
+   Schreiben mit einem geprüften AEAD-Verfahren und zufälligem Data-Encryption-
+   Key (DEK) verschlüsseln. Envelope Encryption bindet DEKs an verwaltete,
+   getrennte App-Key-Scopes in einem KMS/HSM. Der Schlüssel darf nicht in Repo,
+   APK, Datenbank-Logs oder Audit-Events gelangen. Associated data bindet den
+   Ciphertext an App, pseudonymisierten Subject-Scope, Record-ID und
+   Schema-Version. Nonce-Disziplin, Schlüsselversionierung, Rotation,
+   Wiederherstellung und KMS-Ausfallverhalten müssen spezifiziert und getestet
+   sein. Klartext nur so kurz wie nötig im Arbeitsspeicher; keine Payloads in
+   Logs, Metriken, Crashreports oder Backups.
+3. **Minimierte Metadaten und Consent:** Speichern nur explizit bestätigte
+   Erinnerungsnotizen, keinen Gesprächsverlauf und keine Trainingsdaten.
+   Metadaten begrenzen sich auf nötige pseudonyme App-/Subject-Scopes,
+   Einwilligungszweck/-version/-zeitpunkt, Typ, Erstellungs-/Ablaufzeit und
+   Schlüssel-/Schema-Version. Ein Widerruf sperrt neue Zugriffe sofort und löst
+   denselben Löschablauf aus. Freitext-Filter gelten nicht als DLP.
+4. **Retention:** Ein dauerhafter, überwachten Job löscht abgelaufene Datensätze
+   unabhängig von Nutzeraktivität. Er arbeitet idempotent, paginiert,
+   mandantengebunden und mit begrenzten Wiederholungen; ein nicht verfügbarer
+   Speicher oder KMS führt fail-closed, erzeugt einen inhaltsfreien Alarm und
+   lässt den Löschstatus offen, bis die Löschung verifiziert ist. Quoten- und
+   Retention-Rennen werden durch Datenbanktransaktionen bzw. atomare
+   Compare-and-set-Operationen verhindert.
+5. **Nachweisbare Löschung:** Zuerst wird in einer Transaktion ein
+   nicht rücksetzbarer Lösch-Tombstone im aktiven System gesetzt, der jeden
+   Lese-/Schreibzugriff für den Scope sperrt; danach werden Datensätze, Indizes,
+   Cache- und Replikatkopien idempotent entfernt. Eine nicht-sensitive
+   Löschquittung enthält Request-ID, pseudonymisierten Scope, Zeitpunkt,
+   betroffene Anzahl, Status und bestätigte Speicher-/Replikatziele, nie Inhalt
+   oder Schlüssel. Ein unabhängiges, manipulationsgeschütztes Löschregister
+   verhindert, dass Restore aus Backup gelöschte Daten wieder freischaltet.
+   Kryptografische Löschung darf erst als abgeschlossen gelten, wenn die
+   Zerstörung aller zur Entschlüsselung nötigen Schlüsselkopien vom KMS/HSM
+   bestätigt ist. Falls KMS-Schlüssellöschung verzögert ist oder Backups noch
+   wiederherstellbare DEKs enthalten, muss der Status dies offen ausweisen;
+   spätestens nach definierter Backup-Aufbewahrung wird die Bereinigung
+   nachgewiesen. Keine sofortige physische oder kryptografische Löschung
+   behaupten, wenn der Speicheranbieter sie nicht belegen kann.
+6. **Audit und Betrieb:** Audit nur mit Ereignis, App, pseudonymisiertem Scope,
+   Request-ID und Ergebnis, ohne Subject-ID, Prompt, Erinnerungstext,
+   Ciphertext oder Schlüsselmaterial. Audit, Quotas, Backup-/Restore-Verfahren,
+   Key-Rotation sowie Alarmierung und Incident-Verantwortung brauchen
+   Aufbewahrungs- und Zugriffsvorgaben.
+7. **Abnahmereihenfolge:** Zunächst Bedrohungsmodell, Daten-/Löschfristen,
+   KMS- und Backup-Vertrag sowie P0-Freigabe. Danach ein verschlüsselter Adapter
+   samt atomaren Mandantenlimits, dauerhafter Retention und Löschregister;
+   anschließend Tests für App-/Subject-Isolation, manipulierte Principal-Scopes,
+   AEAD-Tampering, Key-Rotation/-Ausfall, parallele Writes/Löschungen,
+   wiederholte Löschanfragen, Replikate und Restore ohne Wiederbelebung. Erst
+   nach unabhängiger Prüfung und Freigabe darf eine Route erwogen werden;
+   produktive KI-/Memory-Anbindung bleibt eine getrennte Freigabe.
 
 ## Offene Risiken
 - Keine Persistenz, kein Audit, keine Verschlüsselung, keine Nutzer-Auth (siehe Blocker).
