@@ -41,7 +41,7 @@ _PHONE_MARKER = re.compile(
     r"(?<!\w)(?:\+\s?\d{1,3}|00\s?\d{1,3})(?:[\s()./-]*\d){7,14}(?!\w)"
 )
 _CARD_NUMBER = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
-_CONSENT_EVIDENCE = re.compile(r"[-A-Za-z0-9._~+/=]{1,4096}")
+_CONSENT_EVIDENCE = re.compile(r"[A-Za-z0-9._~+/=-]{1,4096}")
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 _MEMORY_MUTATION_LOCK = threading.RLock()
 
@@ -413,11 +413,13 @@ class MemoryService:
         with self._write_lock:
             now = self._authorize(principal, "memory:write")
             self._require_consent(principal, consent_evidence, now)
+            self._purge_expired(principal, now)
+            now = self._authorize(principal, "memory:write")
+            self._require_consent(principal, consent_evidence, now)
             record = MemoryRecord(
                 uuid4(), principal.app, principal.subject, kind, content,
                 now, now, now + retention_days * 86400,
             )
-            self._purge_expired(principal, now)
             try:
                 _EXPIRY_SCHEDULER.schedule(self.store, record, record.expires_at - now)
             except Exception:
@@ -483,6 +485,8 @@ class MemoryService:
                 self.store.get, principal.app, principal.subject, record_id),))
             if not current or current[0].id != record_id:
                 raise MemoryEngineError("NOT_FOUND")
+            now = self._authorize(principal, "memory:write")
+            self._require_consent(principal, consent_evidence, now)
             updated = replace(current[0], content=new_content, updated_at=now)
             replaced = self._store_call(self.store.replace, updated)
             persisted = self._store_call(
@@ -530,8 +534,11 @@ class MemoryService:
 
     def _purge_expired(self, principal, now):
         with self._write_lock:
-            for record in self._own(principal, self._store_call(
-                    self.store.list, principal.app, principal.subject)):
+            records = self._store_call(
+                self.store.list, principal.app, principal.subject)
+            if type(records) is not tuple:
+                raise MemoryEngineError("STORE_UNAVAILABLE")
+            for record in self._own(principal, records):
                 if record.expires_at <= now:
                     self._store_call(
                         self.store.delete, record.app, record.subject, record.id)

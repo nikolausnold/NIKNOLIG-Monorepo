@@ -31,20 +31,22 @@ TEST_CONSENT = "test.signed.consent"
 
 class TestConsentVerifier:
     def __init__(self, *, revoked=False, accepted=True, app=None, subject=None,
-                 issued_at=0.0, expires_at=10**9):
+                 issued_at=0.0, expires_at=10**9,
+                 evidence="test.signed.consent"):
         self.revoked = revoked
         self.accepted = accepted
         self.app = app
         self.subject = subject
         self.issued_at = issued_at
         self.expires_at = expires_at
+        self.evidence = evidence
         self.calls = []
 
     def verify(self, principal, evidence, *, purpose, now):
         self.calls.append((principal, evidence, purpose, now))
         return (
             self.accepted and not self.revoked and
-            evidence == "test.signed.consent" and
+            evidence == self.evidence and
             purpose == "long-term-memory" and
             principal.app in {"niknolig", "niknolig-defense"} and
             bool(principal.subject) and
@@ -81,6 +83,18 @@ def code(callable_):
 
 
 class MemoryEngineTest(unittest.TestCase):
+    def test_consent_evidence_accepts_base64url_hyphen(self):
+        verifier = TestConsentVerifier(evidence="-A==")
+        s = service(consent_verifier=verifier)
+
+        record = s.remember(
+            principal(), content="alpha beta", kind="fact",
+            consent_evidence="-A==")
+
+        self.assertEqual(record.content, "alpha beta")
+        self.assertTrue(verifier.calls)
+        self.assertTrue(all(call[1] == "-A==" for call in verifier.calls))
+
     def test_consent_evidence_rejects_non_token_characters(self):
         verifier = TestConsentVerifier()
         s = service(consent_verifier=verifier)
@@ -405,6 +419,160 @@ class FaultyStore(InMemoryMemoryStore):
 
 
 class MemoryEngineSecurityTest(unittest.TestCase):
+    def test_expiry_purge_rejects_non_tuple_store_results(self):
+        class InvalidListStore(InMemoryMemoryStore):
+            def __init__(self):
+                super().__init__()
+                self.invalid_result = False
+                self.return_invalid = False
+
+            def list(self, app, subject):
+                if self.return_invalid:
+                    return self.invalid_result
+                return super().list(app, subject)
+
+        for invalid_result in (None, False):
+            with self.subTest(invalid_result=invalid_result):
+                store = InvalidListStore()
+                s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+                p = principal()
+                record = s.remember(
+                    p, content="alpha beta", kind="fact",
+                    consent_evidence=TEST_CONSENT)
+                store.invalid_result = invalid_result
+                store.return_invalid = True
+
+                operations = (
+                    lambda: s.remember(
+                        p, content="gamma delta", kind="fact",
+                        consent_evidence=TEST_CONSENT),
+                    lambda: s.recall(
+                        p, "alpha", consent_evidence=TEST_CONSENT),
+                    lambda: s.update(
+                        p, record.id, content="gamma delta",
+                        consent_evidence=TEST_CONSENT),
+                    lambda: s.forget(p, record.id),
+                )
+                for operation in operations:
+                    self.assertEqual(code(operation), "STORE_UNAVAILABLE")
+
+                store.return_invalid = False
+                self.assertEqual(store.list(p.app, p.subject), (record,))
+
+    def test_remember_rechecks_authorization_after_expiry_purge(self):
+        class HookedListStore(InMemoryMemoryStore):
+            hook = None
+
+            def list(self, app, subject):
+                records = super().list(app, subject)
+                if self.hook is not None:
+                    self.hook()
+                return records
+
+        for scenario in ("principal_expired", "consent_revoked"):
+            with self.subTest(scenario=scenario):
+                now = [1000.0]
+                verifier = TestConsentVerifier()
+                store = HookedListStore()
+                p = principal(expires=1001.0 if scenario == "principal_expired"
+                              else 2000.0)
+                if scenario == "principal_expired":
+                    store.hook = lambda: now.__setitem__(0, 1002.0)
+                    expected = "AUTHENTICATION_INVALID"
+                else:
+                    store.hook = lambda: setattr(verifier, "revoked", True)
+                    expected = "CONSENT_REQUIRED"
+                s = MemoryService(
+                    store=store, enabled=True, clock=lambda: now[0],
+                    consent_verifier=verifier)
+
+                self.assertEqual(code(lambda: s.remember(
+                    p, content="alpha beta", kind="fact",
+                    consent_evidence=TEST_CONSENT)), expected)
+                self.assertEqual(super(HookedListStore, store).list(
+                    p.app, p.subject), ())
+
+    def test_remember_timestamps_follow_expiry_purge_store_access(self):
+        now = [1000.0]
+
+        class AdvancingListStore(InMemoryMemoryStore):
+            def list(self, app, subject):
+                records = super().list(app, subject)
+                now[0] += 1
+                return records
+
+        store = AdvancingListStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
+        record = s.remember(
+            principal(), content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT)
+
+        self.assertEqual(record.created_at, 1001.0)
+        self.assertEqual(record.updated_at, 1001.0)
+        self.assertEqual(record.expires_at, 1001.0 + 90 * 86400)
+
+    def test_update_rechecks_authorization_after_record_read(self):
+        class HookedGetStore(InMemoryMemoryStore):
+            hook = None
+
+            def get(self, app, subject, record_id):
+                record = super().get(app, subject, record_id)
+                if self.hook is not None:
+                    self.hook()
+                return record
+
+        for scenario in ("principal_expired", "consent_revoked"):
+            with self.subTest(scenario=scenario):
+                now = [1000.0]
+                verifier = TestConsentVerifier()
+                store = HookedGetStore()
+                p = principal(expires=1001.0 if scenario == "principal_expired"
+                              else 2000.0)
+                s = MemoryService(
+                    store=store, enabled=True, clock=lambda: now[0],
+                    consent_verifier=verifier)
+                record = s.remember(
+                    p, content="alpha beta", kind="fact",
+                    consent_evidence=TEST_CONSENT)
+                if scenario == "principal_expired":
+                    store.hook = lambda: now.__setitem__(0, 1002.0)
+                    expected = "AUTHENTICATION_INVALID"
+                else:
+                    store.hook = lambda: setattr(verifier, "revoked", True)
+                    expected = "CONSENT_REQUIRED"
+
+                self.assertEqual(code(lambda: s.update(
+                    p, record.id, content="gamma delta",
+                    consent_evidence=TEST_CONSENT)), expected)
+                store.hook = None
+                self.assertEqual(store.get(p.app, p.subject, record.id), record)
+
+    def test_update_timestamp_follows_record_read(self):
+        now = [1000.0]
+
+        class AdvancingGetStore(InMemoryMemoryStore):
+            advance = False
+
+            def get(self, app, subject, record_id):
+                record = super().get(app, subject, record_id)
+                if self.advance:
+                    now[0] += 1
+                return record
+
+        store = AdvancingGetStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
+        p = principal()
+        record = s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT)
+        store.advance = True
+
+        updated = s.update(
+            p, record.id, content="gamma delta",
+            consent_evidence=TEST_CONSENT)
+
+        self.assertEqual(updated.updated_at, 1001.0)
+
     def test_write_failures_and_invalid_store_receipts_fail_closed(self):
         p = principal()
         for fault in ("raise", "unexpected"):
