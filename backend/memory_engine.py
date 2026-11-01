@@ -255,6 +255,29 @@ class MemoryService:
         except Exception:
             raise MemoryEngineError("STORE_UNAVAILABLE") from None
 
+    def _rollback_unconfirmed_write(self, record):
+        try:
+            persisted = self._store_call(
+                self.store.get, record.app, record.subject, record.id)
+            if persisted is None:
+                _EXPIRY_SCHEDULER.cancel(
+                    self.store, record.app, record.subject, record.id)
+                return True
+            if (not isinstance(persisted, MemoryRecord) or
+                    persisted.id != record.id or persisted.app != record.app or
+                    persisted.subject != record.subject):
+                return False
+            deleted = self._store_call(
+                self.store.delete, record.app, record.subject, record.id)
+            if deleted is True or self._store_call(
+                    self.store.get, record.app, record.subject, record.id) is None:
+                _EXPIRY_SCHEDULER.cancel(
+                    self.store, record.app, record.subject, record.id)
+                return True
+        except MemoryEngineError:
+            pass
+        return False
+
     @staticmethod
     def _own(principal, records):
         # Defence in depth against a faulty adapter returning foreign records.
@@ -323,35 +346,14 @@ class MemoryService:
                 stored = self._store_call(self.store.put, record,
                                           limit=MAX_RECORDS_PER_PRINCIPAL)
             except MemoryEngineError:
-                try:
-                    persisted = self._store_call(
-                        self.store.get, principal.app, principal.subject, record.id)
-                    if persisted is None:
-                        _EXPIRY_SCHEDULER.cancel(
-                            self.store, principal.app, principal.subject, record.id)
-                    elif (isinstance(persisted, MemoryRecord) and
-                          persisted.id == record.id and
-                          persisted.app == principal.app and
-                          persisted.subject == principal.subject):
-                        deleted = self._store_call(
-                            self.store.delete, principal.app, principal.subject,
-                            record.id)
-                        if deleted is True or self._store_call(
-                                self.store.get, principal.app, principal.subject,
-                                record.id) is None:
-                            _EXPIRY_SCHEDULER.cancel(
-                                self.store, principal.app, principal.subject,
-                                record.id)
-                except MemoryEngineError:
-                    pass
+                self._rollback_unconfirmed_write(record)
                 raise
             if stored is False:
-                _EXPIRY_SCHEDULER.cancel(
-                    self.store, principal.app, principal.subject, record.id)
+                if not self._rollback_unconfirmed_write(record):
+                    raise MemoryEngineError("STORE_UNAVAILABLE")
                 raise MemoryEngineError("QUOTA_EXCEEDED")
             if stored is not True:
-                _EXPIRY_SCHEDULER.cancel(
-                    self.store, principal.app, principal.subject, record.id)
+                self._rollback_unconfirmed_write(record)
                 raise MemoryEngineError("STORE_UNAVAILABLE")
         return record
 

@@ -187,9 +187,12 @@ class FaultyStore(InMemoryMemoryStore):
         self.faults = faults
 
     def put(self, record, *, limit):
-        if self.faults.get("put_after_write") == "raise":
+        if "put_after_write" in self.faults:
             super().put(record, limit=limit)
-            raise RuntimeError("secret-detail")
+            receipt = self.faults["put_after_write"]
+            if receipt == "raise":
+                raise RuntimeError("secret-detail")
+            return receipt
         if self.faults.get("put") == "raise":
             raise RuntimeError("secret-detail")
         if "put" in self.faults:
@@ -249,6 +252,20 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         store.faults.pop("delete")
         self.assertIsNone(s.forget(p, persisted[0].id))
         self.assertEqual(store.list(p.app, p.subject), ())
+
+    def test_partial_write_with_unconfirmed_receipts_is_rolled_back(self):
+        p = principal()
+        for receipt, expected in ((False, "QUOTA_EXCEEDED"),
+                                  ("unexpected", "STORE_UNAVAILABLE")):
+            store = FaultyStore(put_after_write=receipt)
+            s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+            self.assertEqual(code(lambda: s.remember(
+                p, content="alpha beta", kind="fact", user_confirmed=True)),
+                expected)
+            self.assertEqual(store.list(p.app, p.subject), ())
+            with _EXPIRY_SCHEDULER._condition:
+                self.assertFalse(any(
+                    entry[2]() is store for entry in _EXPIRY_SCHEDULER._queue))
 
     def test_expiry_scheduler_failure_prevents_write(self):
         store = InMemoryMemoryStore()
