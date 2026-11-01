@@ -15,6 +15,8 @@ import org.elektroengel.core.AnalysisRequest
 import org.elektroengel.core.ElectroEngelAnalyzer
 
 class AssistantActivity : Activity() {
+    private var pendingAnalysis: AnalysisRequest? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_assistant)
@@ -39,23 +41,8 @@ class AssistantActivity : Activity() {
         val refineButton = findViewById<Button>(R.id.assistant_refine_button)
         val progress = findViewById<ProgressBar>(R.id.assistant_analysis_progress)
 
-        fun analyze() {
-            val text = requestInput.text.toString()
-            if (text.isBlank()) {
-                requestStatus.text = getString(R.string.assistant_analysis_empty)
-                return
-            }
-
-            val mode = AnalysisMode.values().getOrNull(modeInput.selectedItemPosition)
-            if (mode == null) {
-                requestStatus.text = getString(R.string.assistant_analysis_failed)
-                return
-            }
-            val request = AnalysisRequest(
-                mode = mode,
-                text = text,
-                refinement = refinementInput.text.toString(),
-            )
+        fun startAnalysis(request: AnalysisRequest) {
+            pendingAnalysis = request
             analyzeButton.isEnabled = false
             refineButton.isEnabled = false
             progress.visibility = ProgressBar.VISIBLE
@@ -67,7 +54,8 @@ class AssistantActivity : Activity() {
                         AnalysisOutcome.Failure(AnalysisFailure.PROVIDER_UNAVAILABLE)
                     }
                 runOnUiThread {
-                    if (isFinishing) return@runOnUiThread
+                    if (isFinishing || isDestroyed || isChangingConfigurations) return@runOnUiThread
+                    pendingAnalysis = null
                     progress.visibility = ProgressBar.GONE
                     analyzeButton.isEnabled = true
                     refineButton.isEnabled = true
@@ -89,8 +77,52 @@ class AssistantActivity : Activity() {
                 }
             }, "electro-engel-local-analysis").start()
         }
+
+        fun analyze() {
+            val text = requestInput.text.toString()
+            if (text.isBlank()) {
+                requestStatus.text = getString(R.string.assistant_analysis_empty)
+                return
+            }
+
+            val mode = AnalysisMode.values().getOrNull(modeInput.selectedItemPosition)
+            if (mode == null) {
+                requestStatus.text = getString(R.string.assistant_analysis_failed)
+                return
+            }
+            startAnalysis(
+                AnalysisRequest(
+                    mode = mode,
+                    text = text,
+                    refinement = refinementInput.text.toString(),
+                )
+            )
+        }
+
         analyzeButton.setOnClickListener { analyze() }
         refineButton.setOnClickListener { analyze() }
+        savedInstanceState?.let { state ->
+            val mode = AnalysisMode.values().getOrNull(state.getInt(STATE_ANALYSIS_MODE, -1))
+            val text = state.getString(STATE_ANALYSIS_TEXT)
+            if (mode != null && text != null) {
+                startAnalysis(
+                    AnalysisRequest(
+                        mode = mode,
+                        text = text,
+                        refinement = state.getString(STATE_ANALYSIS_REFINEMENT).orEmpty(),
+                    )
+                )
+            }
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        pendingAnalysis?.let { request ->
+            outState.putInt(STATE_ANALYSIS_MODE, request.mode.ordinal)
+            outState.putString(STATE_ANALYSIS_TEXT, request.text)
+            outState.putString(STATE_ANALYSIS_REFINEMENT, request.refinement)
+        }
+        super.onSaveInstanceState(outState)
     }
 
     private fun failureMessage(failure: AnalysisFailure): String =
@@ -101,4 +133,10 @@ class AssistantActivity : Activity() {
             AnalysisFailure.TIMEOUT -> getString(R.string.assistant_analysis_error_timeout)
             AnalysisFailure.PROVIDER_UNAVAILABLE -> getString(R.string.assistant_analysis_error_unavailable)
         }
+
+    private companion object {
+        const val STATE_ANALYSIS_MODE = "assistant_analysis_mode"
+        const val STATE_ANALYSIS_TEXT = "assistant_analysis_text"
+        const val STATE_ANALYSIS_REFINEMENT = "assistant_analysis_refinement"
+    }
 }
