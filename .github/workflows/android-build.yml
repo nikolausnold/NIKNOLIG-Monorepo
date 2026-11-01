@@ -28,7 +28,10 @@ jobs:
       - name: Assemble both debug APKs
         run: ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug --no-daemon
       - name: Test both backend health clients
-        run: ./gradlew :electro-engel-core:test :support-core:test :device-link-reference:test :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon
+        run: ./gradlew :electro-engel-core:test :support-core:test :niknolig:testDebugUnitTest :niknolig-defense:testDebugUnitTest --no-daemon
+      - name: Test inert device-link reference module
+        if: ${{ !cancelled() }}
+        run: ./gradlew :device-link-reference:test --no-daemon
       - name: Lint both Android apps
         run: ./gradlew :niknolig:lintDebug :niknolig-defense:lintDebug --no-daemon
       - name: Preserve Android lint evidence
