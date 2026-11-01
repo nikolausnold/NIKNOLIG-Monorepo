@@ -8,12 +8,15 @@ audited deletion path. Nothing here is wired to an HTTP route.
 """
 
 from dataclasses import dataclass, replace
+import heapq
+import itertools
 import math
 import re
 import threading
 import time
 from typing import Protocol
 from uuid import UUID, uuid4
+import weakref
 
 from ai_support import APPS, Principal
 
@@ -97,6 +100,73 @@ class InMemoryMemoryStore:
             return len(self._records.pop((app, subject), {}))
 
 
+class _ExpiryScheduler:
+    def __init__(self):
+        self._condition = threading.Condition()
+        self._queue = []
+        self._sequence = itertools.count()
+        self._worker = None
+
+    def schedule(self, store, record, delay):
+        try:
+            store_ref = weakref.ref(store)
+        except TypeError:
+            store_ref = lambda: store
+        with self._condition:
+            heapq.heappush(self._queue, (
+                time.monotonic() + max(0, delay), next(self._sequence), store_ref,
+                record.app, record.subject, record.id, record.expires_at,
+            ))
+            if self._worker is None:
+                self._worker = threading.Thread(target=self._run, daemon=True)
+                self._worker.start()
+            self._condition.notify()
+
+    def _run(self):
+        while True:
+            with self._condition:
+                if not self._queue:
+                    self._worker = None
+                    return
+                delay = self._queue[0][0] - time.monotonic()
+                if delay > 0:
+                    self._condition.wait(delay)
+                    continue
+                _, _, store_ref, app, subject, record_id, expires_at = heapq.heappop(
+                    self._queue)
+            store = store_ref()
+            if store is None:
+                continue
+            try:
+                record = store.get(app, subject, record_id)
+                if record is None or record.expires_at != expires_at:
+                    continue
+                if store.delete(app, subject, record_id) is not True:
+                    record = store.get(app, subject, record_id)
+                    if record is None:
+                        continue
+                    if record.expires_at == expires_at:
+                        self._schedule_values(
+                            store, app, subject, record_id, expires_at, 60)
+            except Exception:
+                self._schedule_values(store, app, subject, record_id, expires_at, 60)
+
+    def _schedule_values(self, store, app, subject, record_id, expires_at, delay):
+        try:
+            store_ref = weakref.ref(store)
+        except TypeError:
+            store_ref = lambda: store
+        with self._condition:
+            heapq.heappush(self._queue, (
+                time.monotonic() + delay, next(self._sequence), store_ref,
+                app, subject, record_id, expires_at,
+            ))
+            self._condition.notify()
+
+
+_EXPIRY_SCHEDULER = _ExpiryScheduler()
+
+
 def _terms(text):
     return {word.casefold() for word in _WORD.findall(text) if len(word) > 2}
 
@@ -141,6 +211,7 @@ class MemoryService:
                 not 1 <= len(principal.subject) <= 128 or
                 principal.app not in APPS or
                 type(principal.expires_at) not in (int, float) or
+                not math.isfinite(principal.expires_at) or
                 not principal.expires_at > now):
             raise MemoryEngineError("AUTHENTICATION_INVALID")
         if (type(principal.permissions) is not frozenset or
@@ -172,6 +243,7 @@ class MemoryService:
         if not self._store_call(self.store.put, record,
                                 limit=MAX_RECORDS_PER_PRINCIPAL):
             raise MemoryEngineError("QUOTA_EXCEEDED")
+        _EXPIRY_SCHEDULER.schedule(self.store, record, record.expires_at - now)
         return record
 
     def recall(self, principal, query, *, limit=MAX_RECALL):
@@ -209,8 +281,9 @@ class MemoryService:
         return updated
 
     def forget(self, principal, record_id):
-        self._authorize(principal, "memory:write")
+        now = self._authorize(principal, "memory:write")
         self._record_id(record_id)
+        self._purge_expired(principal, now)
         if self._store_call(self.store.delete, principal.app, principal.subject,
                             record_id) is not True:
             raise MemoryEngineError("NOT_FOUND")
@@ -226,6 +299,10 @@ class MemoryService:
     def _purge_expired(self, principal, now):
         for record in self._own(principal, self._store_call(
                 self.store.list, principal.app, principal.subject)):
-            if (record.expires_at <= now and self._store_call(
-                    self.store.delete, record.app, record.subject, record.id) is not True):
+            if record.expires_at <= now and self._store_call(
+                    self.store.delete, record.app, record.subject, record.id) is not True:
+                remaining = self._store_call(
+                    self.store.get, record.app, record.subject, record.id)
+                if remaining is None:
+                    continue
                 raise MemoryEngineError("STORE_UNAVAILABLE")

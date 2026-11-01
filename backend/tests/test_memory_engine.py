@@ -1,6 +1,10 @@
+from dataclasses import replace
 from pathlib import Path
 import sys
+import threading
+import time
 import unittest
+from unittest.mock import patch
 from uuid import uuid4
 
 
@@ -9,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ai_support import Principal
 from memory_engine import (
     InMemoryMemoryStore, MAX_RECORDS_PER_PRINCIPAL, MemoryEngineError, MemoryService,
+    _EXPIRY_SCHEDULER,
 )
 
 
@@ -75,6 +80,7 @@ class MemoryEngineTest(unittest.TestCase):
         self.assertEqual(code(lambda: s.recall(principal(perms=()), "abc")),
                          "AUTHORIZATION_DENIED")
         for bad in (principal(active=False), principal(expires=999.0),
+                    principal(expires=float("inf")), principal(expires=float("nan")),
                     principal(app="other"), None):
             self.assertEqual(code(lambda: s.recall(bad, "abc")), "AUTHENTICATION_INVALID")
 
@@ -163,6 +169,49 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         s.recall(p, "alpha")
         self.assertEqual(store.list(p.app, p.subject), ())
 
+    def test_expiration_is_scheduled_without_user_activity(self):
+        store = InMemoryMemoryStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        p = principal(expires=10**9)
+        with patch.object(
+                _EXPIRY_SCHEDULER, "schedule",
+                wraps=_EXPIRY_SCHEDULER.schedule) as schedule:
+            record = s.remember(p, content="alpha beta", kind="fact",
+                                user_confirmed=True, retention_days=1)
+            schedule.assert_called_once_with(store, record, 86400.0)
+        expired = replace(record, expires_at=1000.0)
+        self.assertTrue(store.replace(expired))
+        completed = threading.Event()
+        original_schedule = _EXPIRY_SCHEDULER.schedule
+
+        def schedule_immediately(target_store, target_record, delay):
+            original_schedule(target_store, target_record, 0)
+            completed.set()
+
+        with patch.object(
+                _EXPIRY_SCHEDULER, "schedule", side_effect=schedule_immediately):
+            _EXPIRY_SCHEDULER.schedule(store, expired, 0)
+        self.assertTrue(completed.wait(1))
+        deadline = time.monotonic() + 1
+        while store.get(p.app, p.subject, record.id) is not None:
+            if time.monotonic() >= deadline:
+                self.fail("scheduled expiry did not delete the record")
+            time.sleep(0.01)
+
+    def test_forget_purges_other_expired_records(self):
+        now = [1000.0]
+        store = InMemoryMemoryStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
+        p = principal(expires=10**9)
+        expired = s.remember(p, content="old note", kind="fact",
+                             user_confirmed=True, retention_days=1)
+        now[0] += 86401
+        current = s.remember(p, content="current note", kind="fact",
+                             user_confirmed=True, retention_days=1)
+        s.forget(p, current.id)
+        self.assertIsNone(store.get(p.app, p.subject, expired.id))
+        self.assertEqual(store.list(p.app, p.subject), ())
+
     def test_deletion_failures_are_not_reported_as_success(self):
         for fault in ("raise", "false"):
             store = FaultyStore()
@@ -190,6 +239,22 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "STORE_UNAVAILABLE")
         self.assertNotIn("secret-detail", repr(ctx.exception))
         self.assertIsNone(ctx.exception.__cause__)
+
+    def test_concurrent_expiry_cleanup_is_not_store_failure(self):
+        class ConcurrentDeleteStore(InMemoryMemoryStore):
+            def delete(self, app, subject, record_id):
+                super().delete(app, subject, record_id)
+                return False
+
+        now = [1000.0]
+        store = ConcurrentDeleteStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
+        p = principal(expires=10**9)
+        s.remember(p, content="alpha beta", kind="fact",
+                   user_confirmed=True, retention_days=1)
+        now[0] += 86401
+        self.assertEqual(s.recall(p, "alpha"), ())
+        self.assertEqual(store.list(p.app, p.subject), ())
 
     def test_foreign_records_from_faulty_store_are_ignored(self):
         store = FaultyStore()
