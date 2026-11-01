@@ -517,18 +517,9 @@ public func __allDiscoveredTests() -> [XCTestCaseEntry] {
         testCase([            ("testCommonQuestionsReceiveDeterministicAnswers", SupportCoreTests.testCommonQuestionsReceiveDeterministicAnswers),
             ("testDiagnosticsEscalateOnlyWhenHealthCheckFails", SupportCoreTests.testDiagnosticsEscalateOnlyWhenHealthCheckFails),
             ("testFailedHandoffPersistsAndLimitsRetries", SupportCoreTests.testFailedHandoffPersistsAndLimitsRetries),
-            ("testFailedLegacyPayloadMigrationLeavesOriginalTicketIntact", SupportCoreTests.testFailedLegacyPayloadMigrationLeavesOriginalTicketIntact),
-            ("testFailedLegacyPayloadMigrationPersistenceLeavesOriginalTicketIntact", SupportCoreTests.testFailedLegacyPayloadMigrationPersistenceLeavesOriginalTicketIntact),
-            ("testFailedLocalDeletionDoesNotReportSuccessOrDropTicket", SupportCoreTests.testFailedLocalDeletionDoesNotReportSuccessOrDropTicket),
-            ("testFileStoreProtectionFailurePreservesQueueAfterWriting", SupportCoreTests.testFileStoreProtectionFailurePreservesQueueAfterWriting),
-            ("testLegacyPayloadMigrationReplacesQuestionAndPreservesMetadata", SupportCoreTests.testLegacyPayloadMigrationReplacesQuestionAndPreservesMetadata),
-            ("testLoadCleansAbandonedStagingFileFromInterruptedLegacyImport", SupportCoreTests.testLoadCleansAbandonedStagingFileFromInterruptedLegacyImport),
-            ("testLocalDeletionWorksInEveryStateAndIsScopedAndPersistent", SupportCoreTests.testLocalDeletionWorksInEveryStateAndIsScopedAndPersistent),
-            ("testMetadataSharingAllowsOnlyFixedCodesAndMatchingApp", SupportCoreTests.testMetadataSharingAllowsOnlyFixedCodesAndMatchingApp),
             ("testQueueScopesAppsAndDeduplicatesTickets", SupportCoreTests.testQueueScopesAppsAndDeduplicatesTickets),
             ("testSuccessfulHandoffCannotBeRepeatedAndCanBeCompleted", SupportCoreTests.testSuccessfulHandoffCannotBeRepeatedAndCanBeCompleted),
-            ("testUnknownQuestionsAndUnavailableAccountsRequireEscalation", SupportCoreTests.testUnknownQuestionsAndUnavailableAccountsRequireEscalation),
-            ("testUserDefaultsQueueMovesLegacyDataToFileAndRemovesDefaultsKey", SupportCoreTests.testUserDefaultsQueueMovesLegacyDataToFileAndRemovesDefaultsKey)]),
+            ("testUnknownQuestionsAndUnavailableAccountsRequireEscalation", SupportCoreTests.testUnknownQuestionsAndUnavailableAccountsRequireEscalation)]),
     ]
 }
 #endif
