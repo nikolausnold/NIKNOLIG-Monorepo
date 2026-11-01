@@ -343,6 +343,12 @@ jobs:
             echo "::error::release_tag must match vMAJOR.MINOR.PATCH"
             exit 1
           fi
+          existing_tag="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$RELEASE_TAG" \
+            --jq 'any(.[]; .ref == ("refs/tags/" + env.RELEASE_TAG))')"
+          if [[ "$existing_tag" == "true" ]]; then
+            echo "::error::Release tag $RELEASE_TAG already exists"
+            exit 1
+          fi
           mkdir release
           cp artifacts/niknolig-release-apk/*.apk release/niknolig-release.apk
           cp artifacts/niknolig-defense-release-apk/*.apk release/niknolig-defense-release.apk

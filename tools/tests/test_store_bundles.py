@@ -122,6 +122,20 @@ class StoreBundleSignatureTests(unittest.TestCase):
 
 
 class StorePreparationTests(unittest.TestCase):
+    def test_publish_rejects_existing_release_tag_before_creating_draft(self):
+        workflow = WORKFLOW.read_text()
+        publish = workflow.split("- name: Create checksums and draft release", 1)[1]
+        self.assertIn(
+            'gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$RELEASE_TAG"',
+            publish,
+        )
+        self.assertIn(
+            'any(.[]; .ref == ("refs/tags/" + env.RELEASE_TAG))',
+            publish,
+        )
+        self.assertIn('if [[ "$existing_tag" == "true" ]]', publish)
+        self.assertLess(publish.index("existing_tag="), publish.index("gh release create"))
+
     def test_separate_bundles_built_verified_then_uploaded_without_store_access(self):
         workflow = WORKFLOW.read_text()
         verification = workflow.index("- name: Verify package identities and release signatures")
