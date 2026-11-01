@@ -24,6 +24,8 @@ from ai_support import APPS, Principal
 KINDS = frozenset({"preference", "fact"})
 MAX_CONTENT_CHARS = 500
 MAX_RECORDS_PER_PRINCIPAL = 100
+MAX_RECORDS_TOTAL = 10_000
+MAX_EXPIRY_JOBS = 10_000
 MAX_RECALL = 5
 DEFAULT_RETENTION_DAYS = 90
 MAX_RETENTION_DAYS = 365
@@ -65,13 +67,20 @@ class MemoryStore(Protocol):
 class InMemoryMemoryStore:
     def __init__(self):
         self._lock = threading.Lock()
+        self._service_lock = threading.RLock()
         self._records = {}
+        self._record_count = 0
 
     def put(self, record, *, limit):
         with self._lock:
-            bucket = self._records.setdefault((record.app, record.subject), {})
-            if len(bucket) >= limit:
+            key = (record.app, record.subject)
+            bucket = self._records.get(key, {})
+            if (record.id not in bucket and
+                    (len(bucket) >= limit or self._record_count >= MAX_RECORDS_TOTAL)):
                 return False
+            bucket = self._records.setdefault(key, bucket)
+            if record.id not in bucket:
+                self._record_count += 1
             bucket[record.id] = record
             return True
 
@@ -93,11 +102,21 @@ class InMemoryMemoryStore:
 
     def delete(self, app, subject, record_id):
         with self._lock:
-            return self._records.get((app, subject), {}).pop(record_id, None) is not None
+            key = (app, subject)
+            bucket = self._records.get(key)
+            if bucket is None or record_id not in bucket:
+                return False
+            del bucket[record_id]
+            self._record_count -= 1
+            if not bucket:
+                del self._records[key]
+            return True
 
     def delete_all(self, app, subject):
         with self._lock:
-            return len(self._records.pop((app, subject), {}))
+            bucket = self._records.pop((app, subject), {})
+            self._record_count -= len(bucket)
+            return len(bucket)
 
 
 class _ExpiryScheduler:
@@ -113,14 +132,32 @@ class _ExpiryScheduler:
         except TypeError:
             store_ref = lambda: store
         with self._condition:
+            if len(self._queue) >= MAX_EXPIRY_JOBS - 1:
+                raise RuntimeError("expiry queue is full")
+            if self._worker is None:
+                worker = threading.Thread(target=self._run, daemon=True)
+                worker.start()
+                self._worker = worker
             heapq.heappush(self._queue, (
                 time.monotonic() + max(0, delay), next(self._sequence), store_ref,
                 record.app, record.subject, record.id, record.expires_at,
             ))
-            if self._worker is None:
-                self._worker = threading.Thread(target=self._run, daemon=True)
-                self._worker.start()
             self._condition.notify()
+
+    def cancel(self, store, app, subject, record_id=None):
+        with self._condition:
+            remaining = [
+                entry for entry in self._queue
+                if not (
+                    entry[2]() is store and entry[3] == app and
+                    entry[4] == subject and
+                    (record_id is None or entry[5] == record_id)
+                )
+            ]
+            if len(remaining) != len(self._queue):
+                self._queue = remaining
+                heapq.heapify(self._queue)
+                self._condition.notify()
 
     def _run(self):
         while True:
@@ -167,6 +204,15 @@ class _ExpiryScheduler:
 _EXPIRY_SCHEDULER = _ExpiryScheduler()
 
 
+def _is_finite_number(value):
+    if type(value) not in (int, float):
+        return False
+    try:
+        return math.isfinite(value)
+    except (OverflowError, TypeError):
+        return False
+
+
 def _terms(text):
     return {word.casefold() for word in _WORD.findall(text) if len(word) > 2}
 
@@ -181,6 +227,9 @@ class MemoryService:
         self.store = store if store is not None else InMemoryMemoryStore()
         self.enabled = enabled
         self.clock = clock
+        self._write_lock = getattr(self.store, "_service_lock", None)
+        if self._write_lock is None:
+            self._write_lock = threading.RLock()
 
     def _store_call(self, operation, *args, **kwargs):
         # Any storage fault is reported as a stable code; no detail or content leaks.
@@ -204,18 +253,23 @@ class MemoryService:
     def _authorize(self, principal, permission):
         if not self.enabled:
             raise MemoryEngineError("MEMORY_DISABLED")
-        now = self.clock()
-        if (type(now) not in (int, float) or not math.isfinite(now) or
+        try:
+            now = self.clock()
+        except Exception:
+            raise MemoryEngineError("AUTHENTICATION_INVALID") from None
+        if (not _is_finite_number(now) or now < 0 or
                 not isinstance(principal, Principal) or principal.active is not True or
                 type(principal.subject) is not str or
                 not 1 <= len(principal.subject) <= 128 or
+                type(principal.app) is not str or
                 principal.app not in APPS or
-                type(principal.expires_at) not in (int, float) or
-                not math.isfinite(principal.expires_at) or
+                not _is_finite_number(principal.expires_at) or
                 not principal.expires_at > now):
             raise MemoryEngineError("AUTHENTICATION_INVALID")
         if (type(principal.permissions) is not frozenset or
-                permission not in principal.permissions):
+                any(type(item) is not str for item in principal.permissions)):
+            raise MemoryEngineError("AUTHENTICATION_INVALID")
+        if permission not in principal.permissions:
             raise MemoryEngineError("AUTHORIZATION_DENIED")
         return now
 
@@ -229,21 +283,40 @@ class MemoryService:
     def remember(self, principal, *, content, kind, user_confirmed,
                  retention_days=DEFAULT_RETENTION_DAYS):
         """Returns the stored record; callers may claim storage only from this receipt."""
-        now = self._authorize(principal, "memory:write")
+        self._authorize(principal, "memory:write")
         if user_confirmed is not True:
             raise MemoryEngineError("CONSENT_REQUIRED")
-        if (kind not in KINDS or type(retention_days) is not int or
+        if (type(kind) is not str or kind not in KINDS or
+                type(retention_days) is not int or
                 not 1 <= retention_days <= MAX_RETENTION_DAYS):
             raise MemoryEngineError("VALIDATION_FAILED")
-        record = MemoryRecord(
-            uuid4(), principal.app, principal.subject, kind, self._content(content),
-            now, now, now + retention_days * 86400,
-        )
-        self._purge_expired(principal, now)
-        if not self._store_call(self.store.put, record,
-                                limit=MAX_RECORDS_PER_PRINCIPAL):
-            raise MemoryEngineError("QUOTA_EXCEEDED")
-        _EXPIRY_SCHEDULER.schedule(self.store, record, record.expires_at - now)
+        content = self._content(content)
+        with self._write_lock:
+            now = self._authorize(principal, "memory:write")
+            record = MemoryRecord(
+                uuid4(), principal.app, principal.subject, kind, content,
+                now, now, now + retention_days * 86400,
+            )
+            self._purge_expired(principal, now)
+            try:
+                _EXPIRY_SCHEDULER.schedule(self.store, record, record.expires_at - now)
+            except Exception:
+                raise MemoryEngineError("STORE_UNAVAILABLE") from None
+            try:
+                stored = self._store_call(self.store.put, record,
+                                          limit=MAX_RECORDS_PER_PRINCIPAL)
+            except MemoryEngineError:
+                _EXPIRY_SCHEDULER.cancel(
+                    self.store, principal.app, principal.subject, record.id)
+                raise
+            if stored is False:
+                _EXPIRY_SCHEDULER.cancel(
+                    self.store, principal.app, principal.subject, record.id)
+                raise MemoryEngineError("QUOTA_EXCEEDED")
+            if stored is not True:
+                _EXPIRY_SCHEDULER.cancel(
+                    self.store, principal.app, principal.subject, record.id)
+                raise MemoryEngineError("STORE_UNAVAILABLE")
         return record
 
     def recall(self, principal, query, *, limit=MAX_RECALL):
@@ -265,44 +338,58 @@ class MemoryService:
         return tuple(record for _, _, record in scored[:limit])
 
     def update(self, principal, record_id, *, content, user_confirmed):
-        now = self._authorize(principal, "memory:write")
+        self._authorize(principal, "memory:write")
         if user_confirmed is not True:
             raise MemoryEngineError("CONSENT_REQUIRED")
         self._record_id(record_id)
         new_content = self._content(content)
-        self._purge_expired(principal, now)
-        current = self._own(principal, (self._store_call(
-            self.store.get, principal.app, principal.subject, record_id),))
-        if not current or current[0].id != record_id:
-            raise MemoryEngineError("NOT_FOUND")
-        updated = replace(current[0], content=new_content, updated_at=now)
-        if self._store_call(self.store.replace, updated) is not True:
-            raise MemoryEngineError("NOT_FOUND")
+        with self._write_lock:
+            now = self._authorize(principal, "memory:write")
+            self._purge_expired(principal, now)
+            current = self._own(principal, (self._store_call(
+                self.store.get, principal.app, principal.subject, record_id),))
+            if not current or current[0].id != record_id:
+                raise MemoryEngineError("NOT_FOUND")
+            updated = replace(current[0], content=new_content, updated_at=now)
+            if self._store_call(self.store.replace, updated) is not True:
+                raise MemoryEngineError("NOT_FOUND")
         return updated
 
     def forget(self, principal, record_id):
-        now = self._authorize(principal, "memory:write")
-        self._record_id(record_id)
-        self._purge_expired(principal, now)
-        if self._store_call(self.store.delete, principal.app, principal.subject,
-                            record_id) is not True:
-            raise MemoryEngineError("NOT_FOUND")
+        with self._write_lock:
+            now = self._authorize(principal, "memory:write")
+            self._record_id(record_id)
+            self._purge_expired(principal, now)
+            if self._store_call(self.store.delete, principal.app, principal.subject,
+                                record_id) is not True:
+                raise MemoryEngineError("NOT_FOUND")
+            _EXPIRY_SCHEDULER.cancel(
+                self.store, principal.app, principal.subject, record_id)
 
     def forget_all(self, principal):
         """Erasure of everything this principal stored in its own app area."""
-        self._authorize(principal, "memory:write")
-        count = self._store_call(self.store.delete_all, principal.app, principal.subject)
+        with self._write_lock:
+            self._authorize(principal, "memory:write")
+            count = self._store_call(
+                self.store.delete_all, principal.app, principal.subject)
+            _EXPIRY_SCHEDULER.cancel(self.store, principal.app, principal.subject)
         if type(count) is not int or count < 0:
             raise MemoryEngineError("STORE_UNAVAILABLE")
         return count
 
     def _purge_expired(self, principal, now):
-        for record in self._own(principal, self._store_call(
-                self.store.list, principal.app, principal.subject)):
-            if record.expires_at <= now and self._store_call(
-                    self.store.delete, record.app, record.subject, record.id) is not True:
-                remaining = self._store_call(
-                    self.store.get, record.app, record.subject, record.id)
-                if remaining is None:
-                    continue
-                raise MemoryEngineError("STORE_UNAVAILABLE")
+        with self._write_lock:
+            for record in self._own(principal, self._store_call(
+                    self.store.list, principal.app, principal.subject)):
+                if record.expires_at <= now and self._store_call(
+                        self.store.delete, record.app, record.subject, record.id) is not True:
+                    remaining = self._store_call(
+                        self.store.get, record.app, record.subject, record.id)
+                    if remaining is None:
+                        _EXPIRY_SCHEDULER.cancel(
+                            self.store, record.app, record.subject, record.id)
+                        continue
+                    raise MemoryEngineError("STORE_UNAVAILABLE")
+                elif record.expires_at <= now:
+                    _EXPIRY_SCHEDULER.cancel(
+                        self.store, record.app, record.subject, record.id)

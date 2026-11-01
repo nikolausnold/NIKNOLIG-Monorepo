@@ -1,4 +1,4 @@
-from dataclasses import replace
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sys
 import threading
@@ -81,8 +81,12 @@ class MemoryEngineTest(unittest.TestCase):
                          "AUTHORIZATION_DENIED")
         for bad in (principal(active=False), principal(expires=999.0),
                     principal(expires=float("inf")), principal(expires=float("nan")),
-                    principal(app="other"), None):
+                    principal(expires=10**10000), principal(app="other"),
+                    principal(app=[]), principal(perms=("memory:read", 1)), None):
             self.assertEqual(code(lambda: s.recall(bad, "abc")), "AUTHENTICATION_INVALID")
+        self.assertEqual(code(lambda: MemoryService(
+            enabled=True, clock=lambda: -1).recall(principal(), "abc")),
+            "AUTHENTICATION_INVALID")
 
     def test_rejects_credentials_and_oversize(self):
         s, p = service(), principal()
@@ -92,6 +96,8 @@ class MemoryEngineTest(unittest.TestCase):
                 "VALIDATION_FAILED")
         self.assertEqual(code(lambda: s.remember(
             p, content="ok ok", kind="secret", user_confirmed=True)), "VALIDATION_FAILED")
+        self.assertEqual(code(lambda: s.remember(
+            p, content="ok ok", kind=[], user_confirmed=True)), "VALIDATION_FAILED")
 
     def test_retention_expiry(self):
         now = [1000.0]
@@ -111,11 +117,76 @@ class MemoryEngineTest(unittest.TestCase):
             p, content="one more", kind="fact", user_confirmed=True)), "QUOTA_EXCEEDED")
         self.assertEqual(s.forget_all(p), MAX_RECORDS_PER_PRINCIPAL)
 
+    def test_concurrent_writes_respect_per_principal_quota(self):
+        s, p = service(), principal()
+
+        def remember(index):
+            try:
+                return s.remember(
+                    p, content=f"note number {index}", kind="fact",
+                    user_confirmed=True,
+                )
+            except MemoryEngineError as exc:
+                return exc.code
+
+        with ThreadPoolExecutor(max_workers=32) as pool:
+            results = list(pool.map(remember, range(MAX_RECORDS_PER_PRINCIPAL + 20)))
+        self.assertEqual(sum(isinstance(item, str) for item in results), 20)
+        self.assertTrue(all(item == "QUOTA_EXCEEDED" for item in results
+                            if isinstance(item, str)))
+        self.assertEqual(len(s.store.list(p.app, p.subject)), MAX_RECORDS_PER_PRINCIPAL)
+        self.assertEqual(s.forget_all(p), MAX_RECORDS_PER_PRINCIPAL)
+
+    def test_concurrent_forget_all_cannot_cancel_pending_expiry(self):
+        class BlockingStore(InMemoryMemoryStore):
+            def __init__(self):
+                super().__init__()
+                self.put_started = threading.Event()
+                self.release_put = threading.Event()
+                self.delete_all_started = threading.Event()
+
+            def put(self, record, *, limit):
+                self.put_started.set()
+                if not self.release_put.wait(2):
+                    raise RuntimeError("test write timed out")
+                return super().put(record, limit=limit)
+
+            def delete_all(self, app, subject):
+                self.delete_all_started.set()
+                return super().delete_all(app, subject)
+
+        store = BlockingStore()
+        writer = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        eraser = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        p = principal()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            write = pool.submit(
+                writer.remember, p, content="alpha beta", kind="fact",
+                user_confirmed=True)
+            self.assertTrue(store.put_started.wait(1))
+            erase = pool.submit(eraser.forget_all, p)
+            self.assertFalse(store.delete_all_started.wait(0.05))
+            store.release_put.set()
+            record = write.result(timeout=2)
+            self.assertTrue(store.delete_all_started.wait(1))
+            self.assertEqual(erase.result(timeout=2), 1)
+        self.assertIsNone(store.get(p.app, p.subject, record.id))
+        with _EXPIRY_SCHEDULER._condition:
+            self.assertFalse(any(
+                entry[2]() is store for entry in _EXPIRY_SCHEDULER._queue))
+
 
 class FaultyStore(InMemoryMemoryStore):
     def __init__(self, **faults):
         super().__init__()
         self.faults = faults
+
+    def put(self, record, *, limit):
+        if self.faults.get("put") == "raise":
+            raise RuntimeError("secret-detail")
+        if "put" in self.faults:
+            return self.faults["put"]
+        return super().put(record, limit=limit)
 
     def delete(self, app, subject, record_id):
         if self.faults.get("delete") == "raise":
@@ -136,6 +207,75 @@ class FaultyStore(InMemoryMemoryStore):
 
 
 class MemoryEngineSecurityTest(unittest.TestCase):
+    def test_write_failures_and_invalid_store_receipts_fail_closed(self):
+        p = principal()
+        for fault in ("raise", "unexpected"):
+            store = FaultyStore(put=fault)
+            s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+            self.assertEqual(code(lambda: s.remember(
+                p, content="alpha beta", kind="fact", user_confirmed=True)),
+                "STORE_UNAVAILABLE")
+            self.assertEqual(store.list(p.app, p.subject), ())
+
+        store = FaultyStore(put=False)
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        self.assertEqual(code(lambda: s.remember(
+            p, content="alpha beta", kind="fact", user_confirmed=True)),
+            "QUOTA_EXCEEDED")
+        self.assertEqual(store.list(p.app, p.subject), ())
+
+    def test_expiry_scheduler_failure_prevents_write(self):
+        store = InMemoryMemoryStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        p = principal()
+        with patch.object(_EXPIRY_SCHEDULER, "schedule",
+                          side_effect=RuntimeError("scheduler unavailable")):
+            self.assertEqual(code(lambda: s.remember(
+                p, content="alpha beta", kind="fact", user_confirmed=True)),
+                "STORE_UNAVAILABLE")
+        self.assertEqual(store.list(p.app, p.subject), ())
+        with patch("memory_engine.MAX_EXPIRY_JOBS", 0):
+            self.assertEqual(code(lambda: s.remember(
+                p, content="alpha beta", kind="fact", user_confirmed=True)),
+                "STORE_UNAVAILABLE")
+        self.assertEqual(store.list(p.app, p.subject), ())
+
+    def test_total_memory_limit_and_deleted_state_are_bounded(self):
+        store = InMemoryMemoryStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        principals = [principal(subject=f"user-{i}") for i in range(3)]
+        with patch("memory_engine.MAX_RECORDS_TOTAL", 2):
+            records = [
+                s.remember(p, content="alpha beta", kind="fact", user_confirmed=True)
+                for p in principals[:2]
+            ]
+            self.assertEqual(code(lambda: s.remember(
+                principals[2], content="alpha beta", kind="fact",
+                user_confirmed=True)), "QUOTA_EXCEEDED")
+            s.forget(principals[0], records[0].id)
+            self.assertNotIn((principals[0].app, principals[0].subject), store._records)
+            s.remember(
+                principals[2], content="alpha beta", kind="fact", user_confirmed=True)
+            s.forget_all(principals[1])
+            s.forget_all(principals[2])
+        self.assertEqual(store._records, {})
+        with _EXPIRY_SCHEDULER._condition:
+            self.assertFalse(any(
+                entry[2]() is store for entry in _EXPIRY_SCHEDULER._queue))
+
+    def test_create_delete_churn_does_not_leave_buckets_or_jobs(self):
+        store = InMemoryMemoryStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        for index in range(250):
+            p = principal(subject=f"user-{index}")
+            record = s.remember(
+                p, content="alpha beta", kind="fact", user_confirmed=True)
+            s.forget(p, record.id)
+        self.assertEqual(store._records, {})
+        with _EXPIRY_SCHEDULER._condition:
+            self.assertFalse(any(
+                entry[2]() is store for entry in _EXPIRY_SCHEDULER._queue))
+
     def test_update_requires_consent_and_valid_id(self):
         s, p = service(), principal()
         r = s.remember(p, content="alpha beta", kind="fact", user_confirmed=True)
@@ -173,25 +313,18 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         store = InMemoryMemoryStore()
         s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
         p = principal(expires=10**9)
-        with patch.object(
-                _EXPIRY_SCHEDULER, "schedule",
-                wraps=_EXPIRY_SCHEDULER.schedule) as schedule:
+
+        original_schedule = _EXPIRY_SCHEDULER.schedule
+
+        def schedule_after_short_delay(target_store, target_record, delay):
+            self.assertEqual(delay, 86400.0)
+            original_schedule(target_store, target_record, 0.1)
+
+        with patch.object(_EXPIRY_SCHEDULER, "schedule",
+                          side_effect=schedule_after_short_delay) as schedule:
             record = s.remember(p, content="alpha beta", kind="fact",
                                 user_confirmed=True, retention_days=1)
             schedule.assert_called_once_with(store, record, 86400.0)
-        expired = replace(record, expires_at=1000.0)
-        self.assertTrue(store.replace(expired))
-        completed = threading.Event()
-        original_schedule = _EXPIRY_SCHEDULER.schedule
-
-        def schedule_immediately(target_store, target_record, delay):
-            original_schedule(target_store, target_record, 0)
-            completed.set()
-
-        with patch.object(
-                _EXPIRY_SCHEDULER, "schedule", side_effect=schedule_immediately):
-            _EXPIRY_SCHEDULER.schedule(store, expired, 0)
-        self.assertTrue(completed.wait(1))
         deadline = time.monotonic() + 1
         while store.get(p.app, p.subject, record.id) is not None:
             if time.monotonic() >= deadline:

@@ -26,12 +26,14 @@ nichts geöffnet.
 `backend/memory_engine.py` (Tests: `backend/tests/test_memory_engine.py`):
 ausdrückliche Einwilligung (`user_confirmed is True`), getrennt nach
 `(app, subject)`, Berechtigungen `memory:read`/`memory:write`, Zugangsdaten-
-Erkennung, 500 Zeichen, max. 100 Einträge, Aufbewahrung 1–365 Tage (Standard 90),
+Erkennung, 500 Zeichen, max. 100 Einträge je Principal und 10.000 je
+In-Memory-Store, Aufbewahrung 1–365 Tage (Standard 90),
 Aktualisieren, Löschen, Gesamtlöschung. Gesprächsverläufe, Wissenseinträge und
 Modelltraining bleiben getrennte Funktionen; Erinnerungen trainieren kein Modell.
 Härtung (PR #189): Gespeichert wird nur mit `user_confirmed is True` (auch beim
-Aktualisieren); IDs müssen `UUID` sein; abgelaufene Datensätze werden bei jedem
-Zugriff physisch gelöscht; Speicher-/Löschfehler und fehlgeschlagene
+Aktualisieren); IDs müssen `UUID` sein; abgelaufene Datensätze werden unabhängig
+von weiterem Nutzerzugriff terminiert und zusätzlich bei Zugriff physisch
+bereinigt; Store und Ablauf-Queue sind begrenzt. Speicher-/Löschfehler und fehlgeschlagene
 Bereinigung enden als `STORE_UNAVAILABLE` (ohne Ursache/Inhalt), ein
 fehlgeschlagenes Löschen wird nie als Erfolg gemeldet; fremde Datensätze eines
 fehlerhaften Adapters werden ignoriert. Es wird nichts protokolliert.
@@ -64,7 +66,7 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 
 ## Tests (tatsächlich)
 
-- Backend: `python -m unittest discover -s backend/tests` im venv mit `requirements.txt` → 205 Tests OK, 20 übersprungen (benötigen PostgreSQL). Ausgangsstand 190 OK. Darin 15 Memory-Tests, u. a. App-/Nutzertrennung, Einwilligung, Ablauf, Löschfehler und Regression „keine HTTP-Route, `RuntimeControls` geschlossen, Modul nicht in `asgi.py`/`app.py` eingebunden“.
+- Backend: `python -m unittest discover -s backend/tests` mit `backend/requirements.txt` → 214 Tests OK, 19 übersprungen (benötigen PostgreSQL). Darin 24 Memory-Tests, u. a. App-/Nutzertrennung, Einwilligung, Ablauf, Löschfehler, parallele Schreib-/Löschzugriffe, Kapazitätsgrenzen und Regression „keine HTTP-Route, `RuntimeControls` geschlossen, Modul nicht in `asgi.py`/`app.py` eingebunden“.
 - Die bestehenden Contract-Tests zur Isolation der beiden Android-Module liefen mit.
 - Android-Gradle-Build/Unit-Tests: **nicht ausführbar** (kein Android SDK in dieser Umgebung). iOS, CI-Lauf, echter KI-Aufruf: **nicht ausgeführt**.
 - Echter KI-Test: **nicht erbracht**; Definition of Done für „online“ nicht erfüllt.
