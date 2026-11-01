@@ -299,7 +299,11 @@ class AppDesignTests(unittest.TestCase):
         )
         self.assertNotEqual("true", notice.get(ANDROID + "clickable"))
         self.assertEqual(
-            {"@+id/support_contact_button", "@+id/learning_profile_button"},
+            {
+                "@+id/support_contact_button",
+                "@+id/learning_profile_button",
+                "@+id/assistant_button",
+            },
             {button.get(ANDROID + "id") for button in layout.iter("Button")},
         )
 

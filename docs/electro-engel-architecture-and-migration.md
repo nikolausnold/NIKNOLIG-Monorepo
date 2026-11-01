@@ -24,8 +24,9 @@ Datenzugriffe, Berechtigungen, automatische Aktionen und Datenschutzdetails
 sind offen; D-01 bleibt bis zu den vollständigen Bestätigungen offen.
 
 Der plattformneutrale Kotlin/JVM-Core `:electro-engel-core` implementiert
-regelbasierte Textanalysen. Die NIKNOLIG-Android-App integriert ihn; Defense
-bleibt ohne Core-Abhängigkeit. Ein Foundation-only Swift-Pendant ist als
+regelbasierte Textanalysen. Beide Android-Apps (NIKNOLIG und Defense) integrieren
+ihn mit je eigener Oberfläche; die lokale Analyse bleibt in Defense auf denselben
+regelbasierten Umfang begrenzt (keine Infrastruktur-Erkennung, keine neuen Berechtigungen). Ein Foundation-only Swift-Pendant ist als
 Swift-Package testbar und wird nur in das NIKNOLIG-iOS-Target eingebunden.
 UI und Navigation verbleiben in der jeweiligen NIKNOLIG-App. Der Core importiert
 keine Android-/App-Typen und enthält keinen Netzwerkzugriff. Beide Implementierungen
@@ -73,7 +74,7 @@ bereitstellen; das macht sie nicht zu gegenseitigen Abhängigkeiten.
 
 | Bereich | Aktueller Pfad | Abhängigkeit / Bedeutung für die Trennung |
 | --- | --- | --- |
-| Gradle-Projektdefinition | `settings.gradle.kts`, `build.gradle.kts` | `:electro-engel-core` ist ein plattformneutraler Kotlin/JVM-Core; nur `:niknolig` konsumiert ihn. |
+| Gradle-Projektdefinition | `settings.gradle.kts`, `build.gradle.kts` | `:electro-engel-core` ist ein plattformneutraler Kotlin/JVM-Core; `:niknolig` und `:niknolig-defense` konsumieren ihn. |
 | NIKNOLIG Android-App | `apps/niknolig/` | Eigene Oberfläche, Manifest, Ressourcen und Build-Konfiguration; keine Abhängigkeit auf die Defense-App. |
 | Defense Android-App | `apps/niknolig-defense/` | Eigene Oberfläche, Manifest, Ressourcen und Build-Konfiguration; keine Abhängigkeit auf NIKNOLIG. |
 | iOS-Core und NIKNOLIG-Integration | `modules/electro-engel/ios/`, `apps/ios/` | Swift-Core ist als Foundation-only Package testbar und im NIKNOLIG-Target kompiliert; Xcode ist für einen vollständigen App-Build erforderlich. |

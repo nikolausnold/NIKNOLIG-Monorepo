@@ -52,4 +52,46 @@
     <string name="learning_clear_confirmation_title">Delete learning profile?</string>
     <string name="learning_clear_confirmation_message">Your saved explanation style, session summary, and all feedback counters will be deleted from this device. Local counting will be turned off.</string>
     <string name="learning_clear_confirmation_action">Delete</string>
+    <string name="assistant_open_button">Open Elektro-Engel</string>
+    <string name="assistant_screen_title">Elektro-Engel</string>
+    <string name="assistant_screen_description">Local, rule-based German-language analysis. Your text stays on this device; no external AI is connected.</string>
+    <string name="assistant_help_heading">DECODE THE EVERYDAY</string>
+    <string name="assistant_help_description">Explore German terms and statements in four separate modes. Results are language-based cues, not verified facts.</string>
+    <string name="assistant_request_hint">Term or statement (max. 1000 characters)</string>
+    <string name="assistant_analysis_mode_description">Select an analysis mode</string>
+    <string-array name="assistant_analysis_modes">
+        <item>Word breakdown</item>
+        <item>Convention scanner</item>
+        <item>Perspective shift</item>
+        <item>Fact and reasoning check</item>
+    </string-array>
+    <string name="assistant_request_button">Analyze locally</string>
+    <string name="assistant_analysis_loading">Local analysis in progress …</string>
+    <string name="assistant_analysis_failed">The input could not be analyzed. Check the text and try again.</string>
+    <string name="assistant_analysis_empty">Enter a term or statement first.</string>
+    <string name="assistant_analysis_error_invalid">The input is too long or contains invalid control characters.</string>
+    <string name="assistant_analysis_error_ai_disabled">External AI is not approved. Local analysis remains available.</string>
+    <string name="assistant_analysis_error_timeout">Analysis timed out. No result was presented as verified.</string>
+    <string name="assistant_analysis_error_unavailable">The analysis source is unavailable. No facts were verified.</string>
+    <string name="assistant_analysis_sources_unchecked">Source status: not checked; no external source was queried.</string>
+    <string name="assistant_refinement_hint">Follow-up question (optional, max. 500 characters)</string>
+    <string name="assistant_summary_insert_description">A saved summary is inserted only after you tap and remains part of the local analysis.</string>
+    <string name="assistant_insert_summary_button">Insert saved summary</string>
+    <string name="assistant_summary_replace_confirmation">Your saved summary will replace the follow-up text.</string>
+    <string name="assistant_summary_replace_action">Replace and insert</string>
+    <string name="assistant_refine_button">Refine analysis</string>
+    <string name="assistant_task_heading">TASKS</string>
+    <string name="assistant_task_status">No tasks available. Task management is not configured in this preview.</string>
+    <string name="assistant_task_input_hint">Your task (max. 120 characters)</string>
+    <string name="assistant_task_add_button">Add task</string>
+    <string name="assistant_task_remove_button">Remove</string>
+    <string name="assistant_task_empty">No local tasks yet.</string>
+    <string name="assistant_task_invalid">Enter a task with 1 to 120 characters.</string>
+    <string name="assistant_task_limit">You can save up to 50 local tasks.</string>
+    <string name="assistant_task_count">%1$d local tasks. Check a box to mark a task complete.</string>
+    <string name="assistant_device_heading">DEVICE STATUS</string>
+    <string name="assistant_device_status_unknown">Unknown: this preview does not discover devices or check connections.</string>
+    <string name="assistant_warning_heading">WARNINGS AND SAFETY</string>
+    <string name="assistant_warning_status">There is no device monitoring or automatic warning system. Discovering, connecting, and controlling devices are unavailable. No control commands are sent.</string>
+    <string name="assistant_close_button">Back to NIKNOLIG Defense</string>
 </resources>
