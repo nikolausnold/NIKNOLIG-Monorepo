@@ -492,6 +492,36 @@ class MemoryEngineSecurityTest(unittest.TestCase):
                 self.assertEqual(super(HookedListStore, store).list(
                     p.app, p.subject), ())
 
+    def test_remember_rechecks_authorization_after_scheduling(self):
+        for scenario in ("principal_expired", "consent_revoked"):
+            with self.subTest(scenario=scenario):
+                now = [1000.0]
+                verifier = TestConsentVerifier()
+                p = principal(expires=1001.0 if scenario == "principal_expired"
+                              else 2000.0)
+                store = InMemoryMemoryStore()
+                s = MemoryService(
+                    store=store, enabled=True, clock=lambda: now[0],
+                    consent_verifier=verifier)
+
+                def schedule_and_invalidate(*args, **kwargs):
+                    if scenario == "principal_expired":
+                        now[0] = 1002.0
+                    else:
+                        verifier.revoked = True
+
+                with patch.object(
+                        _EXPIRY_SCHEDULER, "schedule",
+                        side_effect=schedule_and_invalidate):
+                    expected = ("AUTHENTICATION_INVALID"
+                                if scenario == "principal_expired"
+                                else "CONSENT_REQUIRED")
+                    self.assertEqual(code(lambda: s.remember(
+                        p, content="alpha beta", kind="fact",
+                        consent_evidence=TEST_CONSENT)), expected)
+
+                self.assertEqual(store.list(p.app, p.subject), ())
+
     def test_remember_timestamps_follow_expiry_purge_store_access(self):
         now = [1000.0]
 
@@ -547,6 +577,33 @@ class MemoryEngineSecurityTest(unittest.TestCase):
                 store.hook = None
                 self.assertEqual(store.get(p.app, p.subject, record.id), record)
 
+    def test_update_does_not_mutate_a_record_that_expires_during_read(self):
+        now = [1000.0]
+
+        class AdvancingGetStore(InMemoryMemoryStore):
+            advance_to = None
+
+            def get(self, app, subject, record_id):
+                record = super().get(app, subject, record_id)
+                if self.advance_to is not None:
+                    now[0] = self.advance_to
+                return record
+
+        store = AdvancingGetStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
+        p = principal(expires=10**9)
+        record = s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT, retention_days=1)
+        now[0] = record.expires_at - 1
+        store.advance_to = record.expires_at + 1
+
+        self.assertEqual(code(lambda: s.update(
+            p, record.id, content="gamma delta",
+            consent_evidence=TEST_CONSENT)), "NOT_FOUND")
+        store.advance_to = None
+        self.assertIsNone(store.get(p.app, p.subject, record.id))
+
     def test_update_timestamp_follows_record_read(self):
         now = [1000.0]
 
@@ -572,6 +629,56 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             consent_evidence=TEST_CONSENT)
 
         self.assertEqual(updated.updated_at, 1001.0)
+
+    def test_forget_rechecks_authorization_after_expiry_purge(self):
+        now = [1000.0]
+
+        class AdvancingListStore(InMemoryMemoryStore):
+            advance = False
+
+            def list(self, app, subject):
+                records = super().list(app, subject)
+                if self.advance:
+                    now[0] = 1002.0
+                return records
+
+        store = AdvancingListStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
+        p = principal(expires=1001.0)
+        record = s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT)
+        store.advance = True
+
+        self.assertEqual(code(lambda: s.forget(p, record.id)),
+                         "AUTHENTICATION_INVALID")
+        store.advance = False
+        self.assertEqual(store.get(p.app, p.subject, record.id), record)
+
+    def test_forget_all_rechecks_authorization_before_bulk_delete(self):
+        now = [1000.0]
+
+        class AdvancingListStore(InMemoryMemoryStore):
+            advance = False
+
+            def list(self, app, subject):
+                records = super().list(app, subject)
+                if self.advance:
+                    now[0] = 1002.0
+                return records
+
+        store = AdvancingListStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
+        p = principal(expires=1001.0)
+        record = s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT)
+        store.advance = True
+
+        self.assertEqual(code(lambda: s.forget_all(p)),
+                         "AUTHENTICATION_INVALID")
+        store.advance = False
+        self.assertEqual(store.get(p.app, p.subject, record.id), record)
 
     def test_write_failures_and_invalid_store_receipts_fail_closed(self):
         p = principal()

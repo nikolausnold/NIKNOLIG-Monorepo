@@ -425,6 +425,13 @@ class MemoryService:
             except Exception:
                 raise MemoryEngineError("STORE_UNAVAILABLE") from None
             try:
+                now = self._authorize(principal, "memory:write")
+                self._require_consent(principal, consent_evidence, now)
+            except MemoryEngineError:
+                _EXPIRY_SCHEDULER.cancel(
+                    self.store, record.app, record.subject, record.id)
+                raise
+            try:
                 stored = self._store_call(self.store.put, record,
                                           limit=MAX_RECORDS_PER_PRINCIPAL)
             except MemoryEngineError:
@@ -487,6 +494,9 @@ class MemoryService:
                 raise MemoryEngineError("NOT_FOUND")
             now = self._authorize(principal, "memory:write")
             self._require_consent(principal, consent_evidence, now)
+            if current[0].expires_at <= now:
+                self._purge_expired(principal, now)
+                raise MemoryEngineError("NOT_FOUND")
             updated = replace(current[0], content=new_content, updated_at=now)
             replaced = self._store_call(self.store.replace, updated)
             persisted = self._store_call(
@@ -502,6 +512,7 @@ class MemoryService:
             now = self._authorize(principal, "memory:write")
             self._record_id(record_id)
             self._purge_expired(principal, now)
+            self._authorize(principal, "memory:write")
             deleted = self._store_call(
                 self.store.delete, principal.app, principal.subject, record_id)
             remaining = self._store_call(
@@ -521,6 +532,7 @@ class MemoryService:
                 self.store.list, principal.app, principal.subject)
             if type(records) is not tuple or len(self._own(principal, records)) != len(records):
                 raise MemoryEngineError("STORE_UNAVAILABLE")
+            self._authorize(principal, "memory:write")
             count = self._store_call(
                 self.store.delete_all, principal.app, principal.subject)
             if type(count) is not int or count < 0 or count != len(records):
