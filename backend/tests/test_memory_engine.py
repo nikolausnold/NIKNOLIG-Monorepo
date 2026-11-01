@@ -1,9 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
+import gc
 from pathlib import Path
 import sys
 import threading
 import time
 import unittest
+import weakref
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -12,8 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from ai_support import Principal
 from memory_engine import (
-    InMemoryMemoryStore, MAX_RECORDS_PER_PRINCIPAL, MemoryEngineError, MemoryService,
-    _EXPIRY_SCHEDULER,
+    InMemoryMemoryStore, MAX_RECORDS_PER_PRINCIPAL, MemoryEngineError, MemoryRecord,
+    MemoryService, _EXPIRY_SCHEDULER, _ExpiryScheduler,
 )
 
 
@@ -209,6 +211,8 @@ class FaultyStore(InMemoryMemoryStore):
     def delete_all(self, app, subject):
         if self.faults.get("delete_all"):
             raise RuntimeError("secret-detail")
+        if "delete_all_receipt" in self.faults:
+            return self.faults["delete_all_receipt"]
         return super().delete_all(app, subject)
 
     def list(self, app, subject):
@@ -266,6 +270,64 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             with _EXPIRY_SCHEDULER._condition:
                 self.assertFalse(any(
                     entry[2]() is store for entry in _EXPIRY_SCHEDULER._queue))
+
+    def test_dead_stores_do_not_consume_expiry_capacity(self):
+        scheduler = _ExpiryScheduler()
+        expired_store = InMemoryMemoryStore()
+        expired_record = MemoryRecord(
+            uuid4(), "niknolig", "u1", "fact", "old content", 1, 1, 100,
+        )
+        scheduler.schedule(expired_store, expired_record, 3600)
+        store_ref = weakref.ref(expired_store)
+        del expired_store
+        gc.collect()
+        self.assertIsNone(store_ref())
+
+        live_store = InMemoryMemoryStore()
+        live_record = MemoryRecord(
+            uuid4(), "niknolig", "u2", "fact", "new content", 1, 1, 100,
+        )
+        try:
+            with patch("memory_engine.MAX_EXPIRY_JOBS", 1):
+                scheduler.schedule(live_store, live_record, 3600)
+            self.assertEqual(scheduler._pending, 1)
+            self.assertEqual(len(scheduler._queue), 1)
+            self.assertIs(scheduler._queue[0][2](), live_store)
+        finally:
+            with scheduler._condition:
+                scheduler._queue.clear()
+                scheduler._pending = 0
+                scheduler._condition.notify_all()
+
+    def test_expiry_worker_releases_deleted_plaintext_before_waiting(self):
+        scheduler = _ExpiryScheduler()
+        store = InMemoryMemoryStore()
+        first = MemoryRecord(
+            uuid4(), "niknolig", "u1", "fact", "private old plaintext", 1, 1, 100,
+        )
+        later = MemoryRecord(
+            uuid4(), "niknolig", "u1", "fact", "later note", 1, 1, 200,
+        )
+        store.put(first, limit=10)
+        store.put(later, limit=10)
+        first_id = first.id
+        first_ref = weakref.ref(first)
+        scheduler.schedule(store, first, 0.05)
+        scheduler.schedule(store, later, 3600)
+        del first
+        deadline = time.monotonic() + 1
+        while store.get("niknolig", "u1", first_id) is not None:
+            if time.monotonic() >= deadline:
+                self.fail("scheduled expiry did not delete the record")
+            time.sleep(0.01)
+        try:
+            deadline = time.monotonic() + 1
+            while first_ref() is not None and time.monotonic() < deadline:
+                gc.collect()
+                time.sleep(0.01)
+            self.assertIsNone(first_ref())
+        finally:
+            scheduler.cancel(store, "niknolig", "u1")
 
     def test_expiry_scheduler_failure_prevents_write(self):
         store = InMemoryMemoryStore()
@@ -400,6 +462,22 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             self.assertEqual(len(store.list(p.app, p.subject)), 1)
         store.faults = {"delete_all": True}
         self.assertEqual(code(lambda: s.forget_all(p)), "STORE_UNAVAILABLE")
+
+    def test_invalid_forget_all_receipt_preserves_expiry_jobs(self):
+        store = FaultyStore(delete_all_receipt=None)
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        p = principal()
+        record = s.remember(
+            p, content="alpha beta", kind="fact", user_confirmed=True)
+        self.assertEqual(code(lambda: s.forget_all(p)), "STORE_UNAVAILABLE")
+        self.assertIsNotNone(store.get(p.app, p.subject, record.id))
+        with _EXPIRY_SCHEDULER._condition:
+            self.assertTrue(any(
+                entry[2]() is store and entry[5] == record.id
+                for entry in _EXPIRY_SCHEDULER._queue))
+        store.faults.pop("delete_all_receipt")
+        self.assertEqual(s.forget_all(p), 1)
+        self.assertIsNone(store.get(p.app, p.subject, record.id))
 
     def test_expired_purge_failure_fails_closed_without_leaking(self):
         now = [1000.0]

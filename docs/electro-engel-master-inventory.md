@@ -46,11 +46,13 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 ## Gemeinsame Schnittstelle und Trennung
 
 - Beide Apps bleiben getrennte Module/Application-IDs ohne gemeinsame Abhängigkeit.
-- Die bestehende Schnittstelle ist `POST /v1/ai/support` (Kompatibilitätsalias
-  `/support`) aus `backend/ai-support.openapi.yaml`. Sie akzeptiert einen
-  Request mit `app`, `feature` und `prompt`, erfordert serverseitig einen
-  verifizierten Bearer-Principal, prüft die exakte App-Übereinstimmung und
-  `ai:<feature>`; der Client-App-Wert ist kein Identitätsnachweis. ASGI und
+- Der gemeinsame Contract `backend/ai-support.openapi.yaml` beschreibt zwei
+  getrennte Requestformate: `POST /support` akzeptiert genau `app` und `message`
+  und setzt `feature=support`; `POST /v1/ai/support` akzeptiert `app`, `feature`
+  und `prompt` und kann auch `electro-engel` auswählen. Die Pfade sind keine
+  Payload-Aliase. Beide erfordern serverseitig einen verifizierten
+  Bearer-Principal; der Server prüft die exakte App-Übereinstimmung und
+  `ai:<feature>`. Der Client-App-Wert ist kein Identitätsnachweis. ASGI und
   Caddy registrieren die Route, aber der Default-Service ist deaktiviert,
   verwendet keinen aktiven Provider und lehnt standardmäßig ab.
 - Beide Apps bleiben getrennte Module/Application-IDs ohne gemeinsame
@@ -83,17 +85,20 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 ## Tests (tatsächlich)
 
 - Backend lokal: `python -m unittest discover -s backend/tests` mit
-  `backend/requirements.txt` → **216 Tests OK, 19 übersprungen** (lokal nicht
+  `backend/requirements.txt` → **219 Tests OK, 19 übersprungen** (lokal nicht
   verfügbares PostgreSQL). Contract-/App-Isolationsprüfungen liefen in der Suite;
-  Regressionstests decken persistierte Schreibfehler und nicht bestätigte
-  Rückgabewerte ab.
+  Regressionstests decken persistierte Schreibfehler, nicht bestätigte
+  Rückgabewerte, Scheduler-/Klartextbereinigung und ungültige Löschbelege ab.
+- Tooling lokal: `python -m unittest discover -s tools/tests` → **74 Tests OK**.
 - GitHub Actions auf Code-Commit `31c1519`: [Backend Contracts/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41315957822)
   und [Android Build](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41315957682)
   erfolgreich (Retry, Versuch 2). Backend lief mit PostgreSQL-Service. Android
   assemblierte beide Debug-APKs und bestand Client-Tests, Lint sowie
   Paket-/Signaturprüfungen; auch der portable Elektro-Engel-iOS-Core-Testjob
-  bestand. Die ersten Versuche endeten mit `action_required` und starteten keine
-  Jobs; die erfolgreichen Wiederholungen validieren den Code-Commit.
+  bestand. Diese CI-Läufe erfolgten vor den neuesten
+  Worker-/Scheduler-/`forget_all()`-Korrekturen und validieren sie noch nicht.
+  Die ersten Versuche endeten mit `action_required` und starteten keine Jobs;
+  die erfolgreichen Wiederholungen validieren Code-Commit `31c1519`.
 - Swift-Pakettests lokal unter Linux: `modules/support/ios` **15 bestanden**;
   `modules/electro-engel/ios` **8 bestanden**. Das sind portable Core-Tests,
   keine iOS-App-Builds. `xcodebuild`/Simulator-Builds waren unter Linux nicht

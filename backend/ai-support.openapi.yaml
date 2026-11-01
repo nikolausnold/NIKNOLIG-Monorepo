@@ -28,8 +28,9 @@ paths:
         and its ai:support permission. NIKNOLIG and NIKNOLIG Defense remain
         separately scoped. The default runtime is disabled and returns
         AI_DISABLED; ASGI and Caddy now expose the same fail-closed route.
-        It uses the same limits, audit requirements, generic errors and
-        untrusted plain-text response as the legacy compatibility route below.
+        This route accepts app/message and fixes feature to support; it is not
+        payload-compatible with /v1/ai/support, which accepts app/feature/prompt
+        and can select electro-engel.
         No external provider or network transport is enabled.
       security:
         - VerifiedPrincipal: []
@@ -72,6 +73,8 @@ paths:
         and non-JSON constants are rejected. No body/header app claim is trusted:
         the verified active, unexpired principal must have the exact app scope
         and ai:support or ai:electro-engel permission scoped to the same app.
+        This route accepts app/feature/prompt; the separate /support route
+        accepts app/message and always selects support.
         Elektro-Engel support can be requested independently by either app; this
         does not grant cross-app access or install its local runtime in Defense.
         No client provider, model, URL,

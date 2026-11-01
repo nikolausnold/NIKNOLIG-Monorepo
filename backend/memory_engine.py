@@ -134,6 +134,17 @@ class _ExpiryScheduler:
         except TypeError:
             store_ref = lambda: store
         with self._condition:
+            live_entries = []
+            for entry in self._queue:
+                live_store = entry[2]()
+                if live_store is not None:
+                    live_entries.append((entry, live_store))
+            removed = len(self._queue) - len(live_entries)
+            if removed:
+                self._queue = [entry for entry, _ in live_entries]
+                self._pending -= removed
+                heapq.heapify(self._queue)
+                self._condition.notify()
             if self._pending >= MAX_EXPIRY_JOBS:
                 raise RuntimeError("expiry queue is full")
             entry = (
@@ -184,6 +195,7 @@ class _ExpiryScheduler:
                 _, _, store_ref, app, subject, record_id, expires_at = heapq.heappop(
                     self._queue)
             store = store_ref()
+            record = None
             if store is None:
                 self._complete()
                 continue
@@ -202,6 +214,9 @@ class _ExpiryScheduler:
                     self._complete()
             except Exception:
                 self._schedule_values(store, app, subject, record_id, expires_at, 60)
+            finally:
+                record = None
+                store = None
 
     def _complete(self):
         with self._condition:
@@ -410,10 +425,10 @@ class MemoryService:
             self._authorize(principal, "memory:write")
             count = self._store_call(
                 self.store.delete_all, principal.app, principal.subject)
+            if type(count) is not int or count < 0:
+                raise MemoryEngineError("STORE_UNAVAILABLE")
             _EXPIRY_SCHEDULER.cancel(self.store, principal.app, principal.subject)
-        if type(count) is not int or count < 0:
-            raise MemoryEngineError("STORE_UNAVAILABLE")
-        return count
+            return count
 
     def _purge_expired(self, principal, now):
         with self._write_lock:

@@ -57,9 +57,11 @@ Infrastruktur-Erkennung. Datenzugriffe, Berechtigungen, automatische Aktionen
 und Datenschutzdetails bleiben offen; D-01 ist nicht abgeschlossen.
 
 **Gemeinsame KI-Schnittstelle – vorbereitet, nicht produktiv freigegeben:**
-`backend/ai-support.openapi.yaml` ist der gemeinsame Contract für
-`POST /v1/ai/support` (Kompatibilitätsalias `/support`) in beiden getrennten
-App-Bereichen. ASGI und Caddy registrieren die Routen; der standardmäßige
+`backend/ai-support.openapi.yaml` beschreibt zwei getrennte Requestformate:
+`POST /support` akzeptiert genau `app` und `message` und setzt `feature=support`;
+`POST /v1/ai/support` akzeptiert `app`, `feature` und `prompt` und kann auch
+`electro-engel` auswählen. Die Pfade sind keine Payload-Aliase. ASGI und Caddy
+registrieren die Routen; der standardmäßige
 `SupportService` ist jedoch deaktiviert und hat weder einen aktiven Provider noch
 einen Authenticator, der Anfragen akzeptiert. Ein registrierter HTTP-Pfad ist
 weder ein produktiver Authentifizierungsdienst noch eine P0-Freigabe.
