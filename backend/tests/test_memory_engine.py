@@ -655,6 +655,36 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         self.assertEqual(s.forget_all(p), 1)
         self.assertIsNone(store.get(p.app, p.subject, record.id))
 
+    def test_invalid_forget_all_verification_preserves_expiry_jobs(self):
+        for final_listing in (None, False):
+            class UnverifiableListStore(InMemoryMemoryStore):
+                def __init__(self):
+                    super().__init__()
+                    self.delete_all_called = False
+
+                def delete_all(self, app, subject):
+                    self.delete_all_called = True
+                    return len(super().list(app, subject))
+
+                def list(self, app, subject):
+                    if self.delete_all_called:
+                        return final_listing
+                    return super().list(app, subject)
+
+            with self.subTest(final_listing=final_listing):
+                store = UnverifiableListStore()
+                s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+                p = principal()
+                record = s.remember(
+                    p, content="alpha beta", kind="fact", user_confirmed=True)
+                self.assertEqual(
+                    code(lambda: s.forget_all(p)), "STORE_UNAVAILABLE")
+                self.assertIsNotNone(store.get(p.app, p.subject, record.id))
+                with _EXPIRY_SCHEDULER._condition:
+                    self.assertTrue(any(
+                        entry[2]() is store and entry[5] == record.id
+                        for entry in _EXPIRY_SCHEDULER._queue))
+
     def test_expired_purge_failure_fails_closed_without_leaking(self):
         now = [1000.0]
         store = FaultyStore()

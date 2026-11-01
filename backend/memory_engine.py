@@ -488,8 +488,9 @@ class MemoryService:
                 self.store.delete_all, principal.app, principal.subject)
             if type(count) is not int or count < 0 or count != len(records):
                 raise MemoryEngineError("STORE_UNAVAILABLE")
-            if self._store_call(
-                    self.store.list, principal.app, principal.subject):
+            remaining = self._store_call(
+                self.store.list, principal.app, principal.subject)
+            if type(remaining) is not tuple or remaining:
                 raise MemoryEngineError("STORE_UNAVAILABLE")
             _EXPIRY_SCHEDULER.cancel(self.store, principal.app, principal.subject)
             return count
