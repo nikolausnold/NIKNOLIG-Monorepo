@@ -11,6 +11,63 @@
 
 **Audit-Branch:** `copilot/audit-release-integration`
 
+## Release-Audit v1.0.0 – Stand 2026-11-01 (09:30 UTC)
+
+**Gesamtergebnis: BLOCKED.** Signierte Android-Artefakte existieren als
+CI-Artefakte, es ist aber noch kein öffentliches Release `v1.0.0` veröffentlicht.
+Dieser Abschnitt ersetzt widersprüchliche ältere Angaben (u. a. "Aktive
+Defense-Quelle 404": das Repository heißt `nikolausnold/-NIKNOLIG-Defense`).
+Es wurden keine Tags, Releases, Secrets oder Builds verändert; Secret-Werte
+wurden nicht gelesen.
+
+| Nr. | Prüfung | Ergebnis | Befund |
+| --- | --- | --- | --- |
+| 1 | Release-Tags `v1.0.0` (NIKNOLIG, Defense) | **FAIL** | Kein `v1.0.0`-Tag. Vorhanden: `1.11.2026` (beide Repos, ohne Assets) sowie `13.10.2026` bzw. `preview`. `1.11.2026` passt weder zum Trigger `v*` noch zu `vMAJOR.MINOR.PATCH`; die Release-Jobs liefen dafür nie. |
+| 2 | Release-Assets der GitHub-Releases | **FAIL** | `1.11.2026` hat in beiden Repos keine Assets; `preview` enthält nur `app-debug.apk` (Debug-Key). |
+| 3 | Monorepo-Workflow `Preparing release APKs` (Lauf [41287544461](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41287544461), Commit `2bd49df`) | **PASS** | Alle Schritte grün; APK + AAB beider Apps erzeugt. |
+| 4 | Paketidentität | **PASS** | `com.niknolig.app` und `com.niknolig.defense` (CI-Prüfung mit `aapt`). |
+| 5 | AAB-Signatur (lokal nachgeprüft mit `jarsigner`) | **PASS** | Beide AABs "jar verified", SHA256withRSA. |
+| 6 | APK-Signatur | **PASS (CI) / BLOCKED (lokal)** | CI: `apksigner verify`, Zertifikat-Fingerprint APK = Keystore, je genau ein Signer. Lokal ist kein `apksigner` verfügbar; nur APK Signing Block vorhanden (v2+, kein v1 – bei minSdk 26 zulässig). |
+| 7 | SHA-256-Prüfsummen | **PARTIAL** | Hashes der geprüften Artefakte unten. Das Monorepo erzeugt keine `SHA256SUMS`-Datei; die Standalone-Pipelines erzeugen sie erst beim `v*`-Tag. |
+| 8 | Umgang mit Secrets | **PASS** | Secrets nur als Step-`env` im Environment `android-release`; `set +x`, Passwörter per `-storepass:env`, Keystore 0600 in `RUNNER_TEMP`, Entfernung mit `if: always()`; im Log keine Passwörter oder Keystore-Inhalte gefunden; keine Keystore-Artefakte. Ausgegeben werden nur öffentliche Zertifikat-Fingerprints. |
+| 9 | Secret-/Variablen-Vorhandensein | **BLOCKED** | API-Zugriff auf Secrets/Variablen für diesen Agenten gesperrt (403). Indirekt: Lauf 41287544461 verlangt alle sechs Secrets und beide Backend-URL-Variablen und war erfolgreich. |
+| 10 | Android-Build-Konfiguration | **PASS mit Hinweisen** | Siehe Fehler/Hinweise. |
+
+**Zertifikat-Fingerprints (SHA-256, öffentlich, aus CI-Log und lokal geprüft):**
+
+- NIKNOLIG: `59:AA:D3:08:BB:BA:86:FA:DE:46:4D:15:EE:E3:0E:DF:44:19:E7:7E:51:1D:C6:E4:EE:2C:D1:E0:1D:35:1E:92`
+- NIKNOLIG Defense: `A8:7C:DD:16:6D:98:F3:55:73:53:86:D4:68:11:52:B9:55:7F:5B:10:3F:55:90:AB:09:AD:CC:2A:06:41:C2:EF`
+
+Der Defense-Fingerprint ist erst nach unabhängiger Freigabe durch den
+Verantwortlichen als Release-Zertifikat verbindlich.
+
+**SHA-256 der Artefakte aus Lauf 41287544461:**
+
+| Datei | SHA-256 |
+| --- | --- |
+| `niknolig-release.apk` | `f29f4d06f46292caf522f4d43bde7855cc0d96a03f211cba8743a7df6e3e8df1` |
+| `niknolig-defense-release.apk` | `352082d55808b498984f13210473f0db51dff93cf21d43003c96568840e9b701` |
+| `niknolig-release.aab` | `486051641f5e4193a65f94ed830821422c43445ec276f1d9449995fed5fd727b` |
+| `niknolig-defense-release.aab` | `b3cf2283ee7eaa5a4288ba54aee3378d1d067284139aa07c4b9e85fbee4d5bb8` |
+
+**Erkannte Fehler und Hinweise:**
+
+1. **Zwei parallele Release-Pfade.** Monorepo (`NIKNOLIG_RELEASE_*`/`NIKNOLIG_DEFENSE_RELEASE_*`, Environment `android-release`) und Standalone-Repos (`ANDROID_KEYSTORE_*`, Tag `v*`). Es muss genau ein Pfad als maßgeblich festgelegt werden; sonst entstehen widersprüchliche Signaturen und Versionscodes (Monorepo: `1000 + Run-Nummer`, Standalone: Run-Nummer). Bei APK-Updates müssen Paketname und Signatur gleich bleiben und der Versionscode steigen.
+2. **Falsches Tag-Format.** `1.11.2026` statt `v1.0.0`; die Standalone-Release-Jobs wurden nie ausgelöst, die Releases enthalten keine installierbare App.
+3. **Kurzlebige Artefakte.** Die Monorepo-APKs werden nur 1 Tag aufbewahrt (AABs 14 Tage). Sie sind keine Installationsquelle; vor einem Release herunterladen, prüfen und mit Prüfsumme veröffentlichen.
+4. **Keine Veröffentlichung im Monorepo-Workflow.** Er erzeugt nur Artefakte; kein Release, keine `SHA256SUMS`.
+5. **Defense-Android-Lauf 41286847464** lief 1 h 2 min, die Schritte endeten nach etwa 3 Minuten. Ursache nicht geklärt (vermutlich Runner-Verzögerung); kein Fehler im Build.
+6. **Cloudflare "Workers Builds"** ist an den Defense-PRs rot; Ursache nicht geprüft.
+7. **iOS** bleibt zurückgestellt (nur Simulator-Builds, keine Signierung).
+
+**Offene Voraussetzungen vor einem Release:**
+
+1. Maßgeblichen Release-Pfad festlegen (Monorepo oder Standalone).
+2. Tag `v1.0.0` auf `main` setzen und den Lauf prüfen (APK, AAB, `SHA256SUMS` als Assets).
+3. Defense-Zertifikat-Fingerprint unabhängig freigeben und sicher dokumentieren; Keystore-Backup außerhalb von GitHub.
+4. Fehlerhaftes Release `1.11.2026` nach eigener Entscheidung als Pre-Release markieren oder entfernen (nicht Teil dieses Audits).
+5. Installation auf einem Android-Gerät testen (nicht automatisiert geprüft).
+
 ## Defense-Zugang und App-Verteilung – Stand 23.10.2026
 
 **Teilumsetzung, nicht betriebsbereit.** Die nachfolgenden Angaben sind aktuell
