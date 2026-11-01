@@ -412,7 +412,7 @@ private struct NIKNOLIGSupportView: View {
             }
         }()
         if result.escalationRequired {
-            if let encrypted = try? payloadCipher.encrypt(question) {
+            if let encrypted = try? payloadCipher.encrypt("") {
                 enqueue(
                     issue: result.code.rawValue.uppercased(),
                     diagnostic: "UNRESOLVED",
@@ -450,7 +450,7 @@ private struct NIKNOLIGSupportView: View {
 
     private func openSupportEmail() {
         if ticket == nil {
-            guard let encrypted = try? payloadCipher.encrypt(question) else {
+            guard let encrypted = try? payloadCipher.encrypt("") else {
                 emailMessage = "Die Anfrage konnte nicht sicher verschlüsselt und vorgemerkt werden."
                 return
             }

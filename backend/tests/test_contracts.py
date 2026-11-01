@@ -289,6 +289,23 @@ class BackendContractTests(unittest.TestCase):
             project_contents,
         )
 
+    def test_support_queues_do_not_persist_free_text(self):
+        root = BACKEND.parent
+        activities = (
+            root / "apps/niknolig/src/main/java/com/niknolig/app/SupportActivity.kt",
+            root / "apps/niknolig-defense/src/main/java/com/niknolig/defense/SupportActivity.kt",
+            root / "apps/ios/NIKNOLIGApp.swift",
+            root / "apps/ios/NIKNOLIGDefenseApp.swift",
+        )
+        for path in activities:
+            with self.subTest(activity=path.name, app=path.parent.name):
+                source = path.read_text(encoding="utf-8")
+                encrypted_arguments = re.findall(
+                    r"payloadCipher\.encrypt\(([^)]*)\)", source
+                )
+                self.assertTrue(encrypted_arguments)
+                self.assertTrue(all(argument.strip() == '""' for argument in encrypted_arguments))
+
     @unittest.skipIf(
         Draft202012Validator is None,
         "jsonschema is optional; structural assertions still run",
