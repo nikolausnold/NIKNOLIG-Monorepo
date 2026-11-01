@@ -30,9 +30,11 @@ MAX_RECALL = 5
 DEFAULT_RETENTION_DAYS = 90
 MAX_RETENTION_DAYS = 365
 _CREDENTIAL_MARKER = re.compile(
-    r"(?i)\b(password|passwd|secret|token|api[_-]?key|authorization)\b\s*[:=]\s*\S+"
+    r"(?i)\b(password|passwd|secret|token|api[\s_-]?key|authorization|bearer)\b"
+    r"(?:\s+(?:(?:is|bearer)\s+)?|[:=]\s*)\S+"
 )
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
+_MEMORY_MUTATION_LOCK = threading.RLock()
 
 
 class MemoryEngineError(Exception):
@@ -67,7 +69,6 @@ class MemoryStore(Protocol):
 class InMemoryMemoryStore:
     def __init__(self):
         self._lock = threading.Lock()
-        self._service_lock = threading.RLock()
         self._records = {}
         self._record_count = 0
 
@@ -125,6 +126,7 @@ class _ExpiryScheduler:
         self._queue = []
         self._sequence = itertools.count()
         self._worker = None
+        self._pending = 0
 
     def schedule(self, store, record, delay):
         try:
@@ -132,13 +134,14 @@ class _ExpiryScheduler:
         except TypeError:
             store_ref = lambda: store
         with self._condition:
-            if len(self._queue) >= MAX_EXPIRY_JOBS:
+            if self._pending >= MAX_EXPIRY_JOBS:
                 raise RuntimeError("expiry queue is full")
             entry = (
                 time.monotonic() + max(0, delay), next(self._sequence), store_ref,
                 record.app, record.subject, record.id, record.expires_at,
             )
             heapq.heappush(self._queue, entry)
+            self._pending += 1
             if self._worker is None:
                 worker = threading.Thread(target=self._run, daemon=True)
                 try:
@@ -146,6 +149,7 @@ class _ExpiryScheduler:
                 except Exception:
                     self._queue.remove(entry)
                     heapq.heapify(self._queue)
+                    self._pending -= 1
                     raise
                 self._worker = worker
             self._condition.notify()
@@ -160,8 +164,10 @@ class _ExpiryScheduler:
                     (record_id is None or entry[5] == record_id)
                 )
             ]
-            if len(remaining) != len(self._queue):
+            removed = len(self._queue) - len(remaining)
+            if removed:
                 self._queue = remaining
+                self._pending -= removed
                 heapq.heapify(self._queue)
                 self._condition.notify()
 
@@ -179,20 +185,27 @@ class _ExpiryScheduler:
                     self._queue)
             store = store_ref()
             if store is None:
+                self._complete()
                 continue
             try:
-                record = store.get(app, subject, record_id)
-                if record is None or record.expires_at != expires_at:
-                    continue
-                if store.delete(app, subject, record_id) is not True:
+                retry = False
+                with _MEMORY_MUTATION_LOCK:
                     record = store.get(app, subject, record_id)
-                    if record is None:
-                        continue
-                    if record.expires_at == expires_at:
-                        self._schedule_values(
-                            store, app, subject, record_id, expires_at, 60)
+                    if record is None or record.expires_at != expires_at:
+                        pass
+                    elif store.delete(app, subject, record_id) is not True:
+                        record = store.get(app, subject, record_id)
+                        retry = record is not None and record.expires_at == expires_at
+                if retry:
+                    self._schedule_values(store, app, subject, record_id, expires_at, 60)
+                else:
+                    self._complete()
             except Exception:
                 self._schedule_values(store, app, subject, record_id, expires_at, 60)
+
+    def _complete(self):
+        with self._condition:
+            self._pending -= 1
 
     def _schedule_values(self, store, app, subject, record_id, expires_at, delay):
         try:
@@ -233,9 +246,7 @@ class MemoryService:
         self.store = store if store is not None else InMemoryMemoryStore()
         self.enabled = enabled
         self.clock = clock
-        self._write_lock = getattr(self.store, "_service_lock", None)
-        if self._write_lock is None:
-            self._write_lock = threading.RLock()
+        self._write_lock = _MEMORY_MUTATION_LOCK
 
     def _store_call(self, operation, *args, **kwargs):
         # Any storage fault is reported as a stable code; no detail or content leaks.

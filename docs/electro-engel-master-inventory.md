@@ -1,7 +1,8 @@
 # Elektro Engel – Bestandsaufnahme und Integrationsstand
 
 **Stand:** 2026-11-01 · Branch `fictional-succotash` (Basis `536af2c`).
-Keine Produktionsfreigabe, kein erreichbares Backend, kein KI-Zugang.
+Keine Produktionsfreigabe oder produktive Backend-Erreichbarkeit nachgewiesen;
+kein KI-Zugang.
 
 ## A. Bereits vorhandene Komponenten
 
@@ -40,13 +41,24 @@ fehlerhaften Adapters werden ignoriert. Es wird nichts protokolliert.
 `remember()` liefert einen Beleg – nur dieser darf eine „gespeichert“-Aussage
 begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 
-## Kommunikation und Trennung
+## Gemeinsame Schnittstelle und Trennung
 
 - Beide Apps bleiben getrennte Module/Application-IDs ohne gemeinsame Abhängigkeit.
-- Serverseitig trennt `principal.app != payload.app` → `403 APP_AREA_MISMATCH`;
-  Memory ist pro App und Subjekt isoliert. Keine gegenseitigen Rechte.
+- Die bestehende Schnittstelle ist `POST /v1/ai/support` (Kompatibilitätsalias
+  `/support`) aus `backend/ai-support.openapi.yaml`. Sie akzeptiert einen
+  Request mit `app`, `feature` und `prompt`, erfordert serverseitig einen
+  verifizierten Bearer-Principal, prüft die exakte App-Übereinstimmung und
+  `ai:<feature>`; der Client-App-Wert ist kein Identitätsnachweis. ASGI und
+  Caddy registrieren die Route, aber der Default-Service ist deaktiviert,
+  verwendet keinen aktiven Provider und lehnt standardmäßig ab.
+- Beide Apps bleiben getrennte Module/Application-IDs ohne gemeinsame
+  Abhängigkeit. Memory ist nach `(app, subject)` getrennt, erwartet aber einen
+  durch den Aufrufer übergebenen `Principal`; die Engine prüft keine Tokens,
+  Signaturen oder Widerrufe. Ohne Auth-Provider/API bleibt sie nicht verdrahtet.
+  Keine gegenseitigen Rechte.
 - Zwischen den Apps existiert keine direkte Kommunikation; beide sprechen nur
-  (künftig) mit dem Backend. **Nicht getestet, nicht nachgewiesen.**
+  über die gemeinsame, noch nicht in Apps integrierte Backend-Schnittstelle.
+  **Produktive Authentifizierung und App-Integration sind nicht nachgewiesen.**
 
 ## Blocker für Online-Betrieb (Priorität)
 
@@ -54,7 +66,9 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 2. Kein Auth-Aussteller (`Authenticator`) und kein Login in den Apps.
 3. Kein genehmigter Audit-Sink, keine dauerhaften/verteilten Quotas, keine Kostenkontrolle in Geld.
 4. Kein Provider-Zugang (Cloudflare-Account-ID und Token-Datei serverseitig, nicht im Repo) und keine Provider-/Kostenfreigabe.
-5. Android: kein Client für `/support`; Offline-/Login-Fehlertexte nur für das lokale Analysemodul.
+5. Android: kein KI-Gateway-Client oder Login; `AssistantActivity` nutzt
+   ausschließlich den deterministischen lokalen Analyzer. `SupportActivity`
+   prüft nur Health und zeigt lokale Supporthinweise.
 6. SecurityChain P0 Freigabe für Persistenz der Memory Engine, Tools und Pairing.
 
 ## Phasen
@@ -66,7 +80,7 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
 
 ## Tests (tatsächlich)
 
-- Backend: `python -m unittest discover -s backend/tests` mit `backend/requirements.txt` → 214 Tests OK, 19 übersprungen (benötigen PostgreSQL). Darin 24 Memory-Tests, u. a. App-/Nutzertrennung, Einwilligung, Ablauf, Löschfehler, parallele Schreib-/Löschzugriffe, Kapazitätsgrenzen und Regression „keine HTTP-Route, `RuntimeControls` geschlossen, Modul nicht in `asgi.py`/`app.py` eingebunden“.
+- Backend: `python -m unittest discover -s backend/tests` mit `backend/requirements.txt` → 214 Tests OK, 19 übersprungen (benötigen PostgreSQL). Darin Memory-Tests zu App-/Nutzertrennung, Einwilligung, Ablauf, Löschfehler, parallelen Schreib-/Löschzugriffen, Kapazitätsgrenzen und weiterhin fehlender Memory-HTTP-Verdrahtung.
 - Die bestehenden Contract-Tests zur Isolation der beiden Android-Module liefen mit.
 - Android-Gradle-Build/Unit-Tests: **nicht ausführbar** (kein Android SDK in dieser Umgebung). iOS, CI-Lauf, echter KI-Aufruf: **nicht ausgeführt**.
 - Echter KI-Test: **nicht erbracht**; Definition of Done für „online“ nicht erfüllt.

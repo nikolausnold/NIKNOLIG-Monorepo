@@ -90,7 +90,12 @@ class MemoryEngineTest(unittest.TestCase):
 
     def test_rejects_credentials_and_oversize(self):
         s, p = service(), principal()
-        for content in ("password: " + uuid4().hex, "", "x" * 501, 5):
+        for content in (
+                "password: " + uuid4().hex,
+                "password is " + uuid4().hex,
+                "Bearer " + uuid4().hex,
+                "api_key=" + uuid4().hex,
+                "", "x" * 501, 5):
             self.assertEqual(code(lambda: s.remember(
                 p, content=content, kind="fact", user_confirmed=True)),
                 "VALIDATION_FAILED")
@@ -375,18 +380,34 @@ class MemoryEngineSecurityTest(unittest.TestCase):
 
     def test_concurrent_expiry_cleanup_is_not_store_failure(self):
         class ConcurrentDeleteStore(InMemoryMemoryStore):
-            def delete(self, app, subject, record_id):
-                super().delete(app, subject, record_id)
-                return False
+            def __init__(self):
+                super().__init__()
+                self.expired_listed = threading.Event()
+                self.finish_list = threading.Event()
+                self.block_expiry_list = False
+
+            def list(self, app, subject):
+                records = super().list(app, subject)
+                if self.block_expiry_list:
+                    self.expired_listed.set()
+                    if not self.finish_list.wait(2):
+                        raise RuntimeError("concurrent delete test timed out")
+                return records
 
         now = [1000.0]
         store = ConcurrentDeleteStore()
         s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
         p = principal(expires=10**9)
-        s.remember(p, content="alpha beta", kind="fact",
-                   user_confirmed=True, retention_days=1)
+        record = s.remember(p, content="alpha beta", kind="fact",
+                            user_confirmed=True, retention_days=1)
         now[0] += 86401
-        self.assertEqual(s.recall(p, "alpha"), ())
+        store.block_expiry_list = True
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            recall = pool.submit(s.recall, p, "alpha")
+            self.assertTrue(store.expired_listed.wait(1))
+            self.assertTrue(store.delete(p.app, p.subject, record.id))
+            store.finish_list.set()
+            self.assertEqual(recall.result(timeout=2), ())
         self.assertEqual(store.list(p.app, p.subject), ())
 
     def test_foreign_records_from_faulty_store_are_ignored(self):
