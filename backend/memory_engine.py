@@ -132,16 +132,22 @@ class _ExpiryScheduler:
         except TypeError:
             store_ref = lambda: store
         with self._condition:
-            if len(self._queue) >= MAX_EXPIRY_JOBS - 1:
+            if len(self._queue) >= MAX_EXPIRY_JOBS:
                 raise RuntimeError("expiry queue is full")
-            if self._worker is None:
-                worker = threading.Thread(target=self._run, daemon=True)
-                worker.start()
-                self._worker = worker
-            heapq.heappush(self._queue, (
+            entry = (
                 time.monotonic() + max(0, delay), next(self._sequence), store_ref,
                 record.app, record.subject, record.id, record.expires_at,
-            ))
+            )
+            heapq.heappush(self._queue, entry)
+            if self._worker is None:
+                worker = threading.Thread(target=self._run, daemon=True)
+                try:
+                    worker.start()
+                except Exception:
+                    self._queue.remove(entry)
+                    heapq.heapify(self._queue)
+                    raise
+                self._worker = worker
             self._condition.notify()
 
     def cancel(self, store, app, subject, record_id=None):
