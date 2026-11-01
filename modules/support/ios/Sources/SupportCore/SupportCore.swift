@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 #if canImport(CryptoKit) && canImport(Security)
 import CryptoKit
 import Security
@@ -194,21 +199,37 @@ public final class UserDefaultsSupportTicketStore: SupportTicketStore {
     private let defaults: UserDefaults
     private let key: String
     private let fileURL: URL
+    private let protectFile: (URL) throws -> Void
 
-    public init(
+    public convenience init(
         defaults: UserDefaults = .standard,
         key: String = "support_queue_v1",
         fileURL: URL? = nil
     ) {
+        self.init(
+            defaults: defaults,
+            key: key,
+            fileURL: fileURL ?? Self.defaultFileURL(),
+            protectFile: Self.protect
+        )
+    }
+
+    init(
+        defaults: UserDefaults,
+        key: String,
+        fileURL: URL,
+        protectFile: @escaping (URL) throws -> Void
+    ) {
         self.defaults = defaults
         self.key = key
-        self.fileURL = fileURL ?? Self.defaultFileURL()
+        self.fileURL = fileURL
+        self.protectFile = protectFile
     }
 
     public func load() throws -> [EscalationTicket] {
         try prepareDirectory()
         if FileManager.default.fileExists(atPath: fileURL.path) {
-            try protect(fileURL)
+            try protectFile(fileURL)
             let tickets = try JSONDecoder().decode(
                 [EscalationTicket].self,
                 from: Data(contentsOf: fileURL)
@@ -223,17 +244,20 @@ public final class UserDefaultsSupportTicketStore: SupportTicketStore {
     }
 
     public func save(_ tickets: [EscalationTicket]) throws {
-        let data = try JSONEncoder().encode(tickets)
         try prepareDirectory()
-        try data.write(to: fileURL, options: .atomic)
-        try protect(fileURL)
-        defaults.removeObject(forKey: key)
+        try write(tickets)
     }
 
     private func write(_ tickets: [EscalationTicket]) throws {
         let data = try JSONEncoder().encode(tickets)
-        try data.write(to: fileURL, options: .atomic)
-        try protect(fileURL)
+        let stagingURL = fileURL.deletingLastPathComponent()
+            .appendingPathComponent(".support-queue-\(UUID().uuidString).tmp")
+        defer { try? FileManager.default.removeItem(at: stagingURL) }
+        try data.write(to: stagingURL, options: .atomic)
+        try protectFile(stagingURL)
+        guard rename(stagingURL.path, fileURL.path) == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
         defaults.removeObject(forKey: key)
     }
 
@@ -254,7 +278,7 @@ public final class UserDefaultsSupportTicketStore: SupportTicketStore {
         #endif
     }
 
-    private func protect(_ url: URL) throws {
+    private static func protect(_ url: URL) throws {
         #if os(iOS)
         var protectedURL = url
         var resourceValues = URLResourceValues()

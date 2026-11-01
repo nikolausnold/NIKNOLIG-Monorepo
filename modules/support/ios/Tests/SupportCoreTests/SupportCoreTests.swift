@@ -175,6 +175,59 @@ final class SupportCoreTests: XCTestCase {
         #endif
     }
 
+    func testFileStoreProtectionFailurePreservesQueueAfterWriting() throws {
+        let suiteName = "SupportCoreTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(suiteName, isDirectory: true)
+        let fileURL = directory.appendingPathComponent("support_queue_v1.json")
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let legacy = EscalationTicket(
+            app: .niknolig, requestKey: "protection-failure", issueCode: "UNRESOLVED",
+            diagnosticCode: "NO_MATCH", encryptedPayload: "legacy-ciphertext",
+            createdAtMilliseconds: 42
+        )
+        let originalStore = UserDefaultsSupportTicketStore(defaults: defaults, fileURL: fileURL)
+        try originalStore.save([legacy])
+        let originalData = try Data(contentsOf: fileURL)
+        defaults.set(originalData, forKey: "support_queue_v1")
+        var stagedTickets: [[EscalationTicket]] = []
+        let failingStore = UserDefaultsSupportTicketStore(
+            defaults: defaults,
+            key: "support_queue_v1",
+            fileURL: fileURL,
+            protectFile: { url in
+                guard url != fileURL else { return }
+                XCTAssertEqual(url.deletingLastPathComponent(), directory)
+                stagedTickets.append(try JSONDecoder().decode(
+                    [EscalationTicket].self, from: Data(contentsOf: url)
+                ))
+                throw SupportQueueError.encryptionFailed
+            }
+        )
+        let queue = SupportEscalationQueue(store: failingStore)
+
+        XCTAssertThrowsError(try queue.remove(legacy.id, app: .niknolig))
+        XCTAssertEqual(try Data(contentsOf: fileURL), originalData)
+        XCTAssertEqual(try originalStore.load(), [legacy])
+        XCTAssertThrowsError(try queue.migrateLegacyPayloads(using: TestPayloadCipher()))
+        XCTAssertEqual(try Data(contentsOf: fileURL), originalData)
+        XCTAssertEqual(stagedTickets, [[], [legacyWithEmptyPayload(legacy)]])
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path),
+                       [fileURL.lastPathComponent])
+
+        try FileManager.default.removeItem(at: fileURL)
+        defaults.set(originalData, forKey: "support_queue_v1")
+        XCTAssertThrowsError(try failingStore.load())
+        XCTAssertEqual(defaults.data(forKey: "support_queue_v1"), originalData)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
+        XCTAssertEqual(stagedTickets.last, [legacy])
+    }
+
     private func legacyWithEmptyPayload(_ ticket: EscalationTicket) -> EscalationTicket {
         EscalationTicket(
             id: ticket.id,
