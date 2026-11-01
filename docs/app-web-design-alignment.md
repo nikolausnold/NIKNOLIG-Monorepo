@@ -41,6 +41,8 @@ Elektro-Engel-Ansicht in NIKNOLIG bietet diesen Einstieg.
 4. Der Entwurf enthält nur festen Betreff und Hinweistext, keine Anfrage,
    Gesprächsdaten, Lernprofile, Anhänge oder Gerätekennungen. Der Nutzer ergänzt,
    prüft und versendet selbst. Ohne E-Mail-App wird der Empfänger angezeigt.
+   Lokale Supporttickets behalten ebenfalls keinen eingegebenen Freitext; ihr
+   verschlüsselter Payload-Platzhalter ist leer.
 5. Die nativen iOS-Supportansichten zeigen denselben KI-/Health-Grenzstatus und
    öffnen nach Bestätigung ebenfalls nur einen E-Mail-Entwurf. Die Android-
    Startseiten benennen den Einstieg als Hilfe/Support und versprechen keine

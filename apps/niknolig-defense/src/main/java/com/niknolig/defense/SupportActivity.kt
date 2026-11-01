@@ -116,7 +116,7 @@ class SupportActivity : Activity() {
         }
         answerView.setText(answerResource)
         if (answer.escalationRequired) {
-            val encrypted = runCatching { payloadCipher.encrypt(question) }.getOrNull()
+            val encrypted = runCatching { payloadCipher.encrypt("") }.getOrNull()
             if (encrypted == null) {
                 findViewById<TextView>(R.id.support_queue_status).apply {
                     visibility = View.VISIBLE
@@ -229,7 +229,7 @@ class SupportActivity : Activity() {
             runCatching { supportQueue?.pending()?.firstOrNull { it.id == id } }.getOrNull()
         }
         if (ticket == null) {
-            val encrypted = runCatching { payloadCipher.encrypt(questionInput.text.toString()) }.getOrNull()
+            val encrypted = runCatching { payloadCipher.encrypt("") }.getOrNull()
             val id = encrypted?.let {
                 ensureTicket("MANUAL_REQUEST", lastDiagnostic, manualRequestKey, it)
             } ?: run {
