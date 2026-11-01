@@ -14,8 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from ai_support import Principal
 from memory_engine import (
-    InMemoryMemoryStore, MAX_RECORDS_PER_PRINCIPAL, MemoryEngineError, MemoryRecord,
-    MemoryService, _EXPIRY_SCHEDULER, _ExpiryScheduler,
+    InMemoryMemoryStore, MAX_RECORDS_PER_PRINCIPAL,
+    MemoryEngineError, MemoryRecord, MemoryService as _MemoryService,
+    _EXPIRY_SCHEDULER,
+    _ExpiryScheduler,
 )
 
 
@@ -24,8 +26,50 @@ def principal(app="niknolig", subject="u1", perms=("memory:read", "memory:write"
     return Principal(subject, app, frozenset(perms), expires, active)
 
 
-def service(enabled=True):
-    return MemoryService(enabled=enabled, clock=lambda: 1000.0)
+TEST_CONSENT = "test.signed.consent"
+
+
+class TestConsentVerifier:
+    def __init__(self, *, revoked=False, accepted=True, app=None, subject=None,
+                 issued_at=0.0, expires_at=10**9):
+        self.revoked = revoked
+        self.accepted = accepted
+        self.app = app
+        self.subject = subject
+        self.issued_at = issued_at
+        self.expires_at = expires_at
+        self.calls = []
+
+    def verify(self, principal, evidence, *, purpose, now):
+        self.calls.append((principal, evidence, purpose, now))
+        return (
+            self.accepted and not self.revoked and
+            evidence == "test.signed.consent" and
+            purpose == "long-term-memory" and
+            principal.app in {"niknolig", "niknolig-defense"} and
+            bool(principal.subject) and
+            (self.app is None or principal.app == self.app) and
+            (self.subject is None or principal.subject == self.subject) and
+            self.issued_at <= now < self.expires_at
+        )
+
+
+class MemoryService(_MemoryService):
+    """Inject a test-only verifier for tests that exercise enabled operations."""
+
+    def __init__(self, *, store=None, enabled=False, clock=time.time,
+                 consent_verifier=None):
+        if enabled and consent_verifier is None:
+            consent_verifier = TestConsentVerifier()
+        super().__init__(
+            store=store, enabled=enabled, consent_verifier=consent_verifier,
+            clock=clock)
+
+
+def service(enabled=True, store=None, clock=lambda: 1000.0, consent_verifier=None):
+    return MemoryService(
+        store=store, enabled=enabled,
+        consent_verifier=consent_verifier or TestConsentVerifier(), clock=clock)
 
 
 def code(callable_):
@@ -39,74 +83,120 @@ def code(callable_):
 class MemoryEngineTest(unittest.TestCase):
     def test_disabled_by_default(self):
         self.assertEqual(MemoryService().enabled, False)
-        self.assertEqual(code(lambda: MemoryService().recall(principal(), "x")),
+        self.assertEqual(code(lambda: MemoryService().recall(
+            principal(), "x", consent_evidence=TEST_CONSENT)),
                          "MEMORY_DISABLED")
 
     def test_requires_explicit_consent(self):
-        s = service()
-        for flag in (False, None, "yes", 1):
+        verifier = TestConsentVerifier(accepted=False)
+        s = service(consent_verifier=verifier)
+        for evidence in (False, None, "yes", 1, "test.signed.consent"):
             self.assertEqual(code(lambda: s.remember(
                 principal(), content="Ich mag kurze Antworten", kind="preference",
-                user_confirmed=flag)), "CONSENT_REQUIRED")
-        self.assertEqual(s.recall(principal(), "Antworten"), ())
+                consent_evidence=evidence)), "CONSENT_REQUIRED")
+        self.assertEqual(verifier.calls[0][2], "long-term-memory")
+        self.assertEqual(code(lambda: s.recall(
+            principal(), "Antworten", consent_evidence=TEST_CONSENT)),
+            "CONSENT_REQUIRED")
+
+    def test_consent_evidence_must_be_current_and_scope_bound(self):
+        p = principal()
+        for verifier in (
+                TestConsentVerifier(revoked=True),
+                TestConsentVerifier(expires_at=999.0),
+                TestConsentVerifier(app="niknolig-defense"),
+                TestConsentVerifier(subject="another-user")):
+            s = service(consent_verifier=verifier)
+            self.assertEqual(code(lambda: s.remember(
+                p, content="alpha beta", kind="fact",
+                consent_evidence="test.signed.consent")), "CONSENT_REQUIRED")
+
+        s = _MemoryService(enabled=True, clock=lambda: 1000.0)
+        self.assertEqual(code(lambda: s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence="test.signed.consent")), "CONSENT_REQUIRED")
+
+    def test_revoked_consent_blocks_recall_but_not_erasure(self):
+        verifier = TestConsentVerifier()
+        s, p = service(consent_verifier=verifier), principal()
+        s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT)
+        verifier.revoked = True
+        self.assertEqual(code(lambda: s.recall(
+            p, "alpha", consent_evidence=TEST_CONSENT)), "CONSENT_REQUIRED")
+        self.assertEqual(s.forget_all(p), 1)
 
     def test_remember_recall_update_forget(self):
         s, p = service(), principal()
         record = s.remember(p, content="Ich mag kurze Antworten", kind="preference",
-                            user_confirmed=True)
-        self.assertEqual(s.recall(p, "kurze Antworten"), (record,))
+                            consent_evidence="test.signed.consent")
+        self.assertEqual(s.recall(
+            p, "kurze Antworten", consent_evidence=TEST_CONSENT), (record,))
         updated = s.update(p, record.id, content="Ich mag ausführliche Antworten",
-                           user_confirmed=True)
-        self.assertEqual(s.recall(p, "kurze"), ())
-        self.assertEqual(s.recall(p, "ausführliche")[0].id, updated.id)
+                           consent_evidence="test.signed.consent")
+        self.assertEqual(s.recall(p, "kurze", consent_evidence=TEST_CONSENT), ())
+        self.assertEqual(s.recall(
+            p, "ausführliche", consent_evidence=TEST_CONSENT)[0].id, updated.id)
         s.forget(p, record.id)
-        self.assertEqual(s.recall(p, "ausführliche"), ())
+        self.assertEqual(s.recall(
+            p, "ausführliche", consent_evidence=TEST_CONSENT), ())
         self.assertEqual(code(lambda: s.forget(p, record.id)), "NOT_FOUND")
 
     def test_recall_normalizes_unicode_queries(self):
         s, p = service(), principal()
         record = s.remember(
-            p, content="ｋｕｒｚｅ Mäuse", kind="preference", user_confirmed=True)
-        self.assertEqual(s.recall(p, "ｋｕｒｚｅ"), (record,))
-        self.assertEqual(s.recall(p, "Ma\u0308use"), (record,))
+            p, content="ｋｕｒｚｅ Mäuse", kind="preference",
+            consent_evidence="test.signed.consent")
+        self.assertEqual(s.recall(
+            p, "ｋｕｒｚｅ", consent_evidence=TEST_CONSENT), (record,))
+        self.assertEqual(s.recall(
+            p, "Ma\u0308use", consent_evidence=TEST_CONSENT), (record,))
 
     def test_isolation_between_apps_and_subjects(self):
         s = service()
         a = principal()
         record = s.remember(a, content="Lieblingsfarbe Grün", kind="fact",
-                            user_confirmed=True)
+                            consent_evidence="test.signed.consent")
         for other in (principal(app="niknolig-defense"), principal(subject="u2")):
-            self.assertEqual(s.recall(other, "Lieblingsfarbe"), ())
+            self.assertEqual(s.recall(
+                other, "Lieblingsfarbe", consent_evidence=TEST_CONSENT), ())
             self.assertEqual(code(lambda: s.forget(other, record.id)), "NOT_FOUND")
             self.assertEqual(s.forget_all(other), 0)
-        self.assertEqual(len(s.recall(a, "Lieblingsfarbe")), 1)
+        self.assertEqual(len(s.recall(
+            a, "Lieblingsfarbe", consent_evidence=TEST_CONSENT)), 1)
 
     def test_permissions_and_identity(self):
         s = service()
         self.assertEqual(code(lambda: s.remember(
             principal(perms=("memory:read",)), content="x y z", kind="fact",
-            user_confirmed=True)), "AUTHORIZATION_DENIED")
-        self.assertEqual(code(lambda: s.recall(principal(perms=()), "abc")),
+            consent_evidence="test.signed.consent")), "AUTHORIZATION_DENIED")
+        self.assertEqual(code(lambda: s.recall(
+            principal(perms=()), "abc", consent_evidence=TEST_CONSENT)),
                          "AUTHORIZATION_DENIED")
         for bad in (principal(active=False), principal(expires=999.0),
                     principal(expires=float("inf")), principal(expires=float("nan")),
                     principal(expires=10**10000), principal(app="other"),
                     principal(app=[]), principal(perms=("memory:read", 1)), None):
-            self.assertEqual(code(lambda: s.recall(bad, "abc")), "AUTHENTICATION_INVALID")
-        self.assertEqual(code(lambda: MemoryService(
-            enabled=True, clock=lambda: -1).recall(principal(), "abc")),
+            self.assertEqual(code(lambda: s.recall(
+                bad, "abc", consent_evidence=TEST_CONSENT)), "AUTHENTICATION_INVALID")
+        self.assertEqual(code(lambda: service(
+            enabled=True, clock=lambda: -1).recall(
+                principal(), "abc", consent_evidence=TEST_CONSENT)),
             "AUTHENTICATION_INVALID")
 
     def test_expired_principal_cannot_write_update_or_delete(self):
         s, owner = service(), principal()
         record = s.remember(owner, content="alpha beta", kind="fact",
-                            user_confirmed=True)
+                            consent_evidence="test.signed.consent")
         expired = principal(expires=999.0)
         self.assertEqual(code(lambda: s.remember(
-            expired, content="gamma delta", kind="fact", user_confirmed=True)),
+            expired, content="gamma delta", kind="fact",
+            consent_evidence="test.signed.consent")),
             "AUTHENTICATION_INVALID")
         self.assertEqual(code(lambda: s.update(
-            expired, record.id, content="gamma delta", user_confirmed=True)),
+            expired, record.id, content="gamma delta",
+            consent_evidence="test.signed.consent")),
             "AUTHENTICATION_INVALID")
         self.assertEqual(code(lambda: s.forget(expired, record.id)),
                          "AUTHENTICATION_INVALID")
@@ -127,32 +217,41 @@ class MemoryEngineTest(unittest.TestCase):
                 "private\u202econtent",
                 "", "x" * 501, 5):
             self.assertEqual(code(lambda: s.remember(
-                p, content=content, kind="fact", user_confirmed=True)),
+                p, content=content, kind="fact",
+                consent_evidence="test.signed.consent")),
                 "VALIDATION_FAILED")
         normalized = s.remember(
-            p, content="ｋｕｒｚｅ Antworten", kind="preference", user_confirmed=True)
+            p, content="ｋｕｒｚｅ Antworten", kind="preference",
+            consent_evidence="test.signed.consent")
         self.assertEqual(normalized.content, "kurze Antworten")
         self.assertEqual(code(lambda: s.remember(
-            p, content="ok ok", kind="secret", user_confirmed=True)), "VALIDATION_FAILED")
+            p, content="ok ok", kind="secret",
+            consent_evidence="test.signed.consent")), "VALIDATION_FAILED")
         self.assertEqual(code(lambda: s.remember(
-            p, content="ok ok", kind=[], user_confirmed=True)), "VALIDATION_FAILED")
+            p, content="ok ok", kind=[],
+            consent_evidence="test.signed.consent")), "VALIDATION_FAILED")
 
     def test_retention_expiry(self):
         now = [1000.0]
-        s = MemoryService(enabled=True, clock=lambda: now[0])
+        s = service(clock=lambda: now[0])
         p = principal(expires=10**9)
-        s.remember(p, content="Termin Montag", kind="fact", user_confirmed=True,
+        s.remember(p, content="Termin Montag", kind="fact",
+                   consent_evidence="test.signed.consent",
                    retention_days=1)
-        self.assertEqual(len(s.recall(p, "Termin")), 1)
+        self.assertEqual(len(s.recall(
+            p, "Termin", consent_evidence=TEST_CONSENT)), 1)
         now[0] += 86401
-        self.assertEqual(s.recall(p, "Termin"), ())
+        self.assertEqual(s.recall(
+            p, "Termin", consent_evidence=TEST_CONSENT), ())
 
     def test_quota_and_erasure(self):
         s, p = service(), principal()
         for i in range(MAX_RECORDS_PER_PRINCIPAL):
-            s.remember(p, content=f"note {i}", kind="fact", user_confirmed=True)
+            s.remember(p, content=f"note {i}", kind="fact",
+                       consent_evidence="test.signed.consent")
         self.assertEqual(code(lambda: s.remember(
-            p, content="one more", kind="fact", user_confirmed=True)), "QUOTA_EXCEEDED")
+            p, content="one more", kind="fact",
+            consent_evidence="test.signed.consent")), "QUOTA_EXCEEDED")
         self.assertEqual(s.forget_all(p), MAX_RECORDS_PER_PRINCIPAL)
 
     def test_concurrent_writes_respect_per_principal_quota(self):
@@ -162,7 +261,7 @@ class MemoryEngineTest(unittest.TestCase):
             try:
                 return s.remember(
                     p, content=f"note number {index}", kind="fact",
-                    user_confirmed=True,
+                    consent_evidence="test.signed.consent",
                 )
             except MemoryEngineError as exc:
                 return exc.code
@@ -183,7 +282,8 @@ class MemoryEngineTest(unittest.TestCase):
         def remember(person):
             try:
                 return s.remember(
-                    person, content="alpha beta", kind="fact", user_confirmed=True)
+                    person, content="alpha beta", kind="fact",
+                    consent_evidence="test.signed.consent")
             except MemoryEngineError as exc:
                 return exc.code
 
@@ -225,7 +325,7 @@ class MemoryEngineTest(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             write = pool.submit(
                 writer.remember, p, content="alpha beta", kind="fact",
-                user_confirmed=True)
+                consent_evidence="test.signed.consent")
             self.assertTrue(store.put_started.wait(1))
             erase = pool.submit(eraser.forget_all, p)
             self.assertFalse(store.delete_all_started.wait(0.05))
@@ -302,14 +402,16 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             store = FaultyStore(put=fault)
             s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
             self.assertEqual(code(lambda: s.remember(
-                p, content="alpha beta", kind="fact", user_confirmed=True)),
+                p, content="alpha beta", kind="fact",
+                consent_evidence="test.signed.consent")),
                 "STORE_UNAVAILABLE")
             self.assertEqual(store.list(p.app, p.subject), ())
 
         store = FaultyStore(put=False)
         s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
         self.assertEqual(code(lambda: s.remember(
-            p, content="alpha beta", kind="fact", user_confirmed=True)),
+            p, content="alpha beta", kind="fact",
+            consent_evidence="test.signed.consent")),
             "QUOTA_EXCEEDED")
         self.assertEqual(store.list(p.app, p.subject), ())
 
@@ -318,13 +420,16 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         store = FaultyStore()
         s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
         record = s.remember(p, content="alpha beta", kind="fact",
-                            user_confirmed=True)
+                            consent_evidence="test.signed.consent")
         for fault, operation in (
                 ("get", lambda: s.update(
-                    p, record.id, content="gamma delta", user_confirmed=True)),
-                ("list", lambda: s.recall(p, "alpha")),
+                    p, record.id, content="gamma delta",
+                    consent_evidence="test.signed.consent")),
+                ("list", lambda: s.recall(
+                    p, "alpha", consent_evidence=TEST_CONSENT)),
                 ("replace", lambda: s.update(
-                    p, record.id, content="gamma delta", user_confirmed=True))):
+                    p, record.id, content="gamma delta",
+                    consent_evidence="test.signed.consent"))):
             store.faults = {fault: "raise"}
             with self.assertRaises(MemoryEngineError) as ctx:
                 operation()
@@ -337,7 +442,8 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         store = FaultyStore(put_after_write="raise", delete="raise")
         s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
         self.assertEqual(code(lambda: s.remember(
-            p, content="alpha beta", kind="fact", user_confirmed=True)),
+            p, content="alpha beta", kind="fact",
+            consent_evidence="test.signed.consent")),
             "STORE_UNAVAILABLE")
         persisted = store.list(p.app, p.subject)
         self.assertEqual(len(persisted), 1)
@@ -357,7 +463,8 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             store = FaultyStore(put_after_write=receipt)
             s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
             self.assertEqual(code(lambda: s.remember(
-                p, content="alpha beta", kind="fact", user_confirmed=True)),
+                p, content="alpha beta", kind="fact",
+                consent_evidence="test.signed.consent")),
                 expected)
             self.assertEqual(store.list(p.app, p.subject), ())
             with _EXPIRY_SCHEDULER._condition:
@@ -369,17 +476,20 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         store = FaultyStore(put_lies_true=True)
         s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
         self.assertEqual(code(lambda: s.remember(
-            p, content="alpha beta", kind="fact", user_confirmed=True)),
+            p, content="alpha beta", kind="fact",
+            consent_evidence="test.signed.consent")),
             "STORE_UNAVAILABLE")
         self.assertEqual(store.list(p.app, p.subject), ())
 
         store = FaultyStore()
         s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
         record = s.remember(
-            p, content="alpha beta", kind="fact", user_confirmed=True)
+            p, content="alpha beta", kind="fact",
+            consent_evidence="test.signed.consent")
         store.faults["replace_lies_true"] = True
         self.assertEqual(code(lambda: s.update(
-            p, record.id, content="gamma delta", user_confirmed=True)),
+            p, record.id, content="gamma delta",
+            consent_evidence="test.signed.consent")),
             "STORE_UNAVAILABLE")
         self.assertEqual(store.get(p.app, p.subject, record.id), record)
 
@@ -398,7 +508,8 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
         p = principal()
         record = s.remember(
-            p, content="alpha beta", kind="fact", user_confirmed=True)
+            p, content="alpha beta", kind="fact",
+            consent_evidence="test.signed.consent")
         self.assertEqual(code(lambda: s.forget_all(p)), "STORE_UNAVAILABLE")
         self.assertIsNotNone(store.get(p.app, p.subject, record.id))
         with _EXPIRY_SCHEDULER._condition:
@@ -504,12 +615,14 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         with patch.object(_EXPIRY_SCHEDULER, "schedule",
                           side_effect=RuntimeError("scheduler unavailable")):
             self.assertEqual(code(lambda: s.remember(
-                p, content="alpha beta", kind="fact", user_confirmed=True)),
+                p, content="alpha beta", kind="fact",
+                consent_evidence="test.signed.consent")),
                 "STORE_UNAVAILABLE")
         self.assertEqual(store.list(p.app, p.subject), ())
         with patch("memory_engine.MAX_EXPIRY_JOBS", 0):
             self.assertEqual(code(lambda: s.remember(
-                p, content="alpha beta", kind="fact", user_confirmed=True)),
+                p, content="alpha beta", kind="fact",
+                consent_evidence="test.signed.consent")),
                 "STORE_UNAVAILABLE")
         self.assertEqual(store.list(p.app, p.subject), ())
 
@@ -519,16 +632,18 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         principals = [principal(subject=f"user-{i}") for i in range(3)]
         with patch("memory_engine.MAX_RECORDS_TOTAL", 2):
             records = [
-                s.remember(p, content="alpha beta", kind="fact", user_confirmed=True)
+                s.remember(p, content="alpha beta", kind="fact",
+                           consent_evidence="test.signed.consent")
                 for p in principals[:2]
             ]
             self.assertEqual(code(lambda: s.remember(
                 principals[2], content="alpha beta", kind="fact",
-                user_confirmed=True)), "QUOTA_EXCEEDED")
+                consent_evidence="test.signed.consent")), "QUOTA_EXCEEDED")
             s.forget(principals[0], records[0].id)
             self.assertNotIn((principals[0].app, principals[0].subject), store._records)
             s.remember(
-                principals[2], content="alpha beta", kind="fact", user_confirmed=True)
+                principals[2], content="alpha beta", kind="fact",
+                consent_evidence="test.signed.consent")
             s.forget_all(principals[1])
             s.forget_all(principals[2])
         self.assertEqual(store._records, {})
@@ -542,7 +657,8 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         for index in range(250):
             p = principal(subject=f"user-{index}")
             record = s.remember(
-                p, content="alpha beta", kind="fact", user_confirmed=True)
+                p, content="alpha beta", kind="fact",
+                consent_evidence="test.signed.consent")
             s.forget(p, record.id)
         self.assertEqual(store._records, {})
         with _EXPIRY_SCHEDULER._condition:
@@ -551,44 +667,53 @@ class MemoryEngineSecurityTest(unittest.TestCase):
 
     def test_update_requires_consent_and_valid_id(self):
         s, p = service(), principal()
-        r = s.remember(p, content="alpha beta", kind="fact", user_confirmed=True)
+        r = s.remember(p, content="alpha beta", kind="fact",
+                       consent_evidence="test.signed.consent")
         self.assertEqual(code(lambda: s.update(
-            p, r.id, content="neu neu", user_confirmed=False)), "CONSENT_REQUIRED")
+            p, r.id, content="neu neu", consent_evidence=False)),
+            "CONSENT_REQUIRED")
         for bad in (str(r.id), "../x", None, 1):
             self.assertEqual(code(lambda: s.update(
-                p, bad, content="neu neu", user_confirmed=True)), "VALIDATION_FAILED")
+                p, bad, content="neu neu",
+                consent_evidence="test.signed.consent")), "VALIDATION_FAILED")
             self.assertEqual(code(lambda: s.forget(p, bad)), "VALIDATION_FAILED")
         self.assertEqual(code(lambda: s.update(
-            p, uuid4(), content="neu neu", user_confirmed=True)), "NOT_FOUND")
-        self.assertEqual(s.recall(p, "alpha")[0].content, "alpha beta")
+            p, uuid4(), content="neu neu",
+            consent_evidence="test.signed.consent")), "NOT_FOUND")
+        self.assertEqual(s.recall(
+            p, "alpha", consent_evidence=TEST_CONSENT)[0].content, "alpha beta")
 
     def test_update_rejects_obvious_sensitive_identifiers_without_mutation(self):
         s, p = service(), principal()
         record = s.remember(p, content="alpha beta", kind="fact",
-                            user_confirmed=True)
+                            consent_evidence="test.signed.consent")
         self.assertEqual(code(lambda: s.update(
             p, record.id, content="Mail me person@example.com",
-            user_confirmed=True)), "VALIDATION_FAILED")
+            consent_evidence="test.signed.consent")), "VALIDATION_FAILED")
         self.assertEqual(s.store.get(p.app, p.subject, record.id), record)
 
     def test_cross_app_cannot_update_or_delete(self):
         s = service()
         a, d = principal(), principal(app="niknolig-defense")
-        r = s.remember(a, content="alpha beta", kind="fact", user_confirmed=True)
+        r = s.remember(a, content="alpha beta", kind="fact",
+                       consent_evidence="test.signed.consent")
         self.assertEqual(code(lambda: s.update(
-            d, r.id, content="x y z", user_confirmed=True)), "NOT_FOUND")
+            d, r.id, content="x y z",
+            consent_evidence="test.signed.consent")), "NOT_FOUND")
         self.assertEqual(code(lambda: s.forget(d, r.id)), "NOT_FOUND")
-        self.assertEqual(s.recall(a, "alpha")[0].content, "alpha beta")
+        self.assertEqual(s.recall(
+            a, "alpha", consent_evidence=TEST_CONSENT)[0].content, "alpha beta")
 
     def test_expired_records_are_physically_removed(self):
         now = [1000.0]
         store = InMemoryMemoryStore()
         s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
         p = principal(expires=10**9)
-        s.remember(p, content="alpha beta", kind="fact", user_confirmed=True,
+        s.remember(p, content="alpha beta", kind="fact",
+                   consent_evidence="test.signed.consent",
                    retention_days=1)
         now[0] += 86401
-        s.recall(p, "alpha")
+        s.recall(p, "alpha", consent_evidence=TEST_CONSENT)
         self.assertEqual(store.list(p.app, p.subject), ())
 
     def test_expiration_is_scheduled_without_user_activity(self):
@@ -605,7 +730,8 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         with patch.object(_EXPIRY_SCHEDULER, "schedule",
                           side_effect=schedule_after_short_delay) as schedule:
             record = s.remember(p, content="alpha beta", kind="fact",
-                                user_confirmed=True, retention_days=1)
+                                consent_evidence="test.signed.consent",
+                                retention_days=1)
             schedule.assert_called_once_with(store, record, 86400.0)
         deadline = time.monotonic() + 1
         while store.get(p.app, p.subject, record.id) is not None:
@@ -619,10 +745,12 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
         p = principal(expires=10**9)
         expired = s.remember(p, content="old note", kind="fact",
-                             user_confirmed=True, retention_days=1)
+                             consent_evidence="test.signed.consent",
+                             retention_days=1)
         now[0] += 86401
         current = s.remember(p, content="current note", kind="fact",
-                             user_confirmed=True, retention_days=1)
+                             consent_evidence="test.signed.consent",
+                             retention_days=1)
         s.forget(p, current.id)
         self.assertIsNone(store.get(p.app, p.subject, expired.id))
         self.assertEqual(store.list(p.app, p.subject), ())
@@ -632,7 +760,8 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             store = FaultyStore()
             s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
             p = principal()
-            r = s.remember(p, content="alpha beta", kind="fact", user_confirmed=True)
+            r = s.remember(p, content="alpha beta", kind="fact",
+                           consent_evidence="test.signed.consent")
             store.faults["delete"] = fault
             self.assertEqual(code(lambda: s.forget(p, r.id)), "STORE_UNAVAILABLE")
             self.assertEqual(len(store.list(p.app, p.subject)), 1)
@@ -644,7 +773,8 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
         p = principal()
         record = s.remember(
-            p, content="alpha beta", kind="fact", user_confirmed=True)
+            p, content="alpha beta", kind="fact",
+            consent_evidence="test.signed.consent")
         self.assertEqual(code(lambda: s.forget_all(p)), "STORE_UNAVAILABLE")
         self.assertIsNotNone(store.get(p.app, p.subject, record.id))
         with _EXPIRY_SCHEDULER._condition:
@@ -676,7 +806,8 @@ class MemoryEngineSecurityTest(unittest.TestCase):
                 s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
                 p = principal()
                 record = s.remember(
-                    p, content="alpha beta", kind="fact", user_confirmed=True)
+                    p, content="alpha beta", kind="fact",
+                    consent_evidence="test.signed.consent")
                 self.assertEqual(
                     code(lambda: s.forget_all(p)), "STORE_UNAVAILABLE")
                 self.assertIsNotNone(store.get(p.app, p.subject, record.id))
@@ -690,12 +821,13 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         store = FaultyStore()
         s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
         p = principal(expires=10**9)
-        s.remember(p, content="alpha beta", kind="fact", user_confirmed=True,
+        s.remember(p, content="alpha beta", kind="fact",
+                   consent_evidence="test.signed.consent",
                    retention_days=1)
         now[0] += 86401
         store.faults["delete"] = "raise"
         with self.assertRaises(MemoryEngineError) as ctx:
-            s.recall(p, "alpha")
+            s.recall(p, "alpha", consent_evidence=TEST_CONSENT)
         self.assertEqual(ctx.exception.code, "STORE_UNAVAILABLE")
         self.assertNotIn("secret-detail", repr(ctx.exception))
         self.assertIsNone(ctx.exception.__cause__)
@@ -721,11 +853,13 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
         p = principal(expires=10**9)
         record = s.remember(p, content="alpha beta", kind="fact",
-                            user_confirmed=True, retention_days=1)
+                            consent_evidence="test.signed.consent",
+                            retention_days=1)
         now[0] += 86401
         store.block_expiry_list = True
         with ThreadPoolExecutor(max_workers=1) as pool:
-            recall = pool.submit(s.recall, p, "alpha")
+            recall = pool.submit(
+                s.recall, p, "alpha", consent_evidence=TEST_CONSENT)
             self.assertTrue(store.expired_listed.wait(1))
             self.assertTrue(store.delete(p.app, p.subject, record.id))
             store.finish_list.set()
@@ -757,13 +891,15 @@ class MemoryEngineSecurityTest(unittest.TestCase):
                 s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
                 p = principal(expires=principal_expiry)
                 record = s.remember(
-                    p, content="alpha beta", kind="fact", user_confirmed=True,
+                    p, content="alpha beta", kind="fact",
+                    consent_evidence="test.signed.consent",
                     retention_days=1)
                 store.block_list = True
 
                 def recall():
                     try:
-                        return s.recall(p, "alpha")
+                        return s.recall(
+                            p, "alpha", consent_evidence=TEST_CONSENT)
                     except MemoryEngineError as exc:
                         return exc.code
 
@@ -783,9 +919,10 @@ class MemoryEngineSecurityTest(unittest.TestCase):
         store = FaultyStore()
         s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
         s.remember(principal(app="niknolig-defense"), content="alpha beta",
-                   kind="fact", user_confirmed=True)
+                   kind="fact", consent_evidence="test.signed.consent")
         store.faults["foreign"] = True
-        self.assertEqual(s.recall(principal(), "alpha"), ())
+        self.assertEqual(s.recall(
+            principal(), "alpha", consent_evidence=TEST_CONSENT), ())
 
 
 class MemoryNotExposedTest(unittest.TestCase):

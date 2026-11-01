@@ -41,6 +41,7 @@ _PHONE_MARKER = re.compile(
     r"(?<!\w)(?:\+\s?\d{1,3}|00\s?\d{1,3})(?:[\s()./-]*\d){7,14}(?!\w)"
 )
 _CARD_NUMBER = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
+_CONSENT_EVIDENCE = re.compile(r"[A-Za-z0-9._~+/-=]{1,4096}")
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 _MEMORY_MUTATION_LOCK = threading.RLock()
 
@@ -72,6 +73,18 @@ class MemoryStore(Protocol):
     def list(self, app: str, subject: str) -> tuple[MemoryRecord, ...]: ...
     def delete(self, app: str, subject: str, record_id: UUID) -> bool: ...
     def delete_all(self, app: str, subject: str) -> int: ...
+
+
+class ConsentVerifier(Protocol):
+    """Verify signed consent, scope, validity and current revocation state."""
+
+    def verify(self, principal: Principal, evidence: str, *, purpose: str,
+               now: float) -> bool: ...
+
+
+class RejectAllConsentVerifier:
+    def verify(self, principal, evidence, *, purpose, now):
+        return False
 
 
 class InMemoryMemoryStore:
@@ -282,11 +295,15 @@ class MemoryService:
     """Requires an active principal with memory:read / memory:write for its own app."""
 
     def __init__(self, *, store: MemoryStore | None = None, enabled=False,
-                 clock=time.time):
+                 consent_verifier: ConsentVerifier | None = None, clock=time.time):
         if type(enabled) is not bool:
             raise ValueError("enabled must be a boolean")
         self.store = store if store is not None else InMemoryMemoryStore()
         self.enabled = enabled
+        self.consent_verifier = (
+            consent_verifier if consent_verifier is not None
+            else RejectAllConsentVerifier()
+        )
         self.clock = clock
         self._write_lock = _MEMORY_MUTATION_LOCK
 
@@ -355,6 +372,19 @@ class MemoryService:
             raise MemoryEngineError("AUTHORIZATION_DENIED")
         return now
 
+    def _require_consent(self, principal, evidence, now):
+        if (type(evidence) is not str or
+                not _CONSENT_EVIDENCE.fullmatch(evidence) or
+                not callable(getattr(self.consent_verifier, "verify", None))):
+            raise MemoryEngineError("CONSENT_REQUIRED")
+        try:
+            verified = self.consent_verifier.verify(
+                principal, evidence, purpose="long-term-memory", now=now)
+        except Exception:
+            raise MemoryEngineError("CONSENT_REQUIRED") from None
+        if verified is not True:
+            raise MemoryEngineError("CONSENT_REQUIRED")
+
     @staticmethod
     def _content(content):
         if type(content) is not str or not content.strip() or len(content) > MAX_CONTENT_CHARS:
@@ -370,12 +400,11 @@ class MemoryService:
             raise MemoryEngineError("VALIDATION_FAILED")
         return normalized.strip()
 
-    def remember(self, principal, *, content, kind, user_confirmed,
+    def remember(self, principal, *, content, kind, consent_evidence,
                  retention_days=DEFAULT_RETENTION_DAYS):
         """Returns the stored record; callers may claim storage only from this receipt."""
-        self._authorize(principal, "memory:write")
-        if user_confirmed is not True:
-            raise MemoryEngineError("CONSENT_REQUIRED")
+        now = self._authorize(principal, "memory:write")
+        self._require_consent(principal, consent_evidence, now)
         if (type(kind) is not str or kind not in KINDS or
                 type(retention_days) is not int or
                 not 1 <= retention_days <= MAX_RETENTION_DAYS):
@@ -383,6 +412,7 @@ class MemoryService:
         content = self._content(content)
         with self._write_lock:
             now = self._authorize(principal, "memory:write")
+            self._require_consent(principal, consent_evidence, now)
             record = MemoryRecord(
                 uuid4(), principal.app, principal.subject, kind, content,
                 now, now, now + retention_days * 86400,
@@ -416,14 +446,16 @@ class MemoryService:
                 raise MemoryEngineError("STORE_UNAVAILABLE")
         return record
 
-    def recall(self, principal, query, *, limit=MAX_RECALL):
-        self._authorize(principal, "memory:read")
+    def recall(self, principal, query, *, consent_evidence, limit=MAX_RECALL):
+        now = self._authorize(principal, "memory:read")
+        self._require_consent(principal, consent_evidence, now)
         if (type(query) is not str or not query.strip() or len(query) > 256 or
                 type(limit) is not int or not 1 <= limit <= MAX_RECALL):
             raise MemoryEngineError("VALIDATION_FAILED")
         terms = _terms(query)
         with self._write_lock:
             now = self._authorize(principal, "memory:read")
+            self._require_consent(principal, consent_evidence, now)
             self._purge_expired(principal, now)
             records = self._own(principal, self._store_call(
                 self.store.list, principal.app, principal.subject))
@@ -433,18 +465,19 @@ class MemoryService:
                 if score:
                     scored.append((score, record.updated_at, record))
             now = self._authorize(principal, "memory:read")
+            self._require_consent(principal, consent_evidence, now)
             scored = [item for item in scored if item[2].expires_at > now]
             scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
             return tuple(record for _, _, record in scored[:limit])
 
-    def update(self, principal, record_id, *, content, user_confirmed):
-        self._authorize(principal, "memory:write")
-        if user_confirmed is not True:
-            raise MemoryEngineError("CONSENT_REQUIRED")
+    def update(self, principal, record_id, *, content, consent_evidence):
+        now = self._authorize(principal, "memory:write")
+        self._require_consent(principal, consent_evidence, now)
         self._record_id(record_id)
         new_content = self._content(content)
         with self._write_lock:
             now = self._authorize(principal, "memory:write")
+            self._require_consent(principal, consent_evidence, now)
             self._purge_expired(principal, now)
             current = self._own(principal, (self._store_call(
                 self.store.get, principal.app, principal.subject, record_id),))
