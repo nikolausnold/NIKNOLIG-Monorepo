@@ -87,6 +87,22 @@ begründen. Standard `enabled=False`; keine HTTP-Route, kein Persistenz-Adapter.
    prüft nur Health und zeigt lokale Supporthinweise.
 6. SecurityChain P0 Freigabe für Persistenz der Memory Engine, Tools und Pairing.
 
+## Externe Produktionsvoraussetzungen und Abnahmen
+
+Die folgenden Rollen sind Verantwortungsfunktionen, keine benannten Personen.
+Laut [P0-Freigaberegister](securitychain-d01-d12-abschlussstatus.md#register-offener-menschlicher-freigaben)
+sind Namen und Freigaben offen. Es wird kein Anbieter, Konto, Schlüssel oder
+Produktivziel vorausgesetzt.
+
+| Fehlende Entscheidung oder Konfiguration | Betroffene Komponente | Verantwortliche Rolle (Person offen) | Erforderlicher Nachweis vor Freigabe | Auswirkung bis dahin |
+| --- | --- | --- | --- | --- |
+| Genehmigter Identitätsanbieter, App-getrennte Rollen, MFA/Recovery sowie Token-Aussteller, Zielgruppe, Scope, Laufzeit, Erneuerung und Widerruf | Backend-`Authenticator`/Login; je ein Android-Anmeldeclient und Credential-Ablage pro App | Produktverantwortliche je App, Betreiber/Backend-Betrieb, unabhängige Security-Prüfung | Schriftlich freigegebener Auth-Vertrag; synthetische Erfolgs- und Negativtests für fehlende, manipulierte, abgelaufene, widerrufene und falsch gescopte Tokens; keine Produktionsschlüssel in Apps | `RejectAllAuthenticator` bleibt Standard; keine geschützte Online-Operation und kein Login |
+| Zweck, Datenklassen, Rechtsgrundlage, Einwilligungstext/-version, Retention und Widerrufsfolgen | Consent-UI, persistente Consent-Historie und produktiver `ConsentVerifier` | Datenschutz/Recht sowie Produktverantwortliche je App | Freigegebene Texte und Dateninventar; nachvollziehbare, app-/subjektgebundene Grant-/Deny-/Revoke-Ereignisse; geprüfte Ablauf- und Widerrufstests | Memory bleibt default-deny; der vorhandene Verifier-Vertrag und Test-Mock belegen keine echte Einwilligung |
+| PostgreSQL-/Speicherfreigabe, App-getrennte DB-Berechtigungen, KMS/HSM, AEAD-/Schlüsselrotation und Backup-Löschregeln | Dauerhafter Memory-Adapter, Quoten, Retention- und Löschworker | Betreiber/Backend- und Datenbankbetrieb, unabhängige Security-Prüfung, Datenschutz | Nicht-destruktive, reviewte Migration; Berechtigungs-/Mandantentests; KMS-Schlüsselrichtlinie; Verschlüsselungs-, Retention-, Lösch-, Restore- und Fehlerfallnachweise | Vorhanden ist nur flüchtiger In-Memory-Speicher; keine produktive Memory-Persistenz oder Verschlüsselung |
+| KI-Anbieter, Konto/Modell/Region, Nutzdatenfreigabe, serverseitiges Secret, Quoten und Kostenlimit | Backend-Provider/Gateway, Audit und beide App-Clients | Produktverantwortliche je App, Anbieter-Kontoverantwortliche, Betreiber/Backend-Betrieb, Datenschutz und Security | Anbieter-/Datenflussfreigabe; Secret-Konfiguration nur serverseitig; erfolgreicher Live-Aufruf in der Zielumgebung; getestete Quoten, Kostenalarmierung und datensparsame Fehler-/Auditpfade | Kein echter KI-Aufruf; Mock- oder Unit-Tests gelten nicht als Live-Nachweis |
+| Produktionsziel, DNS, TLS/Trust, Firewall, Secret-Rotation, Monitoring/Alarmierung, Incident-Weg, Backup/Restore und Rollback | Backend-/Compose-Deployment, Gateway-Origin und App-Konfiguration | Benannter Betreiber/Backend-Betrieb; Release-Verantwortliche | Freigegebene Architektur, Region und Kosten; verifizierte HTTPS-Origin und Zertifikatserneuerung; Betriebs-/Alarmtests; dokumentierter Restore- und Rollback-Test | Keine produktive URL oder Laufzeit ist nachgewiesen; kein Deployment |
+| Unabhängige P0-, Datenschutz-, Plattform- und Release-Abnahmen je App/Commit/Artefakt | SecurityChain D-01–D-12, beide Android-Releases und Backend | Unabhängige Security-Prüfung, Datenschutz/Recht, Produktverantwortliche je App, Plattform- und Release-Verantwortliche | Benannte Reviewer; Findings-Disposition; schriftliche, commit- und artefaktgebundene Signoffs; aktuelle Builds und Negativtests für beide App-Scope | PR #189 und Produktionsfreigabe bleiben blockiert; technische Tests ersetzen keine menschliche Freigabe |
+
 ## Phasen
 
 - **A** externes Modell über Gateway: Code vorhanden, nicht erreichbar/ungetestet. Modell ist fest `MODEL` in `ai_support.py` – Anbieterwechsel ist per `Provider`-Protokoll möglich, aber noch nicht per Konfiguration; die Apps sind unabhängig vom Anbieter, der Transport ist derzeit an Cloudflare gebunden.
