@@ -9,12 +9,19 @@ They are not generative AI services, do not diagnose user devices beyond the
 existing health check, and do not send requests to a network service.
 
 Both apps preserve their separate package identities, local storage, and
-authorizations. Unresolved question text is encrypted before it is stored:
-Android uses an AES-GCM key in Android Keystore, and iOS uses AES-GCM with a
-device-only key in Keychain. Queue records also contain a random ticket ID, app,
-fixed issue/diagnostic codes, creation time, attempt count, and handoff state.
-Only ciphertext is stored in app-private preferences; Android backup is disabled
-for both apps. The queue is capped at 20 tickets, and launching an email draft
+authorizations. Question text entered by the user is **not stored and not
+transmitted**: all four support surfaces (both Android activities and both iOS
+views) encrypt only an empty string as the ticket's payload placeholder
+(enforced by `test_support_queues_do_not_persist_free_text`). The placeholder is
+AES-GCM ciphertext (Android Keystore key on Android, device-only Keychain key on
+iOS), but it protects no content. What remains locally per unresolved question is
+plaintext queue metadata: random ticket ID, app, request key (a random UUID, not
+derived from the text), fixed issue/diagnostic codes, creation time, attempt
+count, and handoff state, stored in app-private preferences (iOS: `UserDefaults`);
+the metadata itself is not encrypted. The Android backup is disabled for both
+apps. Tickets created by earlier app versions may still hold an encrypted
+free-text payload until deleted; they are not migrated. No backend ticket store
+exists, and the backend health check receives no question text. The queue is capped at 20 tickets, and launching an email draft
 can be retried at most three times after an explicit launch failure.
 
 The existing email path is a user-confirmed `mailto:` draft. The public NIKNOLIG
@@ -28,13 +35,13 @@ user-confirmed `mailto:` flow. A successful handoff is not proof of delivery.
 Drafts include only the random ticket ID, app identity, and allowlisted fixed
 issue/diagnostic codes. Question text, ciphertext, request keys, learning profiles,
 and conversation content are never included. Stored payloads are not decrypted
-for email; encryption is only for local recovery.
+for email.
 The app won't reopen a handed-off ticket because doing so could create a
 duplicate; the user's mail app owns draft storage, delivery retries, and its
 outbox. The user can mark a handed-off ticket sent to complete it locally, or
 explicitly delete a local ticket in any state (including uncertain or
 retry-exhausted).
-Deletion removes only that app's selected local record and encrypted payload;
+Deletion removes only that app's selected local record (metadata and placeholder);
 it does not delete or recall drafts or sent mail in an external email app.
 
 ## Backend contract diagnosis and AI status

@@ -12,6 +12,10 @@
 
 Die Reparatur löscht **keine** vorhandenen lokalen Tickets aus früheren App-Versionen. Deren verschlüsselter Payload kann bis zum Löschen des Tickets oder der App-Daten auf dem Gerät verbleiben; siehe verbleibende Risiken.
 
+### Nachtrag: Datenschutzhinweise an tatsächliches Verhalten angepasst
+
+Die Oberflächentexte (Android DE/EN beider Apps, iOS beider Apps) und `modules/support/README.md` behaupteten weiterhin, ungeklärte Fragen blieben lokal verschlüsselt. Tatsächlich wird der Fragetext gar nicht gespeichert; verschlüsselt wird nur ein leerer Platzhalter (AES-GCM, Android Keystore bzw. iOS-Keychain-Schlüssel). Lokal verbleiben unverschlüsselt Vorgangs-UUID, App, zufälliger Request-Key, feste Issue-/Diagnosecodes, Zeitpunkt, Versuchszähler und Übergabestatus (Android: app-private SharedPreferences, iOS: `UserDefaults`). Es gibt keinen Backend-Ticketspeicher; Fragetext wird weder an das Backend noch in E-Mail-Entwürfe übertragen. Das Verhalten wurde nicht geändert; Texte, README, Backend-README und Design-Dokumentation wurden korrigiert. Neuer Test: `test_support_privacy_texts_do_not_claim_encrypted_questions`. Nicht belegt bzw. nicht geprüft: Löschung oder Verhalten alter, vor der Reparatur erzeugter Tickets mit verschlüsseltem Freitext; Verhalten von iOS-Backups für `UserDefaults`. D-01–D-12 bleiben unverändert, da diese Korrektur keine Entscheidung klärt.
+
 ## 2. Bestandsgrenzen
 
 - Backend-Login, produktive Tokenvalidierung, Geräte-/Pairing-Laufzeit und Produktdaten-APIs sind nicht implementiert. `RejectAllAuthenticator` und deaktivierte Standard-Gates bleiben bestehen.

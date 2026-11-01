@@ -168,7 +168,7 @@ private struct DefenseSupportView: View {
                             questionRequestKey = UUID().uuidString
                         }
                     }
-                    .accessibilityHint("Ungeklärte Fragen bleiben verschlüsselt auf diesem Gerät. E-Mail-Entwürfe enthalten keinen Fragetext.")
+                    .accessibilityHint("Der Fragetext wird nicht gespeichert; lokal bleiben nur Kennung, feste Codes und Status. E-Mail-Entwürfe enthalten keinen Fragetext.")
                 Button("Offline-Antwort anzeigen", action: answerQuestion)
                 if !answer.isEmpty {
                     Text(answer).accessibilityAddTraits(.updatesFrequently)
@@ -186,7 +186,7 @@ private struct DefenseSupportView: View {
                 }
             }
             Section("E-Mail-Support") {
-                Text("Ungeklärte Fragen bleiben lokal verschlüsselt. Nach Bestätigung enthält der E-Mail-Entwurf nur eine zufällige Vorgangskennung, die App und feste Fehler- und Diagnosecodes, keinen Fragetext.")
+                Text("Der Fragetext wird weder gespeichert noch übertragen. Lokal bleiben nur Vorgangskennung, App, feste Codes, Zeitpunkt und Status samt leerem Platzhalter. Nach Bestätigung enthält der E-Mail-Entwurf nur Vorgangskennung, App und feste Codes, keinen Fragetext.")
                     .foregroundStyle(.secondary)
                 Button("E-Mail-Entwurf öffnen") { showingEmailConfirmation = true }
                 if let ticket {
@@ -266,7 +266,7 @@ private struct DefenseSupportView: View {
             case .backendHealth:
                 "Der Verbindungstest prüft nur Backend-Erreichbarkeit, nicht die KI-Verfügbarkeit."
             case .privacy:
-                "Fragen werden nur lokal beantwortet; ungeklärte Fragen bleiben lokal verschlüsselt. E-Mail-Entwürfe enthalten nach Bestätigung nur eine zufällige Vorgangskennung, die App und feste Fehler- und Diagnosecodes, keinen Fragetext."
+                "Fragen werden nur lokal beantwortet. Der Fragetext wird weder gespeichert noch übertragen. Lokal bleiben nur Vorgangskennung, App, feste Codes, Zeitpunkt und Status samt leerem Platzhalter. Nach Bestätigung enthält der E-Mail-Entwurf nur Vorgangskennung, App und feste Codes, keinen Fragetext."
             case .payment:
                 "Zahlungsfragen können wir nicht bearbeiten. Wende dich an den Zahlungsanbieter oder Händler; sende keine Zahlungsdaten."
             case .troubleshooting:
@@ -286,7 +286,7 @@ private struct DefenseSupportView: View {
                     encryptedPayload: encrypted
                 )
             } else {
-                emailMessage = "Die Anfrage konnte nicht sicher verschlüsselt und vorgemerkt werden."
+                emailMessage = "Die Anfrage konnte lokal nicht vorgemerkt werden."
             }
         }
     }
@@ -317,7 +317,7 @@ private struct DefenseSupportView: View {
     private func openSupportEmail() {
         if ticket == nil {
             guard let encrypted = try? payloadCipher.encrypt("") else {
-                emailMessage = "Die Anfrage konnte nicht sicher verschlüsselt und vorgemerkt werden."
+                emailMessage = "Die Anfrage konnte lokal nicht vorgemerkt werden."
                 return
             }
             enqueue(

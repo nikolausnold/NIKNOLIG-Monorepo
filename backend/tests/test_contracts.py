@@ -306,6 +306,24 @@ class BackendContractTests(unittest.TestCase):
                 self.assertTrue(encrypted_arguments)
                 self.assertTrue(all(argument.strip() == '""' for argument in encrypted_arguments))
 
+    def test_support_privacy_texts_do_not_claim_encrypted_questions(self):
+        root = BACKEND.parent
+        sources = [
+            *root.glob("apps/*/src/main/res/values*/support_strings.xml"),
+            root / "apps/ios/NIKNOLIGApp.swift",
+            root / "apps/ios/NIKNOLIGDefenseApp.swift",
+        ]
+        self.assertEqual(len(sources), 6)
+        claims = re.compile(
+            r"(Fragen|Anfragen?)\s+bleiben\s+(lokal\s+)?verschlüsselt"
+            r"|questions\s+stay\s+encrypted|(stored|gespeichert)\s+encrypted"
+            r"|lokal\s+verschlüsselt\s+vorgemerkt|sicher verschlüsselt und vorgemerkt",
+            re.IGNORECASE,
+        )
+        for path in sources:
+            with self.subTest(source=str(path.relative_to(root))):
+                self.assertIsNone(claims.search(path.read_text(encoding="utf-8")))
+
     @unittest.skipIf(
         Draft202012Validator is None,
         "jsonschema is optional; structural assertions still run",
