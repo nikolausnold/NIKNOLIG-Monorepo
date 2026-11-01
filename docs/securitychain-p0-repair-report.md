@@ -2,6 +2,8 @@
 
 **Stand: 01.11.2026. Ergebnis: technische Datenschutzreparatur umgesetzt; SecurityChain-P0 nicht freigegeben oder erfüllt.** Bearbeitet wurde der vorhandene Branch `copilot/naechster-produktiver-schritt`. Die App-IDs, getrennten Scopes und bestehenden Sperren blieben unverändert.
 
+Abschnitte 1–5 dokumentieren die frühere Reparatur und deren damalige Testergebnisse. Abschnitt 6 beschreibt den ersten PR-#178-Nachtrag. Die aktuelle Prüfung aller 12 PR-Commits und 19 geänderten Dateien steht in Abschnitt 7; ältere Aussagen zu fehlender Migration oder fehlenden CI-Ergebnissen sind keine Beschreibung des aktuellen Stands.
+
 ## 1. Befund und Reparatur
 
 | Befund | Betroffene Dateien | Reparatur und Nachweis |
@@ -92,3 +94,63 @@ Die folgenden Punkte bleiben gemäß [SecurityChain-P0, Abschnitt 10](securitych
 | CodeQL | Python: keine Alerts. Für Swift konnte keine Datenbank erstellt werden; Kotlin/Android wurde von diesem Lauf nicht abgedeckt. Kein vollständiger CodeQL-Nachweis. |
 
 Die verfügbaren Tests belegen keine Freigabe der P0-Sicherheitskette. D-01 bis D-12 bleiben separat offen; es erfolgte keine produktive, kryptografische oder geräteübergreifende Sicherheitsabnahme.
+
+## 7. PR #178: Gesamtprüfung nach 12 Commits
+
+**Prüfstand: 01.11.2026, Commit `29b28942f55d44d3ec4c3850387db22d1fae8f13`.** Die GitHub-PR-Daten bestätigen 12 Commits und 19 geänderte Dateien. Die unabhängige, lesende Sicherheitsprüfung fand in diesem Änderungssatz **keinen nachgewiesenen Datenschutz- oder Sicherheitsfehler**. Das ist keine Aussage, dass sämtliche Geräte-, Absturz- oder Backup-Szenarien sicher funktionieren. Deshalb wurde kein Laufzeitcode vorsorglich geändert; korrigiert wird nur der veraltete Prüfstatus dieses Berichts.
+
+### Migration, Datenminimierung und Schutz
+
+- **Alt-Tickets:** Kotlin und Swift ersetzen nur nicht-leere oder nicht entschlüsselbare Payloads; bereits leer entschlüsselte Payloads bleiben unverändert. ID, App, Request-Key, feste Codes, Zeitpunkt, Versuche und Übergabestatus bleiben erhalten. Alle Ersatz-Payloads werden vor dem Speichern erzeugt. Bei Verschlüsselungsfehlern erfolgt kein Migrations-Speichervorgang; bei Migrationsfehlern geben die Oberflächen die Warteschlange nicht für Ticketanlage oder E-Mail-Übergabe frei.
+- **Fehlerfälle:** Unit-Tests prüfen unveränderte Originaltickets nach injizierten Verschlüsselungs- und Speicherfehlern. Der iOS-Dateistore schreibt zuerst eine Staging-Datei, wendet deren Schutz an und ersetzt erst danach die maßgebliche Datei mittels `rename`. Erst nach erfolgreichem Ersetzen wird der alte `UserDefaults`-Wert entfernt. Der Test für einen injizierten Schutzfehler prüft unveränderte Zieldaten, erhaltene Tickets und den erhaltenen Legacy-Wert bei fehlgeschlagenem Import. Diese Tests belegen die modellierten Fehlerpfade, nicht die Dauerhaftigkeit bei Stromverlust oder echten Speicherfehlern.
+- **Unterbrochene Schreibvorgänge:** Vor Laden und Speichern werden zurückgelassene, UUID-förmig benannte Support-Staging-Dateien bereinigt. Ein Test legt eine solche Datei gezielt an und prüft Bereinigung sowie anschließende Ticketlöschung. Ein realer Prozessabbruch oder Neustart während des Schreibens wurde nicht ausgeführt.
+- **Neue Tickets:** Alle Ticket-Erzeugungspfade der vier App-Oberflächen verschlüsseln ausschließlich `""`. Die Backend-Vertragstests prüfen diese Aufrufargumente. Das gilt für die aktuellen App-Aufrufpfade; die wiederverwendbare Queue-API erzwingt selbst keinen Leerinhalt. Neue lokale Tickets enthalten weiterhin unverschlüsselte Metadaten, aber keinen eingegebenen Fragetext.
+- **Übertragung:** E-Mail-Entwürfe verwenden nur Ticket-ID, App und feste, allowlist-geprüfte Fehler-/Diagnosecodes. Fragetext, Ciphertext und Request-Key werden nicht eingefügt. Der Health-Aufruf erhält keinen Fragetext. Das Öffnen eines Entwurfs ist kein Versand- oder Zustellnachweis; eine echte E-Mail wurde nicht versandt.
+- **iOS:** Verzeichnis und Ticketdatei setzen `URLResourceValues.isExcludedFromBackup = true` und `completeUntilFirstUserAuthentication`; der Payload-Schlüssel ist gerätegebunden. Der Schutz `completeUntilFirstUserAuthentication` bedeutet nicht, dass Daten nach jedem erneuten Sperren des Geräts unzugänglich werden. Die Backup-Assertions im Swift-Test sind ausschließlich unter `os(iOS)` aktiv und laufen daher weder im Linux-Test noch beim macOS-Pakettest. Simulator-Kompilation bestätigt die API-Nutzung, nicht Backup-/Restore- oder Sperrverhalten auf einem Gerät.
+- **Android:** App-private `SharedPreferences` und `allowBackup=false` bleiben bestehen. Herstellerabhängige Geräteübertragungen und echte Keystore-/Speicherfehler sind nicht getestet. Historische Backups können alte verschlüsselte Payloads behalten; das Update kann sie nicht rückwirkend löschen.
+
+### Abdeckung aller 19 Dateien
+
+Alle folgenden Dateien wurden im aktuellen PR-Diff und ihrem jeweiligen Aufruf-/Nachweiskontext geprüft:
+
+| Datei im Prüfcheckout | Prüfumfang / Ergebnis |
+| --- | --- |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/ios/NIKNOLIGApp.swift` | Migration-Gate, Leer-Payloads, Hinweise und E-Mail-Allowlist; kein nachgewiesener Fehler. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/ios/NIKNOLIGDefenseApp.swift` | Entsprechender Defense-Flow und App-Scope; kein nachgewiesener Fehler. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/niknolig/src/main/java/com/niknolig/app/SupportActivity.kt` | Initialisierung nach Migration, Fehler-Gates, Leer-Payloads und E-Mail; kein nachgewiesener Fehler. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/niknolig-defense/src/main/java/com/niknolig/defense/SupportActivity.kt` | Entsprechender Defense-Flow und App-Scope; kein nachgewiesener Fehler. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/niknolig/src/main/res/values/support_strings.xml` | Deutsche Hinweise zu Legacy-Tickets, Metadaten und Backup-Grenzen. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/niknolig/src/main/res/values-en/support_strings.xml` | Entsprechende englische Hinweise. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/niknolig-defense/src/main/res/values/support_strings.xml` | Entsprechende deutsche Defense-Hinweise. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/apps/niknolig-defense/src/main/res/values-en/support_strings.xml` | Entsprechende englische Defense-Hinweise. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/backend/README.md` | Unterscheidung Metadaten/Leer-Payload und Migration-/Backup-Grenzen. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/backend/tests/test_contracts.py` | Assertions für Leer-Payloads, Hinweise, Manifeste und Dateischutz; keine Abschwächung der Schutzanforderungen. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/docs/app-web-design-alignment.md` | Hinweise zu Legacy-Bereinigung und Backup-Grenzen. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/docs/device-link-security-design.md` | Entscheidungspaket erteilt keine Laufzeit- oder P0-Freigabe. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/docs/securitychain-p0-repair-report.md` | Historische Testergebnisse als solche gekennzeichnet; aktuelle Nachweise und Grenzen hier ergänzt. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/evolution/ideas.json` | Exakter Evidence-Auszug stimmt mit Zeilen 247–249 des Sicherheitsdesigns überein; kein Laufzeitverhalten geändert. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/support/README.md` | Speicherung, Migration, Backups, E-Mail, Löschung und Testgrenzen. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/support/core/src/main/kotlin/org/niknolig/support/SupportEscalationQueue.kt` | Nur Payload ersetzt, Speichern nach Ersatzbildung, Metadata-Allowlist; kein nachgewiesener Fehler. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/support/core/src/test/kotlin/org/niknolig/support/SupportCoreTest.kt` | Metadatenerhalt, Wiederholbarkeit, injizierte Verschlüsselungs-/Speicherfehler. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/support/ios/Sources/SupportCore/SupportCore.swift` | Migration, geschütztes Datei-Ersetzen, Staging-Bereinigung und Allowlist; kein nachgewiesener Fehler. |
+| `/home/runner/work/NIKNOLIG-Monorepo/NIKNOLIG-Monorepo/modules/support/ios/Tests/SupportCoreTests/SupportCoreTests.swift` | Alle 15 Tests einschließlich Schutzfehler und Staging-Bereinigung geprüft; echte Plattformfehler nicht simuliert. |
+
+### Ausgeführte Tests und vorhandene CI-Nachweise
+
+Die lokalen Python-Läufe verwendeten `PYTHONDONTWRITEBYTECODE=1`; Swift-Builddaten und der Gradle-Projektcache lagen unter `/tmp`. Es wurden keine destruktiven Git-Operationen verwendet.
+
+| Prüfung | Ergebnis am geprüften Stand |
+| --- | --- |
+| Backend lokal, erster Versuch | Vier Importfehler wegen fehlendem `psycopg`; kein Produktfehler. |
+| Installation vorhandener gepinnter Backend-Abhängigkeiten | Erfolgreich, keine Abhängigkeitsdatei geändert. |
+| Backend lokal, erneut | **190 Tests erkannt: 171 bestanden, 19 PostgreSQL-Integrationstests übersprungen**, da lokal keine Wegwerf-Datenbank konfiguriert wurde. |
+| Tooling lokal | **73 Tests bestanden**, einschließlich Support-Flow und strenger Evidence-Validierung. |
+| Swift-Support lokal mit temporärem Scratch-Verzeichnis | **15 Tests bestanden** unter Linux. Keine Ausführung der `os(iOS)`-Assertions. |
+| Kotlin lokal: `:support-core:test` | **Nicht ausgeführt:** Gradle scheiterte vor Taskausführung an der Auflösung von `com.android.application:9.4.1`. Kein Versionswechsel oder Ersatz-Testwerkzeug. |
+| [Backend/Tooling-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41271734531/job/124746046609) | Auf demselben Commit: **190 Backend-Tests ohne Skips und 73 Tooling-Tests bestanden**, einschließlich PostgreSQL-Integration. Joblogs geprüft. |
+| [Android-/Kotlin-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41271734437/job/124746045027) | Auf demselben Commit: `:support-core:test`, Elektro-Engel-Kerntests, Unit-Tests beider Apps, Debug-APKs und Lint erfolgreich. Die Logs belegen die tatsächlich ausgeführte Support-Testtask; keine unbelegte Kotlin-Testanzahl angegeben. |
+| [iOS-CI](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41271734445) | Auf demselben Commit: **15 Swift-Supporttests auf macOS bestanden**; beide Apps für iOS-Simulator in Debug und Release erfolgreich kompiliert, ohne Signierung. Release-Origins sind Fixtures, keine freigegebenen Produktionsziele. |
+
+**Nicht ausgeführt:** lokale Kotlin-Testtask, lokale iOS-App-Builds, iOS-Runtime-Backup-Assertions, echte iCloud-Backup-/Restore-Tests, Sperr-/Entsperrtests auf Geräten, echte Keystore-/Keychain-Fehler, Stromverlust-/Crash-Recovery, herstellerspezifische Android-Geräteübertragung und physische Zwei-Geräte-Abnahme. Die lokalen PostgreSQL-Skips sind durch vorhandene erfolgreiche CI-Tests desselben Commits abgedeckt; die Geräteprüfungen nicht.
+
+**Freigabeentscheidung:** keine P0-Freigabe, keine produktive Bereitstellung, kein Merge und keine Änderung der D-01–D-12-Status. Relevante Plattform-/Backup-/Durabilitätsnachweise sowie genehmigte Aufbewahrungs-, Lösch- und Betriebsregeln bleiben offen. Erfolgreiche CI-Läufe ersetzen diese Nachweise nicht.
