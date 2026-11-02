@@ -128,14 +128,27 @@ Produktivziel vorausgesetzt.
   Diese Läufe enthalten nicht die hier dokumentierten Änderungen; erforderliche
   Checks für den Commit dieser Änderungen müssen separat auf GitHub erfolgreich
   sein.
-- Ältere Läufe `41381585616` und `41381585598` hatten `action_required` und
-  zunächst `action_required`; das sind Run-Gates, keine fehlgeschlagenen Tests.
+- Backend-CI-Fehlläufe auf `72af3b0` und `962a078` bestanden jeweils den
+  Backend-Testschritt, scheiterten aber in vier Tooling-Evidenztests: ein Auszug
+  passte nach einer README-Verschiebung nicht mehr zu den zitierten Zeilen in
+  `backend/README.md`. Der Zitierfehler wurde in `51f85de` korrigiert;
+  [Backend/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41382290646)
+  bestand danach.
+- Die ersten Versuche `41381585616` (Backend) und `41381585598` (Android) zeigten
+  `action_required`; das sind Run-Gates, keine fehlgeschlagenen Tests.
   Das Android-Run `41381585598` wurde anschließend durch den Repository-Eigentümer
   als Versuch 2 auf demselben SHA `bc60f713` ausgeführt und bestand. Das Backend-
   Run `41381585616` sowie `41381106369` hatten beim Abfragen null Jobs und keine
   fehlgeschlagenen Jobs/Logs; ein API-Grund war nicht verfügbar. Der spätere
   Backend-Lauf auf `51f85de` bestand. Es wurden weder Prüfungen noch
   Branch-Protection umgangen.
+- Für den aktuellen Änderungssatz `d2b7f7874bd9fd8ee6f1f4ba625f2910be5e350d`
+  stehen [Backend](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41383960083)
+  und [Android](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41383960099)
+  auf `action_required`; beide Abfragen lieferten null Jobs und keine Logs. Die
+  API nennt keinen Grund und bietet hier keine sichere Freigabe-/Approval-Aktion.
+  Diese erforderlichen Checks sind offen, bis ein berechtigter Repository-
+  Verantwortlicher sie freigibt bzw. erneut startet.
 - Der aktuelle Review-Snapshot auf `51f85de` meldete einen ungültigen Rückgabewert
   bei der zweiten `store.list()`-Abfrage in `recall()`. Der neue Code weist diesen
   Fall mit `STORE_UNAVAILABLE` ab; eine gezielte Regression prüft ihn. Die
