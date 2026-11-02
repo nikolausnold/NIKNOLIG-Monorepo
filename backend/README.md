@@ -2,6 +2,10 @@
 
 **Status: lokale Vorbereitung und deploybare Health-ASGI-Laufzeit, nicht produktionsfreigegeben.**
 
+Die aktuelle PASS/FAIL-Gate-Matrix und Staging-Vorlage stehen in
+[`docs/production-readiness-checklist.md`](../docs/production-readiness-checklist.md)
+und [`compose.staging.yaml`](compose.staging.yaml).
+
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
 Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` dient lokal;
 `asgi.py` prüft echte PostgreSQL- und Migrationsbereitschaft. Android-Module
