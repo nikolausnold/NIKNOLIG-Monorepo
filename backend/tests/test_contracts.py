@@ -1,6 +1,7 @@
 import unittest
 import json
 import copy
+import base64
 from pathlib import Path
 
 try:
@@ -142,6 +143,19 @@ class BackendContractTests(unittest.TestCase):
         self.assertNotIn("payload", schema["properties"])
         self.assertIn("signature", schema["required"])
         self.assertIn("nonce", schema["required"])
+
+    @unittest.skipIf(Draft202012Validator is None, "jsonschema is optional")
+    def test_device_link_signature_size_boundary(self):
+        schema = json.loads(
+            (BACKEND / "contracts/device-link-message-v1.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        validator = Draft202012Validator(schema["properties"]["signature"])
+        for size, accepted in ((512, True), (513, False)):
+            signature = base64.urlsafe_b64encode(bytes(size)).rstrip(b"=").decode("ascii")
+            with self.subTest(signature_bytes=size):
+                self.assertEqual(accepted, validator.is_valid(signature))
 
     def test_sensor_and_device_plan_keeps_p0_and_app_boundaries(self):
         plan = (

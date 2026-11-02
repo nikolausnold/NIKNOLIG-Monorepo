@@ -44,6 +44,7 @@ internal interface DeviceLinkBleTransport {
 internal interface DeviceLinkSecurityPolicy {
     fun verifyPeerIdentity(peer: DeviceLinkPeer, localAppArea: String): Boolean
     fun verifyPeerConsent(peer: DeviceLinkPeer, localAppArea: String): Boolean
+    fun revokePeerTrustAndConsent(peer: DeviceLinkPeer, localAppArea: String): Boolean
     fun reserveFreshSession(peer: DeviceLinkPeer): Boolean
     fun verifyTransportEvidence(
         peer: DeviceLinkPeer,
@@ -56,6 +57,7 @@ internal interface DeviceLinkSecurityPolicy {
 internal class DenyAllDeviceLinkSecurityPolicy : DeviceLinkSecurityPolicy {
     override fun verifyPeerIdentity(peer: DeviceLinkPeer, localAppArea: String) = false
     override fun verifyPeerConsent(peer: DeviceLinkPeer, localAppArea: String) = false
+    override fun revokePeerTrustAndConsent(peer: DeviceLinkPeer, localAppArea: String) = false
     override fun reserveFreshSession(peer: DeviceLinkPeer) = false
     override fun verifyTransportEvidence(
         peer: DeviceLinkPeer,
@@ -77,6 +79,8 @@ internal class DeviceLinkConnectionManager(
         private set
 
     private var peer: DeviceLinkPeer? = null
+    private var connectionAttempt: Any? = null
+    private var pendingRevocation: DeviceLinkPeer? = null
     private var lastSequence = 0L
     private val seenMessageIds = linkedSetOf<String>()
     private val seenNonces = linkedSetOf<String>()
@@ -102,7 +106,8 @@ internal class DeviceLinkConnectionManager(
         }
 
         val trusted = try {
-            securityPolicy.verifyPeerIdentity(candidate, localAppArea) &&
+            invalidatePendingRevocation() &&
+                securityPolicy.verifyPeerIdentity(candidate, localAppArea) &&
                 securityPolicy.verifyPeerConsent(candidate, localAppArea) &&
                 securityPolicy.reserveFreshSession(candidate)
         } catch (_: Exception) {
@@ -118,9 +123,11 @@ internal class DeviceLinkConnectionManager(
         seenMessageIds.clear()
         seenNonces.clear()
         state = DeviceLinkState.CONNECTING
+        val attempt = Any()
+        connectionAttempt = attempt
         return try {
             ble.connect(candidate) { connected ->
-                onConnectionResult(candidate.sessionId, connected)
+                onConnectionResult(attempt, candidate.sessionId, connected)
             }
             true
         } catch (_: Exception) {
@@ -158,18 +165,14 @@ internal class DeviceLinkConnectionManager(
         seenMessageIds.add(immutableMessage.messageId)
         seenNonces.add(immutableMessage.nonce)
         if (immutableMessage.eventType == "session.revoke") {
-            peer = null
-            lastSequence = 0
-            seenMessageIds.clear()
-            seenNonces.clear()
-            state = DeviceLinkState.REVOKED
-            safeDisconnect()
+            return revokeActivePeer()
         }
         return true
     }
 
     @Synchronized
     fun disconnect() {
+        connectionAttempt = null
         if (state != DeviceLinkState.REVOKED) state = DeviceLinkState.IDLE
         peer = null
         lastSequence = 0
@@ -180,20 +183,46 @@ internal class DeviceLinkConnectionManager(
 
     @Synchronized
     fun revoke() {
+        revokeActivePeer()
+    }
+
+    private fun revokeActivePeer(): Boolean {
+        connectionAttempt = null
+        peer?.let { pendingRevocation = it }
+        if (!invalidatePendingRevocation()) {
+            failClosed()
+            return false
+        }
         peer = null
         lastSequence = 0
         seenMessageIds.clear()
         seenNonces.clear()
         state = DeviceLinkState.REVOKED
         safeDisconnect()
+        return state == DeviceLinkState.REVOKED
+    }
+
+    private fun invalidatePendingRevocation(): Boolean {
+        val revokedPeer = pendingRevocation ?: return true
+        val invalidated = try {
+            securityPolicy.revokePeerTrustAndConsent(revokedPeer, localAppArea)
+        } catch (_: Exception) {
+            false
+        }
+        if (invalidated) pendingRevocation = null
+        return invalidated
     }
 
     @Synchronized
     private fun onConnectionResult(
+        attempt: Any,
         sessionId: String,
         evidence: DeviceLinkTransportEvidence?,
     ) {
-        if (state != DeviceLinkState.CONNECTING || peer?.sessionId != sessionId) return
+        if (connectionAttempt !== attempt ||
+            state !in setOf(DeviceLinkState.CONNECTING, DeviceLinkState.CONNECTED) ||
+            peer?.sessionId != sessionId
+        ) return
         val activePeer = peer ?: return failClosed()
         if (evidence == null ||
             evidence.sessionId != activePeer.sessionId ||
@@ -204,7 +233,9 @@ internal class DeviceLinkConnectionManager(
             return failClosed()
         }
         val verified = try {
-            securityPolicy.verifyTransportEvidence(activePeer, evidence)
+            securityPolicy.verifyPeerIdentity(activePeer, localAppArea) &&
+                securityPolicy.verifyPeerConsent(activePeer, localAppArea) &&
+                securityPolicy.verifyTransportEvidence(activePeer, evidence)
         } catch (_: Exception) {
             false
         }
@@ -229,7 +260,7 @@ internal class DeviceLinkConnectionManager(
             message.recipientAppArea == localAppArea &&
             message.sequence > lastSequence &&
             message.sequence <= MAX_SAFE_INTEGER &&
-            message.messageId !in seenMessageIds &&
+            seenMessageIds.none { it.equals(message.messageId, ignoreCase = true) } &&
             message.nonce !in seenNonces &&
             seenMessageIds.size < MAX_MESSAGES_PER_SESSION &&
             seenNonces.size < MAX_MESSAGES_PER_SESSION &&
@@ -243,6 +274,7 @@ internal class DeviceLinkConnectionManager(
     }
 
     private fun failClosed() {
+        connectionAttempt = null
         peer = null
         lastSequence = 0
         seenMessageIds.clear()

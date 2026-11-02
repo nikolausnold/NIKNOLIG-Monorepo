@@ -53,6 +53,43 @@ class DeviceLinkConnectionManagerTest {
     }
 
     @Test
+    fun failsClosedWhenConnectedTransportFailsOrSecurityDowngrades() {
+        for (failure in listOf("link", "encryption", "mitm", "policy")) {
+            val fixture = Fixture().apply { startConnected() }
+            val evidence = DeviceLinkTransportEvidence(
+                sessionId = fixture.peer.sessionId,
+                peerInstallationId = fixture.peer.installationId,
+                encrypted = failure != "encryption",
+                mitmProtected = failure != "mitm",
+            )
+            fixture.policy.transportEvidenceVerified = failure != "policy"
+            fixture.ble.completeWith(0, if (failure == "link") null else evidence)
+            assertEquals(DeviceLinkState.FAILED, fixture.manager.state)
+            assertEquals(1, fixture.ble.disconnectCalls)
+            assertFalse(fixture.manager.receive(fixture.message(sequence = 1)))
+            fixture.ble.complete(0, true)
+            assertEquals(DeviceLinkState.FAILED, fixture.manager.state)
+        }
+    }
+
+    @Test
+    fun rechecksIdentityAndConsentWhenConnectionCompletes() {
+        for (withdrawIdentity in listOf(false, true)) {
+            val fixture = Fixture()
+            assertTrue(fixture.startConnection())
+            if (withdrawIdentity) {
+                fixture.policy.identityTrusted = false
+            } else {
+                fixture.policy.peerConsentVerified = false
+            }
+            fixture.ble.complete(0, true)
+            assertEquals(DeviceLinkState.FAILED, fixture.manager.state)
+            assertEquals(1, fixture.ble.disconnectCalls)
+            assertFalse(fixture.manager.receive(fixture.message(sequence = 1)))
+        }
+    }
+
+    @Test
     fun refusesTransportWithoutVerifiedEncryptionAndMitmProtection() {
         val fixture = Fixture()
         assertTrue(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
@@ -113,6 +150,28 @@ class DeviceLinkConnectionManagerTest {
     }
 
     @Test
+    fun rejectsMixedCaseDuplicateMessageId() {
+        for (uppercaseFirst in listOf(false, true)) {
+            val fixture = Fixture().apply { startConnected() }
+            val lowerId = "abcdef01-2345-4678-9abc-def012345678"
+            val upperId = lowerId.uppercase()
+            assertTrue(fixture.manager.receive(
+                fixture.message(sequence = 1).copy(
+                    messageId = if (uppercaseFirst) upperId else lowerId,
+                ),
+            ))
+            assertFalse(fixture.manager.receive(
+                fixture.message(sequence = 2).copy(
+                    messageId = if (uppercaseFirst) lowerId else upperId,
+                    nonce = "B".repeat(22),
+                ),
+            ))
+            assertEquals(DeviceLinkState.FAILED, fixture.manager.state)
+            assertEquals(1, fixture.ble.disconnectCalls)
+        }
+    }
+
+    @Test
     fun rejectsInvalidEnvelopeSignatureAndUnauthorizedEvent() {
         val invalidEnvelope = Fixture().apply { startConnected() }
         assertFalse(
@@ -165,18 +224,73 @@ class DeviceLinkConnectionManagerTest {
     }
 
     @Test
-    fun revocationDisconnectsAndRejectsReuseOfRevokedSession() {
-        val fixture = Fixture()
-        fixture.startConnected()
-        assertTrue(fixture.manager.receive(fixture.message(sequence = 1, eventType = "session.revoke")))
-        assertEquals(DeviceLinkState.REVOKED, fixture.manager.state)
-        assertEquals(1, fixture.ble.disconnectCalls)
-        assertFalse(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
+    fun revocationInvalidatesTrustAndRequiresRenewedBilateralConsent() {
+        for (remote in listOf(false, true)) {
+            val fixture = Fixture().apply { startConnected() }
+            if (remote) {
+                assertTrue(fixture.manager.receive(
+                    fixture.message(sequence = 1, eventType = "session.revoke"),
+                ))
+            } else {
+                fixture.manager.revoke()
+            }
+            assertEquals(DeviceLinkState.REVOKED, fixture.manager.state)
+            assertEquals(1, fixture.ble.disconnectCalls)
+            assertEquals(listOf(fixture.peer to APP_NIKNOLIG), fixture.policy.revocations)
+            assertFalse(fixture.policy.identityTrusted)
+            assertFalse(fixture.policy.peerConsentVerified)
+            assertFalse(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
 
-        fixture.manager.disconnect()
-        assertFalse(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
-        val freshPeer = fixture.peer.copy(sessionId = NEW_SESSION)
-        assertTrue(fixture.manager.connect(freshPeer, localConsentConfirmed = true))
+            fixture.manager.disconnect()
+            val freshPeer = fixture.peer.copy(sessionId = NEW_SESSION)
+            assertFalse(fixture.manager.connect(freshPeer, localConsentConfirmed = true))
+            fixture.policy.identityTrusted = true
+            assertFalse(fixture.manager.connect(freshPeer, localConsentConfirmed = true))
+            fixture.policy.peerConsentVerified = true
+            assertFalse(fixture.manager.connect(freshPeer, localConsentConfirmed = false))
+            assertFalse(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
+            assertTrue(fixture.manager.connect(freshPeer, localConsentConfirmed = true))
+            fixture.ble.complete(0, true)
+            assertEquals(DeviceLinkState.CONNECTING, fixture.manager.state)
+            fixture.ble.complete(1, true)
+            assertEquals(DeviceLinkState.CONNECTED, fixture.manager.state)
+        }
+    }
+
+    @Test
+    fun revocationFailureBlocksReconnectUntilPolicyInvalidationSucceeds() {
+        for (remote in listOf(false, true)) {
+            for (throws in listOf(false, true)) {
+                val fixture = Fixture().apply { startConnected() }
+                fixture.policy.revocationAllowed = false
+                fixture.policy.revocationThrows = throws
+                if (remote) {
+                    assertFalse(fixture.manager.receive(
+                        fixture.message(sequence = 1, eventType = "session.revoke"),
+                    ))
+                } else {
+                    fixture.manager.revoke()
+                }
+                assertEquals(DeviceLinkState.FAILED, fixture.manager.state)
+                assertEquals(1, fixture.ble.disconnectCalls)
+                assertFalse(fixture.manager.receive(fixture.message(sequence = 2)))
+                fixture.manager.disconnect()
+                val freshPeer = fixture.peer.copy(sessionId = NEW_SESSION)
+                assertFalse(fixture.manager.connect(freshPeer, localConsentConfirmed = true))
+                assertEquals(1, fixture.ble.connectCalls)
+                assertTrue(fixture.policy.identityTrusted)
+                assertTrue(fixture.policy.peerConsentVerified)
+
+                fixture.policy.revocationThrows = false
+                fixture.policy.revocationAllowed = true
+                assertFalse(fixture.manager.connect(freshPeer, localConsentConfirmed = true))
+                assertFalse(fixture.policy.identityTrusted)
+                assertFalse(fixture.policy.peerConsentVerified)
+                fixture.policy.identityTrusted = true
+                fixture.policy.peerConsentVerified = true
+                assertTrue(fixture.manager.connect(freshPeer, localConsentConfirmed = true))
+            }
+        }
     }
 
     @Test
@@ -196,16 +310,24 @@ class DeviceLinkConnectionManagerTest {
 
     @Test
     fun ignoresLateConnectionCallbackAfterDisconnect() {
-        val fixture = Fixture()
-        assertTrue(fixture.manager.connect(fixture.peer, localConsentConfirmed = true))
-        fixture.manager.disconnect()
-        val nextPeer = fixture.peer.copy(sessionId = NEW_SESSION)
-        assertTrue(fixture.manager.connect(nextPeer, localConsentConfirmed = true))
+        for (reuseSession in listOf(false, true)) {
+            val fixture = Fixture()
+            assertTrue(fixture.startConnection())
+            fixture.manager.disconnect()
+            fixture.policy.reservedSessions.clear()
+            val nextPeer = if (reuseSession) fixture.peer else fixture.peer.copy(sessionId = NEW_SESSION)
+            assertTrue(fixture.manager.connect(nextPeer, localConsentConfirmed = true))
 
-        fixture.ble.complete(0, true)
-        assertEquals(DeviceLinkState.CONNECTING, fixture.manager.state)
-        fixture.ble.complete(1, true)
-        assertEquals(DeviceLinkState.CONNECTED, fixture.manager.state)
+            fixture.ble.complete(0, true)
+            fixture.ble.complete(0, false)
+            assertEquals(DeviceLinkState.CONNECTING, fixture.manager.state)
+            assertEquals(1, fixture.ble.disconnectCalls)
+            fixture.ble.complete(1, true)
+            assertEquals(DeviceLinkState.CONNECTED, fixture.manager.state)
+            fixture.ble.complete(0, false)
+            assertEquals(DeviceLinkState.CONNECTED, fixture.manager.state)
+            assertEquals(1, fixture.ble.disconnectCalls)
+        }
     }
 
     private class Fixture {
@@ -297,7 +419,10 @@ class DeviceLinkConnectionManagerTest {
         var messageAuthorized = true
         var identityChecks = 0
         var messageSignatureChecks = 0
-        private val reservedSessions = mutableSetOf<String>()
+        var revocationAllowed = true
+        var revocationThrows = false
+        val revocations = mutableListOf<Pair<DeviceLinkPeer, String>>()
+        val reservedSessions = mutableSetOf<String>()
 
         override fun verifyPeerIdentity(peer: DeviceLinkPeer, localAppArea: String): Boolean {
             identityChecks++
@@ -306,6 +431,15 @@ class DeviceLinkConnectionManagerTest {
 
         override fun verifyPeerConsent(peer: DeviceLinkPeer, localAppArea: String) =
             peerConsentVerified
+
+        override fun revokePeerTrustAndConsent(peer: DeviceLinkPeer, localAppArea: String): Boolean {
+            revocations += peer to localAppArea
+            if (revocationThrows) throw IllegalStateException("Revocation unavailable")
+            if (!revocationAllowed) return false
+            identityTrusted = false
+            peerConsentVerified = false
+            return true
+        }
 
         override fun reserveFreshSession(peer: DeviceLinkPeer): Boolean =
             sessionReservationAllowed && reservedSessions.add(peer.sessionId)

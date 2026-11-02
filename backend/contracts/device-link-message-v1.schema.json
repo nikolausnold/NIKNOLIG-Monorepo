@@ -73,7 +73,7 @@
     },
     "signature": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9_-]{43,684}$"
+      "pattern": "^[A-Za-z0-9_-]{43,683}$"
     }
   }
 }
