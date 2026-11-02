@@ -102,6 +102,13 @@ class ProductionRuntimeTests(unittest.TestCase):
         )
         self.assertNotEqual(production_image, staging_image)
 
+    def test_staging_https_port_is_bound_to_loopback(self):
+        staging = (BACKEND / "compose.staging.yaml").read_text()
+        self.assertIn(
+            '"127.0.0.1:${STAGING_HTTPS_PORT:?Set an approved staging HTTPS host port}:443"',
+            staging,
+        )
+
     def test_proxy_support_handlers_are_siblings_of_health_not_nested(self):
         config = (BACKEND / "Caddyfile").read_text()
         depth = 0

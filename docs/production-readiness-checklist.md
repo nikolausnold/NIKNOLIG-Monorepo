@@ -24,7 +24,7 @@ Code-/CI-Nachweise: Commit `dcffb6e04758fa949b2ad2724a99a0913223ec23` auf PR #18
 | Staging-Compose-Modell | **PASS (Konfigurationsprüfung)** | `docker compose -f backend/compose.staging.yaml config --quiet` akzeptierte alle erforderlichen Variablen; ohne Pflichtwerte schlug die Prüfung fail-closed fehl. Der Staging-Backend-Image-Tag ist vom Produktions-Tag getrennt. Für die reine Modellprüfung wurden kurzlebige Platzhalter und `/dev/null`-Dateipfade verwendet; es wurden keine Container gestartet und keine Geheimnisse oder Domainwerte erzeugt. |
 | PostgreSQL-Produktdaten | **FAIL** | Der vorhandene Stack und die Migrationen belegen Health-Readiness, nicht ein freigegebenes Produktdaten-/Memory-Schema. Eine produktive Memory-Migration, Verschlüsselung, KMS/HSM und Datenbankrollen für Produktdaten fehlen. |
 | Backups und Storage Box | **PARTIAL / Gate nicht bestanden** | Das Backend-Runbook dokumentiert `pg_dump` direkt in `age`-Verschlüsselung, isolierte Restore-Prüfung und Rücknahme unter `backend/README.md` („Datenbanksicherung und kontrollierte Rücknahme“). Es gab keinen echten Backup-/Restore-Lauf oder Storage-Box-Transfer. SSH-Zugang, eingeschränkter Schlüssel, Retention, Verschlüsselungsschlüsselverwaltung und Restore-Nachweis sind offen. Nur verschlüsselte Backup-Dateien dürfen übertragen werden; die Storage Box ist kein Live-PostgreSQL-Datenträger. |
-| Zugriffsschutz / Netzwerk | **PARTIAL / Gate nicht bestanden** | Compose bindet PostgreSQL an ein internes Netzwerk und veröffentlicht nur HTTPS über Caddy. Der Staging-Stack benötigt noch Betreiberprüfung von Host-Firewall, DNS/TLS und Zugangsschutz; keine Remote-Konfiguration ist verifiziert. |
+| Zugriffsschutz / Netzwerk | **PARTIAL / Gate nicht bestanden** | Compose bindet PostgreSQL an ein internes Netzwerk. Staging veröffentlicht HTTPS nur auf `127.0.0.1`; externer Zugriff benötigt einen separat geprüften und freigegebenen Ingress sowie Betreiberprüfung von Host-Firewall, DNS/TLS und Zugangsschutz. Keine Remote-Konfiguration ist verifiziert. |
 | Logging / Audit | **PARTIAL / Gate nicht bestanden** | Health-Fehlerantworten und Logs sind generisch und inhaltsfrei; produktiver genehmigter Audit-Sink, Zugriffskontrolle, Aufbewahrung, Alarmierung und Incident-Prozess fehlen. |
 | Elektro-Engel / KI | **FAIL** | Kein Android-/iOS-Gateway-Client oder produktiver KI-Aufruf. Provider-, Datenfluss-, Region-, Kosten- und Secret-Freigabe fehlen; Runtime und Authentifizierung bleiben fail-closed. |
 | Memory Engine | **FAIL für Produktion; sicher deaktiviert** | Nicht in HTTP verdrahtet, `enabled=False`, In-Memory-Store, kein produktiver Consent-Verifier, keine persistente Verschlüsselung oder garantierte Löschung. |
@@ -41,7 +41,9 @@ Vor einem Start müssen Betreiber und Verantwortliche außerhalb von Git:
    bereitstellen; Zertifikat-SAN und Hostname müssen exakt übereinstimmen;
 2. einen eindeutigen `STAGING_COMPOSE_PROJECT`-Namen, einen freien und
    freigegebenen `STAGING_HTTPS_PORT` sowie eine isolierte Staging-VM oder
-   gleichwertige Netzwerkgrenze festlegen;
+   gleichwertige Netzwerkgrenze festlegen. Der Compose-Port bindet ausschließlich
+   an `127.0.0.1`; externer Zugriff erfordert einen separat geprüften, freigegebenen
+   Ingress. Keine direkte Veröffentlichung auf allen Host-Interfaces aktivieren;
 3. ein Staging-PostgreSQL-DB-Kennzeichen und vier separate, geschützte Dateien
    konfigurieren: `STAGING_POSTGRES_PASSWORD_SECRET_FILE`,
    `STAGING_HEALTH_PASSWORD_SECRET_FILE`,

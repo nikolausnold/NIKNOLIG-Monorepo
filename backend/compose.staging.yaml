@@ -79,7 +79,7 @@ services:
     environment:
       BACKEND_HOSTNAME: ${STAGING_BACKEND_HOSTNAME:?Set an operator-confirmed staging hostname}
     ports:
-      - "${STAGING_HTTPS_PORT:?Set an approved staging HTTPS host port}:443"
+      - "127.0.0.1:${STAGING_HTTPS_PORT:?Set an approved staging HTTPS host port}:443"
     volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro"]
     secrets: [tls_certificate, tls_private_key]
     networks: [edge]
