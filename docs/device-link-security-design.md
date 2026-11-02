@@ -250,3 +250,11 @@ Transportwahl und Protokollvertrag freigegeben sind. Danach sind die
 Dateiänderungen schrittweise umzusetzen und die Tests in Abschnitt 5 als
 verbindliche Gates in CI und Geräteabnahme zu verankern. Keine bestehende
 Sicherheitsregel oder App-/Repository-Grenze darf dafür abgeschwächt werden.
+
+## Begleitdokumente (Entwürfe, keine Freigabe)
+
+- [Blocker-Inventar](device-link-blocker-inventory.md)
+- [Protokoll und Lebenszyklus](device-link-protocol-and-lifecycle.md)
+- [Transportbewertung](device-link-transport-decision.md)
+- [Zwei-Geräte-Abnahmetest (OFFEN)](device-link-acceptance-test.md)
+- Inerte Referenzimplementierung: `modules/device-link-reference/`

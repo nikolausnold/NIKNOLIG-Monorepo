@@ -25,6 +25,7 @@
     <string name="support_ai_not_checked">1 · Backend connection\nCheck whether the configured backend health endpoint can be reached. This does not enable AI features.</string>
     <string name="support_check_ai">Check backend connection</string>
     <string name="support_backend_checking">Checking backend connection …</string>
+    <string name="support_backend_history_incomplete">Connection history is incomplete; at least one check result could not be saved.</string>
     <string name="support_backend_ready">The backend health endpoint returned a valid response. This does not establish AI availability; AI support remains disabled.</string>
     <string name="support_backend_not_configured">No approved HTTPS backend address is configured in this build. No connection was made.</string>
     <string name="support_backend_invalid_response">The backend response did not match the expected health contract.</string>

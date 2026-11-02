@@ -32,7 +32,7 @@
     <string name="assistant_summary_replace_action">Replace and insert</string>
     <string name="assistant_refine_button">Refine analysis</string>
     <string name="assistant_task_heading">TASKS</string>
-    <string name="assistant_task_status">No tasks available. Task management is not configured in this preview.</string>
+    <string name="assistant_task_status">Manage local tasks: add, edit, check off and delete. They are not synchronized with other devices.</string>
     <string name="assistant_task_input_hint">Your task (max. 120 characters)</string>
     <string name="assistant_task_add_button">Add task</string>
     <string name="assistant_task_remove_button">Remove</string>
@@ -90,4 +90,7 @@
     <string name="learning_clear_confirmation_title">Delete learning profile?</string>
     <string name="learning_clear_confirmation_message">Your saved explanation style, session summary, and all feedback counters will be deleted from this device. Local counting will be turned off.</string>
     <string name="learning_clear_confirmation_action">Delete</string>
+    <string name="main_tasks_button">Tasks</string>
+    <string name="main_device_button">Device status</string>
+    <string name="main_warnings_button">Warnings and safety</string>
 </resources>

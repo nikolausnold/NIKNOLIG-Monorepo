@@ -93,9 +93,10 @@ class SupportActivity : Activity() {
     }
 
     private fun showSupportState() {
-        findViewById<TextView>(R.id.support_ai_status).setText(
-            backendStatus ?: R.string.support_ai_unavailable
-        )
+        val status = getString(backendStatus ?: R.string.support_ai_unavailable)
+        val historyComplete = runCatching { connectionLog().state().historyComplete }.getOrDefault(false)
+        findViewById<TextView>(R.id.support_ai_status).text =
+            if (historyComplete) status else "$status\n${getString(R.string.support_backend_history_incomplete)}"
         checkButton.visibility = View.VISIBLE
     }
 
@@ -136,6 +137,9 @@ class SupportActivity : Activity() {
             .setText(R.string.support_backend_checking)
         Thread({
             val result = BackendHealthClient(BuildConfig.BACKEND_BASE_URL).check()
+            val historySaved = runCatching {
+                connectionLog().record(result.toConnectionCode(), System.currentTimeMillis())
+            }.getOrDefault(false)
             val message = when (result) {
                 BackendHealthResult.Ready -> R.string.support_backend_ready
                 BackendHealthResult.NotConfigured -> R.string.support_backend_not_configured
@@ -158,6 +162,9 @@ class SupportActivity : Activity() {
                     lastDiagnostic = diagnostic.name
                     checkButton.isEnabled = true
                     showSupportState()
+                    if (!historySaved) {
+                        Toast.makeText(this, R.string.support_backend_history_incomplete, Toast.LENGTH_LONG).show()
+                    }
                     if (SupportAssistant.diagnose(diagnostic).escalationRequired) {
                         val encrypted = runCatching { payloadCipher.encrypt("") }.getOrNull()
                         if (encrypted != null) {

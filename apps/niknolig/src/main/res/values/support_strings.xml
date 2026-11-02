@@ -25,6 +25,7 @@
     <string name="support_ai_not_checked">1 · Backend-Verbindung\nPrüfe, ob der konfigurierte Backend-Health-Endpunkt erreichbar ist. Das schaltet keine KI-Funktion frei.</string>
     <string name="support_check_ai">Backend-Verbindung prüfen</string>
     <string name="support_backend_checking">Backend-Verbindung wird geprüft …</string>
+    <string name="support_backend_history_incomplete">Der Verbindungsverlauf ist unvollständig; mindestens ein Prüfergebnis konnte nicht gespeichert werden.</string>
     <string name="support_backend_ready">Backend-Health-Endpunkt hat gültig geantwortet. Das bestätigt keine KI-Verfügbarkeit; KI-Support bleibt deaktiviert.</string>
     <string name="support_backend_not_configured">Keine freigegebene HTTPS-Backend-Adresse in diesem Build konfiguriert. Es wurde keine Verbindung hergestellt.</string>
     <string name="support_backend_invalid_response">Backend-Antwort entsprach nicht dem erwarteten Health-Vertrag.</string>

@@ -124,6 +124,30 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_large"
             android:text="@string/assistant_open_button" />
+        <Button
+            android:id="@+id/tasks_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:text="@string/main_tasks_button" />
+        <Button
+            android:id="@+id/device_status_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:text="@string/main_device_button" />
+        <Button
+            android:id="@+id/warnings_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:text="@string/main_warnings_button" />
+        <Button
+            android:id="@+id/website_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_medium"
+            android:text="@string/support_website_button" />
 
         <LinearLayout
             android:layout_width="match_parent"
