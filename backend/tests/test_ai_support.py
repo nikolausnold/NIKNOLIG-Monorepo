@@ -720,7 +720,7 @@ class CloudflareAdapterTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             CloudflareWorkersAI()
 
-    def test_separate_contract_marks_preparation_and_preserves_health_only(self):
+    def test_separate_contract_marks_preparation_and_preserves_health_and_session_only(self):
         backend = Path(__file__).resolve().parents[1]
         contract = (backend / "ai-support.openapi.yaml").read_text()
         self.assertIn("openapi: 3.1.0", contract)
@@ -729,7 +729,12 @@ class CloudflareAdapterTests(unittest.TestCase):
         self.assertIn("message:", contract)
         self.assertIn("Not deployed, activated, or production-approved", contract)
         self.assertIn("durable distributed quotas", contract)
-        self.assertNotIn("/v1/", (backend / "openapi.yaml").read_text())
+        paths = {
+            line.strip().removesuffix(":")
+            for line in (backend / "openapi.yaml").read_text().splitlines()
+            if line.startswith("  /")
+        }
+        self.assertEqual({"/health/live", "/health/ready", "/v1/session"}, paths)
 
 
 if __name__ == "__main__":

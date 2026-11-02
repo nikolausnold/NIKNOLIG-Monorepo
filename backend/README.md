@@ -1,9 +1,11 @@
 # Gemeinsame Backend-Grundlage
 
-**Status: lokale Vorbereitung und deploybare Health-ASGI-Laufzeit, nicht produktionsfreigegeben.**
+**Status: lokale Vorbereitung mit konfigurierbarer Supabase-JWT-Prüfung für
+`GET /v1/session` und deploybare Health-ASGI-Laufzeit, nicht produktionsfreigegeben.**
 
 Dieses Verzeichnis definiert gemeinsame, versionierte Verträge für die getrennten
-Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` dient lokal;
+Apps `com.niknolig.app` und `com.niknolig.defense`. `app.py` dient lokal und
+stellt den geschützten Sessioncheck bereit;
 `asgi.py` prüft echte PostgreSQL- und Migrationsbereitschaft. Android-Module
 enthalten getrennte Clients ausschließlich für `GET /health/ready`.
 Produkt-, Login-, Geräte- und Pairing-APIs bleiben gesperrt. Eine separate
@@ -394,16 +396,30 @@ Infrastrukturkosten erfordern vor Aktivierung ausdrücklich Zustimmung.
 ## Artefakte
 
 - [`openapi.yaml`](openapi.yaml): OpenAPI 3.1-Vertrag für nicht-sensitive
-  Liveness-/Readiness-Prüfungen und einheitliche Fehlerantworten. Es sind bewusst
-  noch keine operativen Geräte-, Profil- oder Pairing-Endpunkte freigegeben.
-- [`app.py`](app.py): lokale stdlib-Health-/gesperrte KI-Vorbereitungs-Laufzeit;
-  [`asgi.py`](asgi.py): zusätzliche FastAPI-Health-Laufzeit mit PostgreSQL-Prüfung.
+  Liveness-/Readiness-Prüfungen, den geschützten Sessioncheck und einheitliche
+  Fehlerantworten. Es sind bewusst noch keine operativen Geräte-, Profil- oder
+  Pairing-Endpunkte freigegeben.
+- [`app.py`](app.py), [`authentication.py`](authentication.py) und
+  [`database.py`](database.py): lokale HTTP-Laufzeit. `/v1/session` prüft ein
+  signiertes Supabase-JWT gegen HTTPS-JWKS, festen Issuer, Audience, Ablaufzeit
+  und serververwaltetes `app_metadata.app_area`. Es stellt keine Tokens aus,
+  erstellt keine Konten und implementiert keine Produkt-API. `/health/ready`
+  prüft wie die zusätzliche FastAPI-Health-Laufzeit [`asgi.py`](asgi.py)
+  PostgreSQL und die Migrations-Invarianten mit einer begrenzten asynchronen
+  Probe. Ohne Konfiguration, Datenbank oder gültige Migration meldet es 503.
+- [`authorization.py`](authorization.py): fail-closed Prüfung von Produktbereich,
+  Aktion, Ablaufzeit, Issuer/Audience und bereits bestätigtem Gerätezustand.
+  Sie verifiziert weder Tokens noch stellt sie diese aus; ungeprüfte
+  Client-Claims sind kein vertrauenswürdiger Eingabewert und die Policy ist noch
+  an keinen API-Endpunkt angeschlossen.
 - [`migrations/001_initial_contract.sql`](migrations/001_initial_contract.sql):
   vorgeschlagenes relationales Modell für App-Bereiche, Installationen,
   Geräteidentitätsstatus und spätere Zwei-App-Link-Beziehungen. Das Anwenden der
   Migration ist bis zur Architektur-/Security-Freigabe gesperrt.
 - [`compose.yaml`](compose.yaml): lokale PostgreSQL-Entwicklung, Loopback-only;
   [`compose.production.yaml`](compose.production.yaml): separates Health-Deployment.
+- [`requirements.txt`](requirements.txt): fest gepinnte Laufzeitabhängigkeiten
+  einschließlich PostgreSQL-Treiber, PyJWT und Kryptographiebibliothek.
 - [`.env.example`](.env.example): Variablennamen ohne eingetragene Credentials.
 - [`contracts/`](contracts/): versionierte, deklarative Entwürfe für
   Gerätewechsel-Zustimmung, minimierte Audit-Ereignisse, Sensor-Capabilities und
@@ -434,10 +450,12 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    einem Linkstatus.
 2. **Authentifizierung:** Geschützte API-Aufrufe benötigen künftig kurzlebige,
    widerrufbare Zugriffsnachweise mit festgelegtem Aussteller, Zielgruppe,
-   Ablaufzeit, App-Bereich und minimalen Aktionsrechten. Tokenformat, Aussteller,
-   Login-/Registrierungsfluss, Schlüsselrotation und Durchsetzung sind offen;
-   aus dem Bearer-Schema des OpenAPI-Vertrags folgt keine implementierte oder
-   freigegebene Authentifizierung.
+   Ablaufzeit, App-Bereich und minimalen Aktionsrechten. `/v1/session` verifiziert
+   lokal RS256-/ES256-JWTs mit konfiguriertem Supabase-Issuer/JWKS/Audience und
+   serververwaltetem `app_metadata.app_area`; Login/Registrierung,
+   Schlüsselrotation im Produktivbetrieb, Aktionsrechte und produktive Freigabe
+   bleiben offen. Der Sessioncheck ist keine vollständige Authentifizierung für
+   Produktdaten.
 3. **Geräteidentität:** Eine Installations-ID oder ein Android-Gerätename ist
    kein Authentizitätsnachweis. Vorgesehen ist eine registrierte
    App-Installation mit Challenge-basierter Besitzprüfung eines
@@ -461,7 +479,7 @@ eine Korrelations-ID; interne Details sind nicht offenzulegen.
    Schemaabweichung 503. Antworten legen keine Umgebungsvariablen, internen Hosts,
    Stacktraces oder Datenbankdetails offen.
 
-## Lokale Datenbankumgebung
+## Lokale API- und Datenbankumgebung
 
 Docker Compose veröffentlicht PostgreSQL ausschließlich auf
 `127.0.0.1:54329` (konfigurierbar), nutzt ein erforderliches lokales Passwort,
@@ -478,6 +496,7 @@ Baseline-Migration mit Python 3 starten. Zuvor auf die direkte
 `backend_health`-Anmeldung und deren separates Secret umstellen:
 
 ```sh
+python3 -m pip install -r backend/requirements.txt
 python3 backend/app.py
 ```
 
@@ -493,6 +512,13 @@ Die Standardbibliotheks-HTTP-Laufzeit ist nur für lokale Entwicklung und
 Vertragstests gedacht: nicht öffentlich exponieren oder als produktiven
 Internetserver verwenden. Die separate ASGI-Konfiguration ersetzt keine
 Produktions-, TLS-, Authentifizierungs- oder Betriebsfreigabe.
+
+Für den lokalen `/v1/session`-Check sind zusätzlich `BACKEND_APP_AREA`,
+`AUTH_ISSUER`, `AUTH_JWKS_URL` und `AUTH_AUDIENCE` mit den Werten des autorisierten
+Supabase-Projekts zu konfigurieren; es werden keine Zugangsdaten oder Token
+gespeichert. Issuer und JWKS-Endpunkt müssen zur gleichen `*.supabase.co`-Domain
+gehören. Ohne vollständige Auth-Konfiguration antwortet `/v1/session` fail-closed
+mit 503. Die separate ASGI-Laufzeit stellt diesen lokalen Sessioncheck nicht bereit.
 
 ## SecurityChain-P0 und Freigabe
 
@@ -568,9 +594,12 @@ Produktverbindung fail closed; Health-Abfragen geben keine geschützten Rechte.
 ## Verifikation und nächste Schritte
 
 `python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,
-Healthchecks und die gesperrte lokale Support-Route. KI-Mocks werden ebenfalls
-geprüft. Die lokale
-Compose-Konfiguration kann mit diesem Platzhalter syntaktisch geprüft werden:
+synthetisch signierte JWTs, App-Bereichstrennung, entfernte JWKS-Schlüssel und
+Readiness-Zustände einschließlich DB-Timeout sowie die gesperrte lokale
+Support-Route und KI-Mocks. Die JWT-Tests verwenden
+synthetische Schlüssel; sie bestätigen keine Verbindung zu einem echten
+Supabase-Projekt. Sofern Docker Compose installiert ist, kann die
+lokale Compose-Konfiguration mit diesem lokalen Platzhalter syntaktisch geprüft werden:
 
 ```sh
 POSTGRES_PASSWORD=local-only-check docker compose \
@@ -578,8 +607,8 @@ POSTGRES_PASSWORD=local-only-check docker compose \
 ```
 
 Der Datenbankstart verlangt bewusst ein gesetztes lokales Passwort und ist nicht
-Teil der automatischen Tests. Keine der Prüfungen belegt eine operative API,
-sichere Authentifizierung, P0-Freigabe oder Verbindung zwischen zwei physischen
+Teil der automatischen Tests. Die Tests belegen keine Supabase-Projektkonfiguration,
+P0-Freigabe, Produkt-API, App-Integration oder Verbindung zwischen zwei physischen
 Geräten.
 
 Gerätewechsel-, Sensorverträge, Android API-/Berechtigungsanforderungen und

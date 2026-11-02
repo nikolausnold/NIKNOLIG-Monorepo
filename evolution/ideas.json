@@ -86,9 +86,9 @@
         },
         {
           "path": "backend/README.md",
-          "startLine": 570,
-          "endLine": 572,
-          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,\nHealthchecks und die gesperrte lokale Support-Route. KI-Mocks werden ebenfalls\ngeprüft.",
+          "startLine": 596,
+          "endLine": 601,
+          "excerpt": "`python3 -m unittest discover -s backend/tests` prüft Vertragsinvarianten,\nsynthetisch signierte JWTs, App-Bereichstrennung, entfernte JWKS-Schlüssel und\nReadiness-Zustände einschließlich DB-Timeout sowie die gesperrte lokale\nSupport-Route und KI-Mocks. Die JWT-Tests verwenden\nsynthetische Schlüssel; sie bestätigen keine Verbindung zu einem echten\nSupabase-Projekt. Sofern Docker Compose installiert ist, kann die",
           "state": "verified"
         }
       ]

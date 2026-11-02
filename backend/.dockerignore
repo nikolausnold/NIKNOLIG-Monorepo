@@ -1,5 +1,7 @@
 *
 !requirements.txt
+!app.py
+!authentication.py
 !asgi.py
 !database.py
 !migrate.py

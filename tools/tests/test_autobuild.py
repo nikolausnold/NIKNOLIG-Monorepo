@@ -175,10 +175,23 @@ class AutobuildTests(unittest.TestCase):
         for workflow_name in ("android-build.yml", "android-release.yml"):
             workflow = (ROOT / ".github/workflows" / workflow_name).read_text()
             with self.subTest(workflow=workflow_name):
-                self.assertNotIn("python3 -m unittest", workflow)
+                self.assertNotIn("python3 -m unittest discover -s tools/tests", workflow)
                 self.assertNotIn("tools.system_updates", workflow)
         build_workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
+        self.assertNotIn("python3 -m unittest", build_workflow)
         self.assertIn("./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug", build_workflow)
+
+    def test_manual_release_installs_backend_dependencies_before_regression_tests(self):
+        workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
+        install = workflow.index("- name: Install backend test dependencies")
+        tests = workflow.index("- name: Run contract regression tests for manual builds")
+        signing = workflow.index("- name: Validate and stage release keystores")
+        self.assertLess(install, tests)
+        self.assertLess(tests, signing)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", workflow[install:tests])
+        self.assertIn("pip install --user -r backend/requirements.txt", workflow[install:tests])
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", workflow[tests:signing])
+        self.assertIn("python3 -m unittest discover -s backend/tests", workflow[tests:signing])
 
     def test_android_client_reports_are_preserved_without_claiming_missing_test_success(self):
         workflow = (ROOT / ".github/workflows/android-build.yml").read_text()

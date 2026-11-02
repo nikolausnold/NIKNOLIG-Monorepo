@@ -30,6 +30,13 @@ class BackendHealthServerTests(unittest.TestCase):
         self.thread.join()
         self.server.server_close()
 
+    def test_liveness_does_not_depend_on_database_readiness(self):
+        self.readiness_probe.side_effect = RuntimeError("database unavailable")
+        with urlopen(self.base_url + "/health/live", timeout=2) as response:
+            self.assertEqual(200, response.status)
+            self.assertEqual({"status": "live"}, json.load(response))
+        self.readiness_probe.assert_not_called()
+
     def test_health_routes_match_the_openapi_status_contract(self):
         for path, expected in (
             ("/health/live", {"status": "live"}),
@@ -50,13 +57,23 @@ class BackendHealthServerTests(unittest.TestCase):
             urlopen(self.base_url + "/health/ready", timeout=2)
 
         self.assertEqual(503, raised.exception.code)
+        self.assertEqual("no-store", raised.exception.headers["Cache-Control"])
         body = json.load(raised.exception)
         self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
         self.assertEqual(
             "Service is temporarily unavailable.", body["error"]["message"]
         )
         self.assertNotIn("secret database address", json.dumps(body))
-        self.assertIn("requestId", body["error"])
+        self.assertRegex(
+            body["error"]["requestId"],
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        )
+
+    def test_readiness_returns_200_only_after_dependency_probe_succeeds(self):
+        self.readiness_probe.side_effect = None
+        with urlopen(self.base_url + "/health/ready", timeout=2) as response:
+            self.assertEqual(200, response.status)
+            self.assertEqual({"status": "ready"}, json.load(response))
 
     def test_default_readiness_probe_checks_postgres_and_migrations(self):
         with patch("app.database.probe", new_callable=AsyncMock) as probe:
