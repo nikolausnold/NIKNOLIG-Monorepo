@@ -1,7 +1,7 @@
 name: ${STAGING_COMPOSE_PROJECT:?Set a unique staging Compose project name}
 
 x-backend: &backend
-  image: niknolig-health-backend:local
+  image: niknolig-health-backend:staging
   build:
     context: .
   read_only: true
