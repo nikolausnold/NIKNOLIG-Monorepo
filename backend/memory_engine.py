@@ -67,6 +67,8 @@ class MemoryRecord:
 
 
 class MemoryStore(Protocol):
+    """Adapters must support weak references for bounded expiry scheduling."""
+
     def put(self, record: MemoryRecord, *, limit: int) -> bool: ...
     def get(self, app: str, subject: str, record_id: UUID) -> MemoryRecord | None: ...
     def replace(self, record: MemoryRecord) -> bool: ...
@@ -150,10 +152,7 @@ class _ExpiryScheduler:
         self._pending = 0
 
     def schedule(self, store, record, delay):
-        try:
-            store_ref = weakref.ref(store)
-        except TypeError:
-            store_ref = lambda: store
+        store_ref = weakref.ref(store)
         with self._condition:
             live_entries = []
             for entry in self._queue:
@@ -245,10 +244,7 @@ class _ExpiryScheduler:
             self._pending -= 1
 
     def _schedule_values(self, store, app, subject, record_id, expires_at, delay):
-        try:
-            store_ref = weakref.ref(store)
-        except TypeError:
-            store_ref = lambda: store
+        store_ref = weakref.ref(store)
         with self._condition:
             heapq.heappush(self._queue, (
                 time.monotonic() + delay, next(self._sequence), store_ref,
@@ -336,6 +332,27 @@ class MemoryService:
         except MemoryEngineError:
             pass
         return False
+
+    def _rollback_unconfirmed_update(self, original, attempted):
+        try:
+            persisted = self._store_call(
+                self.store.get, original.app, original.subject, original.id)
+            if persisted is None:
+                _EXPIRY_SCHEDULER.cancel(
+                    self.store, original.app, original.subject, original.id)
+                return True
+            if type(persisted) is not MemoryRecord:
+                return False
+            if persisted == original:
+                return True
+            if persisted != attempted:
+                return False
+            self._store_call(self.store.replace, original)
+            return self._store_call(
+                self.store.get, original.app, original.subject, original.id
+            ) == original
+        except MemoryEngineError:
+            return False
 
     @staticmethod
     def _own(principal, records):
@@ -453,6 +470,15 @@ class MemoryService:
             if type(persisted) is not MemoryRecord or persisted != record:
                 self._rollback_unconfirmed_write(record)
                 raise MemoryEngineError("STORE_UNAVAILABLE")
+            try:
+                now = self._authorize(principal, "memory:write")
+                self._require_consent(principal, consent_evidence, now)
+                if record.expires_at <= now:
+                    raise MemoryEngineError("STORE_UNAVAILABLE")
+            except MemoryEngineError as error:
+                if not self._rollback_unconfirmed_write(record):
+                    raise MemoryEngineError("STORE_UNAVAILABLE") from None
+                raise error
         return record
 
     def recall(self, principal, query, *, consent_evidence, limit=MAX_RECALL):
@@ -466,8 +492,11 @@ class MemoryService:
             now = self._authorize(principal, "memory:read")
             self._require_consent(principal, consent_evidence, now)
             self._purge_expired(principal, now)
-            records = self._own(principal, self._store_call(
-                self.store.list, principal.app, principal.subject))
+            stored_records = self._store_call(
+                self.store.list, principal.app, principal.subject)
+            if type(stored_records) is not tuple:
+                raise MemoryEngineError("STORE_UNAVAILABLE")
+            records = self._own(principal, stored_records)
             scored = []
             for record in records:
                 score = len(terms & _terms(record.content))
@@ -498,13 +527,23 @@ class MemoryService:
                 self._purge_expired(principal, now)
                 raise MemoryEngineError("NOT_FOUND")
             updated = replace(current[0], content=new_content, updated_at=now)
-            replaced = self._store_call(self.store.replace, updated)
-            persisted = self._store_call(
-                self.store.get, principal.app, principal.subject, record_id)
-            if replaced is not True and persisted is None:
-                raise MemoryEngineError("NOT_FOUND")
-            if type(persisted) is not MemoryRecord or persisted != updated:
-                raise MemoryEngineError("STORE_UNAVAILABLE")
+            try:
+                replaced = self._store_call(self.store.replace, updated)
+                persisted = self._store_call(
+                    self.store.get, principal.app, principal.subject, record_id)
+                if replaced is not True and persisted is None:
+                    raise MemoryEngineError("NOT_FOUND")
+                if type(persisted) is not MemoryRecord or persisted != updated:
+                    raise MemoryEngineError("STORE_UNAVAILABLE")
+                now = self._authorize(principal, "memory:write")
+                self._require_consent(principal, consent_evidence, now)
+                if persisted.expires_at <= now:
+                    self._purge_expired(principal, now)
+                    raise MemoryEngineError("NOT_FOUND")
+            except MemoryEngineError as error:
+                if not self._rollback_unconfirmed_update(current[0], updated):
+                    raise MemoryEngineError("STORE_UNAVAILABLE") from None
+                raise error
         return updated
 
     def forget(self, principal, record_id):

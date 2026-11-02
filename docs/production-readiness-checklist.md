@@ -1,35 +1,37 @@
 # NIKNOLIG / NIKNOLIG Defense – Infrastruktur- und Produktionsfreigabe
 
-**Status: NICHT FREIGEGEBEN.** Diese Liste trennt prüfbare Repository-/CI-Nachweise
-von externen Betreiber- und menschlichen Freigaben. Ein vorhandener Compose-Stack
-oder erfolgreicher Build ist keine Produktionsabnahme. Stand der verifizierten
-Code-/CI-Nachweise: Commit `dcffb6e04758fa949b2ad2724a99a0913223ec23` auf PR #189.
+**Status: NICHT FREIGEGEBEN.** Diese Liste trennt lokale Nachweise,
+GitHub-CI-Baselines und externe Betreiber-/Menschengates. Ein vorhandener
+Compose-Stack oder erfolgreicher Build ist keine Produktionsabnahme. Die zuletzt
+erfolgreichen GitHub-Läufe vor diesem Änderungssatz verwendeten SHA
+`51f85deee2f5bb8b1c04728c94ae9884f5bca14a`; sie belegen nicht die nachfolgenden
+Änderungen.
 
 ## Gate-Matrix
 
 | Gate | Status | Nachweis / Blocker |
 | --- | --- | --- |
 | App- und Mandantentrennung | **PASS (Repository)** | `:niknolig` und `:niknolig-defense` bleiben getrennte Application-IDs und App-Module. Gemeinsame Bibliotheken gewähren keine Rechte; `backend/tests/test_contracts.py` verbietet direkte App-zu-App-Abhängigkeiten. Produktive Cross-App-Datenflüsse sind nicht implementiert. |
-| Backend-/PostgreSQL-Testlauf | **PASS (lokal)** | `python3 -m unittest discover -s backend/tests`: 242 Tests bestanden, einschließlich 19 PostgreSQL-abhängiger Tests mit dem in CI gepinnten, wegwerfbaren PostgreSQL-17.9-Image. |
-| Tooling-Tests | **PASS (lokal)** | `python3 -m unittest discover -s tools/tests`: 74 Tests bestanden. |
-| Android-Validierung | **PASS (CI, Code-SHA)** | [Android workflow, Lauf 41351419268](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41351419268), Versuch 2, Commit `dcffb6e`: erfolgreich; beide Android-Module werden gebaut, getestet und gelintet. Das ist keine Geräte-/Produktabnahme. |
-| Backend-/Contract-CI | **PASS (CI, Code-SHA)** | [Backend workflow, Lauf 41351419244](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41351419244), Versuch 2, Commit `dcffb6e`: erfolgreich, einschließlich PostgreSQL-Service und Tooling. |
-| CI auf aktuellem PR-Head | **FAIL / nicht nachgewiesen** | PR-Head `bc60f7130e069b9f31e71f1e292e185571296140` hatte bei der Prüfung null Statuschecks. Die zuletzt sichtbaren [Backend](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41381426596) und [Android](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41381426498)-Läufe auf `72af3b06af068e09d30a426039c56417e4f06a6b` endeten mit `action_required` und null Jobs. Die erfolgreichen Läufe auf `dcffb6e` ersetzen keine Checks auf einem späteren Head. |
-| Swift-Core-Tests | **PASS (lokal, Linux)** | `swift test --package-path modules/support/ios`: 15; `swift test --package-path modules/electro-engel/ios`: 8 bestanden. Dies sind portable Pakettests, keine nativen iOS-App-Builds. |
-| iOS-App-/Simulator-Builds | **FAIL / nicht nachgewiesen** | `xcodebuild` ist in dieser Linux-Umgebung nicht vorhanden. Für diesen Backend-/Dokumentationsstand liegt kein aktueller iOS-Simulator-Build vor. |
-| CodeQL / geänderte Dateien | **PASS (lokale Analyse)** | CodeQL meldete für die geprüften Memory-Engine-Änderungen 0 Alerts; Secret-Scan fand keine Geheimnisse. Die GitHub-Code-Scanning-Alert-API war in dieser Umgebung mit HTTP 403 nicht zugänglich; ein vollständiger Repository-Alert-Status wird daher nicht behauptet. |
+| Backend-/PostgreSQL-Testlauf | **PASS (lokal)** | Auf dem lokalen Änderungssatz: `python3 -m unittest discover -s backend/tests` → **251 bestanden, 1 übersprungen**, mit CI-gepinntem PostgreSQL-17.9-Digest. Der einzelne Skip ist der optionale JSON-Schema-Validator, weil `jsonschema` nicht Teil der Backend-Laufzeitabhängigkeiten ist. |
+| Tooling-Tests | **PASS (lokal)** | `python3 -m unittest discover -s tools/tests`: **74 bestanden**. |
+| Android-Validierung | **PASS (vorheriger CI-SHA)** | [Android workflow, Lauf 41382290982](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41382290982), Versuch 2, SHA `51f85de`: beide APKs, App-Tests/Lint-/Identitätsprüfungen erfolgreich. Der Lauf enthält nicht die hier dokumentierten Änderungen und ist keine Geräte-/Produktabnahme. |
+| Backend-/Contract-CI | **PASS (vorheriger CI-SHA)** | [Backend workflow, Lauf 41382290646](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41382290646), Versuch 2, SHA `51f85de`: PostgreSQL-Backend- und Tooling-Jobs erfolgreich. Keine Aussage über den neuen Commit. |
+| CI auf diesem Änderungssatz | **PENDING / Gate nicht bestanden** | Erforderliche Backend- und Android-Checks müssen nach Push auf dem resultierenden PR-Head erfolgreich laufen. Ergebnisse auf `51f85de` ersetzen sie nicht. |
+| Swift-Core-Tests | **PASS (vorherige CI-Baseline)** | Lauf `41382290982` enthielt den erfolgreichen portablen `electro-engel-ios-core`-Job; lokal waren zuvor 15 Support- und 8 Elektro-Engel-Core-Tests bestanden. Keine App-Simulator-Builds. |
+| iOS-App-/Simulator-Builds | **FAIL / nicht nachgewiesen** | `xcodebuild` ist lokal nicht verfügbar. Der iOS-App-Workflow reagiert nur auf iOS-Pfade; dieser Änderungssatz enthält keine iOS-Quellen und löste keinen nativen Simulator-Build aus. |
+| CodeQL / geänderte Dateien | **PENDING für diesen Änderungssatz** | Unabhängiger Security-Review fand keine Befunde. CodeQL wird nach dem Commit auf diesem Änderungssatz ausgeführt. GitHub-Code-Scanning-Alerts konnten wegen HTTP 403 nicht vollständig über die API geprüft werden. |
 | Externe Security-/Datenschutzfreigabe | **FAIL** | SecurityChain-P0 bleibt ein nicht genehmigter Reviewentwurf; unabhängige, commitgebundene Security-/Datenschutzsignoffs fehlen. Technische Tests ersetzen sie nicht. |
 | Identität und Sitzung | **FAIL** | Kein bestätigter Identitätsanbieter, Issuer/Audience-/App-Scope-Vertrag, produktiver Tokenvalidator, Login, Widerruf, Recovery oder getrennte synthetische Staging-Identitäten. `RejectAllAuthenticator` bleibt Standard. |
 | Staging-Host, DNS und TLS | **FAIL / extern offen** | `backend/compose.staging.yaml` ist eine isolierte Health-only-Vorlage mit Pflichtvariablen und getrennten Secrets/Volumes. Es wurden weder Staging-Hostname noch DNS, Zertifikat, Firewall, Hetzner-Zugang oder Deployment bestätigt. Die Vorlage wurde nicht gestartet. |
-| Staging-Compose-Modell | **PASS (Konfigurationsprüfung)** | `docker compose -f backend/compose.staging.yaml config --quiet` akzeptierte alle erforderlichen Variablen; ohne Pflichtwerte schlug die Prüfung fail-closed fehl. Der Staging-Backend-Image-Tag ist vom Produktions-Tag getrennt. Für die reine Modellprüfung wurden kurzlebige Platzhalter und `/dev/null`-Dateipfade verwendet; es wurden keine Container gestartet und keine Geheimnisse oder Domainwerte erzeugt. |
+| Staging-Compose-Modell | **PASS (Konfigurationsprüfung)** | `docker compose ... config` mit zwei unterschiedlichen Projektwerten erzeugte zwei unterschiedliche, projektgebundene Backend-Image-Tags; HTTPS bindet an `127.0.0.1`. Pflichtwerte bleiben fail-closed. Es wurden kurzlebige Platzhalter und `/dev/null`-Dateipfade verwendet; keine Staging-Container gestartet. |
 | PostgreSQL-Produktdaten | **FAIL** | Der vorhandene Stack und die Migrationen belegen Health-Readiness, nicht ein freigegebenes Produktdaten-/Memory-Schema. Eine produktive Memory-Migration, Verschlüsselung, KMS/HSM und Datenbankrollen für Produktdaten fehlen. |
 | Backups und Storage Box | **PARTIAL / Gate nicht bestanden** | Das Backend-Runbook dokumentiert `pg_dump` direkt in `age`-Verschlüsselung, isolierte Restore-Prüfung und Rücknahme unter `backend/README.md` („Datenbanksicherung und kontrollierte Rücknahme“). Es gab keinen echten Backup-/Restore-Lauf oder Storage-Box-Transfer. SSH-Zugang, eingeschränkter Schlüssel, Retention, Verschlüsselungsschlüsselverwaltung und Restore-Nachweis sind offen. Nur verschlüsselte Backup-Dateien dürfen übertragen werden; die Storage Box ist kein Live-PostgreSQL-Datenträger. |
 | Zugriffsschutz / Netzwerk | **PARTIAL / Gate nicht bestanden** | Compose bindet PostgreSQL an ein internes Netzwerk. Staging veröffentlicht HTTPS nur auf `127.0.0.1`; externer Zugriff benötigt einen separat geprüften und freigegebenen Ingress sowie Betreiberprüfung von Host-Firewall, DNS/TLS und Zugangsschutz. Keine Remote-Konfiguration ist verifiziert. |
 | Logging / Audit | **PARTIAL / Gate nicht bestanden** | Health-Fehlerantworten und Logs sind generisch und inhaltsfrei; produktiver genehmigter Audit-Sink, Zugriffskontrolle, Aufbewahrung, Alarmierung und Incident-Prozess fehlen. |
 | Elektro-Engel / KI | **FAIL** | Kein Android-/iOS-Gateway-Client oder produktiver KI-Aufruf. Provider-, Datenfluss-, Region-, Kosten- und Secret-Freigabe fehlen; Runtime und Authentifizierung bleiben fail-closed. |
-| Memory Engine | **FAIL für Produktion; sicher deaktiviert** | Nicht in HTTP verdrahtet, `enabled=False`, In-Memory-Store, kein produktiver Consent-Verifier, keine persistente Verschlüsselung oder garantierte Löschung. |
+| Memory Engine | **FAIL für Produktion; sicher deaktiviert** | Regressionen prüfen aktuelle Autorisierung/Einwilligung nach Persistenz und Rollback partieller Updatefehler. Trotzdem nicht in HTTP verdrahtet, `enabled=False`, In-Memory-Store, kein produktiver Consent-Verifier, keine persistente Verschlüsselung oder verteilte/garantierte Löschung. |
 | Rollback / Wiederherstellung | **PARTIAL / Gate nicht bestanden** | Image-/Datenbank-Rücknahme und isolierte Restore-Schritte sind im Backend-Runbook dokumentiert. Kein tatsächlicher Staging-Restore, Recovery-Time-Nachweis oder Rollback-Drill auf Hetzner. |
-| PR-Schutz / Merge | **FAIL / blockiert** | PR #189 ist offen und GitHub meldet `mergeable_state=blocked`. Auto-Merge wurde in dieser Arbeit nicht geändert; der verfügbare PR-Read liefert keinen Auto-Merge-Wert, daher ist dessen tatsächlicher Zustand nicht verifiziert. |
+| PR-Schutz / Merge | **FAIL / blockiert** | PR #189 ist offen und GitHub meldet `mergeable_state=blocked`. Auto-Merge wurde nicht geändert. Die verfügbare PR-Abfrage liefert keinen Auto-Merge-Wert; ob er aktiv ist, bleibt damit nicht verifiziert. |
 | Live-Betrieb | **FAIL / nicht geprüft** | Kein Remote-Zugriff, DNS-/TLS-/Health-Nachweis oder Deployment auf dem Hetzner-Server. Es wurde keine produktive Änderung vorgenommen. |
 
 ## Staging-Konfiguration

@@ -109,6 +109,13 @@ class ProductionRuntimeTests(unittest.TestCase):
             staging,
         )
 
+    def test_staging_backend_image_is_namespaced_by_compose_project(self):
+        staging = (BACKEND / "compose.staging.yaml").read_text()
+        self.assertIn(
+            'image: "niknolig-health-backend:staging-${STAGING_COMPOSE_PROJECT:',
+            staging,
+        )
+
     def test_proxy_support_handlers_are_siblings_of_health_not_nested(self):
         config = (BACKEND / "Caddyfile").read_text()
         depth = 0

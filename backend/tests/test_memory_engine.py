@@ -406,6 +406,12 @@ class FaultyStore(InMemoryMemoryStore):
     def replace(self, record):
         if self.faults.get("replace_lies_true"):
             return True
+        if "replace_after_write" in self.faults:
+            fault = self.faults.pop("replace_after_write")
+            super().replace(record)
+            if fault == "raise":
+                raise RuntimeError("secret-detail")
+            return fault
         if self.faults.get("replace") == "raise":
             raise RuntimeError("secret-detail")
         return super().replace(record)
@@ -492,6 +498,31 @@ class MemoryEngineSecurityTest(unittest.TestCase):
                 self.assertEqual(super(HookedListStore, store).list(
                     p.app, p.subject), ())
 
+    def test_recall_rejects_invalid_second_store_list_result(self):
+        class InvalidSecondListStore(InMemoryMemoryStore):
+            def __init__(self):
+                super().__init__()
+                self.list_calls = 0
+                self.invalid_call = None
+
+            def list(self, app, subject):
+                self.list_calls += 1
+                if self.list_calls == self.invalid_call:
+                    return None
+                return super().list(app, subject)
+
+        store = InvalidSecondListStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        p = principal()
+        s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT)
+        store.list_calls = 0
+        store.invalid_call = 2
+
+        self.assertEqual(code(lambda: s.recall(
+            p, "alpha", consent_evidence=TEST_CONSENT)), "STORE_UNAVAILABLE")
+
     def test_remember_rechecks_authorization_after_scheduling(self):
         for scenario in ("principal_expired", "consent_revoked"):
             with self.subTest(scenario=scenario):
@@ -521,6 +552,60 @@ class MemoryEngineSecurityTest(unittest.TestCase):
                         consent_evidence=TEST_CONSENT)), expected)
 
                 self.assertEqual(store.list(p.app, p.subject), ())
+
+    def test_remember_rechecks_authorization_after_persisting(self):
+        class HookedPutStore(InMemoryMemoryStore):
+            hook = None
+
+            def put(self, record, *, limit):
+                result = super().put(record, limit=limit)
+                if self.hook is not None:
+                    self.hook()
+                return result
+
+        for scenario in ("principal_expired", "consent_revoked"):
+            with self.subTest(scenario=scenario):
+                now = [1000.0]
+                verifier = TestConsentVerifier()
+                store = HookedPutStore()
+                p = principal(expires=1001.0 if scenario == "principal_expired"
+                              else 2000.0)
+                if scenario == "principal_expired":
+                    store.hook = lambda: now.__setitem__(0, 1002.0)
+                    expected = "AUTHENTICATION_INVALID"
+                else:
+                    store.hook = lambda: setattr(verifier, "revoked", True)
+                    expected = "CONSENT_REQUIRED"
+                s = MemoryService(
+                    store=store, enabled=True, clock=lambda: now[0],
+                    consent_verifier=verifier)
+
+                self.assertEqual(code(lambda: s.remember(
+                    p, content="alpha beta", kind="fact",
+                    consent_evidence=TEST_CONSENT)), expected)
+                self.assertEqual(store.list(p.app, p.subject), ())
+                with _EXPIRY_SCHEDULER._condition:
+                    self.assertFalse(any(
+                        entry[2]() is store for entry in _EXPIRY_SCHEDULER._queue))
+
+    def test_remember_does_not_return_success_after_retention_expires(self):
+        now = [1000.0]
+
+        class AdvancingPutStore(InMemoryMemoryStore):
+            def put(self, record, *, limit):
+                result = super().put(record, limit=limit)
+                now[0] = record.expires_at + 1
+                return result
+
+        store = AdvancingPutStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
+        p = principal(expires=10**9)
+
+        self.assertEqual(code(lambda: s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT, retention_days=1)),
+            "STORE_UNAVAILABLE")
+        self.assertEqual(store.list(p.app, p.subject), ())
 
     def test_remember_timestamps_follow_expiry_purge_store_access(self):
         now = [1000.0]
@@ -596,6 +681,32 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             p, content="alpha beta", kind="fact",
             consent_evidence=TEST_CONSENT, retention_days=1)
         now[0] = record.expires_at - 1
+        store.advance_to = record.expires_at + 1
+
+        self.assertEqual(code(lambda: s.update(
+            p, record.id, content="gamma delta",
+            consent_evidence=TEST_CONSENT)), "NOT_FOUND")
+        store.advance_to = None
+        self.assertIsNone(store.get(p.app, p.subject, record.id))
+
+    def test_update_does_not_return_success_if_record_expires_during_replace(self):
+        now = [1000.0]
+
+        class AdvancingReplaceStore(InMemoryMemoryStore):
+            advance_to = None
+
+            def replace(self, record):
+                result = super().replace(record)
+                if self.advance_to is not None:
+                    now[0] = self.advance_to
+                return result
+
+        store = AdvancingReplaceStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: now[0])
+        p = principal(expires=10**9)
+        record = s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT, retention_days=1)
         store.advance_to = record.expires_at + 1
 
         self.assertEqual(code(lambda: s.update(
@@ -720,6 +831,56 @@ class MemoryEngineSecurityTest(unittest.TestCase):
             self.assertEqual(ctx.exception.code, "STORE_UNAVAILABLE")
             self.assertNotIn("secret-detail", repr(ctx.exception))
             self.assertIsNone(ctx.exception.__cause__)
+
+    def test_update_rolls_back_after_mutation_storage_failure(self):
+        p = principal()
+        store = FaultyStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        original = s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT)
+
+        store.faults["replace_after_write"] = "raise"
+        self.assertEqual(code(lambda: s.update(
+            p, original.id, content="gamma delta",
+            consent_evidence=TEST_CONSENT)), "STORE_UNAVAILABLE")
+        self.assertEqual(store.get(p.app, p.subject, original.id), original)
+
+    def test_update_rechecks_authorization_after_persisting(self):
+        class HookedReplaceStore(InMemoryMemoryStore):
+            hook = None
+
+            def replace(self, record):
+                result = super().replace(record)
+                if self.hook is not None:
+                    self.hook()
+                return result
+
+        for scenario in ("principal_expired", "consent_revoked"):
+            with self.subTest(scenario=scenario):
+                now = [1000.0]
+                verifier = TestConsentVerifier()
+                store = HookedReplaceStore()
+                p = principal(expires=1001.0 if scenario == "principal_expired"
+                              else 2000.0)
+                s = MemoryService(
+                    store=store, enabled=True, clock=lambda: now[0],
+                    consent_verifier=verifier)
+                original = s.remember(
+                    p, content="alpha beta", kind="fact",
+                    consent_evidence=TEST_CONSENT)
+                if scenario == "principal_expired":
+                    store.hook = lambda: now.__setitem__(0, 1002.0)
+                    expected = "AUTHENTICATION_INVALID"
+                else:
+                    store.hook = lambda: setattr(verifier, "revoked", True)
+                    expected = "CONSENT_REQUIRED"
+
+                self.assertEqual(code(lambda: s.update(
+                    p, original.id, content="gamma delta",
+                    consent_evidence=TEST_CONSENT)), expected)
+                store.hook = None
+                self.assertEqual(store.get(p.app, p.subject, original.id), original)
 
     def test_partial_write_failure_rolls_back_or_keeps_expiry_cleanup(self):
         p = principal()
@@ -909,6 +1070,24 @@ class MemoryEngineSecurityTest(unittest.TestCase):
                 consent_evidence="test.signed.consent")),
                 "STORE_UNAVAILABLE")
         self.assertEqual(store.list(p.app, p.subject), ())
+
+    def test_non_weak_referenceable_store_fails_before_write(self):
+        class NonWeakReferenceableStore:
+            __slots__ = ("delegate",)
+
+            def __init__(self):
+                self.delegate = InMemoryMemoryStore()
+
+            def __getattr__(self, name):
+                return getattr(self.delegate, name)
+
+        store = NonWeakReferenceableStore()
+        s = MemoryService(store=store, enabled=True, clock=lambda: 1000.0)
+        p = principal()
+        self.assertEqual(code(lambda: s.remember(
+            p, content="alpha beta", kind="fact",
+            consent_evidence=TEST_CONSENT)), "STORE_UNAVAILABLE")
+        self.assertEqual(store.delegate.list(p.app, p.subject), ())
 
     def test_total_memory_limit_and_deleted_state_are_bounded(self):
         store = InMemoryMemoryStore()

@@ -1,6 +1,6 @@
 # Elektro Engel – Bestandsaufnahme und Integrationsstand
 
-**Stand:** 2026-11-01 · Branch `fictional-succotash` (Basis `536af2c`).
+**Stand:** 2026-11-02 · Branch `fictional-succotash` (PR #189, Basis `536af2c`).
 Keine Produktionsfreigabe oder produktive Backend-Erreichbarkeit nachgewiesen;
 kein KI-Zugang.
 
@@ -110,40 +110,53 @@ Produktivziel vorausgesetzt.
 - **C** lokales Open-Source-Modell: `LocalModelProvider`-Schnittstelle vorhanden, keine Gewichte/Runtime.
 - **D** automatische Modellwahl: nicht begonnen. Keine Anbieterunabhängigkeit behauptet.
 
-## Tests (tatsächlich)
+## Tests und Sicherheitsnachweise (2026-11-02)
 
-- Backend lokal: `python -m unittest discover -s backend/tests` mit den gepinnten
-  `backend/requirements.txt`-Abhängigkeiten und einem kurzlebigen PostgreSQL-
-  17.9-Container nach CI-Konfiguration → **232 Tests bestanden, keine
-  übersprungen**. Damit wurden auch die PostgreSQL-Integrationen ausgeführt.
-  Regressionen decken Authentifizierung/Einwilligung, App-/Subject-Isolation,
-  parallele Principal- und globale Quoten, sensible Eingaben, Löschung,
-  Retention und Speicherfehler ab.
-- Tooling lokal: `python -m unittest discover -s tools/tests` → **74 Tests OK**.
-- GitHub Actions auf Code-Commit `e5a7bf7`: [Backend Contracts/Tooling](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41316873061)
-  und [Android Build](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41316873042)
-  erfolgreich (Retry, Versuch 2). Backend-Vertrags- und Tooling-Tests liefen
-  erfolgreich mit PostgreSQL-Service. Android assemblierte beide Debug-APKs und
-  bestand Client-Tests, Lint sowie Paket-/Signaturprüfungen; auch der portable
-  Elektro-Engel-iOS-Core-Testjob bestand. Das ist kein iOS-App-Simulator-Build.
-- Der Backend-Contracts/Tooling-Workflow auf `562b765` ist nach Retry
-  erfolgreich und nutzte den CI-PostgreSQL-Service. Die aktuellen
-  Memory-Engine-Änderungen wurden lokal mit derselben gepinnten PostgreSQL-
-  Imageversion verifiziert; ein Android-Build wurde dafür nicht erneut
-  ausgeführt.
-- Für den Backend-Code-Stand `981f884` melden [Backend](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41326654020)- und
-  [Android-Workflow](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41326648599)
-  `action_required`; für diesen SHA wurden noch keine CI-Jobs ausgeführt. Die
-  vollständigen lokalen Backend-Tests oben bestehen, ersetzen aber keinen
-  Android-Build auf diesem Commit.
-- Swift-Pakettests lokal unter Linux: `modules/support/ios` **15 bestanden**;
-  `modules/electro-engel/ios` **8 bestanden**. Das sind portable Core-Tests,
-  keine iOS-App-Builds. `xcodebuild`/Simulator-Builds waren unter Linux nicht
-  ausführbar; der iOS-Build-Workflow war für den aktuellen backend-only
-  Code-Commit nicht triggerbar. Android lokaler Gradle-Build scheiterte zuvor
-  beim Auflösen des Android-Gradle-Plugins `9.5.0`; der erfolgreiche
-  Android-CI-Lauf oben ist der belegte Buildnachweis für den Vorgängerstand.
-- Echter KI-Test: **nicht erbracht**; Definition of Done für „online“ nicht erfüllt.
+- Lokaler aktueller Arbeitsstand: Backend-Tests mit den gepinnten
+  `backend/requirements.txt`-Abhängigkeiten und einem wegwerfbaren PostgreSQL-
+  17.9-Container mit dem CI-Digest → **251 bestanden, 1 übersprungen**. Der
+  übersprungene Test benötigt das optionale, nicht installierte `jsonschema`;
+  die übrigen strukturellen Contract-Assertions liefen. Tooling: **74 bestanden**.
+- Neue Regressionen prüfen abgelaufenen Principal und Widerruf nach erfolgreichem
+  `put()`/`replace()`, abgelaufene Retention während `put()`/`replace()`, Rollback
+  einer nach partieller Persistierung fehlgeschlagenen Aktualisierung sowie das
+  fail-closed Verhalten für nicht weak-reference-fähige Store-Adapter. Die Engine
+  bleibt deaktiviert und ohne HTTP-Route.
+- GitHub Actions liefen für den vorherigen SHA `51f85deee2f5bb8b1c04728c94ae9884f5bca14a`
+  erfolgreich: [Backend/Tooling, Versuch 2](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41382290646)
+  sowie [Android und iOS-Core, Versuch 2](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41382290982).
+  Diese Läufe enthalten nicht die hier dokumentierten Änderungen; erforderliche
+  Checks für den Commit dieser Änderungen müssen separat auf GitHub erfolgreich
+  sein.
+- Ältere Läufe `41381585616` und `41381585598` hatten `action_required` und
+  zunächst `action_required`; das sind Run-Gates, keine fehlgeschlagenen Tests.
+  Das Android-Run `41381585598` wurde anschließend durch den Repository-Eigentümer
+  als Versuch 2 auf demselben SHA `bc60f713` ausgeführt und bestand. Das Backend-
+  Run `41381585616` sowie `41381106369` hatten beim Abfragen null Jobs und keine
+  fehlgeschlagenen Jobs/Logs; ein API-Grund war nicht verfügbar. Der spätere
+  Backend-Lauf auf `51f85de` bestand. Es wurden weder Prüfungen noch
+  Branch-Protection umgangen.
+- Der aktuelle Review-Snapshot auf `51f85de` meldete einen ungültigen Rückgabewert
+  bei der zweiten `store.list()`-Abfrage in `recall()`. Der neue Code weist diesen
+  Fall mit `STORE_UNAVAILABLE` ab; eine gezielte Regression prüft ihn. Die
+  unabhängige Security-Prüfung des Änderungssatzes fand keine hochkonfidenten
+  Befunde.
+- Android: Die vorherige erfolgreiche CI assemblierte beide Debug-APKs, führte
+  App-Tests/Lint-/Identitätsprüfungen aus und bestand den portablen Elektro-Engel-
+  iOS-Core-Job. Der aktuelle Änderungssatz enthält keine App-Quellen; CI-Nachweise
+  für den neuen Commit bleiben erforderlich.
+- iOS-App-/Simulator-Builds: **nicht erbracht**. Der iOS-Workflow ist auf
+  Änderungen unter `apps/ios/`, den iOS-Modulen und seiner Workflowdatei
+  beschränkt; für diesen Backend-/Compose-/Dokumentationssatz wurde kein
+  nativer Simulator-Build ausgelöst. Frühere portable Core-Tests ersetzen ihn
+  nicht. `xcodebuild` ist lokal nicht verfügbar.
+- Statische Prüfung: `compileall` für die geänderten Python-Dateien bestand.
+  Es gibt im Backend-Workflow keinen separaten Ruff-/Mypy-/Bandit-Lauf. Der
+  unabhängige Security-Review fand keine Befunde. CodeQL und Secret-Scan werden
+  für den finalen Änderungssatz vor Abschluss ausgeführt.
+- Echter KI-Aufruf: **nicht erbracht**. Es fehlen Provider-Zugang,
+  Datenfluss-/Kostenfreigabe und ein genehmigtes Stagingziel; kein Mock gilt
+  als Live-Nachweis.
 
 ## Spätere KI-Integration: vorhandener Vertrag, keine Memory-API
 
