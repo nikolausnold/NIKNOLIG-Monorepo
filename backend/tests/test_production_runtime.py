@@ -84,11 +84,37 @@ class ProductionRuntimeTests(unittest.TestCase):
     def test_production_api_service_builds_and_runs_the_exported_asgi_app(self):
         dockerfile = (BACKEND / "Dockerfile").read_text()
         compose = (BACKEND / "compose.production.yaml").read_text()
+        staging = (BACKEND / "compose.staging.yaml").read_text()
         self.assertIn("COPY asgi.py", dockerfile)
         self.assertIn('CMD ["uvicorn", "asgi:app"', dockerfile)
         self.assertIn("api:", compose)
         self.assertIn("build:", compose)
         self.assertIn("context: .", compose)
+        production_image = next(
+            line.split(":", 1)[1].strip()
+            for line in compose.splitlines()
+            if line.startswith("  image:")
+        )
+        staging_image = next(
+            line.split(":", 1)[1].strip()
+            for line in staging.splitlines()
+            if line.startswith("  image:")
+        )
+        self.assertNotEqual(production_image, staging_image)
+
+    def test_staging_https_port_is_bound_to_loopback(self):
+        staging = (BACKEND / "compose.staging.yaml").read_text()
+        self.assertIn(
+            '"127.0.0.1:${STAGING_HTTPS_PORT:?Set an approved staging HTTPS host port}:443"',
+            staging,
+        )
+
+    def test_staging_backend_image_is_namespaced_by_compose_project(self):
+        staging = (BACKEND / "compose.staging.yaml").read_text()
+        self.assertIn(
+            'image: "niknolig-health-backend:staging-${STAGING_COMPOSE_PROJECT:',
+            staging,
+        )
 
     def test_proxy_support_handlers_are_siblings_of_health_not_nested(self):
         config = (BACKEND / "Caddyfile").read_text()

@@ -23,6 +23,12 @@ Die Android-Apps sind die bestehenden Gradle-Module `:niknolig` und
 bleiben in ihrer Zuständigkeit unverändert. Dieses Dokument autorisiert keine
 Änderung in den Android-Quell-Repositories.
 
+Beide Module verwenden die gemeinsame Bibliothek `:electro-engel-core` für den
+lokalen Elektro-Engel-Analyzer und `:support-core` für gemeinsame Support-
+Komponenten. Die App-Module hängen nicht voneinander ab; Bibliotheksteilung
+überträgt weder Identitäten noch Daten oder Berechtigungen. Der gemeinsame
+Analyzer ist deterministische lokale Logik, kein KI-Gateway-Client.
+
 `backend/` ist bereits die gemeinsame, plattformneutrale Vertragsquelle:
 
 | Bestehende Quelle | Tatsächlicher Umfang | Grenze |
@@ -56,22 +62,41 @@ Erkennung in der normalen NIKNOLIG-App. Lokale Assistenzvorschau ist keine
 Infrastruktur-Erkennung. Datenzugriffe, Berechtigungen, automatische Aktionen
 und Datenschutzdetails bleiben offen; D-01 ist nicht abgeschlossen.
 
-**KI-Support-Vorbereitung:** `backend/ai-support.openapi.yaml` dokumentiert
-separat `POST /support` mit gemeinsamem `app`-/`message`-Request für beide Apps.
-Die lokale Route bleibt standardmäßig gesperrt, ist nicht in der Produktions-
-ASGI registriert und ist keine Analyse-API; der lokale Dekoder ruft sie nicht auf.
-`backend/ai_support.py` bereitet austauschbare Provider, Zugriffskontrolle,
-Limits und Audit für lokale Mock-Tests vor; kein produktiver Identity-Provider
-oder KI-Transport wird aktiviert. `backend/openapi.yaml` bleibt der
-Health-Vertrag. [Backend-Konfiguration, Kosten und Freigabefolge](../backend/README.md#ki-support-vorbereitete-schnittstelle-keine-betriebsfreigabe)
-sind zentral dokumentiert. Die Android-Module prüfen nach Nutzeraktion getrennt und ohne Credentials
-ausschließlich den bestehenden `GET /health/ready`-Health-Vertrag über je App
-konfigurierte HTTPS-URLs. Die iOS-Targets spiegeln diesen nicht-sensitiven
-Health-Check mit getrennten Build-Einstellungen wider. Dies verbindet keine KI-
-oder Produktfunktion. Geschützte Operationen benötigen eigene App-Identitäten,
-Credentials, den freigegebenen versionierten Vertrag und einen verständlichen
-Offline-/Nichtverfügbarkeitszustand ohne Auto-Retry oder automatische
-E-Mail-Übermittlung.
+**Gemeinsame KI-Schnittstelle – vorbereitet, nicht produktiv freigegeben:**
+`backend/ai-support.openapi.yaml` beschreibt zwei getrennte Requestformate:
+`POST /support` akzeptiert genau `app` und `message` und setzt `feature=support`;
+`POST /v1/ai/support` akzeptiert `app`, `feature` und `prompt` und kann auch
+`electro-engel` auswählen. Die Pfade sind keine Payload-Aliase. ASGI und Caddy
+registrieren die Routen; der standardmäßige
+`SupportService` ist jedoch deaktiviert und hat weder einen aktiven Provider noch
+einen Authenticator, der Anfragen akzeptiert. Ein registrierter HTTP-Pfad ist
+weder ein produktiver Authentifizierungsdienst noch eine P0-Freigabe.
+
+Der bestehende Contract begrenzt Requests, verlangt einen unabhängig verifizierten
+Bearer-Principal, prüft serverseitig `principal.app == request.app` und
+`ai:<feature>` für genau diesen App-Bereich und gibt nur untrusted Plain Text
+oder generische Fehlercodes zurück. Bei fehlender Authentifizierung/
+Autorisierung, Provider-, Audit- oder Quota-Fehlern wird kontrolliert abgebrochen;
+es gibt keinen synthetischen KI-Fallback. Audit-Metadaten dürfen keine Prompts,
+Antworten, Tokens oder Subject-IDs enthalten. Der App-Wert im JSON ist eine Scope-Angabe,
+kein Identitätsnachweis. Ein späterer Client muss sein eigenes, app-gebundenes
+Zugriffstoken verwenden; Tokens, Providerzugänge und Nutzerkennungen dürfen nicht
+in die andere App, den Request-Body, Logs oder Git übertragen werden. TLS,
+kurze Timeouts, begrenzte Payloads, keine automatischen Wiederholungen und eine
+sichtbare Fehler-/Eskalationsmeldung sind Voraussetzungen; eine lokale
+regelbasierte Antwort darf nicht als KI-Ergebnis ausgegeben werden.
+
+Die Android-`AssistantActivity`-Flows rufen derzeit ausschließlich den lokalen,
+deterministischen `ElectroEngelAnalyzer` auf; sie sind keine generative KI.
+`SupportActivity` erzeugt lokale Supporthinweise und prüft separat nur
+`GET /health/ready`; in keiner App existiert ein Gateway-Client oder Login.
+Damit ist die gemeinsame Backend-Schnittstelle noch nicht in Android integriert.
+`backend/openapi.yaml` bleibt der Health-Vertrag; der separate AI-Contract erteilt
+keine Betriebsfreigabe. Der konkrete Integrationsschritt bleibt blockiert, bis
+SecurityChain-P0, Token-Aussteller/Audience/Widerruf, Audit- und Kostenkontrollen,
+Datenschutz und Betreiberfreigabe nachgewiesen sind. Danach sind Clients und
+Vertragstests je App separat zu integrieren; keine gemeinsame Identität oder
+gegenseitige Datenrechte.
 
 ## 2. Gemeinsame Vertrags- und Backend-Architektur
 
