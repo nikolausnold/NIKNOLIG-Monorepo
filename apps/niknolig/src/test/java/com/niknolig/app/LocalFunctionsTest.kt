@@ -128,6 +128,32 @@ class ConnectionLogTest {
         assertNull(log.state().lastSuccessMillis)
         assertTrue(log.state().failures.isEmpty())
     }
+
+    @Test
+    fun failedRecordMarksHistoryIncompleteUntilSuccessfulClear() {
+        val store = MemoryPersistence()
+        val log = ConnectionLog(store)
+        assertTrue(log.clear())
+        store.fail = true
+        assertFalse(log.record(ConnectionCode.NETWORK_ERROR, 1))
+        assertFalse(log.state().historyComplete)
+        store.fail = false
+        assertTrue(log.record(ConnectionCode.NETWORK_ERROR, 2))
+        assertFalse(log.state().historyComplete)
+        assertTrue(log.clear())
+        assertTrue(log.state().historyComplete)
+    }
+
+    @Test
+    fun exceptionsWhileReadingHistoryAreReportedAsIncomplete() {
+        val store = object : TextPersistence {
+            override fun read(): String? = error("storage unavailable")
+            override fun write(value: String) = true
+        }
+        val log = ConnectionLog(store)
+        assertFalse(log.record(ConnectionCode.NETWORK_ERROR, 1))
+        assertFalse(log.state().historyComplete)
+    }
 }
 
 class PairingGateTest {
@@ -155,7 +181,7 @@ class PairingGateTest {
         )
         val overview = SecurityOverview.build(
             listOf(
-                SecurityCheck(SecurityCheckId.BACKUP_DISABLED, true),
+                SecurityCheck(SecurityCheckId.BACKUP_FLAG_DISABLED, true),
                 SecurityCheck(SecurityCheckId.NOT_DEBUGGABLE, false),
             ),
             state,
@@ -163,7 +189,7 @@ class PairingGateTest {
         )
         assertEquals(listOf(2L, 1L), overview.events.map { it.timeMillis })
         assertEquals(listOf(SecurityCheckId.NOT_DEBUGGABLE), overview.failedChecks)
-        assertEquals(listOf(SecurityCheckId.BACKUP_DISABLED), overview.passedChecks)
+        assertEquals(listOf(SecurityCheckId.BACKUP_FLAG_DISABLED), overview.passedChecks)
         assertEquals(PairingBlocker.values().toList(), overview.blockers)
     }
 }

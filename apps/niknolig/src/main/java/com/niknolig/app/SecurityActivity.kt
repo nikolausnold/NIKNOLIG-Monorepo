@@ -20,6 +20,11 @@ class SecurityActivity : Activity() {
             if (!isFinishing && !isDestroyed) render()
         }
     }
+    private val logListener = {
+        runOnUiThread {
+            if (!isFinishing && !isDestroyed) render()
+        }
+    }
     private lateinit var content: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,21 +47,25 @@ class SecurityActivity : Activity() {
     override fun onResume() {
         super.onResume()
         connectionPreferences.registerOnSharedPreferenceChangeListener(connectionListener)
+        log.addListener(logListener)
         render()
     }
 
     override fun onPause() {
         connectionPreferences.unregisterOnSharedPreferenceChangeListener(connectionListener)
+        log.removeListener(logListener)
         super.onPause()
     }
 
     private fun render() {
-        val overview = SecurityOverview.build(runtimeSecurityChecks(), log.state(), PairingGate.evaluate())
+        val connectionState = log.state()
+        val overview = SecurityOverview.build(runtimeSecurityChecks(), connectionState, PairingGate.evaluate())
         content.removeAllViews()
 
         section(R.string.security_events_heading)
+        if (!connectionState.historyComplete) body(getString(R.string.security_events_incomplete))
         if (overview.events.isEmpty()) {
-            body(getString(R.string.security_events_none))
+            if (connectionState.historyComplete) body(getString(R.string.security_events_none))
         } else {
             overview.events.forEach {
                 body(getString(R.string.security_event_line, formatTime(it.timeMillis), getString(it.code.labelRes())))
@@ -65,7 +74,7 @@ class SecurityActivity : Activity() {
 
         section(R.string.security_checks_heading)
         overview.failedChecks.forEach {
-            body(getString(R.string.security_check_failed, getString(it.labelRes())))
+            body(getString(R.string.security_check_failed, getString(it.failureRes())))
         }
         overview.passedChecks.forEach {
             body(getString(R.string.security_check_passed, getString(it.labelRes())))
@@ -114,9 +123,17 @@ private fun ConnectionCode.labelRes(): Int = when (this) {
 }
 
 private fun SecurityCheckId.labelRes(): Int = when (this) {
-    SecurityCheckId.BACKUP_DISABLED -> R.string.security_check_backup
+    SecurityCheckId.BACKUP_FLAG_DISABLED -> R.string.security_check_backup
     SecurityCheckId.CLEARTEXT_BLOCKED -> R.string.security_check_cleartext
     SecurityCheckId.NOT_DEBUGGABLE -> R.string.security_check_debuggable
     SecurityCheckId.BACKEND_HTTPS -> R.string.security_check_https
     SecurityCheckId.ONLY_INTERNET_PERMISSION -> R.string.security_check_permissions
+}
+
+private fun SecurityCheckId.failureRes(): Int = when (this) {
+    SecurityCheckId.BACKUP_FLAG_DISABLED -> R.string.security_check_backup_failed
+    SecurityCheckId.CLEARTEXT_BLOCKED -> R.string.security_check_cleartext_failed
+    SecurityCheckId.NOT_DEBUGGABLE -> R.string.security_check_debuggable_failed
+    SecurityCheckId.BACKEND_HTTPS -> R.string.security_check_https_failed
+    SecurityCheckId.ONLY_INTERNET_PERMISSION -> R.string.security_check_permissions_failed
 }

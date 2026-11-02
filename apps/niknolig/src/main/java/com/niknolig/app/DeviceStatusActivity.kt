@@ -41,6 +41,11 @@ class DeviceStatusActivity : Activity() {
     private lateinit var networkStatus: TextView
     private lateinit var lastConnection: TextView
     private lateinit var checkButton: Button
+    private val checkObserver: (ConnectionCheckState) -> Unit = { state ->
+        runOnUiThread {
+            if (::checkButton.isInitialized && !isFinishing && !isDestroyed) renderCheckState(state)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,44 +79,52 @@ class DeviceStatusActivity : Activity() {
         }
         findViewById<Button>(R.id.device_close_button).setOnClickListener { finish() }
 
-        networkStatus.setText(R.string.device_status_network_unchecked)
         showLastSuccess()
     }
 
     override fun onResume() {
         super.onResume()
-        if (::lastConnection.isInitialized) showLastSuccess()
+        if (::lastConnection.isInitialized) {
+            showLastSuccess()
+            ConnectionCheckCoordinator.observe(checkObserver)
+        }
+    }
+
+    override fun onPause() {
+        ConnectionCheckCoordinator.remove(checkObserver)
+        super.onPause()
     }
 
     private fun showLastSuccess() {
-        val last = log.state().lastSuccessMillis
-        lastConnection.text = if (last == null) getString(R.string.device_status_last_success_none)
+        val state = log.state()
+        val last = state.lastSuccessMillis
+        val value = if (last == null) getString(R.string.device_status_last_success_none)
         else getString(R.string.device_status_last_success, formatTime(last))
+        lastConnection.text = if (state.historyComplete) value
+        else "$value\n${getString(R.string.device_status_history_incomplete)}"
     }
 
     private fun checkConnection() {
-        checkButton.isEnabled = false
-        networkStatus.setText(R.string.support_backend_checking)
-        Thread({
-            val result = BackendHealthClient(BuildConfig.BACKEND_BASE_URL).check()
-            val code = result.toConnectionCode()
-            runCatching { log.record(code, System.currentTimeMillis()) }
-            runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
-                checkButton.isEnabled = true
-                networkStatus.setText(
-                    when (result) {
-                        BackendHealthResult.Ready -> R.string.support_backend_ready
-                        BackendHealthResult.NotConfigured -> R.string.support_backend_not_configured
-                        BackendHealthResult.InvalidResponse -> R.string.support_backend_invalid_response
-                        BackendHealthResult.TimedOut -> R.string.support_backend_timeout
-                        BackendHealthResult.NetworkError -> R.string.support_backend_network_error
-                        is BackendHealthResult.HttpError -> R.string.support_backend_http_error
-                    },
-                )
-                showLastSuccess()
-            }
-        }, "niknolig-device-status-check").start()
+        ConnectionCheckCoordinator.start(applicationContext, BuildConfig.BACKEND_BASE_URL)
+    }
+
+    private fun renderCheckState(state: ConnectionCheckState) {
+        checkButton.isEnabled = !state.isChecking
+        val result = state.result
+        networkStatus.setText(
+            if (state.isChecking) R.string.support_backend_checking
+            else result?.let {
+                when (it) {
+                    BackendHealthResult.Ready -> R.string.support_backend_ready
+                    BackendHealthResult.NotConfigured -> R.string.support_backend_not_configured
+                    BackendHealthResult.InvalidResponse -> R.string.support_backend_invalid_response
+                    BackendHealthResult.TimedOut -> R.string.support_backend_timeout
+                    BackendHealthResult.NetworkError -> R.string.support_backend_network_error
+                    is BackendHealthResult.HttpError -> R.string.support_backend_http_error
+                }
+            } ?: R.string.device_status_network_unchecked,
+        )
+        showLastSuccess()
     }
 
     private fun showPairingBlockers(gate: PairingGate.Blocked?) {
@@ -136,7 +149,7 @@ internal fun PairingBlocker.messageRes(): Int = when (this) {
 internal fun Context.runtimeSecurityChecks(): List<SecurityCheck> {
     val flags = applicationInfo.flags
     return listOf(
-        SecurityCheck(SecurityCheckId.BACKUP_DISABLED, flags and ApplicationInfo.FLAG_ALLOW_BACKUP == 0),
+        SecurityCheck(SecurityCheckId.BACKUP_FLAG_DISABLED, flags and ApplicationInfo.FLAG_ALLOW_BACKUP == 0),
         SecurityCheck(
             SecurityCheckId.CLEARTEXT_BLOCKED,
             !NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted,

@@ -1,11 +1,18 @@
 package com.niknolig.defense
 
+import android.content.Context
+import java.util.concurrent.CopyOnWriteArraySet
+
 /** Result codes only; no URLs, tokens, payloads or other secrets are ever stored. */
 internal enum class ConnectionCode { READY, NOT_CONFIGURED, INVALID_RESPONSE, TIMED_OUT, NETWORK_ERROR, HTTP_ERROR }
 
 internal data class ConnectionFailure(val timeMillis: Long, val code: ConnectionCode)
 
-internal data class ConnectionState(val lastSuccessMillis: Long?, val failures: List<ConnectionFailure>)
+internal data class ConnectionState(
+    val lastSuccessMillis: Long?,
+    val failures: List<ConnectionFailure>,
+    val historyComplete: Boolean = true,
+)
 
 /**
  * Records user-initiated backend health checks. Failures are bounded and contain
@@ -14,6 +21,13 @@ internal data class ConnectionState(val lastSuccessMillis: Long?, val failures: 
  */
 internal class ConnectionLog(private val persistence: TextPersistence) {
     fun state(): ConnectionState = synchronized(operationLock) {
+        runCatching { readState() }.getOrElse {
+            historyComplete = false
+            ConnectionState(null, emptyList(), false)
+        }
+    }
+
+    private fun readState(): ConnectionState {
         var success: Long? = null
         val failures = mutableListOf<ConnectionFailure>()
         persistence.read().orEmpty().lineSequence().forEach { line ->
@@ -26,26 +40,88 @@ internal class ConnectionLog(private val persistence: TextPersistence) {
                 }?.let { failures += ConnectionFailure(time, it) }
             }
         }
-        ConnectionState(success, failures.takeLast(MAX_FAILURES))
+        return ConnectionState(success, failures.takeLast(MAX_FAILURES), historyComplete)
     }
 
     fun record(code: ConnectionCode, nowMillis: Long): Boolean = synchronized(operationLock) {
         if (code == ConnectionCode.NOT_CONFIGURED) return true
-        val current = state()
-        val lines = mutableListOf<String>()
-        val success = if (code == ConnectionCode.READY) nowMillis else current.lastSuccessMillis
-        success?.let { lines += "S|$it" }
-        val failures = if (code == ConnectionCode.READY) current.failures
-        else (current.failures + ConnectionFailure(nowMillis, code)).takeLast(MAX_FAILURES)
-        failures.forEach { lines += "F|${it.timeMillis}|${it.code.name}" }
-        persistence.write(lines.joinToString("\n"))
+        val saved = runCatching {
+            val current = readState()
+            val lines = mutableListOf<String>()
+            val success = if (code == ConnectionCode.READY) nowMillis else current.lastSuccessMillis
+            success?.let { lines += "S|$it" }
+            val failures = if (code == ConnectionCode.READY) current.failures
+            else (current.failures + ConnectionFailure(nowMillis, code)).takeLast(MAX_FAILURES)
+            failures.forEach { lines += "F|${it.timeMillis}|${it.code.name}" }
+            persistence.write(lines.joinToString("\n"))
+        }.getOrDefault(false)
+        if (!saved) historyComplete = false
+        notifyListeners()
+        saved
     }
 
-    fun clear(): Boolean = synchronized(operationLock) { persistence.write("") }
+    fun clear(): Boolean = synchronized(operationLock) {
+        val cleared = runCatching { persistence.write("") }.getOrDefault(false)
+        if (cleared) historyComplete = true
+        notifyListeners()
+        cleared
+    }
+
+    fun addListener(listener: () -> Unit) { listeners += listener }
+    fun removeListener(listener: () -> Unit) { listeners -= listener }
+
+    private fun notifyListeners() { listeners.forEach { it() } }
 
     companion object {
         const val MAX_FAILURES = 20
         private val operationLock = Any()
+        private val listeners = CopyOnWriteArraySet<() -> Unit>()
+        @Volatile private var historyComplete = true
+    }
+}
+
+internal data class ConnectionCheckState(
+    val isChecking: Boolean = false,
+    val result: BackendHealthResult? = null,
+)
+
+internal object ConnectionCheckCoordinator {
+    private val lock = Any()
+    private var current = ConnectionCheckState()
+    private val observers = CopyOnWriteArraySet<(ConnectionCheckState) -> Unit>()
+
+    fun observe(observer: (ConnectionCheckState) -> Unit) {
+        observers += observer
+        observer(synchronized(lock) { current })
+    }
+
+    fun remove(observer: (ConnectionCheckState) -> Unit) {
+        observers -= observer
+    }
+
+    fun start(context: Context, url: String) {
+        val started = synchronized(lock) {
+            if (current.isChecking) return
+            current = ConnectionCheckState(isChecking = true, result = current.result)
+            current
+        }
+        publish(started)
+        Thread({
+            val result = runCatching { BackendHealthClient(url).check() }
+                .getOrDefault(BackendHealthResult.NetworkError)
+            runCatching {
+                context.applicationContext.connectionLog().record(result.toConnectionCode(), System.currentTimeMillis())
+            }
+            val completed = synchronized(lock) {
+                ConnectionCheckState(result = result)
+                    .also { current = it }
+            }
+            publish(completed)
+        }, "niknolig-device-status-check").start()
+    }
+
+    private fun publish(state: ConnectionCheckState) {
+        observers.forEach { it(state) }
     }
 }
 
@@ -79,7 +155,7 @@ internal sealed class PairingGate {
 
 internal data class SecurityCheck(val id: SecurityCheckId, val passed: Boolean)
 
-internal enum class SecurityCheckId { BACKUP_DISABLED, CLEARTEXT_BLOCKED, NOT_DEBUGGABLE, BACKEND_HTTPS, ONLY_INTERNET_PERMISSION }
+internal enum class SecurityCheckId { BACKUP_FLAG_DISABLED, CLEARTEXT_BLOCKED, NOT_DEBUGGABLE, BACKEND_HTTPS, ONLY_INTERNET_PERMISSION }
 
 internal data class SecurityOverview(
     val events: List<ConnectionFailure>,

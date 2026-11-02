@@ -48,6 +48,7 @@ class PeerRegistry(
 
     private val peers = mutableMapOf<DeviceId, Entry>()
     private val revocationSequences = mutableMapOf<DeviceId, Long>()
+    private val trustGenerations = mutableMapOf<DeviceId, Long>()
 
     /**
      * Completes pairing only after the local user compared the confirmation code. A pairing result is
@@ -55,7 +56,11 @@ class PeerRegistry(
      * trust: only a handshake started after the revocation may.
      */
     @Synchronized
-    fun completePairing(pending: PendingPairing, userConfirmed: Boolean): PairedPeer? {
+    fun completePairing(
+        pending: PendingPairing,
+        userConfirmed: Boolean,
+        remoteConfirmation: PairingConfirmation?,
+    ): PairedPeer? {
         if (!pending.consume()) {
             audit.record(AuditType.PAIRING_FAILED, pending.peerId, AuditResult.REPLAY)
             return null
@@ -68,8 +73,16 @@ class PeerRegistry(
             audit.record(AuditType.PAIRING_FAILED, pending.peerId, AuditResult.USER_DECLINED)
             return null
         }
+        if (remoteConfirmation == null || !pending.verifies(remoteConfirmation)) {
+            audit.record(AuditType.PAIRING_FAILED, pending.peerId, AuditResult.BAD_SIGNATURE)
+            return null
+        }
         val peer = PairedPeer(pending.peerId, pending.peerScope, pending.peerPublicKey)
-        peers[peer.id] = Entry(peer, PeerState.TRUSTED) // a fresh pairing replaces a revoked entry
+        val noticePending = peers[peer.id]?.revocationNoticePending == true
+        peers[peer.id] = Entry(peer, PeerState.TRUSTED).apply {
+            revocationNoticePending = noticePending
+        }
+        trustGenerations[peer.id] = (trustGenerations[peer.id] ?: 0L) + 1
         audit.record(AuditType.PAIRING_COMPLETED, peer.id, AuditResult.OK)
         return peer
     }
@@ -78,17 +91,26 @@ class PeerRegistry(
     fun state(id: DeviceId): PeerState? = peers[id]?.state
 
     @Synchronized
-    fun trustedKey(id: DeviceId): ByteArray? = peers[id]?.takeIf { it.state == PeerState.TRUSTED }?.peer?.publicKey
+    fun trustedKey(id: DeviceId): ByteArray? = peers[id]
+        ?.takeIf { it.state == PeerState.TRUSTED && !it.revocationNoticePending }
+        ?.peer?.publicKey?.copyOf()
+
+    @Synchronized
+    internal fun revocationKey(id: DeviceId): ByteArray? = peers[id]
+        ?.takeIf { it.revocationNoticePending }?.peer?.publicKey?.copyOf()
+
+    @Synchronized
+    internal fun trustGeneration(id: DeviceId): Long = trustGenerations[id] ?: 0L
 
     @Synchronized
     fun grant(id: DeviceId, scope: DataScope, direction: Direction, userConfirmed: Boolean): Boolean {
-        val entry = peers[id]?.takeIf { it.state == PeerState.TRUSTED }
+        val entry = peers[id]?.takeIf { it.state == PeerState.TRUSTED && !it.revocationNoticePending }
         if (entry == null || !userConfirmed || !policy.permits(local, scope, direction)) {
             audit.record(AuditType.AUTHORIZATION_DENIED, id, if (entry == null) AuditResult.UNKNOWN_PEER else AuditResult.NO_CONSENT)
             return false
         }
         entry.grants.removeAll { it.scope == scope && it.direction == direction }
-        entry.grants += Grant(scope, direction, clock.nowMillis() + consentTtlMillis)
+        entry.grants += Grant(scope, direction, clock.monotonicMillis() + consentTtlMillis)
         audit.record(AuditType.CONSENT_GRANTED, id, AuditResult.OK)
         return true
     }
@@ -110,6 +132,7 @@ class PeerRegistry(
         val entry = peers[id] ?: return
         entry.state = PeerState.REVOKED
         revocationSequences[id] = PairingSequence.next()
+        trustGenerations[id] = (trustGenerations[id] ?: 0L) + 1
         entry.grants.clear()
         entry.revocationNoticePending = true
         audit.record(AuditType.PEER_REVOKED, id, AuditResult.OK)
@@ -120,25 +143,46 @@ class PeerRegistry(
         peers.values.filter { it.revocationNoticePending }.map { it.peer.id }
 
     @Synchronized
-    fun noticeDelivered(id: DeviceId) { peers[id]?.revocationNoticePending = false }
+    fun noticeDelivered(delivery: RevocationDelivery, delivered: Boolean) {
+        val entry = peers[delivery.peerId] ?: return
+        if (!delivered || !delivery.consume() || !entry.revocationNoticePending ||
+            delivery.generation != (trustGenerations[delivery.peerId] ?: 0L)
+        ) return
+        entry.revocationNoticePending = false
+    }
 
     @Synchronized
     fun authorize(id: DeviceId, scope: DataScope, direction: Direction): Decision {
         val entry = peers[id]
         val decision = when {
             entry == null -> Decision.Deny(AuditResult.UNKNOWN_PEER)
-            entry.state == PeerState.REVOKED -> Decision.Deny(AuditResult.PEER_REVOKED)
+            entry.state == PeerState.REVOKED || entry.revocationNoticePending ->
+                Decision.Deny(AuditResult.PEER_REVOKED)
             !policy.permits(local, scope, direction) -> Decision.Deny(AuditResult.WRONG_DIRECTION)
             else -> {
                 val grant = entry.grants.firstOrNull { it.scope == scope && it.direction == direction }
                 when {
                     grant == null -> Decision.Deny(AuditResult.NO_CONSENT)
-                    clock.nowMillis() > grant.expiresAt -> Decision.Deny(AuditResult.CONSENT_EXPIRED)
+                    clock.monotonicMillis() >= grant.expiresAt -> Decision.Deny(AuditResult.CONSENT_EXPIRED)
                     else -> Decision.Allow
                 }
             }
         }
         if (decision is Decision.Deny) audit.record(AuditType.AUTHORIZATION_DENIED, id, decision.reason)
         return decision
+    }
+}
+
+class RevocationDelivery internal constructor(
+    internal val peerId: DeviceId,
+    internal val generation: Long,
+) {
+    private var consumed = false
+
+    @Synchronized
+    internal fun consume(): Boolean {
+        if (consumed) return false
+        consumed = true
+        return true
     }
 }

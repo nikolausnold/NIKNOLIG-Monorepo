@@ -4,9 +4,13 @@ import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
+import java.security.PublicKey
 import java.security.SecureRandom
 import java.security.Signature
+import java.security.AlgorithmParameters
+import java.security.interfaces.ECPublicKey
 import java.security.spec.ECGenParameterSpec
+import java.security.spec.ECParameterSpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 
@@ -27,6 +31,7 @@ object Crypto {
 
     fun verify(publicKeyX509: ByteArray, data: ByteArray, signature: ByteArray): Boolean = runCatching {
         val key = KeyFactory.getInstance("EC").generatePublic(X509EncodedKeySpec(publicKeyX509))
+        if (!usesP256(key)) return false
         Signature.getInstance(SIGNATURE_ALGORITHM).run {
             initVerify(key)
             update(data)
@@ -42,8 +47,21 @@ object Crypto {
         }
 
     fun isValidPublicKey(publicKeyX509: ByteArray): Boolean = runCatching {
-        KeyFactory.getInstance("EC").generatePublic(X509EncodedKeySpec(publicKeyX509))
-    }.isSuccess
+        val key = KeyFactory.getInstance("EC")
+            .generatePublic(X509EncodedKeySpec(publicKeyX509))
+        usesP256(key)
+    }.getOrDefault(false)
+
+    private fun usesP256(publicKey: PublicKey): Boolean {
+        val key = publicKey as? ECPublicKey ?: return false
+        val expected = AlgorithmParameters.getInstance("EC").apply {
+            init(ECGenParameterSpec("secp256r1"))
+        }.getParameterSpec(ECParameterSpec::class.java)
+        return key.params.curve == expected.curve &&
+            key.params.generator == expected.generator &&
+            key.params.order == expected.order &&
+            key.params.cofactor == expected.cofactor
+    }
 
     fun base64Url(bytes: ByteArray): String = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
 }
@@ -86,9 +104,11 @@ value class DeviceId(val value: String) {
 }
 
 interface Clock {
-    fun nowMillis(): Long
+    fun monotonicMillis(): Long
+    fun wallTimeMillis(): Long
 }
 
 object SystemClock : Clock {
-    override fun nowMillis(): Long = System.currentTimeMillis()
+    override fun monotonicMillis(): Long = System.nanoTime() / 1_000_000
+    override fun wallTimeMillis(): Long = System.currentTimeMillis()
 }

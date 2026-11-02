@@ -39,22 +39,23 @@ class InMemoryAuditLog(
     private val maxAgeMillis: Long = 30L * 24 * 60 * 60 * 1000,
 ) : AuditSink {
     private val events = ArrayDeque<AuditEvent>()
+    private val lock = Any()
 
-    override fun record(type: AuditType, peer: DeviceId?, result: AuditResult) {
+    override fun record(type: AuditType, peer: DeviceId?, result: AuditResult) = synchronized(lock) {
         prune()
-        events.addLast(AuditEvent(type, clock.nowMillis(), peer?.auditRef(), result))
+        events.addLast(AuditEvent(type, clock.wallTimeMillis(), peer?.auditRef(), result))
         while (events.size > maxEvents) events.removeFirst()
     }
 
-    fun snapshot(): List<AuditEvent> {
+    fun snapshot(): List<AuditEvent> = synchronized(lock) {
         prune()
-        return events.toList()
+        events.toList()
     }
 
-    fun clear() = events.clear()
+    fun clear() = synchronized(lock) { events.clear() }
 
     private fun prune() {
-        val cutoff = clock.nowMillis() - maxAgeMillis
+        val cutoff = clock.wallTimeMillis() - maxAgeMillis
         while (events.isNotEmpty() && events.first().timeMillis < cutoff) events.removeFirst()
     }
 }

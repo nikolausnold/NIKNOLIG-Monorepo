@@ -115,7 +115,7 @@ class TasksActivity : Activity() {
             minHeight = resources.getDimensionPixelSize(R.dimen.touch_target)
             setTextColor(getColor(if (task.done) R.color.text_secondary else R.color.text_primary))
             if (task.done) paintFlags = paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
-            contentDescription = getString(R.string.task_done_description, task.title)
+            contentDescription = task.title
             setOnCheckedChangeListener { _, checked ->
                 handle(repository.setDone(task.id, checked), R.string.task_saved)
             }
@@ -126,10 +126,12 @@ class TasksActivity : Activity() {
         }
         actions.addView(Button(this).apply {
             setText(R.string.task_edit_button)
+            contentDescription = getString(R.string.task_edit_accessibility, task.title)
             setOnClickListener { confirmEdit(task) }
         })
         actions.addView(Button(this).apply {
             setText(R.string.assistant_task_remove_button)
+            contentDescription = getString(R.string.task_remove_accessibility, task.title)
             setOnClickListener { confirmDelete(task) }
         })
         row.addView(actions)

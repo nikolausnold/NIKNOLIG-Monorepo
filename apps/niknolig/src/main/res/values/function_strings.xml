@@ -5,7 +5,8 @@
     <string name="task_edit_button">Bearbeiten</string>
     <string name="task_edit_title">Aufgabe bearbeiten</string>
     <string name="task_edit_save">Speichern</string>
-    <string name="task_done_description">Erledigt: %1$s</string>
+    <string name="task_edit_accessibility">Aufgabe „%1$s“ bearbeiten</string>
+    <string name="task_remove_accessibility">Aufgabe „%1$s“ entfernen</string>
     <string name="task_delete_title">Aufgabe löschen?</string>
     <string name="task_delete_message">„%1$s“ wird von diesem Gerät gelöscht. Das lässt sich nicht rückgängig machen.</string>
     <string name="task_delete_confirm">Löschen</string>
@@ -26,6 +27,7 @@
     <string name="device_status_check_button">Verbindung jetzt prüfen</string>
     <string name="device_status_last_success">Letzte erfolgreiche Verbindung: %1$s</string>
     <string name="device_status_last_success_none">Letzte erfolgreiche Verbindung: keine aufgezeichnet</string>
+    <string name="device_status_history_incomplete">Der Verbindungsverlauf ist unvollständig: Ein Prüfergebnis konnte nicht gespeichert werden.</string>
     <string name="device_status_permissions_heading">BERECHTIGUNGEN</string>
     <string name="device_status_permissions_ok">Angefordert wird nur INTERNET (normale Berechtigung, wird automatisch erteilt). Keine Kamera-, Mikrofon-, Standort-, Bluetooth- oder Kontaktberechtigung.</string>
     <string name="device_status_permissions_unexpected">Unerwartete Berechtigungen deklariert: %1$s</string>
@@ -49,11 +51,17 @@
     <string name="security_checks_heading">SICHERHEITSPRÜFUNGEN</string>
     <string name="security_check_passed">✔ %1$s</string>
     <string name="security_check_failed">✘ Sicherheitsprüfung fehlgeschlagen: %1$s</string>
-    <string name="security_check_backup">Daten-Backup der App ist ausgeschaltet</string>
+    <string name="security_check_backup">Das Android-Backup-Flag ist deaktiviert (Gerätetransfer nicht garantiert)</string>
     <string name="security_check_cleartext">Unverschlüsselter Netzwerkverkehr ist blockiert</string>
     <string name="security_check_debuggable">App ist nicht debugbar</string>
     <string name="security_check_https">Server-Adresse ist HTTPS (oder noch nicht konfiguriert)</string>
     <string name="security_check_permissions">Nur die Berechtigung INTERNET ist angefordert</string>
+    <string name="security_check_backup_failed">Das Android-Backup-Flag ist aktiviert</string>
+    <string name="security_check_cleartext_failed">Unverschlüsselter Netzwerkverkehr ist erlaubt</string>
+    <string name="security_check_debuggable_failed">Die App ist debugbar</string>
+    <string name="security_check_https_failed">Die Server-Adresse verwendet kein HTTPS</string>
+    <string name="security_check_permissions_failed">Es sind unerwartete Berechtigungen angefordert</string>
+    <string name="security_events_incomplete">Der Verlauf ist unvollständig, weil mindestens ein Ereignis nicht gespeichert werden konnte.</string>
     <string name="security_blockers_heading">OFFENE SICHERHEITSBLOCKER</string>
     <string name="security_blockers_none">Keine offenen Blocker.</string>
     <string name="security_hints_heading">HINWEISE (KEINE EREIGNISSE)</string>

@@ -5,7 +5,8 @@
     <string name="task_edit_button">Edit</string>
     <string name="task_edit_title">Edit task</string>
     <string name="task_edit_save">Save</string>
-    <string name="task_done_description">Done: %1$s</string>
+    <string name="task_edit_accessibility">Edit task “%1$s”</string>
+    <string name="task_remove_accessibility">Remove task “%1$s”</string>
     <string name="task_delete_title">Delete task?</string>
     <string name="task_delete_message">“%1$s” will be deleted from this device. This cannot be undone.</string>
     <string name="task_delete_confirm">Delete</string>
@@ -26,6 +27,7 @@
     <string name="device_status_check_button">Check connection now</string>
     <string name="device_status_last_success">Last successful connection: %1$s</string>
     <string name="device_status_last_success_none">Last successful connection: none recorded</string>
+    <string name="device_status_history_incomplete">Connection history is incomplete: a check result could not be saved.</string>
     <string name="device_status_permissions_heading">PERMISSIONS</string>
     <string name="device_status_permissions_ok">Only INTERNET is requested (normal permission, granted automatically). No camera, microphone, location, Bluetooth or contacts permission.</string>
     <string name="device_status_permissions_unexpected">Unexpected permissions declared: %1$s</string>
@@ -49,11 +51,17 @@
     <string name="security_checks_heading">SECURITY CHECKS</string>
     <string name="security_check_passed">✔ %1$s</string>
     <string name="security_check_failed">✘ Security check failed: %1$s</string>
-    <string name="security_check_backup">App data backup is turned off</string>
+    <string name="security_check_backup">Android backup flag is disabled (device transfer is not guaranteed)</string>
     <string name="security_check_cleartext">Unencrypted network traffic is blocked</string>
     <string name="security_check_debuggable">App is not debuggable</string>
     <string name="security_check_https">Server address is HTTPS (or not configured yet)</string>
     <string name="security_check_permissions">Only the INTERNET permission is requested</string>
+    <string name="security_check_backup_failed">Android backup flag is enabled</string>
+    <string name="security_check_cleartext_failed">Unencrypted network traffic is permitted</string>
+    <string name="security_check_debuggable_failed">The app is debuggable</string>
+    <string name="security_check_https_failed">The server address does not use HTTPS</string>
+    <string name="security_check_permissions_failed">Unexpected permissions are requested</string>
+    <string name="security_events_incomplete">History is incomplete because at least one event could not be saved.</string>
     <string name="security_blockers_heading">OPEN SECURITY BLOCKERS</string>
     <string name="security_blockers_none">No open blockers.</string>
     <string name="security_hints_heading">HINTS (NOT EVENTS)</string>
