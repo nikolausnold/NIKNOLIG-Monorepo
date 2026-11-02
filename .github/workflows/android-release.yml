@@ -2,13 +2,20 @@ name: Preparing release APKs
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional: publish a draft GitHub release with this tag (vMAJOR.MINOR.PATCH)"
+        required: false
+        type: string
+        default: ""
   workflow_run:
-    workflows: ["Android apps build"]
+    workflows: ["Android apps build", "Backend contracts and tooling"]
     branches: [main]
     types: [completed]
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: android-release
@@ -17,7 +24,8 @@ concurrency:
 jobs:
   assemble-release:
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_repository.full_name == github.repository &&
@@ -27,6 +35,17 @@ jobs:
     timeout-minutes: 30
     environment: android-release
     steps:
+      - name: Validate release tag input
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release_tag must match vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+
       - name: Check out repository
         uses: actions/checkout@v7
         with:
@@ -34,10 +53,59 @@ jobs:
           persist-credentials: false
 
       - name: Set up Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
+
+      - name: Validate approved production backend URLs
+        env:
+          NIKNOLIG_BACKEND_URL: ${{ vars.NIKNOLIG_BACKEND_URL }}
+          NIKNOLIG_DEFENSE_BACKEND_URL: ${{ vars.NIKNOLIG_DEFENSE_BACKEND_URL }}
+        run: |
+          set -euo pipefail
+          for name in NIKNOLIG_BACKEND_URL NIKNOLIG_DEFENSE_BACKEND_URL; do
+            value="${!name}"
+            if [[ -z "${value//[[:space:]]/}" ]]; then
+              echo "::error::Missing $name. Add its explicitly production-approved HTTPS origin as an Environment variable in Settings > Environments > android-release."
+              exit 1
+            fi
+          done
+          ./gradlew :niknolig:verifyReleaseBackendUrl \
+            :niknolig-defense:verifyReleaseBackendUrl --no-daemon
+
+      - name: Verify validation results for release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          runs="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs" \
+            -f "head_sha=$RELEASE_SHA" -f per_page=100)"
+          for workflow in android-build.yml backend-contracts.yml; do
+            if ! python3 -c '
+          import json
+          import sys
+
+          release_sha = sys.argv[1]
+          workflow_path = f".github/workflows/{sys.argv[2]}"
+          workflow_runs = json.load(sys.stdin).get("workflow_runs", [])
+          valid_events = {"push", "schedule", "workflow_dispatch"}
+          if not any(
+              run.get("path") == workflow_path
+              and run.get("head_sha") == release_sha
+              and run.get("head_branch") == "main"
+              and run.get("status") == "completed"
+              and run.get("conclusion") == "success"
+              and run.get("event") in valid_events
+              for run in workflow_runs
+          ):
+              raise SystemExit(1)
+          ' "$RELEASE_SHA" "$workflow" <<< "$runs"; then
+              echo "::error::No successful $workflow validation found for $RELEASE_SHA on main"
+              exit 1
+            fi
+          done
 
       - name: Assign update version
         shell: bash
@@ -105,6 +173,8 @@ jobs:
       - name: Assemble both signed release APKs and store bundles
         shell: bash
         env:
+          NIKNOLIG_BACKEND_URL: ${{ vars.NIKNOLIG_BACKEND_URL }}
+          NIKNOLIG_DEFENSE_BACKEND_URL: ${{ vars.NIKNOLIG_DEFENSE_BACKEND_URL }}
           NIKNOLIG_RELEASE_STORE_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_STORE_PASSWORD }}
           NIKNOLIG_RELEASE_KEY_ALIAS: niknolig
           NIKNOLIG_RELEASE_KEY_PASSWORD: ${{ secrets.NIKNOLIG_RELEASE_KEY_PASSWORD }}
@@ -255,3 +325,44 @@ jobs:
           keystore_dir="$RUNNER_TEMP/android-release"
           rm -f "$keystore_dir/niknolig-release.p12" "$keystore_dir/niknolig-defense-release.p12"
           rmdir "$keystore_dir" 2>/dev/null || true
+
+  publish-release:
+    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+    needs: assemble-release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: android-release
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified release artifacts
+        uses: actions/download-artifact@v8.0.2
+        with:
+          path: artifacts
+
+      - name: Create checksums and draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release_tag must match vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          existing_tag="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$RELEASE_TAG" \
+            --jq 'any(.[]; .ref == ("refs/tags/" + env.RELEASE_TAG))')"
+          if [[ "$existing_tag" == "true" ]]; then
+            echo "::error::Release tag $RELEASE_TAG already exists"
+            exit 1
+          fi
+          mkdir release
+          cp artifacts/niknolig-release-apk/*.apk release/niknolig-release.apk
+          cp artifacts/niknolig-defense-release-apk/*.apk release/niknolig-defense-release.apk
+          cp artifacts/niknolig-store-aab-*/*.aab release/niknolig-release.aab
+          cp artifacts/niknolig-defense-store-aab-*/*.aab release/niknolig-defense-release.aab
+          (cd release && sha256sum * > SHA256SUMS && cat SHA256SUMS)
+          gh release create "$RELEASE_TAG" release/* --repo "$GITHUB_REPOSITORY" \
+            --target "$RELEASE_SHA" --title "$RELEASE_TAG" --draft \
+            --notes "Signed release artifacts built by workflow run $GITHUB_RUN_ID. Verify with SHA256SUMS."

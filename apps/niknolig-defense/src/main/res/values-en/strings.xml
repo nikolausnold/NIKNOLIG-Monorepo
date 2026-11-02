@@ -2,19 +2,24 @@
     <string name="app_name">NIKNOLIG Defense</string>
     <string name="brand_name">NIKNOLIG Defense</string>
     <string name="assistant_name">Elektro-Engel</string>
-    <string name="assistant_description">Your assistant for transparent, controlled technology.</string>
-    <string name="system_status_heading">SYSTEM STATUS</string>
-    <string name="system_status">Development scaffold</string>
-    <string name="device_status">No devices connected</string>
-    <string name="support_heading">TECHNICAL SUPPORT</string>
-    <string name="support_description">For technical questions, contact us at n_nold@hotmail.com.</string>
+    <string name="assistant_description">Overview and support. Clearly structured, without pretending to offer protection or monitoring.</string>
+    <string name="system_status_heading">DEVELOPMENT STATUS</string>
+    <string name="system_status">Preview · no active protection service</string>
+    <string name="device_status">Device status: unknown — device discovery and monitoring are unavailable</string>
+    <string name="support_heading">SUPPORT CENTER</string>
+    <string name="support_description">Read offline help or prepare an email to support after confirmation. No AI service is connected.</string>
     <string name="support_payment_notice">Payment questions are not handled here. Please contact your payment provider or merchant directly. Do not send payment details to technical support.</string>
-    <string name="support_contact_button">Contact technical support</string>
+    <string name="support_contact_button">Open help and support</string>
     <string name="support_email">n_nold@hotmail.com</string>
-    <string name="support_email_subject">Technical support request – NIKNOLIG Defense</string>
-    <string name="support_email_body">Please describe your technical issue. Do not send passwords or payment details.</string>
+    <string name="official_website_url" translatable="false">https://defense.niknolig.com/</string>
+    <string name="support_email_subject">Technical support request – NIKNOLIG Defense · %1$s</string>
+    <string name="support_email_body">Request ID: %1$s\nApp: %2$s\nIssue class: %3$s\nDiagnostic: %4$s\n\nNo question text or conversation content was included. You must review and send this email yourself.</string>
     <string name="support_email_unavailable">No email app found on this device.</string>
     <string name="demo_notice">Preview — no device connection, security approval, or production feature is available yet.</string>
+    <string name="defense_access_heading">DEFENSE ACCESS · NOT AVAILABLE YET</string>
+    <string name="defense_access_notice">Planned: one free trial per eligible NIKNOLIG account lasting five consecutive 24-hour periods from the first explicitly confirmed, successful server-side Defense activation. No payment method required. Reinstalling, changing devices or switching platforms does not restart the trial.\n\nAdditionally, a separate 48 hours of free Defense access is intended for people demonstrably unable to get themselves out of an emergency. It must not be blocked solely because the trial expired or payment is missing. The specific safe, data-minimizing verification has not been defined.\n\nNeither a trial nor emergency access starts here. Activation time, remaining time and expiration are unavailable without secure account synchronization. Trial activation, emergency verification, purchase and restoration are not connected yet.\n\nAfter the regular trial expires, an optional permanent upgrade for a one-time €0.75 payment is planned for the same account on supported platforms. No subscription, automatic renewal, recurring charges or automatic payment. A purchase requires your explicit confirmation in the store; the final total price including taxes must be confirmed beforehand. NIKNOLIG remains usable without the upgrade.\n\nSecurity, emergency and infrastructure-discovery features are unavailable in this preview. An upgrade does not guarantee emergency assistance. In immediate danger, use the local emergency number.</string>
+    <string name="defense_emergency_heading">IMPORTANT IN AN EMERGENCY</string>
+    <string name="defense_emergency_notice">This preview has no protection or emergency-calling feature and does not share your location. It does not replace local emergency services. If you are in immediate danger, contact your local emergency services directly using the applicable emergency number.</string>
     <string name="learning_profile_button">Learning profile and privacy</string>
     <string name="learning_profile_title">Learning profile</string>
     <string name="learning_profile_description">Choose how Elektro-Engel should explain things and whether simple feedback may be counted locally.</string>
@@ -47,4 +52,46 @@
     <string name="learning_clear_confirmation_title">Delete learning profile?</string>
     <string name="learning_clear_confirmation_message">Your saved explanation style, session summary, and all feedback counters will be deleted from this device. Local counting will be turned off.</string>
     <string name="learning_clear_confirmation_action">Delete</string>
+    <string name="assistant_open_button">Open Elektro-Engel</string>
+    <string name="assistant_screen_title">Elektro-Engel</string>
+    <string name="assistant_screen_description">Local, rule-based German-language analysis. Your text stays on this device; no external AI is connected.</string>
+    <string name="assistant_help_heading">DECODE THE EVERYDAY</string>
+    <string name="assistant_help_description">Explore German terms and statements in four separate modes. Results are language-based cues, not verified facts.</string>
+    <string name="assistant_request_hint">Term or statement (max. 1000 characters)</string>
+    <string name="assistant_analysis_mode_description">Select an analysis mode</string>
+    <string-array name="assistant_analysis_modes">
+        <item>Word breakdown</item>
+        <item>Convention scanner</item>
+        <item>Perspective shift</item>
+        <item>Fact and reasoning check</item>
+    </string-array>
+    <string name="assistant_request_button">Analyze locally</string>
+    <string name="assistant_analysis_loading">Local analysis in progress …</string>
+    <string name="assistant_analysis_failed">The input could not be analyzed. Check the text and try again.</string>
+    <string name="assistant_analysis_empty">Enter a term or statement first.</string>
+    <string name="assistant_analysis_error_invalid">The input is too long or contains invalid control characters.</string>
+    <string name="assistant_analysis_error_ai_disabled">External AI is not approved. Local analysis remains available.</string>
+    <string name="assistant_analysis_error_timeout">Analysis timed out. No result was presented as verified.</string>
+    <string name="assistant_analysis_error_unavailable">The analysis source is unavailable. No facts were verified.</string>
+    <string name="assistant_analysis_sources_unchecked">Source status: not checked; no external source was queried.</string>
+    <string name="assistant_refinement_hint">Follow-up question (optional, max. 500 characters)</string>
+    <string name="assistant_summary_insert_description">A saved summary is inserted only after you tap and remains part of the local analysis.</string>
+    <string name="assistant_insert_summary_button">Insert saved summary</string>
+    <string name="assistant_summary_replace_confirmation">Your saved summary will replace the follow-up text.</string>
+    <string name="assistant_summary_replace_action">Replace and insert</string>
+    <string name="assistant_refine_button">Refine analysis</string>
+    <string name="assistant_task_heading">TASKS</string>
+    <string name="assistant_task_status">No tasks available. Task management is not configured in this preview.</string>
+    <string name="assistant_task_input_hint">Your task (max. 120 characters)</string>
+    <string name="assistant_task_add_button">Add task</string>
+    <string name="assistant_task_remove_button">Remove</string>
+    <string name="assistant_task_empty">No local tasks yet.</string>
+    <string name="assistant_task_invalid">Enter a task with 1 to 120 characters.</string>
+    <string name="assistant_task_limit">You can save up to 50 local tasks.</string>
+    <string name="assistant_task_count">%1$d local tasks. Check a box to mark a task complete.</string>
+    <string name="assistant_device_heading">DEVICE STATUS</string>
+    <string name="assistant_device_status_unknown">Unknown: this preview does not discover devices or check connections.</string>
+    <string name="assistant_warning_heading">WARNINGS AND SAFETY</string>
+    <string name="assistant_warning_status">There is no device monitoring or automatic warning system. Discovering, connecting, and controlling devices are unavailable. No control commands are sent.</string>
+    <string name="assistant_close_button">Back to NIKNOLIG Defense</string>
 </resources>

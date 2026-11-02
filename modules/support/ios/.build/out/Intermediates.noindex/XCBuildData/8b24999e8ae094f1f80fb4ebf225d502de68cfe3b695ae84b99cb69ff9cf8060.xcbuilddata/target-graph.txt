@@ -1,0 +1,13 @@
+Target dependency graph (5 targets)
+Target 'AllIncludingTests' in project 'Aggregate'
+➜ Explicit dependency on target 'SupportCoreTests-product' in project 'SupportCore'
+➜ Explicit dependency on target 'SupportCoreTests-test-runner' in project 'SupportCore'
+➜ Explicit dependency on target 'SupportCore-product' in project 'SupportCore'
+➜ Explicit dependency on target 'SupportCore' in project 'SupportCore'
+Target 'SupportCore-product' in project 'SupportCore'
+➜ Explicit dependency on target 'SupportCore' in project 'SupportCore'
+Target 'SupportCoreTests-test-runner' in project 'SupportCore'
+➜ Explicit dependency on target 'SupportCoreTests-product' in project 'SupportCore'
+Target 'SupportCoreTests-product' in project 'SupportCore'
+➜ Explicit dependency on target 'SupportCore' in project 'SupportCore'
+Target 'SupportCore' in project 'SupportCore' (no dependencies)

@@ -1,0 +1,4 @@
+module ElectroEngelCore {
+header "ElectroEngelCore-Swift.h"
+export *
+}

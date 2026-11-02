@@ -1,0 +1,468 @@
+import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+#if canImport(CryptoKit) && canImport(Security)
+import CryptoKit
+import Security
+#endif
+
+public enum SupportApp: String, Codable {
+    case niknolig
+    case niknoligDefense = "niknolig-defense"
+}
+
+public enum SupportAnswerCode: String {
+    case backendHealth
+    case privacy
+    case payment
+    case troubleshooting
+    case accountUnavailable
+    case unresolved
+}
+
+public struct SupportAnswer {
+    public let code: SupportAnswerCode
+    public let escalationRequired: Bool
+
+    public init(code: SupportAnswerCode, escalationRequired: Bool) {
+        self.code = code
+        self.escalationRequired = escalationRequired
+    }
+}
+
+public enum SupportDiagnostic: String, Codable {
+    case ready
+    case notConfigured
+    case invalidResponse
+    case timedOut
+    case networkError
+    case httpError
+
+    public var escalationRequired: Bool { self != .ready }
+}
+
+public enum SupportAssistant {
+    public static let maxQuestionBytes = 2_048
+
+    public static func answer(_ question: String) -> SupportAnswer {
+        guard !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              question.lengthOfBytes(using: .utf8) <= maxQuestionBytes else {
+            return SupportAnswer(code: .unresolved, escalationRequired: true)
+        }
+        let words = Set(
+            question.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)
+        )
+        if containsAny(words, "passwort", "password", "login", "konto", "account") {
+            return SupportAnswer(code: .accountUnavailable, escalationRequired: true)
+        }
+        if containsAny(words, "zahlung", "preis", "payment", "rechnung", "billing") {
+            return SupportAnswer(code: .payment, escalationRequired: false)
+        }
+        if containsAny(words, "datenschutz", "privacy", "daten", "data") {
+            return SupportAnswer(code: .privacy, escalationRequired: false)
+        }
+        if containsAny(words, "backend", "verbindung", "connection", "server", "ki", "ai") {
+            return SupportAnswer(code: .backendHealth, escalationRequired: false)
+        }
+        if containsAny(words, "fehler", "problem", "funktioniert", "crash", "störung", "issue", "error") {
+            return SupportAnswer(code: .troubleshooting, escalationRequired: false)
+        }
+        return SupportAnswer(code: .unresolved, escalationRequired: true)
+    }
+
+    private static func containsAny(_ words: Set<String>, _ values: String...) -> Bool {
+        values.contains { words.contains($0) }
+    }
+}
+
+public enum HandoffState: String, Codable {
+    case ready
+    case uncertain
+    case handedOff
+}
+
+public struct EscalationTicket: Codable, Equatable {
+    public let id: UUID
+    public let app: SupportApp
+    public let requestKey: String
+    public let issueCode: String
+    public let diagnosticCode: String
+    public let encryptedPayload: String
+    public let createdAtMilliseconds: Int64
+    public var handoffAttempts: Int
+    public var handoffState: HandoffState
+
+    public func canShareMetadata(for expectedApp: SupportApp) -> Bool {
+        app == expectedApp &&
+            ["BACKENDHEALTH", "PRIVACY", "PAYMENT", "TROUBLESHOOTING",
+             "ACCOUNTUNAVAILABLE", "UNRESOLVED", "BACKEND", "MANUAL_REQUEST"].contains(issueCode) &&
+            ["READY", "NOT_CONFIGURED", "INVALID_RESPONSE", "TIMED_OUT", "NETWORK_ERROR",
+             "HTTP_ERROR", "UNAVAILABLE", "UNRESOLVED", "NO_MATCH"].contains(diagnosticCode)
+    }
+
+    public init(
+        id: UUID = UUID(),
+        app: SupportApp,
+        requestKey: String,
+        issueCode: String,
+        diagnosticCode: String,
+        encryptedPayload: String,
+        createdAtMilliseconds: Int64 = Int64(Date().timeIntervalSince1970 * 1_000),
+        handoffAttempts: Int = 0,
+        handoffState: HandoffState = .ready
+    ) {
+        self.id = id
+        self.app = app
+        self.requestKey = requestKey
+        self.issueCode = issueCode
+        self.diagnosticCode = diagnosticCode
+        self.encryptedPayload = encryptedPayload
+        self.createdAtMilliseconds = createdAtMilliseconds
+        self.handoffAttempts = handoffAttempts
+        self.handoffState = handoffState
+    }
+}
+
+public protocol SupportTicketStore {
+    func load() throws -> [EscalationTicket]
+    func save(_ tickets: [EscalationTicket]) throws
+}
+
+public protocol SupportPayloadCipher {
+    func encrypt(_ plaintext: String) throws -> String
+    func decrypt(_ ciphertext: String) throws -> String
+}
+
+#if canImport(CryptoKit) && canImport(Security)
+public struct SecureSupportPayloadCipher: SupportPayloadCipher {
+    private let service: String
+
+    public init(service: String = "org.niknolig.support.queue.v1") {
+        self.service = service
+    }
+
+    public func encrypt(_ plaintext: String) throws -> String {
+        let box = try AES.GCM.seal(Data(plaintext.utf8), using: key())
+        guard let combined = box.combined else { throw SupportQueueError.encryptionFailed }
+        return combined.base64EncodedString()
+    }
+
+    public func decrypt(_ ciphertext: String) throws -> String {
+        guard let data = Data(base64Encoded: ciphertext) else {
+            throw SupportQueueError.encryptionFailed
+        }
+        let box = try AES.GCM.SealedBox(combined: data)
+        let plaintext = try AES.GCM.open(box, using: key())
+        guard let result = String(data: plaintext, encoding: .utf8) else {
+            throw SupportQueueError.encryptionFailed
+        }
+        return result
+    }
+
+    private func key() throws -> SymmetricKey {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "payload-key",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecSuccess, let data = result as? Data {
+            return SymmetricKey(data: data)
+        }
+        guard status == errSecItemNotFound else { throw SupportQueueError.encryptionFailed }
+
+        let newKey = SymmetricKey(size: .bits256)
+        let data = newKey.withUnsafeBytes { Data($0) }
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: "payload-key",
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecValueData as String: data
+        ]
+        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+        guard addStatus == errSecSuccess || addStatus == errSecDuplicateItem else {
+            throw SupportQueueError.encryptionFailed
+        }
+        return try key()
+    }
+}
+#endif
+
+public final class UserDefaultsSupportTicketStore: SupportTicketStore {
+    private static let fileAccessLock = NSRecursiveLock()
+
+    private let defaults: UserDefaults
+    private let key: String
+    private let fileURL: URL
+    private let protectFile: (URL) throws -> Void
+
+    public convenience init(
+        defaults: UserDefaults = .standard,
+        key: String = "support_queue_v1",
+        fileURL: URL? = nil
+    ) {
+        self.init(
+            defaults: defaults,
+            key: key,
+            fileURL: fileURL ?? Self.defaultFileURL(),
+            protectFile: Self.protect
+        )
+    }
+
+    init(
+        defaults: UserDefaults,
+        key: String,
+        fileURL: URL,
+        protectFile: @escaping (URL) throws -> Void
+    ) {
+        self.defaults = defaults
+        self.key = key
+        self.fileURL = fileURL
+        self.protectFile = protectFile
+    }
+
+    public func load() throws -> [EscalationTicket] {
+        Self.fileAccessLock.lock()
+        defer { Self.fileAccessLock.unlock() }
+        try prepareDirectory()
+        try removeAbandonedStagingFiles()
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            try protectFile(fileURL)
+            let tickets = try JSONDecoder().decode(
+                [EscalationTicket].self,
+                from: Data(contentsOf: fileURL)
+            )
+            defaults.removeObject(forKey: key)
+            return tickets
+        }
+        guard let legacyData = defaults.data(forKey: key) else { return [] }
+        let tickets = try JSONDecoder().decode([EscalationTicket].self, from: legacyData)
+        try write(tickets)
+        return tickets
+    }
+
+    public func save(_ tickets: [EscalationTicket]) throws {
+        Self.fileAccessLock.lock()
+        defer { Self.fileAccessLock.unlock() }
+        try prepareDirectory()
+        try removeAbandonedStagingFiles()
+        try write(tickets)
+    }
+
+    private func removeAbandonedStagingFiles() throws {
+        let directory = fileURL.deletingLastPathComponent()
+        let prefix = ".support-queue-"
+        let suffix = ".tmp"
+        for name in try FileManager.default.contentsOfDirectory(atPath: directory.path) {
+            guard name.hasPrefix(prefix), name.hasSuffix(suffix) else { continue }
+            let identifier = name.dropFirst(prefix.count).dropLast(suffix.count)
+            guard UUID(uuidString: String(identifier)) != nil else { continue }
+            try FileManager.default.removeItem(at: directory.appendingPathComponent(name))
+        }
+    }
+
+    private func write(_ tickets: [EscalationTicket]) throws {
+        let data = try JSONEncoder().encode(tickets)
+        let stagingURL = fileURL.deletingLastPathComponent()
+            .appendingPathComponent(".support-queue-\(UUID().uuidString).tmp")
+        defer { try? FileManager.default.removeItem(at: stagingURL) }
+        try data.write(to: stagingURL, options: .atomic)
+        try protectFile(stagingURL)
+        guard rename(stagingURL.path, fileURL.path) == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
+        defaults.removeObject(forKey: key)
+    }
+
+    private func prepareDirectory() throws {
+        var directory = fileURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        #if os(iOS)
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try directory.setResourceValues(resourceValues)
+        try FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+            ofItemAtPath: directory.path
+        )
+        #endif
+    }
+
+    private static func protect(_ url: URL) throws {
+        #if os(iOS)
+        var protectedURL = url
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try protectedURL.setResourceValues(resourceValues)
+        try FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+            ofItemAtPath: url.path
+        )
+        #endif
+    }
+
+    private static func defaultFileURL() -> URL {
+        let applicationSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first ?? FileManager.default.temporaryDirectory
+        return applicationSupport
+            .appendingPathComponent("NIKNOLIGSupportQueue", isDirectory: true)
+            .appendingPathComponent("support_queue_v1.json", isDirectory: false)
+    }
+}
+
+public final class SupportEscalationQueue {
+    public static let maxTickets = 20
+    public static let maxHandoffAttempts = 3
+
+    private let store: SupportTicketStore
+    private let clock: () -> Int64
+
+    public init(
+        store: SupportTicketStore,
+        clock: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1_000) }
+    ) {
+        self.store = store
+        self.clock = clock
+    }
+
+    public func enqueue(
+        app: SupportApp,
+        requestKey: String,
+        issueCode: String,
+        diagnosticCode: String,
+        encryptedPayload: String
+    ) throws -> EscalationTicket {
+        guard Self.validRequestKey(requestKey),
+              Self.validCode(issueCode),
+              Self.validCode(diagnosticCode),
+              Self.validPayload(encryptedPayload) else {
+            throw SupportQueueError.invalidCode
+        }
+        var tickets = try store.load()
+        if let existing = tickets.first(where: {
+            $0.app == app && $0.requestKey == requestKey
+        }) {
+            return existing
+        }
+        guard tickets.count < Self.maxTickets else { throw SupportQueueError.full }
+        let ticket = EscalationTicket(
+            app: app,
+            requestKey: requestKey,
+            issueCode: issueCode,
+            diagnosticCode: diagnosticCode,
+            encryptedPayload: encryptedPayload,
+            createdAtMilliseconds: clock()
+        )
+        tickets.append(ticket)
+        try store.save(tickets)
+        return ticket
+    }
+
+    public func tickets() throws -> [EscalationTicket] {
+        try store.load()
+    }
+
+    @discardableResult
+    public func migrateLegacyPayloads(using cipher: SupportPayloadCipher) throws -> Bool {
+        let tickets = try store.load()
+        var changed = false
+        let migrated = try tickets.map { ticket -> EscalationTicket in
+            if (try? cipher.decrypt(ticket.encryptedPayload)) == "" {
+                return ticket
+            }
+            changed = true
+            return EscalationTicket(
+                id: ticket.id,
+                app: ticket.app,
+                requestKey: ticket.requestKey,
+                issueCode: ticket.issueCode,
+                diagnosticCode: ticket.diagnosticCode,
+                encryptedPayload: try cipher.encrypt(""),
+                createdAtMilliseconds: ticket.createdAtMilliseconds,
+                handoffAttempts: ticket.handoffAttempts,
+                handoffState: ticket.handoffState
+            )
+        }
+        if changed {
+            try store.save(migrated)
+        }
+        return changed
+    }
+
+    public func beginHandoff(_ ticketID: UUID) throws -> EscalationTicket? {
+        var tickets = try store.load()
+        guard let index = tickets.firstIndex(where: { $0.id == ticketID }) else { return nil }
+        guard tickets[index].handoffState == .ready,
+              tickets[index].handoffAttempts < Self.maxHandoffAttempts else { return nil }
+        tickets[index].handoffAttempts += 1
+        tickets[index].handoffState = .uncertain
+        try store.save(tickets)
+        return tickets[index]
+    }
+
+    public func finishHandoff(_ ticketID: UUID, launched: Bool) throws -> EscalationTicket? {
+        var tickets = try store.load()
+        guard let index = tickets.firstIndex(where: { $0.id == ticketID }),
+              tickets[index].handoffState == .uncertain else { return nil }
+        tickets[index].handoffState = launched ? .handedOff : .ready
+        try store.save(tickets)
+        return tickets[index]
+    }
+
+    public func complete(_ ticketID: UUID) throws -> Bool {
+        var tickets = try store.load()
+        guard tickets.contains(where: { $0.id == ticketID && $0.handoffState == .handedOff }) else {
+            return false
+        }
+        tickets.removeAll { $0.id == ticketID }
+        try store.save(tickets)
+        return true
+    }
+
+    public func remove(_ ticketID: UUID, app: SupportApp) throws -> Bool {
+        let tickets = try store.load()
+        let remaining = tickets.filter { !($0.id == ticketID && $0.app == app) }
+        guard remaining.count != tickets.count else { return false }
+        try store.save(remaining)
+        return true
+    }
+
+    private static func validCode(_ code: String) -> Bool {
+        !code.isEmpty && code.count <= 48 &&
+            code.unicodeScalars.allSatisfy {
+                CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_").contains($0)
+            }
+    }
+
+    private static func validRequestKey(_ key: String) -> Bool {
+        !key.isEmpty && key.count <= 128 &&
+            key.unicodeScalars.allSatisfy {
+                CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-").contains($0)
+            }
+    }
+
+    private static func validPayload(_ payload: String) -> Bool {
+        !payload.isEmpty && payload.utf8.count <= 8_192 &&
+            payload.unicodeScalars.allSatisfy {
+                CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=_-").contains($0)
+            }
+    }
+}
+
+public enum SupportQueueError: Error {
+    case invalidCode
+    case full
+    case encryptionFailed
+}

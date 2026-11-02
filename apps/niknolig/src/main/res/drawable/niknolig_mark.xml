@@ -3,6 +3,8 @@
     android:height="64dp"
     android:viewportWidth="64"
     android:viewportHeight="64">
+    <group android:pivotX="32" android:pivotY="32"
+        android:scaleX="0.8" android:scaleY="0.8">
     <group
         android:pivotX="32"
         android:pivotY="32"
@@ -23,4 +25,5 @@
     <path
         android:fillColor="@color/brand_accent"
         android:pathData="M50,16 m-3,0 a3,3 0,1 0,6 0 a3,3 0,1 0,-6 0" />
+    </group>
 </vector>

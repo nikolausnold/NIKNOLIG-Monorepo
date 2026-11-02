@@ -1,9 +1,20 @@
 # Android-/iOS-Architektur und Integrationsplan
 
-**Status:** Architektur- und Vertragsplanung. Keine iOS-App, kein neuer
-API-Endpunkt, kein produktiver Backend-Dienst und keine Änderung an den
-separaten Android-Quell-Repositories. SecurityChain P0 bleibt ein verbindliches
-Stop-Gate.
+**Status:** Architekturplanung, gesperrte KI-Support-Vorbereitung und bestehende
+lokale iOS-Vorschauziele. Das iOS-Projekt der NIKNOLIG-Haupt-App liegt im
+separaten Repository [`nikolausnold/NIKNOLIG`](https://github.com/nikolausnold/NIKNOLIG).
+Kein freigegebener API-Endpunkt oder produktiver Dienst. SecurityChain P0 bleibt
+ein verbindliches Stop-Gate.
+
+**Implementierungsstand 22.10.2026:** Dieses Monorepo enthält zusätzlich die
+bestehenden lokalen Vorschauziele in `apps/ios/NIKNOLIG.xcodeproj`; deren
+Vorhandensein ändert nicht die Zuordnung des iOS-Hauptprojekts zum separaten
+Repository. NIKNOLIG enthält hier außerdem die lokale, regelbasierte
+Elektro-Engel-Wirklichkeitsanalyse aus `modules/electro-engel/ios`; sie ist keine
+generative KI und prüft keine Quellen. Es gibt keine Geräte-, Sensor- oder
+Notfallintegration. iOS 16.0 ist vorläufige technische Projekteinstellung,
+keine genehmigte Plattformmatrix. Android-Module, deren Gradle-Builds und
+Application IDs bleiben davon getrennt und unverändert.
 
 ## 1. Bestand: wiederverwenden statt duplizieren
 
@@ -21,7 +32,7 @@ bleiben in ihrer Zuständigkeit unverändert. Dieses Dokument autorisiert keine
 | `backend/contracts/consent-audit-event-v1.schema.json` | Minimierte Metadaten für Consent-Ereignisse | Keine Nachrichten-, Sensor- oder sonstigen Nutzdaten. |
 | `backend/contracts/sensor-capability-v1.schema.json` und `sensor-summary-v1.schema.json` | Laufzeitfähigkeit und abgeleitete Sensordaten | Deklarative Verträge, keine Sensor-Runtime und keine Übertragungsfreigabe. |
 | `backend/migrations/001_initial_contract.sql` | Vorschlag für App-Bereiche, Installationen und Geräte-Link-Lifecycle | Nicht angewendet; ein Link verleiht keine appübergreifende Aktionserlaubnis. |
-| `backend/tests/test_contracts.py` | Statische Invarianten und optionale JSON-Schema-2020-12-Validierung | Kein Authentifizierungs-, Server-, Plattform- oder Geräteintegrationstest. |
+| `backend/tests/test_contracts.py` | Statische Invarianten und optionale JSON-Schema-2020-12-Validierung | Zusätzliche KI-Mock-/HTTP-Tests sind keine Plattform-/Geräte- oder Produktivabnahme. |
 
 Die Fehlercodes in OpenAPI und ihre HTTP-Zuordnung sind in
 [`backend/README.md`](../backend/README.md) dokumentiert. Das Elektro-Engel-
@@ -35,8 +46,32 @@ bilden noch keine vollständigen NIKNOLIG-, Defense- oder Elektro-Engel-Produkt-
 APIs. Es fehlen insbesondere freigegebene Geschäftsressourcen, Operationen,
 Identitäts-/Login-Fluss und Synchronisationsregeln. Diese dürfen erst nach
 fachlicher und Security-Freigabe als neue versionierte Verträge ergänzt werden.
-Elektro-Engel ist aktuell eine NIKNOLIG-Systemfunktion, kein dritter App-Bereich
-und keine eigene Sicherheitsdomäne.
+Elektro-Engel ist eine Systemfunktion, kein dritter App-Bereich und keine eigene
+Sicherheitsdomäne. Die bestätigten
+[D-01-Produktgrenzen](securitychain-p0-specification.md#d-01-prüfprotokoll-bestätigte-produktgrenzen-und-offene-detailfreigaben)
+trennen allgemeine Systemfunktionen in NIKNOLIG von zusätzlichen Sicherheits-
+und Notfallfunktionen in Defense. Infrastruktur-Erkennung und Reparaturhinweise
+durch Elektro-Engel gehören ausschließlich zu Defense; keine Infrastruktur-
+Erkennung in der normalen NIKNOLIG-App. Lokale Assistenzvorschau ist keine
+Infrastruktur-Erkennung. Datenzugriffe, Berechtigungen, automatische Aktionen
+und Datenschutzdetails bleiben offen; D-01 ist nicht abgeschlossen.
+
+**KI-Support-Vorbereitung:** `backend/ai-support.openapi.yaml` dokumentiert
+separat `POST /support` mit gemeinsamem `app`-/`message`-Request für beide Apps.
+Die lokale Route bleibt standardmäßig gesperrt, ist nicht in der Produktions-
+ASGI registriert und ist keine Analyse-API; der lokale Dekoder ruft sie nicht auf.
+`backend/ai_support.py` bereitet austauschbare Provider, Zugriffskontrolle,
+Limits und Audit für lokale Mock-Tests vor; kein produktiver Identity-Provider
+oder KI-Transport wird aktiviert. `backend/openapi.yaml` bleibt der
+Health-Vertrag. [Backend-Konfiguration, Kosten und Freigabefolge](../backend/README.md#ki-support-vorbereitete-schnittstelle-keine-betriebsfreigabe)
+sind zentral dokumentiert. Die Android-Module prüfen nach Nutzeraktion getrennt und ohne Credentials
+ausschließlich den bestehenden `GET /health/ready`-Health-Vertrag über je App
+konfigurierte HTTPS-URLs. Die iOS-Targets spiegeln diesen nicht-sensitiven
+Health-Check mit getrennten Build-Einstellungen wider. Dies verbindet keine KI-
+oder Produktfunktion. Geschützte Operationen benötigen eigene App-Identitäten,
+Credentials, den freigegebenen versionierten Vertrag und einen verständlichen
+Offline-/Nichtverfügbarkeitszustand ohne Auto-Retry oder automatische
+E-Mail-Übermittlung.
 
 ## 2. Gemeinsame Vertrags- und Backend-Architektur
 
@@ -48,10 +83,12 @@ und keine eigene Sicherheitsdomäne.
   diese Quellen konsumieren oder dagegen geprüft werden; keine App pflegt
   abweichende Kopien als eigene Wahrheit.
 - Das vorhandene `app_area`-Modell kennt `niknolig` und `niknolig-defense`.
-  Elektro-Engel-Funktionalität wird nur über eine ausdrücklich freigegebene
-  NIKNOLIG-Operation und Berechtigung abgebildet, nicht über einen erfundenen
-  dritten Bereich. Eine spätere Produktentscheidung für eine andere Grenze
-  verlangt eine neue Sicherheits- und Vertragsprüfung.
+  Elektro-Engel-Funktionalität benötigt eine ausdrücklich freigegebene
+  Operation und Berechtigung des zuständigen App-Bereichs, keinen dritten
+  Bereich. Infrastruktur-Erkennung und Reparaturhinweise sind ausschließlich
+  `niknolig-defense` zuzuordnen, nicht `niknolig`. Eine Umsetzung benötigt
+  weiterhin eine gesonderte Sicherheits- und Vertragsprüfung; bestehende
+  Schema-Versionen werden durch die Produktentscheidung nicht umgedeutet.
 - Beibehaltene, kompatible Felder und optionale Erweiterungen dürfen bestehende
   Verbraucher nicht brechen. Inkompatible Änderung bedeutet neue
   Vertragsversion bzw. neue versionierte Route; alte Verbraucher und Verträge
@@ -229,26 +266,26 @@ Kein neues Repository wird im Rahmen dieser Vorbereitung erstellt.
    Monorepo-Module behalten Ownership und App-Identität. Eine spätere Anbindung
    wird von den zuständigen Teams separat geplant, reviewed und freigegeben;
    dieses Dokument ändert sie nicht.
-5. **iOS-Repository NIKNOLIG-iOS:** Erst nach Freigabe separat erstellen. Es
-   enthält NIKNOLIG-Oberfläche, eigenes Bundle-/Signing-/Release-Setup,
-   App-scoped Authentifizierung und iOS-Adapter. Es konsumiert ausschließlich
-   die genehmigten gemeinsamen Verträge; kein Defense-Schlüssel, keine
-   Android-Runtime und kein impliziter Elektro-Engel-Berechtigungsbereich.
-6. **iOS-Repository NIKNOLIG-Defense-iOS:** Ebenfalls separat und mit eigenem
-   Bundle, Signing, Release, Identität, Authentifizierung und Test-/Consent-
-   Fluss. Keine gemeinsame App-Sandbox, Credentials oder implizite Rechte mit
-   NIKNOLIG-iOS oder den Android-Apps.
-7. **Parität und Übergang:** Für jeden iOS-Verbraucher Schema-/Fehler-Fixtures,
-   App-Bereich, Widerruf, Permission-Nein/Widerruf und Release-Artefakte
-   verifizieren. Verträge werden nur nach einer dokumentierten Consumer-
-   Migration und Kompatibilitätsprüfung ausgebaut oder abgekündigt.
+5. **iOS-Projektzuordnung erhalten:** Das iOS-Projekt der NIKNOLIG-Haupt-App
+   bleibt im separaten Repository `nikolausnold/NIKNOLIG`. Die bereits
+   vorhandenen lokalen Vorschauziele in `apps/ios/` bleiben am bisherigen Ort;
+   NIKNOLIG Defense iOS wird nicht neu sortiert oder exportiert. iOS-Builds
+   bleiben vom Android-Gradle-Build getrennt; Android-Builds bauen keine
+   iOS-Projekte.
+6. **Plattformfreigaben:** Vor geschützten Funktionen Plattformmatrix,
+   OS-Berechtigungen, Identität, Datenflüsse und Lösch-/Widerrufsregeln pro App
+   schriftlich freigeben. Signierung, Store-Metadaten und TestFlight benötigen
+   separate Apple-Account- und Releasefreigaben.
+7. **Parität und Prüfung:** Schema-/Fehler-Fixtures, App-Bereich, Widerruf,
+   Permission-Nein/Widerruf und Release-Artefakte auf iOS verifizieren. Verträge
+   werden nur nach dokumentierter Consumer-Migration und Kompatibilitätsprüfung
+   ausgebaut oder abgekündigt.
 
-Technisch sinnvoll werden getrennte iOS-Repositories, wenn Verantwortliche,
-Bundle-IDs, Signierung, Releasezyklen und unabhängige Wartung feststehen und
-die gemeinsamen Verträge versioniert, automatisiert geprüft und von Android
-und Backend konsumiert werden. Davor vermeidet ein Vertragsinventar im
-Monorepo unnötige Duplikation. Produktive Umsetzung bleibt unabhängig davon
-SecurityChain-P0-blockiert.
+Die bestehenden lokalen iOS-Vorschauziele und ihre separate CI-Konfiguration
+bleiben unverändert. Sie ersetzen nicht das iOS-Hauptprojekt im separaten
+Repository. Diese Projektzuordnung erteilt keine Produktiv- oder
+SecurityChain-P0-Freigabe. Produktive Umsetzung bleibt bis zur erforderlichen
+Sicherheits-, Plattform- und Betreiberfreigabe blockiert.
 
 ## 7. Offene Entscheidungen und Stop-Gate
 

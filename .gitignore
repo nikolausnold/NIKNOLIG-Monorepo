@@ -2,8 +2,7 @@
 .gradle/
 build/
 .kotlin/
-/backend/.env
-/backend/**/__pycache__/
+.env
 __pycache__/
 *.py[cod]
 

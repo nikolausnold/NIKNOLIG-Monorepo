@@ -6,19 +6,20 @@ import unittest
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import urlopen
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from app import create_server, main
+from app import _check_readiness, create_server, main
+from migrate import check_health_ready_async
 
 
 class BackendHealthServerTests(unittest.TestCase):
     def setUp(self):
-        self.readiness = False
-        self.server = create_server("127.0.0.1", 0, lambda: self.readiness)
+        self.readiness_probe = Mock()
+        self.server = create_server("127.0.0.1", 0, readiness_probe=self.readiness_probe)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         host, port = self.server.server_address
@@ -30,11 +31,28 @@ class BackendHealthServerTests(unittest.TestCase):
         self.server.server_close()
 
     def test_liveness_does_not_depend_on_database_readiness(self):
+        self.readiness_probe.side_effect = RuntimeError("database unavailable")
         with urlopen(self.base_url + "/health/live", timeout=2) as response:
             self.assertEqual(200, response.status)
             self.assertEqual({"status": "live"}, json.load(response))
+        self.readiness_probe.assert_not_called()
 
-    def test_readiness_fails_closed_when_database_is_unavailable(self):
+    def test_health_routes_match_the_openapi_status_contract(self):
+        for path, expected in (
+            ("/health/live", {"status": "live"}),
+            ("/health/ready", {"status": "ready"}),
+        ):
+            with self.subTest(path=path):
+                with urlopen(self.base_url + path, timeout=2) as response:
+                    self.assertEqual(200, response.status)
+                    self.assertEqual("application/json; charset=utf-8", response.headers["Content-Type"])
+                    self.assertEqual("no-store", response.headers["Cache-Control"])
+                    self.assertEqual(expected, json.load(response))
+        self.readiness_probe.assert_called_once_with()
+
+    def test_readiness_failure_returns_generic_service_unavailable(self):
+        self.readiness_probe.side_effect = RuntimeError("secret database address")
+
         with self.assertRaises(HTTPError) as raised:
             urlopen(self.base_url + "/health/ready", timeout=2)
 
@@ -42,16 +60,26 @@ class BackendHealthServerTests(unittest.TestCase):
         self.assertEqual("no-store", raised.exception.headers["Cache-Control"])
         body = json.load(raised.exception)
         self.assertEqual("SERVICE_UNAVAILABLE", body["error"]["code"])
+        self.assertEqual(
+            "Service is temporarily unavailable.", body["error"]["message"]
+        )
+        self.assertNotIn("secret database address", json.dumps(body))
         self.assertRegex(
             body["error"]["requestId"],
             r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
         )
 
     def test_readiness_returns_200_only_after_dependency_probe_succeeds(self):
-        self.readiness = True
+        self.readiness_probe.side_effect = None
         with urlopen(self.base_url + "/health/ready", timeout=2) as response:
             self.assertEqual(200, response.status)
             self.assertEqual({"status": "ready"}, json.load(response))
+
+    def test_default_readiness_probe_checks_postgres_and_migrations(self):
+        with patch("app.database.probe", new_callable=AsyncMock) as probe:
+            _check_readiness()
+
+        probe.assert_awaited_once_with(check_health_ready_async)
 
     def test_unsupported_path_returns_generic_not_found_error(self):
         with self.assertRaises(HTTPError) as raised:

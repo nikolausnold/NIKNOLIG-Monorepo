@@ -55,7 +55,7 @@ class SupabaseAuthenticationTests(unittest.TestCase):
             SETTINGS, jwks_client=MockJwksClient(self.public_key)
         )
         self.server = create_server(
-            "127.0.0.1", 0, lambda: True, authenticator=self.authenticator
+            "127.0.0.1", 0, readiness_probe=lambda: None, authenticator=self.authenticator
         )
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()

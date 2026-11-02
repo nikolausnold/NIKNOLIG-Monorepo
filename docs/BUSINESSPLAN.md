@@ -16,6 +16,17 @@ Sicherheitsdomäne geführt werden. Elektro-Engel ist eine Systemfunktion des
 NIKNOLIG-Systems, kein eigenständiges Projekt, Repository oder eine separate
 App.
 
+**Bestätigte Produktgrenzen, ergänzt am 21.10.2026:** NIKNOLIG umfasst allgemeine
+Systemfunktionen; Defense zusätzliche Sicherheits- und Notfallfunktionen.
+Elektro-Engels Infrastruktur-Erkennung und Reparaturhinweise ausschließlich in
+Defense; keine Infrastruktur-Erkennung in der normalen NIKNOLIG-App.
+[D-01-Prüfprotokoll](securitychain-p0-specification.md#d-01-prüfprotokoll-bestätigte-produktgrenzen-und-offene-detailfreigaben)
+enthält den festgelegten Funktionsumfang beider Apps. Konkrete Datenzugriffe,
+Berechtigungen, automatische Aktionen und Datenschutzfragen bleiben offen.
+Dies ist keine Funktions-, Betriebs- oder Datenschutzfreigabe; D-01 bleibt
+ohne vollständige Bestätigungen offen. Die aktualisierte Test-/Preisvorgabe
+vom 23.10.2026 steht in Abschnitt 2.
+
 **Belegter Entwicklungsstand:** Das Monorepo enthält zwei getrennte
 Android-Module und App-IDs (`com.niknolig.app` und `com.niknolig.defense`).
 Beide Module enthalten derzeit denselben Vorschau-Funktionsstand. Es gibt keine
@@ -30,10 +41,10 @@ KI-Betrieb sind nicht belegt.
 Defense bleibt eine getrennte App und Sicherheitsdomäne. Elektro-Engel gehört
 als Systemfunktion zum NIKNOLIG-System; konkrete gemeinsame Abläufe oder ein
 Datenaustausch mit Defense sind im Repository nicht spezifiziert und werden
-nicht unterstellt. Der Funktionsumfang über die lokale Vorschau hinaus ist
-offen.
+nicht unterstellt. Die Produktzuordnung ist oben bestätigt; die konkreten
+Operationen über die lokale Vorschau hinaus bleiben offen.
 
-**Elektro-Engel – Schutzpriorität (Anforderungen, keine belegten Funktionen):**
+**Elektro-Engel – Schutzpriorität in Defense (Anforderungen, keine belegten Funktionen):**
 Der aktuelle Monorepo-Stand belegt nur eine begrenzte lokale Lernprofil-Vorschau;
 die App-Manifeste enthalten keine Kamera-, Mikrofon-, Netzwerk- oder
 Sensorberechtigungen. Foto-/Audioanalyse, Sensorauswertung, Notfallerkennung,
@@ -63,7 +74,7 @@ Diese Prüfpunkte sind keine Implementierungszusage oder Notfallgarantie. Es
 werden keine neuen Repositories, Secrets oder Produktionszugriffe vorausgesetzt;
 Änderungen an Funktionen bleiben auf ausdrücklich freigegebenen Umfang begrenzt.
 
-### Hilferuferkennung bei Maschinenlärm – GEPLANT, NICHT PRODUKTIV FREIGEGEBEN
+### Hilferuferkennung bei Maschinenlärm (Defense) – GEPLANT, NICHT PRODUKTIV FREIGEGEBEN
 
 **Vorhandener Stand:** Die beiden Android-Manifeste deklarieren keine
 Mikrofonberechtigung. Im geprüften App-Code sind keine Audioaufnahme,
@@ -143,14 +154,23 @@ sie ausdrücklich nicht produktiv freigegeben.
 | Angebot | Vorgabe / belegter Stand | Offene Umsetzung |
 | --- | --- | --- |
 | NIKNOLIG | Verbindliche Produktregel: dauerhaft kostenlos. Das Monorepo enthält eine Android-Vorschau, keinen bestätigten Store-Release. | Store-Verfügbarkeit, Finanzierung, Betrieb und Bedingungen sind nicht festgelegt. Die kostenlose Bereitstellung ist in den jeweiligen Stores umzusetzen. |
-| NIKNOLIG Defense | Verbindliche Produktregel: regulärer Preis einmalig **0,75 €**. Personen, die nachweislich nicht in der Lage sind, sich aus einer Notsituation zu befreien, sollen genau **48 Stunden** kostenlos nutzen können. Der Zeitraum beginnt mit der Aktivierung des Härtefallzugangs und endet exakt 48 Stunden danach; daraus folgt keine unbegrenzte Freischaltung. | Store- und Länderpreise, Steuern, Store-Gebühren, Auszahlung, Rückerstattungen, Lizenzumfang und konkrete Defense-Leistung sind zu klären. Nachweismethode, Missbrauchsbegrenzung, datenschutzrechtliche Umsetzung und technische Erfassung von Start und Ablauf sind noch festzulegen. Notwendige Notfallfunktionen dürfen nicht von einem vorherigen Nachweis abhängen. Kein Kaufangebot oder bestätigter Verkauf ist im Monorepo belegt. |
-| Elektro-Engel | Systemfunktion des NIKNOLIG-Systems; derzeit nur als begrenzte lokale Lernprofil-Vorschau in beiden Apps belegt. Kein eigenes Produkt oder Preis belegt. | Späterer Funktionsumfang und etwaige regulierte oder fachliche Einsatzbereiche sind offen. Eine Einordnung in die getrennten App-Angebote ist zu klären; keine separate kostenpflichtige Leistung unterstellen. |
+| NIKNOLIG Defense | Regulär einmalig fünf aufeinanderfolgende 24-Stunden-Zeiträume kostenlos je berechtigtem NIKNOLIG-Konto ab bewusst bestätigter, serverseitig erfolgreicher Aktivierung; danach optional dauerhaft für einmalig **0,75 €**. Zusätzlich erhalten Personen, die sich nachweislich nicht selbst aus einer Notlage befreien können, 48 Stunden kostenlosen Defense-Zugang – getrennt vom regulären Test und unabhängig von dessen Ablauf oder einer Zahlung. | Trial und Notfallzugang sind nicht implementiert. Konto-/Eligibilitymodell, sichere Trial- und Storeprüfung, Wiederherstellung, plattformübergreifende Synchronisierung und konkrete Defense-Leistung fehlen. Das Verfahren zur sicheren, datensparsamen und dokumentierten Prüfung der Notfallberechtigung ist noch festzulegen; es wird kein Nachweisverfahren unterstellt. Endgültige Store-/Länderpreise einschließlich Steuern sind offen. Kein Kaufangebot oder bestätigter Verkauf belegt. [Technischer Status und Freigabekriterien](release-readiness.md#defense-zugang-und-app-verteilung--stand-23102026). |
+| Elektro-Engel | Systemfunktion des NIKNOLIG-Systems; derzeit nur als begrenzte lokale Lernprofil-Vorschau in beiden Apps belegt. Infrastruktur-Erkennung und Reparaturhinweise sind ausschließlich Defense zugeordnet, nicht implementiert oder produktiv freigegeben. Kein eigenes Produkt oder Preis belegt. | Konkrete Operationen, Zugriffe und etwaige regulierte oder fachliche Einsatzbereiche bleiben offen (D-01-Prüfprotokoll); keine separate kostenpflichtige Leistung unterstellen. |
 
 **Verbindliche Produktpreise:** NIKNOLIG bleibt dauerhaft kostenlos; NIKNOLIG
-Defense kostet regulär einmalig **0,75 €**. Für die Defense-App gilt außerdem
-die oben beschriebene Härtefallregel mit genau **48 Stunden** kostenloser
-Nutzung. Store-, Länder- und Steuerdarstellung sowie die technische Umsetzung
-der Härtefallregel bleiben offen.
+Defense soll nach dem fünfmal 24 Stunden langen kostenlosen Test optional
+dauerhaft für einmalig **0,75 €** freigeschaltet werden. Keine wiederkehrenden
+Kosten oder automatische Verlängerung; Kauf nur mit ausdrücklicher Bestätigung.
+Store-, Länder- und Steuerdarstellung sowie die sichere technische Umsetzung
+bleiben offen. Ohne Upgrade bleibt NIKNOLIG nutzbar.
+
+Der zusätzliche kostenlose 48-Stunden-Defense-Zugang für Personen, die sich
+nachweislich nicht selbst aus einer Notlage befreien können, ist eine eigene
+Zugangsregel und weder Ersatz noch Verlängerung des regulären Tests. Er darf nicht
+allein am abgelaufenen Test oder an fehlender Zahlung scheitern. Die konkrete,
+sichere und datensparsame Prüfung ist noch nicht bestimmt oder implementiert und
+muss dokumentiert werden; kein bestimmtes Beleg- oder Gesundheitsverfahren ist
+vorgegeben.
 
 **Weitere Erlösansätze, vorgeschlagen und nicht beschlossen:** Mögliche
 Einnahmequellen wie freiwillige Unterstützung, Fördermittel oder klar
@@ -229,8 +249,8 @@ prognostiziert.
 | Einordnung | Aussage |
 | --- | --- |
 | **Bereits vorhanden** | Zwei getrennte Android-Vorschau-Apps; aktueller gemeinsamer Vorschau-Funktionsstand; begrenztes lokales Lernprofil; Debug-Build-Prüfung. |
-| **Vorgegeben / geplant** | NIKNOLIG dauerhaft kostenlos; NIKNOLIG Defense regulär einmalig 0,75 €, mit genau 48 Stunden kostenloser Härtefallnutzung; NIKNOLIG als Hauptplattform; Defense als getrennte Sicherheitsdomäne; Elektro-Engel als Systemfunktion des NIKNOLIG-Systems. |
-| **Noch ungeprüft / offen** | Markt und Zahlungsbereitschaft; konkrete Produkt- und Defense-Leistungen; Nachweisverfahren und Missbrauchsbegrenzung für Härtefälle; datenschutzrechtliche Umsetzung; technische Erfassung von Aktivierung und Ablauf nach genau 48 Stunden; Verhalten nach Ablauf und Store-/Zahlungsablauf; produktiver Funktionsumfang und Integration von Elektro-Engel; Anbieter- und Rechtsform; Kosten und Erlöse; Backend/Cloudflare; Datenflüsse; Release- und Vermarktungsplan. |
+| **Vorgegeben / geplant** | NIKNOLIG dauerhaft kostenlos; Defense einmalig fünf Tage kostenlos je berechtigtem Konto, danach optional dauerhaft einmalig 0,75 €, ohne Abo oder automatische Zahlung; NIKNOLIG als Hauptplattform; Defense als getrennte Sicherheitsdomäne; Elektro-Engel als Systemfunktion des NIKNOLIG-Systems. |
+| **Noch ungeprüft / offen** | Markt und Zahlungsbereitschaft; konkrete Produkt- und Defense-Leistungen; Konto-/Eligibilitymodell und Missbrauchsbegrenzung; datenschutzrechtliche Umsetzung; serverseitige Erfassung von Aktivierung und Ablauf nach 432000 Sekunden; Storeprüfung und plattformübergreifende Wiederherstellung; produktiver Funktionsumfang und Integration von Elektro-Engel; Anbieter- und Rechtsform; Kosten und Erlöse; Backend/Cloudflare; Datenflüsse; Release- und Vermarktungsplan. |
 
 Vor einem Geschäfts- oder Release-Beschluss sind mindestens Angebot und
 Leistungsumfang je Produkt, Zielgruppe, Kostenmodell, Preisdefinition

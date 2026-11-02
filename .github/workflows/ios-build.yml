@@ -1,0 +1,63 @@
+name: iOS app builds
+
+on:
+  push:
+    paths:
+      - apps/ios/**
+      - modules/electro-engel/ios/**
+      - modules/support/ios/**
+      - .github/workflows/ios-build.yml
+      - tools/validate_ios_backend.py
+  pull_request:
+    paths:
+      - apps/ios/**
+      - modules/electro-engel/ios/**
+      - modules/support/ios/**
+      - .github/workflows/ios-build.yml
+      - tools/validate_ios_backend.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios-apps:
+    runs-on: macos-15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - NIKNOLIG
+          - NIKNOLIG Defense
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test shared support core
+        if: matrix.target == 'NIKNOLIG'
+        run: swift test --package-path modules/support/ios
+      - name: Build ${{ matrix.target }} for iOS Simulator
+        run: >-
+          xcodebuild
+          -project apps/ios/NIKNOLIG.xcodeproj
+          -target "${{ matrix.target }}"
+          -sdk iphonesimulator
+          -configuration Debug
+          CODE_SIGNING_ALLOWED=NO
+          build
+      - name: Build ${{ matrix.target }} Release for iOS Simulator only
+        run: >-
+          xcodebuild
+          -project apps/ios/NIKNOLIG.xcodeproj
+          -target "${{ matrix.target }}"
+          -sdk iphonesimulator
+          -configuration Release
+          CODE_SIGNING_ALLOWED=NO
+          NIKNOLIG_BACKEND_URL=https://niknolig.example.com
+          NIKNOLIG_DEFENSE_BACKEND_URL=https://defense.example.com
+          build
+      - name: Record scope of validation
+        run: |
+          echo '### iOS simulator compilation only' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Debug/Release compilation uses no signing; Release origins are fixtures, not approved production configuration. There is no signed device archive, production API validation or release authorization.' >> "$GITHUB_STEP_SUMMARY"
