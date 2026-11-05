@@ -8,7 +8,7 @@ entfernt, weil keine der betroffenen Berechtigungen deklariert oder genutzt wird
 
 | Thema | `:niknolig` | `:niknolig-defense` | Maßnahme |
 | --- | --- | --- | --- |
-| Local Network Permission | nicht deklariert, keine NSD/Multicast/LAN-Zugriffe | identisch | Keine. Backend-Zugriff nur HTTPS (`usesCleartextTraffic=false`, Loopback-/Placeholder-Hosts im Build abgelehnt). |
+| Local Network Permission | nicht deklariert, keine NSD-/Multicast-APIs; HTTPS-Backend kann dennoch auf eine LAN-Adresse zeigen | identisch | Konfigurierte Backend-Ziele prüfen; lokale Netzwerkberechtigungen erst nach Prüfung aller unterstützten Ziele als nicht erforderlich bewerten. HTTPS (`usesCleartextTraffic=false`) schließt LAN-Zugriffe nicht aus. |
 | Manage Contacts / Kontakte | keine Kontakt-Berechtigung | identisch | Keine. Support-Flow nutzt Mail-Intent statt Kontaktzugriff. |
 | Standort / `ACCESS_FINE_LOCATION` | nicht deklariert | identisch | Keine. Nur das deklarative Sensor-Schema nennt Standort-Berechtigungen für eine spätere, P0-gesperrte Funktion; falls umgesetzt: zuerst `COARSE`, `FINE` nur mit Nachweis. |
 | AppFunctions / KI-Agenten | keine AppFunctions, keine exportierten Services | identisch | Keine. Vor jeder Einführung: Sicherheitsprüfung, nur nicht-sensible Funktionen, Nutzerbestätigung. |
