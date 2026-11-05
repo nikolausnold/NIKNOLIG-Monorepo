@@ -63,7 +63,7 @@ val releaseSigningConfigured = listOf(
 
 android {
     namespace = "com.niknolig.app"
-    compileSdk = 35
+    compileSdk = 37
     buildToolsVersion = "35.0.0"
 
     buildFeatures {
@@ -90,7 +90,7 @@ android {
     defaultConfig {
         applicationId = "com.niknolig.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 37
         versionCode = updateVersionCode ?: 1
         versionName = updateVersionCode?.let { "0.1.$it" } ?: "0.1.0"
         buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")

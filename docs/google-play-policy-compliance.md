@@ -1,0 +1,47 @@
+# Google-Play-Richtlinien: Technischer Prüfstand (Ankündigung 29.10.2026)
+
+Geprüft wurden `:niknolig` und `:niknolig-defense` getrennt (Manifeste, Kotlin-Quellen,
+`build.gradle.kts`). Beide Module haben denselben Befund; es wurden keine Berechtigungen
+entfernt, weil keine der betroffenen Berechtigungen deklariert oder genutzt wird.
+
+## Befund je Modul
+
+| Thema | `:niknolig` | `:niknolig-defense` | Maßnahme |
+| --- | --- | --- | --- |
+| Local Network Permission | nicht deklariert, keine NSD/Multicast/LAN-Zugriffe | identisch | Keine. Backend-Zugriff nur HTTPS (`usesCleartextTraffic=false`, Loopback-/Placeholder-Hosts im Build abgelehnt). |
+| Manage Contacts / Kontakte | keine Kontakt-Berechtigung | identisch | Keine. Support-Flow nutzt Mail-Intent statt Kontaktzugriff. |
+| Standort / `ACCESS_FINE_LOCATION` | nicht deklariert | identisch | Keine. Nur das deklarative Sensor-Schema nennt Standort-Berechtigungen für eine spätere, P0-gesperrte Funktion; falls umgesetzt: zuerst `COARSE`, `FINE` nur mit Nachweis. |
+| AppFunctions / KI-Agenten | keine AppFunctions, keine exportierten Services | identisch | Keine. Vor jeder Einführung: Sicherheitsprüfung, nur nicht-sensible Funktionen, Nutzerbestätigung. |
+| `MANAGE_EXTERNAL_STORAGE` | nicht deklariert | identisch | Keine. |
+| SMS / Call Log | nicht deklariert | identisch | Keine. |
+| Play Billing | keine Billing-Bibliothek, keine digitalen Käufe in der App | identisch | Keine. Vor digitalen Käufen: Play Billing verwenden (siehe `docs/LEGAL-CHECKLIST.md`). |
+| Android 17 / API 37 | `compileSdk`/`targetSdk` 37 | identisch | Siehe unten. |
+
+Einzige Berechtigung beider Manifeste: `android.permission.INTERNET`.
+
+## API 37 (umgesetzt, CI-Nachweis ausstehend)
+
+`compileSdk` und `targetSdk` stehen in beiden Modulen gleichzeitig auf 37 (AGP 9.5.0, Build-Tools
+bleiben 35.0.0, da die Workflows deren Pfade nutzen). Lokal war kein Android SDK verfügbar; der
+Build ist daher **nicht** verifiziert. Vor dem Merge: `android-build.yml` (assemble, Tests, lint)
+muss grün sein und ein Android-17-Emulator-Test erfolgen. Verhaltensänderungen
+(Edge-to-Edge, Predictive Back, Intent-/Netzwerk-Beschränkungen) abhaken. Bei Fehlern
+„SDK 37 nicht unterstützt“: AGP aktualisieren. Aktuelle Frist in der Play Console prüfen.
+
+## Automatische Absicherung
+
+`backend/tests/test_play_policy.py` schlägt fehl, wenn ein Modul zusätzliche Berechtigungen,
+`<queries>`, Services, Standort-/Kontakt-/SMS-/Speicher-/Local-Network-APIs, AppFunctions oder
+Billing-Code einführt, oder wenn die SDK-Level beider Module auseinanderlaufen. Neue
+Berechtigungen erfordern bewusste Anpassung des Tests samt Begründung.
+
+## Manuell vom Entwickler in der Play Console (Data safety / App content)
+
+Nur zutreffende Angaben machen; keine pauschalen Erklärungen:
+
+- Data safety: tatsächlich übertragene Daten gemäß aktuellem Backend (Support-Tickets, Gesundheits-/Profilangaben nur falls gesendet) und Verschlüsselung in Transit angeben.
+- Datenschutzerklärung-URL je App hinterlegen; getrennt für NIKNOLIG und NIKNOLIG Defense.
+- Berechtigungs-/Sensitive-Permission-Formulare: derzeit **keine** nötig. Erst bei späterer Standort-, Kontakt- oder Nearby-Nutzung ausfüllen.
+- Zahlungen: „Enthält Käufe/Abos“ erst setzen, wenn Play Billing implementiert ist.
+- Zielgruppe, Inhaltseinstufung, Ads-Erklärung und Zielgerichts-API-Level-Hinweise je App prüfen.
+- Key-Management/Play App Signing je App getrennt bestätigen.
