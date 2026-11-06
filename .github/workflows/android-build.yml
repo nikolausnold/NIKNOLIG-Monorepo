@@ -113,10 +113,26 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Add Android SDK tools to PATH
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager" ]]; then
+            sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          fi
+          if [[ -z "$sdkmanager" ]]; then
+            echo "::error::Android SDK command-line tools are missing from $ANDROID_HOME"
+            exit 1
+          fi
+          sdk_tools="$(dirname "$sdkmanager")"
+          test -x "$sdk_tools/avdmanager"
+          echo "$sdk_tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
+          echo "ANDROID_SDK_TOOLS=$sdk_tools" >> "$GITHUB_ENV"
       - name: Install Android 17 emulator image
         run: |
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager --install \
+          yes 2>/dev/null | "$ANDROID_SDK_TOOLS/sdkmanager" --licenses >/dev/null
+          "$ANDROID_SDK_TOOLS/sdkmanager" --install \
             "platform-tools" \
             "platforms;android-37" \
             "build-tools;35.0.0" \
