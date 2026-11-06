@@ -17,12 +17,25 @@ FORBIDDEN_SOURCE = re.compile(
     r"AppFunction|appfunctions|com\.android\.billingclient|BillingClient|"
     r"MANAGE_EXTERNAL_STORAGE|READ_SMS|SEND_SMS|READ_CALL_LOG|WRITE_CALL_LOG|"
     r"READ_CONTACTS|WRITE_CONTACTS|MANAGE_CONTACTS|NEARBY_WIFI_DEVICES|"
+    r"\bContactsContract\b|\bCallLog\b|\bSmsManager\b|\bSmsMessage\b|Telephony\.Sms|"
     r"ACCESS_LOCAL_NETWORK|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|"
     r"android\.location|NsdManager|MulticastLock"
 )
 
 
 class GooglePlayPolicyTests(unittest.TestCase):
+    def test_forbidden_source_detects_restricted_android_apis(self):
+        references = (
+            "ContactsContract.Contacts",
+            "CallLog.Calls",
+            "SmsManager.getDefault()",
+            "SmsMessage.createFromPdu(pdu)",
+            "Telephony.Sms.CONTENT_URI",
+        )
+        for reference in references:
+            with self.subTest(reference=reference):
+                self.assertIsNotNone(FORBIDDEN_SOURCE.search(reference))
+
     def test_each_module_declares_only_internet_and_no_restricted_features(self):
         for module in MODULES:
             with self.subTest(module=module):
