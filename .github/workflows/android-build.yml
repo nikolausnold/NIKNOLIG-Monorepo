@@ -134,9 +134,6 @@ jobs:
           yes 2>/dev/null | "$ANDROID_SDK_TOOLS/sdkmanager" --licenses >/dev/null
           set -o pipefail
           "$ANDROID_SDK_TOOLS/sdkmanager" --install \
-            "platform-tools" \
-            "platforms;android-37" \
-            "build-tools;35.0.0" \
             "emulator" \
             "system-images;android-37;google_apis;x86_64" \
             2>&1 | tee "$RUNNER_TEMP/android-sdk-install.log"
