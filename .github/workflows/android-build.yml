@@ -132,12 +132,14 @@ jobs:
       - name: Install Android 17 emulator image
         run: |
           yes 2>/dev/null | "$ANDROID_SDK_TOOLS/sdkmanager" --licenses >/dev/null
+          set -o pipefail
           "$ANDROID_SDK_TOOLS/sdkmanager" --install \
             "platform-tools" \
             "platforms;android-37" \
             "build-tools;35.0.0" \
             "emulator" \
-            "system-images;android-37;google_apis;x86_64"
+            "system-images;android-37;google_apis;x86_64" \
+            2>&1 | tee "$RUNNER_TEMP/android-sdk-install.log"
       - name: Start Android 17 emulator
         run: |
           set -euo pipefail
@@ -172,14 +174,17 @@ jobs:
       - name: Preserve Android 17 emulator diagnostics
         if: always()
         run: |
-          adb logcat -d -t 5000 > "$RUNNER_TEMP/android-17-logcat.txt" 2>/dev/null || true
-          adb shell dumpsys activity activities > "$RUNNER_TEMP/android-17-activities.txt" 2>/dev/null || true
+          if timeout 15 adb devices | grep -q '^emulator-'; then
+            timeout 30 adb logcat -d -t 5000 > "$RUNNER_TEMP/android-17-logcat.txt" 2>/dev/null || true
+            timeout 30 adb shell dumpsys activity activities > "$RUNNER_TEMP/android-17-activities.txt" 2>/dev/null || true
+          fi
       - name: Upload Android 17 emulator diagnostics
         if: always()
         uses: actions/upload-artifact@v7.0.2
         with:
           name: android-17-emulator-${{ github.sha }}
           path: |
+            ${{ runner.temp }}/android-sdk-install.log
             ${{ runner.temp }}/android-17-emulator.log
             ${{ runner.temp }}/android-17-logcat.txt
             ${{ runner.temp }}/android-17-activities.txt
