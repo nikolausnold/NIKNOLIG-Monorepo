@@ -5,6 +5,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULES = ("niknolig", "niknolig-defense")
+SOURCE_MODULES = (
+    "apps/niknolig",
+    "apps/niknolig-defense",
+    "modules/electro-engel/core",
+    "modules/support/core",
+)
 ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
 ALLOWED_PERMISSIONS = {"android.permission.INTERNET"}
 FORBIDDEN_SOURCE = re.compile(
@@ -37,9 +43,9 @@ class GooglePlayPolicyTests(unittest.TestCase):
                 self.assertEqual(application.get(f"{ANDROID_NS}allowBackup"), "false")
 
     def test_sources_and_builds_use_no_restricted_apis_or_billing(self):
-        for module in MODULES:
-            with self.subTest(module=module):
-                base = ROOT / "apps" / module
+        for module_path in SOURCE_MODULES:
+            with self.subTest(module=module_path):
+                base = ROOT / module_path
                 files = [base / "build.gradle.kts", *base.glob("src/main/**/*.kt")]
                 for path in files:
                     self.assertIsNone(
