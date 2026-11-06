@@ -94,24 +94,28 @@ def visible_node(resource_id):
 
 def tap(resource_id):
     width, height = screen_size()
-    for _ in range(10):
-        target = visible_node(resource_id)
-        if target is not None:
-            x, y, _ = target
-            adb("shell", "input", "tap", str(x), str(y))
-            time.sleep(0.5)
-            return
-        adb(
-            "shell",
-            "input",
-            "swipe",
-            str(width // 2),
-            str(height * 4 // 5),
-            str(width // 2),
-            str(height // 3),
-            "350",
-        )
-        time.sleep(0.2)
+    for start_y, end_y in (
+        (height * 4 // 5, height // 3),
+        (height // 3, height * 4 // 5),
+    ):
+        for _ in range(10):
+            target = visible_node(resource_id)
+            if target is not None:
+                x, y, _ = target
+                adb("shell", "input", "tap", str(x), str(y))
+                time.sleep(0.5)
+                return
+            adb(
+                "shell",
+                "input",
+                "swipe",
+                str(width // 2),
+                str(start_y),
+                str(width // 2),
+                str(end_y),
+                "350",
+            )
+            time.sleep(0.2)
     raise AssertionError(f"Could not find visible, enabled control {resource_id}")
 
 

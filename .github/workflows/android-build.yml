@@ -154,6 +154,7 @@ jobs:
             echo "::error::No Android 17 x86_64 system image is available in SDK preview channel 3"
             exit 1
           fi
+          echo "ANDROID_17_SYSTEM_IMAGE=$system_image" >> "$GITHUB_ENV"
           "$sdkmanager" --install --channel=3 \
             "emulator" "$system_image" \
             2>&1 | tee "$RUNNER_TEMP/android-sdk-install.log"
@@ -162,7 +163,7 @@ jobs:
           set -euo pipefail
           echo no | avdmanager create avd --force \
             --name android-17-api-37 \
-            --package "system-images;android-37;google_apis;x86_64" \
+            --package "$ANDROID_17_SYSTEM_IMAGE" \
             --device pixel_2
           emulator -avd android-17-api-37 \
             -no-window -no-audio -no-boot-anim -no-snapshot \
