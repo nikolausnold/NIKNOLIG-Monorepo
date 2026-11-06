@@ -136,7 +136,7 @@ jobs:
           sdkmanager="$ANDROID_SDK_TOOLS/sdkmanager"
           "$sdkmanager" --list --channel=3 > "$RUNNER_TEMP/android-sdk-packages.txt"
           system_image="$(awk -F '|' '
-            $1 ~ /^[[:space:]]*system-images;android-37;.*;x86_64[[:space:]]*$/ {
+            $1 ~ /^[[:space:]]*system-images;android-(37|CinnamonBun);.*;x86_64[[:space:]]*$/ {
               gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
               if ($1 ~ /google_apis/) {
                 print $1
@@ -150,7 +150,7 @@ jobs:
             }
           ' "$RUNNER_TEMP/android-sdk-packages.txt")"
           if [[ -z "$system_image" ]]; then
-            grep -E 'system-images;android-[^|]+' "$RUNNER_TEMP/android-sdk-packages.txt" | head -n 30 || true
+            grep -E 'system-images;android-(37|CinnamonBun);' "$RUNNER_TEMP/android-sdk-packages.txt" || true
             echo "::error::No Android 17 x86_64 system image is available in SDK preview channel 3"
             exit 1
           fi
