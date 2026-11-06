@@ -101,6 +101,75 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  android-17-emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android 17 emulator image
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-37" \
+            "build-tools;35.0.0" \
+            "emulator" \
+            "system-images;android-37;google_apis;x86_64"
+      - name: Start Android 17 emulator
+        run: |
+          set -euo pipefail
+          echo no | avdmanager create avd --force \
+            --name android-17-api-37 \
+            --package "system-images;android-37;google_apis;x86_64" \
+            --device pixel_2
+          emulator -avd android-17-api-37 \
+            -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -memory 2048 \
+            > "$RUNNER_TEMP/android-17-emulator.log" 2>&1 &
+          adb wait-for-device
+          timeout 240 bash -c \
+            'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == "1" ]]; do sleep 2; done'
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          test "$(adb shell getprop ro.build.version.sdk | tr -d "\r")" = "37"
+      - name: Build smoke APKs with isolated HTTPS probe endpoint
+        run: >-
+          ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug
+          -PniknoligBackendUrl=https://10.0.2.2:18443
+          -PniknoligDefenseBackendUrl=https://10.0.2.2:18443 --no-daemon
+      - name: Install both apps and exercise Android 17 flows
+        run: |
+          for module in niknolig niknolig-defense; do
+            apk="$(find "apps/$module/build/outputs/apk/debug" -maxdepth 1 -type f -name '*.apk' -print -quit)"
+            test -s "$apk"
+            adb install -r "$apk"
+          done
+          python3 tools/android_emulator_smoke.py
+      - name: Preserve Android 17 emulator diagnostics
+        if: always()
+        run: |
+          adb logcat -d -t 5000 > "$RUNNER_TEMP/android-17-logcat.txt" 2>/dev/null || true
+          adb shell dumpsys activity activities > "$RUNNER_TEMP/android-17-activities.txt" 2>/dev/null || true
+      - name: Upload Android 17 emulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: android-17-emulator-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/android-17-emulator.log
+            ${{ runner.temp }}/android-17-logcat.txt
+            ${{ runner.temp }}/android-17-activities.txt
+          if-no-files-found: warn
+          retention-days: 7
+
   electro-engel-ios-core:
     runs-on: macos-15
     timeout-minutes: 10
