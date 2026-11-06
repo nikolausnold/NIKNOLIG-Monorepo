@@ -136,9 +136,14 @@ def wait_for_text(*expected, timeout=15):
 
 def test_app(package, brand, main_activity, server):
     adb("shell", "pm", "clear", package)
-    permission = adb("shell", "pm", "check-permission", "android.permission.INTERNET", package)
-    if permission != "granted":
-        raise AssertionError(f"{package} INTERNET permission: {permission}")
+    adb("shell", "pm", "grant", package, "android.permission.ACCESS_LOCAL_NETWORK")
+    package_state = adb("shell", "dumpsys", "package", package)
+    for permission in ("android.permission.INTERNET", "android.permission.ACCESS_LOCAL_NETWORK"):
+        if re.search(
+            rf"(?m)^\s*{re.escape(permission)}:\s+granted=true(?:,|$)",
+            package_state,
+        ) is None:
+            raise AssertionError(f"{package} {permission} is not granted")
 
     adb("shell", "am", "start", "-W", "-n", f"{package}/{main_activity}")
     wait_for_text(brand)

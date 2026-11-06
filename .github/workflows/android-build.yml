@@ -169,7 +169,7 @@ jobs:
             -no-window -no-audio -no-boot-anim -no-snapshot \
             -gpu swiftshader_indirect -memory 2048 \
             > "$RUNNER_TEMP/android-17-emulator.log" 2>&1 &
-          adb wait-for-device
+          timeout 120 adb wait-for-device
           timeout 240 bash -c \
             'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == "1" ]]; do sleep 2; done'
           adb shell settings put global window_animation_scale 0
