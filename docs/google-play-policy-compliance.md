@@ -1,14 +1,17 @@
 # Google-Play-Richtlinien: Technischer Prüfstand (Ankündigung 29.10.2026)
 
-Geprüft wurden `:niknolig` und `:niknolig-defense` getrennt (Manifeste, Kotlin-Quellen,
-`build.gradle.kts`). Beide Module haben denselben Befund; es wurden keine Berechtigungen
-entfernt, weil keine der betroffenen Berechtigungen deklariert oder genutzt wird.
+Geprüft wurden die Release-relevanten `src/main`-Manifeste, Kotlin-Quellen und
+`build.gradle.kts` von `:niknolig` und `:niknolig-defense` getrennt. Beide Module haben
+denselben Release-Befund; es wurden keine Berechtigungen entfernt, weil keine der
+betroffenen Berechtigungen in den Release-Varianten deklariert oder genutzt wird.
+Die Debug-Varianten ergänzen `ACCESS_LOCAL_NETWORK` ausschließlich für den Android-17-
+Emulator-Smoke-Test; diese Berechtigung ist nicht Teil der Release-Varianten.
 
 ## Befund je Modul
 
 | Thema | `:niknolig` | `:niknolig-defense` | Maßnahme |
 | --- | --- | --- | --- |
-| Local Network Permission | nicht deklariert, keine NSD-/Multicast-APIs; HTTPS-Backend kann dennoch auf eine LAN-Adresse zeigen | identisch | Konfigurierte Backend-Ziele prüfen; lokale Netzwerkberechtigungen erst nach Prüfung aller unterstützten Ziele als nicht erforderlich bewerten. HTTPS (`usesCleartextTraffic=false`) schließt LAN-Zugriffe nicht aus. |
+| Local Network Permission | in Release nicht deklariert, keine NSD-/Multicast-APIs; HTTPS-Backend kann dennoch auf eine LAN-Adresse zeigen | identisch | Konfigurierte Backend-Ziele prüfen; lokale Netzwerkberechtigungen erst nach Prüfung aller unterstützten Ziele als nicht erforderlich bewerten. HTTPS (`usesCleartextTraffic=false`) schließt LAN-Zugriffe nicht aus. |
 | Manage Contacts / Kontakte | keine Kontakt-Berechtigung | identisch | Keine. Support-Flow nutzt Mail-Intent statt Kontaktzugriff. |
 | Standort / `ACCESS_FINE_LOCATION` | nicht deklariert | identisch | Keine. Nur das deklarative Sensor-Schema nennt Standort-Berechtigungen für eine spätere, P0-gesperrte Funktion; falls umgesetzt: zuerst `COARSE`, `FINE` nur mit Nachweis. |
 | AppFunctions / KI-Agenten | keine AppFunctions, keine exportierten Services | identisch | Keine. Vor jeder Einführung: Sicherheitsprüfung, nur nicht-sensible Funktionen, Nutzerbestätigung. |
@@ -17,7 +20,9 @@ entfernt, weil keine der betroffenen Berechtigungen deklariert oder genutzt wird
 | Play Billing | keine Billing-Bibliothek, keine digitalen Käufe in der App | identisch | Keine. Vor digitalen Käufen: Play Billing verwenden (siehe `docs/LEGAL-CHECKLIST.md`). |
 | Android 17 / API 37 | `compileSdk`/`targetSdk` 37 | identisch | Siehe unten. |
 
-Einzige Berechtigung beider Manifeste: `android.permission.INTERNET`.
+Einzige Berechtigung beider `src/main`-Manifeste (also der Release-Varianten):
+`android.permission.INTERNET`. Die `src/debug`-Manifeste ergänzen nur
+`android.permission.ACCESS_LOCAL_NETWORK` für den Emulator-Smoke-Test.
 
 ## API 37 (CI-Build erfolgreich, Emulatorprüfung ausstehend)
 
@@ -42,7 +47,7 @@ Nur zutreffende Angaben machen; keine pauschalen Erklärungen:
 
 - Data safety: tatsächlich übertragene Daten gemäß aktuellem Backend (Support-Tickets, Gesundheits-/Profilangaben nur falls gesendet) und Verschlüsselung in Transit angeben.
 - Datenschutzerklärung-URL je App hinterlegen; getrennt für NIKNOLIG und NIKNOLIG Defense.
-- Berechtigungs-/Sensitive-Permission-Formulare: derzeit **keine** nötig. Erst bei späterer Standort-, Kontakt- oder Nearby-Nutzung ausfüllen.
+- Berechtigungs-/Sensitive-Permission-Formulare für die Release-APKs: derzeit **keine** nötig. Erst bei späterer Standort-, Kontakt- oder Nearby-Nutzung ausfüllen.
 - Zahlungen: „Enthält Käufe/Abos“ erst setzen, wenn Play Billing implementiert ist.
 - Zielgruppe, Inhaltseinstufung, Ads-Erklärung und Zielgerichts-API-Level-Hinweise je App prüfen.
 - Key-Management/Play App Signing je App getrennt bestätigen.

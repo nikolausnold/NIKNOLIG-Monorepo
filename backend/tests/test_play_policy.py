@@ -36,7 +36,7 @@ class GooglePlayPolicyTests(unittest.TestCase):
             with self.subTest(reference=reference):
                 self.assertIsNotNone(FORBIDDEN_SOURCE.search(reference))
 
-    def test_each_module_declares_only_internet_and_no_restricted_features(self):
+    def test_each_release_manifest_declares_only_internet_and_no_restricted_features(self):
         for module in MODULES:
             with self.subTest(module=module):
                 manifest = ET.parse(
@@ -54,6 +54,22 @@ class GooglePlayPolicyTests(unittest.TestCase):
                 application = manifest.find("application")
                 self.assertEqual(application.get(f"{ANDROID_NS}usesCleartextTraffic"), "false")
                 self.assertEqual(application.get(f"{ANDROID_NS}allowBackup"), "false")
+
+    def test_debug_manifests_only_add_local_network_for_emulator_smoke_test(self):
+        for module in MODULES:
+            with self.subTest(module=module):
+                manifest = ET.parse(
+                    ROOT / f"apps/{module}/src/debug/AndroidManifest.xml"
+                ).getroot()
+                declared = {
+                    e.get(f"{ANDROID_NS}name")
+                    for e in manifest.iter()
+                    if e.tag.startswith("uses-permission")
+                }
+                self.assertEqual(
+                    declared,
+                    {"android.permission.ACCESS_LOCAL_NETWORK"},
+                )
 
     def test_sources_and_builds_use_no_restricted_apis_or_billing(self):
         for module_path in SOURCE_MODULES:
