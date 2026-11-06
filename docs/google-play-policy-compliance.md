@@ -19,14 +19,15 @@ entfernt, weil keine der betroffenen Berechtigungen deklariert oder genutzt wird
 
 Einzige Berechtigung beider Manifeste: `android.permission.INTERNET`.
 
-## API 37 (umgesetzt, CI-Nachweis ausstehend)
+## API 37 (CI-Build erfolgreich, Emulatorprüfung ausstehend)
 
 `compileSdk` und `targetSdk` stehen in beiden Modulen gleichzeitig auf 37 (AGP 9.5.0, Build-Tools
-bleiben 35.0.0, da die Workflows deren Pfade nutzen). Lokal war kein Android SDK verfügbar; der
-Build ist daher **nicht** verifiziert. Vor dem Merge: `android-build.yml` (assemble, Tests, lint)
-muss grün sein und ein Android-17-Emulator-Test erfolgen. Verhaltensänderungen
-(Edge-to-Edge, Predictive Back, Intent-/Netzwerk-Beschränkungen) abhaken. Bei Fehlern
-„SDK 37 nicht unterstützt“: AGP aktualisieren. Aktuelle Frist in der Play Console prüfen.
+bleiben 35.0.0, da die Workflows deren Pfade nutzen). Der Android-CI-Lauf
+[41943900334, Versuch 3](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/41943900334/attempts/3)
+hat Assemble, Unit-Tests, Lint sowie APK-ID- und Signaturprüfung erfolgreich abgeschlossen. Damit
+sind Build-Kompatibilität mit API 37 und AGP 9.5.0 sowie die Android-Tests/Lint in CI verifiziert;
+ein Android-17-Emulator-Test und das Laufzeitverhalten (Edge-to-Edge, Predictive Back,
+Intent-/Netzwerk-Beschränkungen) bleiben zu prüfen. Aktuelle Frist in der Play Console prüfen.
 
 ## Automatische Absicherung
 
