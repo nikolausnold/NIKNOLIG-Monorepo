@@ -133,9 +133,19 @@ jobs:
         run: |
           yes 2>/dev/null | "$ANDROID_SDK_TOOLS/sdkmanager" --licenses >/dev/null
           set -o pipefail
-          "$ANDROID_SDK_TOOLS/sdkmanager" --install \
-            "emulator" \
-            "system-images;android-37;google_apis;x86_64" \
+          sdkmanager="$ANDROID_SDK_TOOLS/sdkmanager"
+          system_image="$("$sdkmanager" --list --channel=3 |
+            awk -F '|' '$1 ~ /^[[:space:]]*system-images;android-37;google_apis;x86_64[[:space:]]*$/ {
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
+              print $1
+              exit
+            }')"
+          if [[ -z "$system_image" ]]; then
+            echo "::error::Android 17 Google APIs x86_64 system image is unavailable in SDK preview channel 3"
+            exit 1
+          fi
+          "$sdkmanager" --install --channel=3 \
+            "emulator" "$system_image" \
             2>&1 | tee "$RUNNER_TEMP/android-sdk-install.log"
       - name: Start Android 17 emulator
         run: |
