@@ -35,7 +35,7 @@ class HttpsProbeServer:
         self.connections = 0
         self.server = socket.socket()
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind(("0.0.0.0", 18443))
+        self.server.bind(("127.0.0.1", 18443))
         self.server.listen()
         self.server.settimeout(0.5)
         self.thread = threading.Thread(target=self._serve, daemon=True)
