@@ -66,6 +66,44 @@ class StartActivityTests(unittest.TestCase):
         adb.assert_called_once()
         sleep.assert_called_once()
 
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    def test_home_keyevent_failure_does_not_stop_retries(self, run, adb, sleep):
+        run.side_effect = [
+            subprocess.CompletedProcess("adb", 1, stdout="", stderr="launch failed"),
+            subprocess.CompletedProcess("adb", 0, stdout="Started", stderr=""),
+        ]
+        adb.side_effect = subprocess.CalledProcessError(1, "adb", stderr="home failed")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            android_emulator_smoke.start_activity("example", ".MainActivity")
+
+        self.assertEqual(2, run.call_count)
+        self.assertIn("HOME keyevent failed", output.getvalue())
+        self.assertIn("attempt 1 failed: launch failed", output.getvalue())
+        adb.assert_called_once()
+        sleep.assert_called_once_with(3)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    def test_home_keyevent_timeout_does_not_stop_retries(self, run, adb, sleep):
+        run.side_effect = [
+            subprocess.CompletedProcess("adb", 1, stdout="", stderr="launch failed"),
+            subprocess.CompletedProcess("adb", 0, stdout="Started", stderr=""),
+        ]
+        adb.side_effect = subprocess.TimeoutExpired("adb", 30)
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            android_emulator_smoke.start_activity("example", ".MainActivity")
+
+        self.assertEqual(2, run.call_count)
+        self.assertIn("HOME keyevent failed", output.getvalue())
+        self.assertIn("attempt 1 failed: launch failed", output.getvalue())
+        adb.assert_called_once()
+        sleep.assert_called_once_with(3)
+
 
 if __name__ == "__main__":
     unittest.main()

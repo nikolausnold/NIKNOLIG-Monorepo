@@ -47,7 +47,10 @@ def start_activity(package, main_activity, attempts=5):
             )
             output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}"
         print(f"am start attempt {attempt + 1} failed: {output.strip()}", flush=True)
-        adb("shell", "input", "keyevent", "KEYCODE_HOME")
+        try:
+            adb("shell", "input", "keyevent", "KEYCODE_HOME")
+        except (subprocess.SubprocessError, OSError) as exc:
+            print(f"HOME keyevent failed: {exc}", flush=True)
         time.sleep(3)
     raise AssertionError(f"Could not start {package}/{main_activity}: {output.strip()}")
 
