@@ -150,6 +150,45 @@ def verify_package_installed(package):
         )
 
 
+def install_apk(apk, package, attempts=3):
+    transient_errors = (
+        "broken pipe",
+        "failure calling service package",
+        "device offline",
+        "device not found",
+        "connection reset",
+        "timed out",
+        "package manager has died",
+    )
+    for attempt in range(attempts):
+        try:
+            result = run_adb("install", "-r", str(apk), timeout=120)
+            output = f"{result.stdout}\n{result.stderr}".strip()
+            returncode = result.returncode
+            if returncode == 0 and "success" in result.stdout.lower():
+                return
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace")
+                if isinstance(value, bytes)
+                else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
+            returncode = "timeout"
+
+        diagnostics = package_diagnostics(package)
+        transient = any(error in output.lower() for error in transient_errors)
+        message = (
+            f"APK install attempt {attempt + 1} failed for {package} "
+            f"(exit {returncode}): {output or '<no output>'}; {diagnostics}"
+        )
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message)
+        time.sleep(3)
+
+
 def start_activity(package, main_activity, attempts=5):
     # am can fail transiently right after install/pm clear while the system settles.
     for attempt in range(attempts):
@@ -350,6 +389,7 @@ def test_app(apk, brand, server):
         f"Testing {apk}: applicationId={package}, launcherActivity={main_activity}",
         flush=True,
     )
+    install_apk(apk, package)
     verify_package_installed(package)
     clear_app_data(package)
     package_state = adb("shell", "dumpsys", "package", package)

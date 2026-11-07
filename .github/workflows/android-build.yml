@@ -207,11 +207,6 @@ jobs:
           -PniknoligDefenseDebugBackendUrl=https://127.0.0.1:18443 --no-daemon
       - name: Install both apps and exercise Android 17 flows
         run: |
-          for module in niknolig niknolig-defense; do
-            apk="$(find "apps/$module/build/outputs/apk/debug" -maxdepth 1 -type f -name '*.apk' -print -quit)"
-            test -s "$apk"
-            adb install -r "$apk"
-          done
           adb reverse tcp:18443 tcp:18443
           python3 tools/android_emulator_smoke.py
       - name: Preserve Android 17 emulator diagnostics

@@ -318,6 +318,57 @@ class ClearAppDataTests(unittest.TestCase):
         )
 
 
+class InstallApkTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.package_diagnostics")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_transient_package_service_broken_pipe(self, run_adb, sleep, diagnostics):
+        run_adb.side_effect = [
+            subprocess.CompletedProcess(
+                "adb",
+                1,
+                stdout="",
+                stderr="cmd: Failure calling service package: Broken pipe (32)",
+            ),
+            subprocess.CompletedProcess("adb", 0, stdout="Success", stderr=""),
+        ]
+        diagnostics.return_value = (
+            "adb state (exit 0): device; boot completed (exit 0): 1; "
+            "user CE available (exit 0): true; installed APK (exit 1): <no output>"
+        )
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            android_emulator_smoke.install_apk(
+                Path("/build/app-debug.apk"), "com.example.actual"
+            )
+
+        self.assertEqual(2, run_adb.call_count)
+        run_adb.assert_called_with(
+            "install", "-r", "/build/app-debug.apk", timeout=120
+        )
+        diagnostics.assert_called_once_with("com.example.actual")
+        sleep.assert_called_once_with(3)
+        self.assertIn("Broken pipe (32)", output.getvalue())
+        self.assertIn("boot completed (exit 0): 1", output.getvalue())
+
+    @patch("tools.android_emulator_smoke.package_diagnostics")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_does_not_retry_permanent_install_error(self, run_adb, sleep, diagnostics):
+        run_adb.return_value = subprocess.CompletedProcess(
+            "adb", 1, stdout="", stderr="Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]"
+        )
+        diagnostics.return_value = "package state (exit 0): bad signing certificate"
+        with self.assertRaisesRegex(AssertionError, "INSTALL_FAILED_UPDATE_INCOMPATIBLE"):
+            android_emulator_smoke.install_apk(
+                Path("/build/app-debug.apk"), "com.example.actual"
+            )
+
+        run_adb.assert_called_once()
+        diagnostics.assert_called_once_with("com.example.actual")
+        sleep.assert_not_called()
+
+
 class HierarchyTests(unittest.TestCase):
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
