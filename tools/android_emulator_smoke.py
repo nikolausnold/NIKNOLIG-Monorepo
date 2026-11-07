@@ -189,6 +189,55 @@ def install_apk(apk, package, attempts=3):
         time.sleep(3)
 
 
+def resolve_installed_launcher(package, manifest_activity, attempts=5):
+    args = (
+        "shell",
+        "cmd",
+        "package",
+        "resolve-activity",
+        "--brief",
+        "-a",
+        "android.intent.action.MAIN",
+        "-c",
+        "android.intent.category.LAUNCHER",
+        "-p",
+        package,
+    )
+    for attempt in range(attempts):
+        result = run_adb(*args, timeout=15)
+        output = f"{result.stdout}\n{result.stderr}".strip()
+        component = re.search(
+            rf"(?m)^\s*{re.escape(package)}/([^\s]+)\s*$",
+            result.stdout,
+        )
+        if result.returncode == 0 and component is not None:
+            activity = component.group(1)
+            if activity.startswith("."):
+                activity = f"{package}{activity}"
+            elif "." not in activity:
+                activity = f"{package}.{activity}"
+            if activity != manifest_activity:
+                raise AssertionError(
+                    f"Installed launcher for {package} is {activity}, "
+                    f"but the APK manifest declares {manifest_activity}; "
+                    f"{package_diagnostics(package)}"
+                )
+            return activity
+
+        diagnostics = package_diagnostics(package)
+        transient = "no activity found" in output.lower() or (
+            result.returncode == 0 and not output
+        )
+        message = (
+            f"Installed launcher resolution attempt {attempt + 1} failed for {package} "
+            f"(exit {result.returncode}): {output or '<no output>'}; {diagnostics}"
+        )
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message)
+        time.sleep(2)
+
+
 def start_activity(package, main_activity, attempts=5):
     # am can fail transiently right after install/pm clear while the system settles.
     for attempt in range(attempts):
@@ -205,6 +254,7 @@ def start_activity(package, main_activity, attempts=5):
                 and "Error" not in output
                 and "Status: timeout" not in output
             ):
+                print(f"Activity start succeeded for {package}/{main_activity}: {output.strip()}", flush=True)
                 return
         except subprocess.TimeoutExpired as exc:
             stdout, stderr = (
@@ -383,6 +433,22 @@ def has_resumed_activity(activity_state, package):
     ) is not None
 
 
+def wait_for_resumed_activity(package, attempts=5):
+    for attempt in range(attempts):
+        result = run_adb("shell", "dumpsys", "activity", "activities", timeout=15)
+        if result.returncode == 0 and has_resumed_activity(result.stdout, package):
+            return
+        output = result.stdout.strip()
+        message = (
+            f"Activity readiness attempt {attempt + 1} failed for {package} "
+            f"(exit {result.returncode}): {output[:800] or result.stderr.strip() or '<no output>'}"
+        )
+        print(message, flush=True)
+        if attempt + 1 == attempts:
+            raise AssertionError(f"{message}; {package_diagnostics(package)}")
+        time.sleep(2)
+
+
 def test_app(apk, brand, server):
     package, main_activity = resolve_apk_launch_target(apk)
     print(
@@ -391,6 +457,7 @@ def test_app(apk, brand, server):
     )
     install_apk(apk, package)
     verify_package_installed(package)
+    main_activity = resolve_installed_launcher(package, main_activity)
     clear_app_data(package)
     package_state = adb("shell", "dumpsys", "package", package)
     if re.search(
@@ -400,6 +467,7 @@ def test_app(apk, brand, server):
         raise AssertionError(f"{package} INTERNET is not granted")
 
     start_activity(package, main_activity)
+    wait_for_resumed_activity(package)
     wait_for_text(brand)
 
     tap("assistant_button")

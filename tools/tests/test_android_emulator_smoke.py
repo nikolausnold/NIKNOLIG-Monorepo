@@ -369,6 +369,78 @@ class InstallApkTests(unittest.TestCase):
         sleep.assert_not_called()
 
 
+class InstalledLauncherTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.package_diagnostics")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_until_package_manager_resolves_manifest_launcher(
+        self, run_adb, sleep, diagnostics
+    ):
+        run_adb.side_effect = [
+            subprocess.CompletedProcess("adb", 0, stdout="No activity found", stderr=""),
+            subprocess.CompletedProcess(
+                "adb", 0, stdout="com.example.actual/.Launcher\n", stderr=""
+            ),
+        ]
+        diagnostics.return_value = "installed APK (exit 0): package:/data/app/base.apk"
+
+        activity = android_emulator_smoke.resolve_installed_launcher(
+            "com.example.actual", "com.example.actual.Launcher", attempts=2
+        )
+
+        self.assertEqual("com.example.actual.Launcher", activity)
+        self.assertEqual(2, run_adb.call_count)
+        self.assertEqual(1, diagnostics.call_count)
+        sleep.assert_called_once_with(2)
+
+    @patch("tools.android_emulator_smoke.package_diagnostics")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_does_not_retry_permanent_launcher_resolution_error(
+        self, run_adb, sleep, diagnostics
+    ):
+        run_adb.return_value = subprocess.CompletedProcess(
+            "adb", 1, stdout="", stderr="unknown package command"
+        )
+        diagnostics.return_value = "package state (exit 0): installed"
+
+        with self.assertRaisesRegex(AssertionError, "unknown package command"):
+            android_emulator_smoke.resolve_installed_launcher(
+                "com.example.actual", "com.example.actual.Launcher"
+            )
+
+        run_adb.assert_called_once()
+        sleep.assert_not_called()
+
+
+class ActivityReadinessTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_waits_until_app_is_resumed(self, run_adb, sleep):
+        run_adb.side_effect = [
+            subprocess.CompletedProcess(
+                "adb",
+                0,
+                stdout="topResumedActivity=ActivityRecord{abc com.android.launcher/.Home}",
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                "adb",
+                0,
+                stdout=(
+                    "topResumedActivity=ActivityRecord{def "
+                    "com.example.actual/com.example.actual.Launcher}"
+                ),
+                stderr="",
+            ),
+        ]
+
+        android_emulator_smoke.wait_for_resumed_activity("com.example.actual", attempts=2)
+
+        self.assertEqual(2, run_adb.call_count)
+        sleep.assert_called_once_with(2)
+
+
 class HierarchyTests(unittest.TestCase):
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
