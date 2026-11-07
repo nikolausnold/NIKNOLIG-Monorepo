@@ -11,20 +11,143 @@ from pathlib import Path
 
 ANDROID_HOME = Path(__import__("os").environ["ANDROID_HOME"])
 ADB = str(ANDROID_HOME / "platform-tools" / "adb")
+ANDROID_BUILD_TOOLS = ANDROID_HOME / "build-tools"
 NETWORK_ERROR_TEXT = (
     "Backend konnte nicht sicher erreicht werden",
     "The backend could not be reached securely",
 )
 
 
-def adb(*args, timeout=30):
+def run_adb(*args, timeout=30):
     return subprocess.run(
         [ADB, *args],
-        check=True,
         capture_output=True,
         text=True,
         timeout=timeout,
-    ).stdout.strip()
+        check=False,
+    )
+
+
+def adb(*args, timeout=30):
+    result = run_adb(*args, timeout=timeout)
+    if result.returncode:
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            [ADB, *args],
+            output=result.stdout,
+            stderr=result.stderr,
+        )
+    return result.stdout.strip()
+
+
+def parse_apk_launch_target(badging):
+    package = re.search(r"(?m)^package: name='([^']+)'", badging)
+    activity = re.search(r"(?m)^launchable-activity: name='([^']+)'", badging)
+    if package is None or activity is None:
+        raise AssertionError(f"APK manifest has no application ID or launcher activity:\n{badging}")
+    package_name = package.group(1)
+    activity_name = activity.group(1)
+    if activity_name.startswith("."):
+        activity_name = f"{package_name}{activity_name}"
+    elif "." not in activity_name:
+        activity_name = f"{package_name}.{activity_name}"
+    return package_name, activity_name
+
+
+def resolve_apk_launch_target(apk):
+    tools = sorted(
+        (path for path in ANDROID_BUILD_TOOLS.glob("*/aapt") if path.is_file()),
+        key=lambda path: tuple(int(part) for part in re.findall(r"\d+", path.parent.name)),
+    )
+    if not tools:
+        raise AssertionError(f"Android build-tools aapt was not found under {ANDROID_BUILD_TOOLS}")
+    result = subprocess.run(
+        [str(tools[-1]), "dump", "badging", str(apk)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    return parse_apk_launch_target(result.stdout)
+
+
+def package_diagnostics(package):
+    diagnostics = []
+    for label, args in (
+        ("adb state", ("get-state",)),
+        ("boot completed", ("shell", "getprop", "sys.boot_completed")),
+        ("user CE available", ("shell", "getprop", "sys.user.0.ce_available")),
+        ("installed APK", ("shell", "pm", "path", package)),
+        ("package state", ("shell", "dumpsys", "package", package)),
+    ):
+        try:
+            result = run_adb(*args, timeout=10)
+            output = (result.stdout + "\n" + result.stderr).strip()
+            if label == "package state":
+                output = output[:600]
+            diagnostics.append(f"{label} (exit {result.returncode}): {output or '<no output>'}")
+        except (OSError, subprocess.SubprocessError) as exc:
+            diagnostics.append(f"{label}: {exc}")
+    return "; ".join(diagnostics)
+
+
+def clear_app_data(package, attempts=3):
+    transient_errors = (
+        "can't find service: package",
+        "could not access the package manager",
+        "package manager has died",
+        "deadobjectexception",
+        "device offline",
+        "device not found",
+        "connection reset",
+        "timed out",
+    )
+    for attempt in range(attempts):
+        try:
+            result = run_adb("shell", "pm", "clear", package, timeout=30)
+            output = f"{result.stdout}\n{result.stderr}".strip()
+            if result.returncode == 0 and result.stdout.strip() == "Success":
+                return
+            returncode = result.returncode
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace")
+                if isinstance(value, bytes)
+                else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
+            returncode = "timeout"
+
+        diagnostics = package_diagnostics(package)
+        diagnostic_text = diagnostics.lower()
+        transient = any(error in output.lower() for error in transient_errors) or (
+            returncode == 224
+            and not output
+            and "adb state (exit 0): device" in diagnostic_text
+            and "boot completed (exit 0): 1" in diagnostic_text
+            and "user ce available (exit 0): true" in diagnostic_text
+            and "installed apk (exit 0): package:" in diagnostic_text
+        )
+        message = (
+            f"pm clear attempt {attempt + 1} failed for {package} "
+            f"(exit {returncode}): {output or '<no output>'}; {diagnostics}"
+        )
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message)
+        time.sleep(2)
+
+
+def verify_package_installed(package):
+    result = run_adb("shell", "pm", "path", package, timeout=15)
+    output = f"{result.stdout}\n{result.stderr}".strip()
+    if result.returncode != 0 or not result.stdout.strip().startswith("package:"):
+        raise AssertionError(
+            f"APK package {package} is not installed "
+            f"(exit {result.returncode}): {output or '<no output>'}; "
+            f"{package_diagnostics(package)}"
+        )
 
 
 def start_activity(package, main_activity, attempts=5):
@@ -196,8 +319,14 @@ def has_resumed_activity(activity_state, package):
     ) is not None
 
 
-def test_app(package, brand, main_activity, server):
-    adb("shell", "pm", "clear", package)
+def test_app(apk, brand, server):
+    package, main_activity = resolve_apk_launch_target(apk)
+    print(
+        f"Testing {apk}: applicationId={package}, launcherActivity={main_activity}",
+        flush=True,
+    )
+    verify_package_installed(package)
+    clear_app_data(package)
     package_state = adb("shell", "dumpsys", "package", package)
     if re.search(
         r"(?m)^\s*android\.permission\.INTERNET:\s+granted=true(?:,|$)",
@@ -283,16 +412,20 @@ def main():
         server = HttpsProbeServer(certificate, private_key)
         server.start()
         try:
-            test_app(
-                "com.niknolig.app",
-                "NIKNOLIG",
-                ".MainActivity",
-                server,
+            niknolig_apk = next(
+                Path("apps/niknolig/build/outputs/apk/debug").glob("*.apk")
             )
             test_app(
-                "com.niknolig.defense",
+                niknolig_apk,
+                "NIKNOLIG",
+                server,
+            )
+            defense_apk = next(
+                Path("apps/niknolig-defense/build/outputs/apk/debug").glob("*.apk")
+            )
+            test_app(
+                defense_apk,
                 "NIKNOLIG Defense",
-                ".MainActivity",
                 server,
             )
         finally:
