@@ -27,6 +27,25 @@ def adb(*args, timeout=30):
     ).stdout.strip()
 
 
+def start_activity(package, main_activity, attempts=5):
+    # am can fail transiently right after install/pm clear while the system settles.
+    result = None
+    for attempt in range(attempts):
+        result = subprocess.run(
+            [ADB, "shell", "am", "start", "-W", "-n", f"{package}/{main_activity}"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        output = f"{result.stdout}\n{result.stderr}"
+        if result.returncode == 0 and "Error" not in output:
+            return
+        print(f"am start attempt {attempt + 1} failed: {output.strip()}", flush=True)
+        adb("shell", "input", "keyevent", "KEYCODE_HOME")
+        time.sleep(3)
+    raise AssertionError(f"Could not start {package}/{main_activity}: {output.strip()}")
+
+
 class HttpsProbeServer:
     def __init__(self, certificate, private_key):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -173,7 +192,7 @@ def test_app(package, brand, main_activity, server):
     ) is None:
         raise AssertionError(f"{package} INTERNET is not granted")
 
-    adb("shell", "am", "start", "-W", "-n", f"{package}/{main_activity}")
+    start_activity(package, main_activity)
     wait_for_text(brand)
 
     tap("assistant_button")
@@ -202,7 +221,7 @@ def test_app(package, brand, main_activity, server):
 
     adb("shell", "input", "keyevent", "KEYCODE_BACK")
     adb("shell", "am", "force-stop", package)
-    adb("shell", "am", "start", "-W", "-n", f"{package}/{main_activity}")
+    start_activity(package, main_activity)
     wait_for_text(brand)
     tap("learning_profile_button")
     wait_for_input_text("session_summary_input", "CIemulatorcheck")
