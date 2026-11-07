@@ -17,6 +17,7 @@ import device_security as sec
 SCOPES = ("status:read", "events:read", "alerts:send")
 MAX_GRANT_SECONDS = 7 * 24 * 3600
 MAX_PAGE = 100
+PRUNE_BATCH = 100
 
 
 class Conflict(Exception):
@@ -96,7 +97,7 @@ class DeviceStore:
 
     def revoke_device(self, device_id, *, principal=None):
         with self._tx() as conn, conn.cursor() as cur:
-            cur.execute("SELECT * FROM device_installations WHERE id = %s FOR UPDATE", (device_id,))
+            cur.execute("SELECT * FROM device_installations WHERE id = %s FOR NO KEY UPDATE", (device_id,))
             row = cur.fetchone()
             if not row or (principal is not None and row["principal_reference"] != principal):
                 raise NotFound
@@ -125,6 +126,7 @@ class DeviceStore:
     def create_challenge(self, device_id):
         nonce = sec.new_secret_token()
         with self._tx() as conn, conn.cursor() as cur:
+            self._prune_challenges(cur)
             cur.execute(
                 "INSERT INTO device_challenges(nonce_hash, device_id, expires_at) "
                 "SELECT %s, id, now() + make_interval(secs => %s) FROM device_installations "
@@ -132,6 +134,14 @@ class DeviceStore:
                 (sec.hash_token(nonce), sec.CHALLENGE_TTL_SECONDS, device_id),
             )
         return nonce
+
+    @staticmethod
+    def _prune_challenges(cur):
+        """Bounded cleanup on the expiry index; keeps the table from growing without limit."""
+        cur.execute(
+            "DELETE FROM device_challenges WHERE nonce_hash IN ("
+            "SELECT nonce_hash FROM device_challenges WHERE expires_at < now() "
+            "ORDER BY expires_at LIMIT %s)", (PRUNE_BATCH,))
 
     def open_session(self, device_id, nonce, signature):
         """Consume the challenge exactly once, then verify the device signature."""
@@ -148,7 +158,7 @@ class DeviceStore:
                 (device_id,))
             device = cur.fetchone()
             if not device or not sec.verify_signature(
-                    bytes(device["public_key"]), signature,
+                    bytes(device["public_key"] or b""), signature,
                     sec.session_message(str(device_id), nonce)):
                 return None
             session_id, refresh = uuid4(), sec.new_secret_token()
@@ -157,20 +167,20 @@ class DeviceStore:
                 "VALUES (%s, %s, %s, now() + make_interval(secs => %s))",
                 (session_id, device_id, sec.hash_token(refresh), sec.REFRESH_TOKEN_TTL_SECONDS))
             self._event(cur, device_id, "session_created")
-            return self._tokens(device, session_id, refresh)
+            return self._tokens(device, session_id, refresh, sec.REFRESH_TOKEN_TTL_SECONDS)
 
-    def _tokens(self, device, session_id, refresh):
+    def _tokens(self, device, session_id, refresh, refresh_ttl):
         access, expires = sec.issue_access_token(
             self._secret, device_id=device["id"], session_id=session_id, area=device["app_area"])
         return {"accessToken": access, "accessTokenExpiresAt": expires, "refreshToken": refresh,
-                "refreshTokenExpiresInSeconds": sec.REFRESH_TOKEN_TTL_SECONDS,
+                "refreshTokenExpiresInSeconds": refresh_ttl,
                 "deviceId": str(device["id"])}
 
     def refresh_session(self, refresh_token):
         digest = sec.hash_token(refresh_token)
         with self._tx() as conn, conn.cursor() as cur:
             cur.execute(
-                "SELECT s.id AS session_id, s.revoked_at AS session_revoked_at, s.expires_at > now() AS live, d.* FROM device_sessions s "
+                "SELECT s.id AS session_id, s.revoked_at AS session_revoked_at, s.expires_at > now() AS live, GREATEST(0, FLOOR(EXTRACT(EPOCH FROM s.expires_at - now())))::int AS remaining, d.* FROM device_sessions s "
                 "JOIN device_installations d ON d.id = s.device_id "
                 "WHERE s.refresh_hash = %s FOR UPDATE OF s", (digest,))
             row = cur.fetchone()
@@ -179,13 +189,16 @@ class DeviceStore:
                     return None
                 refresh = sec.new_secret_token()
                 cur.execute(
-                    "UPDATE device_sessions SET refresh_hash = %s, previous_refresh_hash = %s, "
-                    "rotated_at = now() WHERE id = %s",
-                    (sec.hash_token(refresh), digest, row["session_id"]))
-                return self._tokens(row, row["session_id"], refresh)
+                    "INSERT INTO device_refresh_history(refresh_hash, session_id) VALUES (%s, %s)",
+                    (digest, row["session_id"]))
+                cur.execute(
+                    "UPDATE device_sessions SET refresh_hash = %s, rotated_at = now() WHERE id = %s",
+                    (sec.hash_token(refresh), row["session_id"]))
+                return self._tokens(row, row["session_id"], refresh, row["remaining"])
             cur.execute(
-                "UPDATE device_sessions SET revoked_at = now(), revoke_reason = 'refresh_reuse' "
-                "WHERE previous_refresh_hash = %s AND revoked_at IS NULL RETURNING device_id", (digest,))
+                "UPDATE device_sessions s SET revoked_at = now(), revoke_reason = 'refresh_reuse' "
+                "FROM device_refresh_history h WHERE h.refresh_hash = %s AND h.session_id = s.id "
+                "AND s.revoked_at IS NULL RETURNING s.device_id", (digest,))
             reused = cur.fetchone()
             if reused:
                 self._event(cur, reused["device_id"], "session_refresh_reuse_detected",
@@ -247,6 +260,7 @@ class DeviceStore:
                     or row["initiator_area"] == device["app_area"]
                     or row["initiator_state"] != "verified"):
                 return None
+            self._expire_pair_links(cur, device["id"], row["initiator_device_id"])
             cur.execute(
                 "SELECT 1 FROM device_links WHERE state IN ('pending', 'active') "
                 "AND LEAST(first_device_id, second_device_id) = LEAST(%s::uuid, %s::uuid) "
@@ -260,6 +274,17 @@ class DeviceStore:
                 (device["id"], sec.PAIRING_CONFIRM_SECONDS, row["id"]))
             self._event(cur, row["initiator_device_id"], "pairing_claimed", source=device["id"])
             return self._pairing_view(cur, row["id"], device["id"])
+
+    def _expire_pair_links(self, cur, first, second):
+        """Move lapsed links out of the open states so the pair can be linked again."""
+        cur.execute(
+            "UPDATE device_links SET state = 'expired' WHERE state IN ('pending', 'active') "
+            "AND expires_at <= now() AND LEAST(first_device_id, second_device_id) = LEAST(%s::uuid, %s::uuid) "
+            "AND GREATEST(first_device_id, second_device_id) = GREATEST(%s::uuid, %s::uuid) RETURNING id",
+            (first, second, first, second))
+        for row in cur.fetchall():
+            cur.execute("UPDATE device_grants SET revoked_at = now() WHERE link_id = %s AND revoked_at IS NULL",
+                        (row["id"],))
 
     def get_pairing(self, pairing_id, device_id):
         with self._tx() as conn, conn.cursor() as cur:
@@ -313,6 +338,7 @@ class DeviceStore:
                 cur.execute("SELECT app_area FROM device_installations WHERE id = %s", (row["claimant_device_id"],))
                 second_area = cur.fetchone()["app_area"]
                 link_id = uuid4()
+                self._expire_pair_links(cur, row["initiator_device_id"], row["claimant_device_id"])
                 try:
                     cur.execute(
                         "INSERT INTO device_links(id, first_device_id, first_app_area, second_device_id, "
@@ -425,6 +451,10 @@ class DeviceStore:
         if not cur.fetchone():
             raise Forbidden
         return peer
+
+    def ping(self):
+        with self._tx() as conn, conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM device_sessions LIMIT 0")
 
     # ---- status and events ---------------------------------------------
     def set_status(self, device_id, state, detail):

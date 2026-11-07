@@ -179,6 +179,12 @@ class SlidingWindowLimiter:
         hits.append(now)
         return True
 
+    def release(self, key: str):
+        """Return the newest reservation (used when an attempt turned out legitimate)."""
+        hits = self._hits.get(key)
+        if hits:
+            hits.pop()
+
     def exhausted(self, key: str) -> bool:
         hits = self._hits.get(key)
         if not hits:

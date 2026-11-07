@@ -20,7 +20,7 @@ Neu in `backend/`: `device_security.py` (Kryptografie, Tokens, Rate-Limiter),
 
 Sicherheitsmechanismen: gerätegebundene HMAC-Access-Tokens (300 s) mit
 Serverprüfung der Live-Session (sofortiger Widerruf); rotierende Refresh-Tokens
-(nur SHA-256-Hash gespeichert, Wiederverwendung widerruft die Session);
+(nur SHA-256-Hash gespeichert; jeder bereits verbrauchte Hash bleibt erhalten, jede Wiederverwendung widerruft die Session);
 einmalige, 60 s gültige Challenges (Replay-Schutz); 8-stelliger Einmalcode
 (HMAC-gehasht, 120 s, einmal einlösbar) plus 6-stelliger Abgleichscode und
 **gegenseitige Bestätigung** beider Geräte; Link nur zwischen NIKNOLIG und
@@ -28,8 +28,10 @@ Defense (bestehende DB-Regel); Freigaben gerichtet, Scope-begrenzt, höchstens
 7 Tage, Widerruf mit Link; Rate-Limits (Claim-Fehlversuche, Challenge/Session,
 Registrierung, Schreib-/Lesezugriffe); Body-Limit 8 KiB, strikte Schemas,
 generische Fehler ohne Eingabe-Echo; Audit-Ereignisse ohne Schlüssel, Tokens
-oder Codes; eigene DB-Rolle `backend_device_api` ohne DELETE auf Audit-Tabellen
-und ohne DDL.
+oder Codes; eigene DB-Rolle `backend_device_api`: Audit-Ereignisse und Refresh-
+Historie nur SELECT/INSERT, kein DDL, vorhandene privilegierte Rollen werden
+abgelehnt; Body muss innerhalb von 10 s eintreffen (sonst 408); abgelaufene
+Challenges werden begrenzt bereinigt.
 
 Rückwärtskompatibilität: Migrationen 000/001 unverändert; 002 ist additiv und
 nur mit `--approve-device-api-schema` bzw. `APPROVE_DEVICE_API_SCHEMA=1`
@@ -43,9 +45,9 @@ Instanzen ist ein gemeinsamer Zähler nötig.
 
 ## 2. Tests (lokal, PostgreSQL 16)
 
-- `python3 -m unittest discover -s backend/tests`: 239 Tests, OK (1 bestehender Skip).
+- `python3 -m unittest discover -s backend/tests`: 250 Tests, OK (1 bestehender Skip).
 - `python3 -m unittest discover -s tools/tests`: 93 Tests, OK.
-- Neue Tests (28) decken Registrierung/Besitznachweis, Replay, Refresh-Rotation und
+- Neue Tests (39) decken Registrierung/Besitznachweis, Replay, Refresh-Rotation und
   -Wiederverwendung, Pairing inkl. Ablauf/Fremdzugriff/Rate-Limit, Freigaben,
   Widerruf von Link/Gerät/Sitzung, Validierung und DB-Rollenrechte ab.
 - Alle Tests laufen gegen die API mit Test-Principal-Verifier und simulierten
@@ -67,11 +69,22 @@ Instanzen ist ein gemeinsamer Zähler nötig.
 
 ## 4. Backend-Deployment
 
-Nicht ausgeführt. Ablauf: Secrets bereitstellen → `APPROVE_DEVICE_API_SCHEMA=1`
-migrieren (Backup/`pg_dump` vorher; Rollback = Image-Rollback, 002 ist additiv und
-von 000/001 unabhängig, Tabellen können bei Bedarf vor Aktivierung verworfen
-werden) → Staging-Smoke-Test (Registrierung, Pairing, Widerruf) →
-`DEVICE_API_ENABLED=1`. Caddy leitet nun `/v1/devices|sessions|pairings|links|grants|status|events` weiter.
+Nicht ausgeführt. Ablauf: Secrets bereitstellen → **vollständiges Datenbank-Backup
+(`pg_dump`)** → `APPROVE_DEVICE_API_SCHEMA=1` migrieren → Staging-Smoke-Test
+(Registrierung, Pairing, Widerruf) → `DEVICE_API_ENABLED=1`.
+
+**Rollback:** Ein reiner Image-Rollback auf eine Version vor diesem PR ist nach
+Migration 002 *nicht* möglich: deren Migrations- und Readiness-Prüfung lehnt den
+Ledger-Eintrag `002_device_api` ab, und 002 erweitert eine Tabelle aus 001.
+Zulässig sind (a) ein Rollback auf ein Image, das 002 kennt, mit
+`DEVICE_API_ENABLED=0` (Routen verschwinden, Daten bleiben), oder (b) die separat
+freigegebene Wiederherstellung des Backups vor der Migration. Tabellen allein zu
+löschen genügt nicht.
+
+Caddy leitet `/v1/devices|sessions|pairings|links|grants|status|events` weiter.
+Fehlerhafte oder unvollständige Konfiguration (leeres DB-Secret usw.) lässt die
+Routen fehlen; `/health/ready` prüft bei aktivierter API zusätzlich den
+Device-Store.
 
 ## 5. Android-/iOS-Release
 

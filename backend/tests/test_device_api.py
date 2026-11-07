@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import unittest
 import uuid
 from pathlib import Path
@@ -361,6 +362,211 @@ class DeviceApiTests(unittest.TestCase):
         self.assertFalse(device_api.install_from_environment(application, {}))
         self.assertEqual(TestClient(application).post("/v1/pairings").status_code, 404)
 
+    # ---- review-driven regressions -------------------------------------
+    def test_slow_body_is_aborted_with_408_and_handler_never_runs(self):
+        import asyncio
+        calls = []
+        original = device_api.BODY_DEADLINE_SECONDS
+        device_api.BODY_DEADLINE_SECONDS = 0.2
+        self.addCleanup(setattr, device_api, "BODY_DEADLINE_SECONDS", original)
+        application = self.client.app
+        original_refresh = self.store.refresh_session
+        self.store.refresh_session = lambda token: calls.append(token)
+        self.addCleanup(setattr, self.store, "refresh_session", original_refresh)
+
+        async def run():
+            sent, started = [], asyncio.Event()
+
+            async def receive():
+                if not started.is_set():
+                    started.set()
+                    return {"type": "http.request", "body": b'{"refreshToken":"', "more_body": True}
+                await asyncio.sleep(30)
+
+            async def send(message):
+                sent.append(message)
+
+            scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "POST",
+                     "scheme": "https", "path": "/v1/sessions/refresh", "raw_path": b"/v1/sessions/refresh",
+                     "query_string": b"", "root_path": "", "server": ("t", 443), "client": ("c", 1),
+                     "headers": [(b"content-type", b"application/json"), (b"content-length", b"70")]}
+            await asyncio.wait_for(application(scope, receive, send), 5)
+            return sent
+
+        sent = asyncio.run(run())
+        self.assertEqual(sent[0]["status"], 408)
+        self.assertEqual(calls, [])
+
+    def test_concurrent_failed_claims_cannot_exceed_attempt_budget(self):
+        import asyncio
+        import httpx
+        defense = self.phone("niknolig-defense")
+        attempts = []
+        original = self.store.claim_pairing
+        self.store.claim_pairing = lambda device, code: (attempts.append(code), original(device, code))[1]
+        self.addCleanup(setattr, self.store, "claim_pairing", original)
+
+        async def run():
+            transport = httpx.ASGITransport(app=self.client.app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+                responses = await asyncio.gather(*[
+                    client.post("/v1/pairings/claim", json={"code": "AAAAAAAA"},
+                                headers={"Authorization": "Bearer " + defense.access_token})
+                    for _ in range(20)])
+            return [r.status_code for r in responses]
+
+        statuses = asyncio.run(run())
+        self.assertEqual(statuses.count(404), 5)
+        self.assertEqual(statuses.count(429), 15)
+        self.assertLessEqual(len(attempts), 5)
+
+    def test_successful_claim_does_not_consume_failure_budget(self):
+        main, defense = self.phone("niknolig"), self.phone("niknolig-defense")
+        for _ in range(4):
+            defense.post("/v1/pairings/claim", {"code": "AAAAAAAA"})
+        pairing = main.post("/v1/pairings").json()
+        self.assertEqual(defense.post("/v1/pairings/claim", {"code": pairing["code"]}).status_code, 200)
+        self.assertEqual(defense.post("/v1/pairings/claim", {"code": "AAAAAAAA"}).status_code, 404)
+
+    def test_refresh_replay_of_older_token_after_two_rotations_revokes_session(self):
+        phone = self.phone("niknolig")
+        r0 = phone.refresh_token
+        r1 = self.client.post("/v1/sessions/refresh", json={"refreshToken": r0}).json()
+        r2 = self.client.post("/v1/sessions/refresh", json={"refreshToken": r1["refreshToken"]}).json()
+        self.assertEqual(self.client.post("/v1/sessions/refresh", json={"refreshToken": r0}).status_code, 401)
+        self.assertEqual(phone.get("/v1/devices/me", token=r2["accessToken"]).status_code, 401)
+        self.assertEqual(self.client.post("/v1/sessions/refresh", json={"refreshToken": r2["refreshToken"]}).status_code, 401)
+
+    def test_refresh_reports_remaining_not_full_lifetime(self):
+        phone = self.phone("niknolig")
+        with psycopg.connect(**self.params) as connection:
+            connection.execute("UPDATE device_sessions SET expires_at = now() + interval '1 day' WHERE device_id = %s",
+                               (phone.device_id,))
+        reported = self.client.post("/v1/sessions/refresh", json={"refreshToken": phone.refresh_token}).json()
+        self.assertTrue(86_000 <= reported["refreshTokenExpiresInSeconds"] <= 86_400)
+
+    def test_legacy_installation_without_public_key_fails_closed_with_401(self):
+        device_id = uuid.uuid4()
+        with psycopg.connect(**self.params) as connection:
+            connection.execute(
+                "INSERT INTO device_installations(id, app_area, principal_reference, installation_reference, "
+                "public_key_fingerprint, identity_state, verified_at) VALUES (%s, 'niknolig', 'legacy', %s, %s, 'verified', now())",
+                (device_id, uuid.uuid4(), "a" * 64))
+        nonce = self.client.post(f"/v1/devices/{device_id}/challenge").json()["nonce"]
+        response = self.client.post(f"/v1/devices/{device_id}/session",
+                                    json={"nonce": nonce, "signature": sec.b64url_encode(b"x" * 64)})
+        self.assertEqual(response.status_code, 401)
+
+    def test_expired_challenges_are_pruned_in_bounded_batches(self):
+        phone = self.phone("niknolig")
+        with psycopg.connect(**self.params) as connection:
+            connection.execute("DELETE FROM device_challenges")
+            connection.execute(
+                "INSERT INTO device_challenges(nonce_hash, device_id, expires_at) "
+                "SELECT sha256(g::text::bytea), %s, now() - interval '1 hour' FROM generate_series(1, 150) g",
+                (phone.device_id,))
+        self.store.create_challenge(uuid.UUID(phone.device_id))
+        with psycopg.connect(**self.params) as connection:
+            left = connection.execute("SELECT count(*) FROM device_challenges WHERE expires_at < now()").fetchone()[0]
+        self.assertEqual(left, 50)
+
+    def test_expired_link_no_longer_blocks_repairing(self):
+        main, defense = self.phone("niknolig"), self.phone("niknolig-defense")
+        link = self.pair(main, defense)
+        defense.post(f"/v1/links/{link}/grants", {"scope": "status:read", "ttlSeconds": 3600})
+        with psycopg.connect(**self.params) as connection:
+            connection.execute("UPDATE device_links SET created_at = now() - interval '2 days', "
+                               "expires_at = now() - interval '1 day' WHERE id = %s", (link,))
+        self.assertEqual(main.get("/v1/links").json()["links"][0]["state"], "expired")
+        new_link = self.pair(main, defense)
+        self.assertNotEqual(new_link, link)
+        with psycopg.connect(**self.params) as connection:
+            state = connection.execute("SELECT state FROM device_links WHERE id = %s", (link,)).fetchone()[0]
+        self.assertEqual(state, "expired")
+        self.assertEqual(main.get(f"/v1/links/{new_link}/peer/status").status_code, 403)
+
+    def test_revocation_does_not_deadlock_with_concurrent_confirmation(self):
+        import threading
+        main, defense = self.phone("niknolig"), self.phone("niknolig-defense")
+        pairing = main.post("/v1/pairings").json()
+        defense.post("/v1/pairings/claim", {"code": pairing["code"]})
+        errors = []
+        confirming = psycopg.connect(**self.params)
+        confirming.execute("SET lock_timeout = '5s'")
+        confirming.execute("SELECT 1 FROM device_pairings WHERE id = %s FOR UPDATE", (pairing["pairingId"],))
+        worker = threading.Thread(target=lambda: self._revoke(main.device_id, errors))
+        worker.start()
+        time.sleep(0.7)  # revocation now holds the device row and waits for the pairing
+        try:
+            confirming.execute(
+                "INSERT INTO device_links(id, first_device_id, first_app_area, second_device_id, second_app_area, "
+                "state, expires_at, activated_at) VALUES (%s, %s, 'niknolig', %s, 'niknolig-defense', 'active', "
+                "now() + interval '1 day', now())", (uuid.uuid4(), main.device_id, defense.device_id))
+            confirming.commit()
+        finally:
+            confirming.close()
+        worker.join(10)
+        self.assertEqual(errors, [])
+        self.assertEqual(defense.get("/v1/links").json()["links"], [])
+
+    def _revoke(self, device_id, errors):
+        try:
+            self.store.revoke_device(uuid.UUID(device_id))
+        except Exception as error:  # noqa: BLE001
+            errors.append(error)
+
+    def test_readiness_includes_device_store_and_invalid_configuration_disables_routes(self):
+        application = asgi.create_app(readiness_probe=lambda *_: None, environment="production")
+        asgi_probe = lambda check: None
+        self.assertTrue(application.state is not None)
+
+        async def noop(check):
+            return None
+
+        broken = asgi.create_app(readiness_probe=noop, environment="production")
+
+        class Failing:
+            def ping(self):
+                raise RuntimeError("database unavailable")
+
+        broken.state.device_store = Failing()
+        self.assertEqual(TestClient(broken).get("/health/ready").status_code, 503)
+        broken.state.device_store = self.store
+        self.assertEqual(TestClient(broken).get("/health/ready").status_code, 200)
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            empty, token = Path(directory, "empty"), Path(directory, "token")
+            empty.write_text("")
+            token.write_text("t" * 64)
+            environment = {"DEVICE_API_ENABLED": "1", "DEVICE_TOKEN_SECRET_FILE": str(token),
+                           "DEVICE_API_DB_PASSWORD_FILE": str(empty), "PGHOST": "h", "PGDATABASE": "d",
+                           "DEVICE_API_DB_USER": "u", "AUTH_ISSUER": "https://x.supabase.co/auth/v1",
+                           "AUTH_AUDIENCE": "authenticated",
+                           "AUTH_JWKS_URL": "https://x.supabase.co/auth/v1/.well-known/jwks.json"}
+            application = asgi.create_app(readiness_probe=noop, environment="production")
+            self.assertFalse(device_api.install_from_environment(application, environment))
+            self.assertEqual(TestClient(application).post("/v1/pairings").status_code, 404)
+            empty.write_text("password-from-secret")
+            application = asgi.create_app(readiness_probe=noop, environment="production")
+            self.assertTrue(device_api.install_from_environment(application, environment))
+
+    def test_existing_privileged_device_api_role_is_rejected(self):
+        import tempfile
+        with psycopg.connect(**self.params, autocommit=True) as admin:
+            exists = admin.execute("SELECT 1 FROM pg_roles WHERE rolname = 'backend_device_api'").fetchone()
+            if not exists:
+                admin.execute("CREATE ROLE backend_device_api")
+            admin.execute("GRANT pg_monitor TO backend_device_api")
+        try:
+            with tempfile.NamedTemporaryFile("w") as handle, psycopg.connect(**self.params) as connection:
+                handle.write("role-password-different-from-admin")
+                handle.flush()
+                with self.assertRaisesRegex(RuntimeError, "unexpected ownership"):
+                    migrate._configure_device_api_role(connection, handle.name)
+        finally:
+            with psycopg.connect(**self.params, autocommit=True) as admin:
+                admin.execute("REVOKE pg_monitor FROM backend_device_api")
+
     # ---- schema and role -----------------------------------------------
     def test_schema_requires_contract_and_role_is_least_privilege(self):
         with psycopg.connect(**self.params) as connection:
@@ -391,9 +597,11 @@ class DeviceApiTests(unittest.TestCase):
                 "SELECT has_table_privilege('backend_device_api', 'device_events', 'DELETE'), "
                 "has_table_privilege('backend_device_api', 'device_events', 'INSERT'), "
                 "has_table_privilege('backend_device_api', 'device_sessions', 'DELETE'), "
+                "has_table_privilege('backend_device_api', 'device_events', 'UPDATE'), "
+                "has_table_privilege('backend_device_api', 'device_refresh_history', 'UPDATE'), "
                 "has_table_privilege('backend_device_api', 'backend_schema_migrations', 'SELECT'), "
                 "has_schema_privilege('backend_device_api', 'public', 'CREATE')").fetchone()
-        self.assertEqual(role, (False, True, False, False, False))
+        self.assertEqual(role, (False, True, False, False, False, False, False))
 
 
 class Phone:

@@ -8,8 +8,11 @@ Authentication layers:
 
 from __future__ import annotations
 
+import asyncio
 import functools
+import json
 import os
+import sys
 import re
 from uuid import UUID, uuid4
 
@@ -28,6 +31,7 @@ from authentication import (
 
 HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
 MAX_BODY = 8192
+BODY_DEADLINE_SECONDS = 10.0
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 CLIENT_EVENT_KINDS = ("security_warning", "protection_applied", "info")
@@ -104,6 +108,49 @@ def _clean_text(value, *, required=False):
     return value
 
 
+class BodyDeadline:
+    """Pure ASGI guard: the request body must arrive within one fixed deadline (slow-body DoS)."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not scope["path"].startswith(PRIVATE_PATHS):
+            return await self.app(scope, receive, send)
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + BODY_DEADLINE_SECONDS
+        state = {"done": False, "timed_out": False, "started": False}
+
+        async def bounded_receive():
+            if state["done"] or state["timed_out"]:
+                return await receive() if not state["timed_out"] else {"type": "http.disconnect"}
+            try:
+                message = await asyncio.wait_for(receive(), max(deadline - loop.time(), 0.001))
+            except TimeoutError:
+                state["timed_out"] = True
+                return {"type": "http.disconnect"}
+            if message["type"] != "http.request" or not message.get("more_body"):
+                state["done"] = True
+            return message
+
+        async def guarded_send(message):
+            if not state["timed_out"]:
+                state["started"] = state["started"] or message["type"] == "http.response.start"
+                return await send(message)
+            if message["type"] == "http.response.start" and not state.get("replied"):
+                state["replied"] = True
+                payload = json.dumps({"error": {"code": "REQUEST_TIMEOUT",
+                                                "message": "Request body was not received in time.",
+                                                "requestId": str(uuid4())}}).encode()
+                headers = [(k.lower().encode(), v.encode()) for k, v in HEADERS.items()]
+                headers += [(b"content-type", b"application/json"),
+                            (b"content-length", str(len(payload)).encode())]
+                await send({"type": "http.response.start", "status": 408, "headers": headers})
+                await send({"type": "http.response.body", "body": payload})
+
+        await self.app(scope, bounded_receive, guarded_send)
+
+
 def principal_authenticator_from_env(environ=None):
     """Build one Supabase verifier per app area from the shared AUTH_* settings."""
     env = os.environ if environ is None else environ
@@ -155,6 +202,8 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
             if int(length) and request.headers.get("content-type", "").split(";")[0].strip().lower() != "application/json":
                 return _fail(*INVALID)
         return await call_next(request)
+
+    application.add_middleware(BodyDeadline)
 
     async def device(request: Request):
         header = request.headers.get("authorization", "")
@@ -318,15 +367,15 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
             return failure
         code = sec.normalize_pairing_code(body.code)
         key = str(me["id"])
-        if limits["claim_fail"].exhausted(key):
+        # Reserve the attempt before awaiting so concurrent claims cannot exceed the budget.
+        if not limits["claim_fail"].allow(key):
             return _fail(*LIMITED)
         if code is None:
-            limits["claim_fail"].allow(key)
             return _fail(*NOT_FOUND)
         result = await call(store.claim_pairing, me, code)
         if result is None:
-            limits["claim_fail"].allow(key)
             return _fail(*NOT_FOUND)
+        limits["claim_fail"].release(key)
         return ok(result)
 
     @router.get("/v1/pairings/{pairing_id}")
@@ -449,26 +498,41 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
         return ok({"events": await call(store.list_events, me["id"], before, limit)})
 
     application.include_router(router)
+    application.state.device_store = store
 
 
 def install_from_environment(application: FastAPI, environ=None):
-    """Enable the device API only with complete, valid operator configuration."""
+    """Enable the device API only with complete, valid operator configuration.
+
+    Invalid or incomplete configuration leaves the routes absent (fail closed).
+    """
     env = os.environ if environ is None else environ
     if env.get("DEVICE_API_ENABLED") != "1":
         return False
     import psycopg
     import database
+    from authentication import AuthenticationConfigurationError
 
-    secret = sec.load_signing_secret(env["DEVICE_TOKEN_SECRET_FILE"])
-    password_file = env["DEVICE_API_DB_PASSWORD_FILE"]
+    try:
+        secret = sec.load_signing_secret(env["DEVICE_TOKEN_SECRET_FILE"])
+        password_file = env["DEVICE_API_DB_PASSWORD_FILE"]
+        database.read_secret(password_file)  # reject empty/missing secrets before routes exist
+        authenticate = principal_authenticator_from_env(env)
+        host, dbname, user = env["PGHOST"], env["PGDATABASE"], env["DEVICE_API_DB_USER"]
+    except (KeyError, ValueError, OSError, AuthenticationConfigurationError):
+        try:
+            sys.stderr.write('{"event":"device_api_disabled_invalid_configuration"}\n')
+        except (OSError, ValueError):
+            pass
+        return False
 
     def connect():
         return psycopg.connect(
-            host=env["PGHOST"], dbname=env["PGDATABASE"], user=env["DEVICE_API_DB_USER"],
+            host=host, dbname=dbname, user=user,
             password=database.read_secret(password_file), connect_timeout=3,
             options="-c statement_timeout=3000 -c lock_timeout=2000",
         )
 
     install(application, store=ds.DeviceStore(connect, secret), secret=secret,
-            authenticate_principal=principal_authenticator_from_env(env))
+            authenticate_principal=authenticate)
     return True

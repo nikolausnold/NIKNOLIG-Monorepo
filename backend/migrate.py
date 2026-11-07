@@ -18,7 +18,14 @@ DEVICE_API_ROLE = "backend_device_api"
 DEVICE_API_TABLES = (
     "device_installations", "device_links", "device_challenges", "device_sessions",
     "device_pairings", "device_grants", "device_status", "device_events",
+    "device_refresh_history",
 )
+# Audit and token history are append-only for the API login; only challenges are pruned.
+DEVICE_API_PRIVILEGES = {
+    "device_events": "SELECT, INSERT",
+    "device_refresh_history": "SELECT, INSERT",
+    "device_challenges": "SELECT, INSERT, UPDATE, DELETE",
+}
 LOCK_ID = 723046110
 
 # PostgreSQL's canonical deparser output, not constraint names alone. Relation
@@ -330,8 +337,50 @@ def _apply_script(connection, version):
     )
 
 
+def _device_api_role_checks():
+    rows = yield (
+        "SELECT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname = 'backend_device_api' AND ("
+        "r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls "
+        "OR EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member = r.oid OR m.roleid = r.oid) "
+        "OR EXISTS (SELECT 1 FROM pg_db_role_setting s WHERE s.setrole = r.oid) "
+        "OR EXISTS (SELECT 1 FROM pg_shdepend d WHERE d.refclassid = 'pg_authid'::regclass "
+        "AND d.refobjid = r.oid AND d.deptype = 'o')))"
+    )
+    if rows != [(False,)]:
+        raise RuntimeError("Existing device API role has unexpected ownership, memberships or attributes")
+
+
+def _device_api_effective_privilege_checks():
+    # Includes privileges inherited from PUBLIC.
+    rows = yield (
+        "SELECT c.relname, c.relkind, "
+        "has_table_privilege('backend_device_api', c.oid, 'SELECT') AS can_select, "
+        "has_table_privilege('backend_device_api', c.oid, 'INSERT') AS can_insert, "
+        "has_table_privilege('backend_device_api', c.oid, 'UPDATE') AS can_update, "
+        "has_table_privilege('backend_device_api', c.oid, 'DELETE') AS can_delete, "
+        "has_table_privilege('backend_device_api', c.oid, 'TRUNCATE,REFERENCES,TRIGGER') AS can_admin "
+        "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+        "WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm', 'f')"
+    )
+    expected = {
+        table: {"select", "insert", "update", "delete"} & {
+            word.strip().lower() for word in DEVICE_API_PRIVILEGES.get(table, "SELECT, INSERT, UPDATE").split(",")
+        }
+        for table in DEVICE_API_TABLES
+    }
+    for name, kind, can_select, can_insert, can_update, can_delete, can_admin in rows:
+        actual = {label for label, flag in (
+            ("select", can_select), ("insert", can_insert),
+            ("update", can_update), ("delete", can_delete)) if flag}
+        if can_admin or kind != "r" or actual != expected.get(name, set()):
+            raise RuntimeError("Device API role has unexpected effective table privileges")
+    rows = yield "SELECT has_schema_privilege('backend_device_api', 'public', 'CREATE')"
+    if rows != [(False,)]:
+        raise RuntimeError("Device API role may create objects")
+
+
 def _configure_device_api_role(connection, secret_path):
-    """Least-privilege login for the device API: DML on its tables, no DELETE/DDL."""
+    """Least-privilege login for the device API; refuses pre-existing privileged roles."""
     if not secret_path:
         return
     password = database.read_secret(secret_path)
@@ -342,6 +391,7 @@ def _configure_device_api_role(connection, secret_path):
         "SELECT 1 FROM pg_roles WHERE rolname = %s", (DEVICE_API_ROLE,)
     ).fetchone():
         connection.execute(sql.SQL("CREATE ROLE {}").format(role))
+    _run_checks(connection, _device_api_role_checks())
     connection.execute(
         sql.SQL("ALTER ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
                 "NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD {}").format(
@@ -353,11 +403,10 @@ def _configure_device_api_role(connection, secret_path):
     for table in DEVICE_API_TABLES:
         connection.execute(sql.SQL("REVOKE ALL ON public.{} FROM {}").format(
             sql.Identifier(table), role))
-        privileges = "SELECT, INSERT, UPDATE"
-        if table == "device_challenges":
-            privileges += ", DELETE"
+        privileges = DEVICE_API_PRIVILEGES.get(table, "SELECT, INSERT, UPDATE")
         connection.execute(sql.SQL("GRANT " + privileges + " ON public.{} TO {}").format(
             sql.Identifier(table), role))
+    _run_checks(connection, _device_api_effective_privilege_checks())
 
 
 def migrate(connection, *, approve_contract=False, health_secret_path=None,

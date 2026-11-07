@@ -24,11 +24,12 @@ CREATE TABLE device_challenges (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE INDEX device_challenges_expiry_idx ON device_challenges (expires_at);
+
 CREATE TABLE device_sessions (
     id UUID PRIMARY KEY,
     device_id UUID NOT NULL REFERENCES device_installations (id) ON DELETE RESTRICT,
     refresh_hash BYTEA NOT NULL UNIQUE,
-    previous_refresh_hash BYTEA,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     rotated_at TIMESTAMPTZ,
@@ -38,8 +39,14 @@ CREATE TABLE device_sessions (
         CHECK ((revoked_at IS NULL) = (revoke_reason IS NULL))
 );
 CREATE INDEX device_sessions_device_idx ON device_sessions (device_id);
-CREATE INDEX device_sessions_previous_idx ON device_sessions (previous_refresh_hash)
-    WHERE previous_refresh_hash IS NOT NULL;
+
+-- Every consumed refresh hash is kept for reuse detection (any older replay revokes).
+CREATE TABLE device_refresh_history (
+    refresh_hash BYTEA PRIMARY KEY,
+    session_id UUID NOT NULL REFERENCES device_sessions (id) ON DELETE RESTRICT,
+    consumed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX device_refresh_history_session_idx ON device_refresh_history (session_id);
 
 CREATE TABLE device_pairings (
     id UUID PRIMARY KEY,
