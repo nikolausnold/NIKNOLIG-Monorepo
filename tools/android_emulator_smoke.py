@@ -38,7 +38,11 @@ def start_activity(package, main_activity, attempts=5):
                 timeout=60,
             )
             output = f"{result.stdout}\n{result.stderr}"
-            if result.returncode == 0 and "Error" not in output:
+            if (
+                result.returncode == 0
+                and "Error" not in output
+                and "Status: timeout" not in output
+            ):
                 return
         except subprocess.TimeoutExpired as exc:
             stdout, stderr = (

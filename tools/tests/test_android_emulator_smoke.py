@@ -69,6 +69,26 @@ class StartActivityTests(unittest.TestCase):
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
     @patch("tools.android_emulator_smoke.subprocess.run")
+    def test_status_timeout_with_zero_exit_is_logged_and_retried(self, run, adb, sleep):
+        run.side_effect = [
+            subprocess.CompletedProcess(
+                "adb", 0, stdout="Warning: Activity not started\nStatus: timeout", stderr=""
+            ),
+            subprocess.CompletedProcess("adb", 0, stdout="Status: ok", stderr=""),
+        ]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            android_emulator_smoke.start_activity("example", ".MainActivity")
+
+        self.assertEqual(2, run.call_count)
+        self.assertIn("attempt 1 failed:", output.getvalue())
+        self.assertIn("Status: timeout", output.getvalue())
+        adb.assert_called_once_with("shell", "input", "keyevent", "KEYCODE_HOME")
+        sleep.assert_called_once_with(3)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
     def test_home_keyevent_failure_does_not_stop_retries(self, run, adb, sleep):
         run.side_effect = [
             subprocess.CompletedProcess("adb", 1, stdout="", stderr="launch failed"),
