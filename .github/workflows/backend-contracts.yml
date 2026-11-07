@@ -67,6 +67,7 @@ jobs:
         if: steps.upload_contracts.outcome == 'failure'
         uses: actions/upload-artifact@v7.0.2
         with:
+          overwrite: true
           name: mobile-contracts-${{ github.sha }}
           path: |
             backend/openapi.yaml
