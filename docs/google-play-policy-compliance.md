@@ -4,8 +4,9 @@ Geprüft wurden die Release-relevanten `src/main`-Manifeste, Kotlin-Quellen und
 `build.gradle.kts` von `:niknolig` und `:niknolig-defense` getrennt. Beide Module haben
 denselben Release-Befund; es wurden keine Berechtigungen entfernt, weil keine der
 betroffenen Berechtigungen in den Release-Varianten deklariert oder genutzt wird.
-Die Debug-Varianten ergänzen `ACCESS_LOCAL_NETWORK` ausschließlich für den Android-17-
-Emulator-Smoke-Test; diese Berechtigung ist nicht Teil der Release-Varianten.
+Der Android-17-Emulator-Smoke-Test erreicht seinen lokalen HTTPS-Endpunkt über
+`adb reverse` und eine ausschließlich für Debug-Builds validierte Loopback-URL; er
+benötigt daher keine `ACCESS_LOCAL_NETWORK`-Berechtigung.
 
 ## Befund je Modul
 
@@ -21,8 +22,8 @@ Emulator-Smoke-Test; diese Berechtigung ist nicht Teil der Release-Varianten.
 | Android 17 / API 37 | `compileSdk`/`targetSdk` 37 | identisch | Siehe unten. |
 
 Einzige Berechtigung beider `src/main`-Manifeste (also der Release-Varianten):
-`android.permission.INTERNET`. Die `src/debug`-Manifeste ergänzen nur
-`android.permission.ACCESS_LOCAL_NETWORK` für den Emulator-Smoke-Test.
+`android.permission.INTERNET`. Auch die Emulator-Smoke-Tests deklarieren keine
+`ACCESS_LOCAL_NETWORK`-Berechtigung.
 
 ## API 37 (CI-Build erfolgreich, Emulatorprüfung ausstehend)
 

@@ -55,21 +55,19 @@ class GooglePlayPolicyTests(unittest.TestCase):
                 self.assertEqual(application.get(f"{ANDROID_NS}usesCleartextTraffic"), "false")
                 self.assertEqual(application.get(f"{ANDROID_NS}allowBackup"), "false")
 
-    def test_debug_manifests_only_add_local_network_for_emulator_smoke_test(self):
+    def test_debug_manifests_do_not_declare_local_network_permission(self):
         for module in MODULES:
             with self.subTest(module=module):
-                manifest = ET.parse(
-                    ROOT / f"apps/{module}/src/debug/AndroidManifest.xml"
-                ).getroot()
+                path = ROOT / f"apps/{module}/src/debug/AndroidManifest.xml"
+                if not path.exists():
+                    continue
+                manifest = ET.parse(path).getroot()
                 declared = {
                     e.get(f"{ANDROID_NS}name")
                     for e in manifest.iter()
                     if e.tag.startswith("uses-permission")
                 }
-                self.assertEqual(
-                    declared,
-                    {"android.permission.ACCESS_LOCAL_NETWORK"},
-                )
+                self.assertNotIn("android.permission.ACCESS_LOCAL_NETWORK", declared)
 
     def test_sources_and_builds_use_no_restricted_apis_or_billing(self):
         for module_path in SOURCE_MODULES:

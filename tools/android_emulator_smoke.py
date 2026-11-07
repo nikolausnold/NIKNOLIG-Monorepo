@@ -158,14 +158,12 @@ def has_resumed_activity(activity_state, package):
 
 def test_app(package, brand, main_activity, server):
     adb("shell", "pm", "clear", package)
-    adb("shell", "pm", "grant", package, "android.permission.ACCESS_LOCAL_NETWORK")
     package_state = adb("shell", "dumpsys", "package", package)
-    for permission in ("android.permission.INTERNET", "android.permission.ACCESS_LOCAL_NETWORK"):
-        if re.search(
-            rf"(?m)^\s*{re.escape(permission)}:\s+granted=true(?:,|$)",
-            package_state,
-        ) is None:
-            raise AssertionError(f"{package} {permission} is not granted")
+    if re.search(
+        r"(?m)^\s*android\.permission\.INTERNET:\s+granted=true(?:,|$)",
+        package_state,
+    ) is None:
+        raise AssertionError(f"{package} INTERNET is not granted")
 
     adb("shell", "am", "start", "-W", "-n", f"{package}/{main_activity}")
     wait_for_text(brand)

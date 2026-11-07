@@ -179,8 +179,8 @@ jobs:
       - name: Build smoke APKs with isolated HTTPS probe endpoint
         run: >-
           ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug
-          -PniknoligBackendUrl=https://10.0.2.2:18443
-          -PniknoligDefenseBackendUrl=https://10.0.2.2:18443 --no-daemon
+          -PniknoligDebugBackendUrl=https://127.0.0.1:18443
+          -PniknoligDefenseDebugBackendUrl=https://127.0.0.1:18443 --no-daemon
       - name: Install both apps and exercise Android 17 flows
         run: |
           for module in niknolig niknolig-defense; do
@@ -188,6 +188,7 @@ jobs:
             test -s "$apk"
             adb install -r "$apk"
           done
+          adb reverse tcp:18443 tcp:18443
           python3 tools/android_emulator_smoke.py
       - name: Preserve Android 17 emulator diagnostics
         if: always()
