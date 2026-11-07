@@ -164,36 +164,44 @@ class SlidingWindowLimiter:
         self._hits: dict[str, deque] = {}
 
     def allow(self, key: str) -> bool:
+        return self.reserve(key) is not None
+
+    def reserve(self, key: str):
         now = self.clock()
         hits = self._hits.get(key)
         if hits is None:
             if len(self._hits) >= self.max_keys:
                 self._evict(now)
                 if len(self._hits) >= self.max_keys:
-                    return False
+                    return None
             hits = self._hits[key] = deque()
-        while hits and now - hits[0] >= self.window:
+        while hits and now - hits[0][0] >= self.window:
             hits.popleft()
         if len(hits) >= self.limit:
-            return False
-        hits.append(now)
-        return True
+            return None
+        reservation = object()
+        hits.append((now, reservation))
+        return reservation
 
-    def release(self, key: str):
-        """Return the newest reservation (used when an attempt turned out legitimate)."""
+    def release(self, key: str, reservation):
+        """Release only the reservation belonging to a successful attempt."""
         hits = self._hits.get(key)
         if hits:
-            hits.pop()
+            for index, (_, candidate) in enumerate(hits):
+                if candidate is reservation:
+                    del hits[index]
+                    return True
+        return False
 
     def exhausted(self, key: str) -> bool:
         hits = self._hits.get(key)
         if not hits:
             return False
         now = self.clock()
-        while hits and now - hits[0] >= self.window:
+        while hits and now - hits[0][0] >= self.window:
             hits.popleft()
         return len(hits) >= self.limit
 
     def _evict(self, now):
-        for key in [k for k, h in self._hits.items() if not h or now - h[-1] >= self.window]:
+        for key in [k for k, h in self._hits.items() if not h or now - h[-1][0] >= self.window]:
             del self._hits[key]

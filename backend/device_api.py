@@ -295,6 +295,9 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
         sec.b64url_decode(body.refreshToken, length=32)
         if limited("global_unauth", "all"):
             return _fail(*LIMITED)
+        session_id = await call(store.refresh_session_id, body.refreshToken)
+        if session_id is not None and limited("refresh", str(session_id)):
+            return _fail(*LIMITED)
         tokens = await call(store.refresh_session, body.refreshToken)
         return ok(tokens) if tokens else _fail(*UNAUTHENTICATED)
 
@@ -370,14 +373,15 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
         code = sec.normalize_pairing_code(body.code)
         key = str(me["id"])
         # Reserve the attempt before awaiting so concurrent claims cannot exceed the budget.
-        if not limits["claim_fail"].allow(key):
+        reservation = limits["claim_fail"].reserve(key)
+        if reservation is None:
             return _fail(*LIMITED)
         if code is None:
             return _fail(*NOT_FOUND)
         result = await call(store.claim_pairing, me, code)
         if result is None:
             return _fail(*NOT_FOUND)
-        limits["claim_fail"].release(key)
+        limits["claim_fail"].release(key, reservation)
         return ok(result)
 
     @router.get("/v1/pairings/{pairing_id}")

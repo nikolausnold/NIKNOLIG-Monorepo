@@ -26,6 +26,147 @@ DEVICE_API_PRIVILEGES = {
     "device_refresh_history": "SELECT, INSERT",
     "device_challenges": "SELECT, INSERT, UPDATE, DELETE",
 }
+DEVICE_API_COLUMNS = {
+    ("device_installations", "public_key"): ("bytea", "YES", "NO"),
+    ("device_installations", "display_name"): ("text", "YES", "NO"),
+    ("device_challenges", "nonce_hash"): ("bytea", "NO", "NO"),
+    ("device_challenges", "device_id"): ("uuid", "NO", "NO"),
+    ("device_challenges", "expires_at"): ("timestamptz", "NO", "NO"),
+    ("device_challenges", "used_at"): ("timestamptz", "YES", "NO"),
+    ("device_challenges", "created_at"): ("timestamptz", "NO", "NO"),
+    ("device_sessions", "id"): ("uuid", "NO", "NO"),
+    ("device_sessions", "device_id"): ("uuid", "NO", "NO"),
+    ("device_sessions", "refresh_hash"): ("bytea", "NO", "NO"),
+    ("device_sessions", "expires_at"): ("timestamptz", "NO", "NO"),
+    ("device_sessions", "created_at"): ("timestamptz", "NO", "NO"),
+    ("device_sessions", "rotated_at"): ("timestamptz", "YES", "NO"),
+    ("device_sessions", "revoked_at"): ("timestamptz", "YES", "NO"),
+    ("device_sessions", "revoke_reason"): ("text", "YES", "NO"),
+    ("device_refresh_history", "refresh_hash"): ("bytea", "NO", "NO"),
+    ("device_refresh_history", "session_id"): ("uuid", "NO", "NO"),
+    ("device_refresh_history", "consumed_at"): ("timestamptz", "NO", "NO"),
+    ("device_pairings", "id"): ("uuid", "NO", "NO"),
+    ("device_pairings", "initiator_device_id"): ("uuid", "NO", "NO"),
+    ("device_pairings", "claimant_device_id"): ("uuid", "YES", "NO"),
+    ("device_pairings", "code_hash"): ("bytea", "NO", "NO"),
+    ("device_pairings", "state"): ("text", "NO", "NO"),
+    ("device_pairings", "initiator_confirmed_at"): ("timestamptz", "YES", "NO"),
+    ("device_pairings", "claimant_confirmed_at"): ("timestamptz", "YES", "NO"),
+    ("device_pairings", "link_id"): ("uuid", "YES", "NO"),
+    ("device_pairings", "expires_at"): ("timestamptz", "NO", "NO"),
+    ("device_pairings", "created_at"): ("timestamptz", "NO", "NO"),
+    ("device_grants", "id"): ("uuid", "NO", "NO"),
+    ("device_grants", "link_id"): ("uuid", "NO", "NO"),
+    ("device_grants", "grantor_device_id"): ("uuid", "NO", "NO"),
+    ("device_grants", "grantee_device_id"): ("uuid", "NO", "NO"),
+    ("device_grants", "scope"): ("text", "NO", "NO"),
+    ("device_grants", "expires_at"): ("timestamptz", "NO", "NO"),
+    ("device_grants", "created_at"): ("timestamptz", "NO", "NO"),
+    ("device_grants", "revoked_at"): ("timestamptz", "YES", "NO"),
+    ("device_status", "device_id"): ("uuid", "NO", "NO"),
+    ("device_status", "state"): ("text", "NO", "NO"),
+    ("device_status", "detail"): ("text", "YES", "NO"),
+    ("device_status", "reported_at"): ("timestamptz", "NO", "NO"),
+    ("device_events", "id"): ("int8", "NO", "YES"),
+    ("device_events", "device_id"): ("uuid", "NO", "NO"),
+    ("device_events", "source_device_id"): ("uuid", "YES", "NO"),
+    ("device_events", "link_id"): ("uuid", "YES", "NO"),
+    ("device_events", "kind"): ("text", "NO", "NO"),
+    ("device_events", "detail"): ("text", "YES", "NO"),
+    ("device_events", "created_at"): ("timestamptz", "NO", "NO"),
+}
+DEVICE_API_DEFAULTS = {
+    ("device_challenges", "created_at"): "now()",
+    ("device_sessions", "created_at"): "now()",
+    ("device_refresh_history", "consumed_at"): "now()",
+    ("device_pairings", "state"): "'open'::text",
+    ("device_pairings", "created_at"): "now()",
+    ("device_grants", "created_at"): "now()",
+    ("device_status", "reported_at"): "now()",
+    ("device_events", "created_at"): "now()",
+}
+DEVICE_API_CONSTRAINTS = {
+    ("device_installations", "device_installations_public_key_length"):
+        ("c", "CHECK (public_key IS NULL OR octet_length(public_key) = 32)"),
+    ("device_installations", "device_installations_display_name_length"):
+        ("c", "CHECK (display_name IS NULL OR length(display_name) >= 1 AND length(display_name) <= 64)"),
+    ("device_challenges", "device_challenges_pkey"): ("p", "PRIMARY KEY (nonce_hash)"),
+    ("device_challenges", "device_challenges_device_id_fkey"):
+        ("f", "FOREIGN KEY (device_id) REFERENCES device_installations(id) ON DELETE RESTRICT"),
+    ("device_sessions", "device_sessions_pkey"): ("p", "PRIMARY KEY (id)"),
+    ("device_sessions", "device_sessions_device_id_fkey"):
+        ("f", "FOREIGN KEY (device_id) REFERENCES device_installations(id) ON DELETE RESTRICT"),
+    ("device_sessions", "device_sessions_refresh_hash_key"): ("u", "UNIQUE (refresh_hash)"),
+    ("device_sessions", "device_sessions_reason_requires_revocation"):
+        ("c", "CHECK ((revoked_at IS NULL) = (revoke_reason IS NULL))"),
+    ("device_refresh_history", "device_refresh_history_pkey"):
+        ("p", "PRIMARY KEY (refresh_hash)"),
+    ("device_refresh_history", "device_refresh_history_session_id_fkey"):
+        ("f", "FOREIGN KEY (session_id) REFERENCES device_sessions(id) ON DELETE RESTRICT"),
+    ("device_pairings", "device_pairings_pkey"): ("p", "PRIMARY KEY (id)"),
+    ("device_pairings", "device_pairings_initiator_device_id_fkey"):
+        ("f", "FOREIGN KEY (initiator_device_id) REFERENCES device_installations(id) ON DELETE RESTRICT"),
+    ("device_pairings", "device_pairings_claimant_device_id_fkey"):
+        ("f", "FOREIGN KEY (claimant_device_id) REFERENCES device_installations(id) ON DELETE RESTRICT"),
+    ("device_pairings", "device_pairings_link_id_fkey"):
+        ("f", "FOREIGN KEY (link_id) REFERENCES device_links(id) ON DELETE RESTRICT"),
+    ("device_pairings", "device_pairings_state_check"):
+        ("c", "CHECK (state = ANY (ARRAY['open'::text, 'claimed'::text, 'confirmed'::text, 'cancelled'::text, 'expired'::text]))"),
+    ("device_pairings", "device_pairings_distinct_devices"):
+        ("c", "CHECK (claimant_device_id IS NULL OR claimant_device_id <> initiator_device_id)"),
+    ("device_grants", "device_grants_pkey"): ("p", "PRIMARY KEY (id)"),
+    ("device_grants", "device_grants_link_id_fkey"):
+        ("f", "FOREIGN KEY (link_id) REFERENCES device_links(id) ON DELETE RESTRICT"),
+    ("device_grants", "device_grants_grantor_device_id_fkey"):
+        ("f", "FOREIGN KEY (grantor_device_id) REFERENCES device_installations(id) ON DELETE RESTRICT"),
+    ("device_grants", "device_grants_grantee_device_id_fkey"):
+        ("f", "FOREIGN KEY (grantee_device_id) REFERENCES device_installations(id) ON DELETE RESTRICT"),
+    ("device_grants", "device_grants_scope_check"):
+        ("c", "CHECK (scope = ANY (ARRAY['status:read'::text, 'events:read'::text, 'alerts:send'::text]))"),
+    ("device_grants", "device_grants_distinct_devices"):
+        ("c", "CHECK (grantor_device_id <> grantee_device_id)"),
+    ("device_grants", "device_grants_expiry_after_creation"):
+        ("c", "CHECK (expires_at > created_at)"),
+    ("device_status", "device_status_pkey"): ("p", "PRIMARY KEY (device_id)"),
+    ("device_status", "device_status_device_id_fkey"):
+        ("f", "FOREIGN KEY (device_id) REFERENCES device_installations(id) ON DELETE RESTRICT"),
+    ("device_status", "device_status_state_check"):
+        ("c", "CHECK (state = ANY (ARRAY['ok'::text, 'warning'::text, 'alert'::text, 'unknown'::text]))"),
+    ("device_status", "device_status_detail_check"):
+        ("c", "CHECK (detail IS NULL OR length(detail) <= 200)"),
+    ("device_events", "device_events_pkey"): ("p", "PRIMARY KEY (id)"),
+    ("device_events", "device_events_device_id_fkey"):
+        ("f", "FOREIGN KEY (device_id) REFERENCES device_installations(id) ON DELETE RESTRICT"),
+    ("device_events", "device_events_source_device_id_fkey"):
+        ("f", "FOREIGN KEY (source_device_id) REFERENCES device_installations(id) ON DELETE RESTRICT"),
+    ("device_events", "device_events_link_id_fkey"):
+        ("f", "FOREIGN KEY (link_id) REFERENCES device_links(id) ON DELETE RESTRICT"),
+    ("device_events", "device_events_kind_check"):
+        ("c", "CHECK (kind ~ '^[a-z_]{1,48}$'::text)"),
+    ("device_events", "device_events_detail_check"):
+        ("c", "CHECK (detail IS NULL OR length(detail) <= 200)"),
+}
+DEVICE_API_INDEXES = {
+    "device_links_open_pair_unique":
+        "CREATE UNIQUE INDEX device_links_open_pair_unique ON public.device_links USING btree "
+        "(LEAST(first_device_id, second_device_id), GREATEST(first_device_id, second_device_id)) "
+        "WHERE (state = ANY (ARRAY['pending'::device_link_state, 'active'::device_link_state]))",
+    "device_challenges_expiry_idx":
+        "CREATE INDEX device_challenges_expiry_idx ON public.device_challenges USING btree (expires_at)",
+    "device_sessions_device_idx":
+        "CREATE INDEX device_sessions_device_idx ON public.device_sessions USING btree (device_id)",
+    "device_refresh_history_session_idx":
+        "CREATE INDEX device_refresh_history_session_idx ON public.device_refresh_history USING btree (session_id)",
+    "device_pairings_live_code_unique":
+        "CREATE UNIQUE INDEX device_pairings_live_code_unique ON public.device_pairings USING btree "
+        "(code_hash) WHERE (state = ANY (ARRAY['open'::text, 'claimed'::text]))",
+    "device_pairings_initiator_idx":
+        "CREATE INDEX device_pairings_initiator_idx ON public.device_pairings USING btree (initiator_device_id)",
+    "device_grants_link_idx":
+        "CREATE INDEX device_grants_link_idx ON public.device_grants USING btree (link_id)",
+    "device_events_device_idx":
+        "CREATE INDEX device_events_device_idx ON public.device_events USING btree (device_id, id DESC)",
+}
 LOCK_ID = 723046110
 
 # PostgreSQL's canonical deparser output, not constraint names alone. Relation
@@ -130,7 +271,7 @@ def _constraint_checks(expected, message):
         raise RuntimeError(message)
 
 
-def _contract_checks(applied):
+def _contract_checks(applied, device_api_applied=False):
     rows = yield (
         "SELECT name, to_regclass('public.' || name) IS NOT NULL FROM "
         "(VALUES ('device_installations'), ('device_links')) AS objects(name)"
@@ -174,6 +315,65 @@ def _contract_checks(applied):
               for name, table, unique, columns, predicate in indexes}
     if any(actual.get(name) != value for name, value in CONTRACT_INDEXES.items()):
         raise RuntimeError("Required contract indexes have drifted")
+    if device_api_applied:
+        yield from _device_api_schema_checks()
+
+
+def _device_api_schema_checks():
+    tables = yield (
+        "SELECT name, to_regclass('public.' || name) IS NOT NULL FROM "
+        "(VALUES " + ", ".join(f"('{table}')" for table in DEVICE_API_TABLES) + ") AS objects(name)"
+    )
+    if any(not exists for _, exists in tables):
+        raise RuntimeError("Required device API tables have drifted")
+    columns = yield (
+        "SELECT c.relname, a.attname, t.typname, "
+        "CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END, "
+        "CASE WHEN a.attidentity = 'a' THEN 'YES' ELSE 'NO' END, "
+        "pg_get_expr(d.adbin, d.adrelid) "
+        "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+        "JOIN pg_attribute a ON a.attrelid = c.oid JOIN pg_type t ON t.oid = a.atttypid "
+        "LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum "
+        "WHERE n.nspname = 'public' AND c.relname IN ("
+        + ", ".join(f"'{table}'" for table in DEVICE_API_TABLES) + ") "
+        "AND c.relkind = 'r' AND a.attnum > 0 AND NOT a.attisdropped"
+    )
+    actual_columns = {(table, column): (udt, nullable, identity)
+                      for table, column, udt, nullable, identity, _ in columns}
+    if any(actual_columns.get(key) != value for key, value in DEVICE_API_COLUMNS.items()):
+        raise RuntimeError("Required device API columns have drifted")
+    actual_defaults = {(table, column): default for table, column, _, _, _, default in columns}
+    if any(actual_defaults.get(key) != value for key, value in DEVICE_API_DEFAULTS.items()):
+        raise RuntimeError("Required device API column defaults have drifted")
+    constraints = yield (
+        "SELECT r.relname, c.conname, c.contype, pg_get_constraintdef(c.oid, true) "
+        "FROM pg_constraint c "
+        "JOIN pg_class r ON r.oid = c.conrelid JOIN pg_namespace n ON n.oid = r.relnamespace "
+        "WHERE n.nspname = 'public' AND r.relkind = 'r' AND c.convalidated "
+        "AND NOT c.condeferrable AND NOT c.condeferred AND c.conname IN ("
+        + ", ".join(f"'{name}'" for _, name in DEVICE_API_CONSTRAINTS) + ")"
+    )
+    actual_constraints = {(table, name): (kind, definition)
+                          for table, name, kind, definition in constraints}
+    if any(actual_constraints.get(key) != expected
+           for key, expected in DEVICE_API_CONSTRAINTS.items()):
+        raise RuntimeError("Required device API constraints have drifted")
+    indexes = yield (
+        "SELECT idx.relname, pg_get_indexdef(i.indexrelid), i.indisvalid, "
+        "i.indisready, i.indimmediate, am.amname "
+        "FROM pg_index i JOIN pg_class idx ON idx.oid = i.indexrelid "
+        "JOIN pg_namespace n ON n.oid = idx.relnamespace JOIN pg_am am ON am.oid = idx.relam "
+        "WHERE n.nspname = 'public' AND idx.relname IN ("
+        + ", ".join(f"'{name}'" for name in DEVICE_API_INDEXES) + ")"
+    )
+    actual_indexes = {
+        name: definition
+        for name, definition, valid, ready, immediate, method in indexes
+        if valid and ready and immediate and method == "btree"
+    }
+    if any(actual_indexes.get(name) != expected
+           for name, expected in DEVICE_API_INDEXES.items()):
+        raise RuntimeError("Required device API indexes have drifted")
 
 
 def _readiness_checks():
@@ -182,7 +382,7 @@ def _readiness_checks():
     records = yield "SELECT version, checksum FROM public.backend_schema_migrations ORDER BY version"
     _check_records(records)
     yield from _constraint_checks(LEDGER_CONSTRAINTS, "Migration ledger invariants have drifted")
-    yield from _contract_checks(len(records) >= 2)
+    yield from _contract_checks(len(records) >= 2, len(records) == 3)
 
 
 def _run_checks(connection, checks):
@@ -350,7 +550,7 @@ def _device_api_role_checks():
         raise RuntimeError("Existing device API role has unexpected ownership, memberships or attributes")
 
 
-def _device_api_effective_privilege_checks():
+def _device_api_effective_privilege_checks(*, require_complete=True):
     # Includes privileges inherited from PUBLIC.
     rows = yield (
         "SELECT c.relname, c.relkind, "
@@ -358,7 +558,15 @@ def _device_api_effective_privilege_checks():
         "has_table_privilege('backend_device_api', c.oid, 'INSERT') AS can_insert, "
         "has_table_privilege('backend_device_api', c.oid, 'UPDATE') AS can_update, "
         "has_table_privilege('backend_device_api', c.oid, 'DELETE') AS can_delete, "
-        "has_table_privilege('backend_device_api', c.oid, 'TRUNCATE,REFERENCES,TRIGGER') AS can_admin "
+        "has_table_privilege('backend_device_api', c.oid, 'TRUNCATE,REFERENCES,TRIGGER') AS can_admin, "
+        "((has_any_column_privilege('backend_device_api', c.oid, 'SELECT') "
+        "AND NOT has_table_privilege('backend_device_api', c.oid, 'SELECT')) "
+        "OR (has_any_column_privilege('backend_device_api', c.oid, 'INSERT') "
+        "AND NOT has_table_privilege('backend_device_api', c.oid, 'INSERT')) "
+        "OR (has_any_column_privilege('backend_device_api', c.oid, 'UPDATE') "
+        "AND NOT has_table_privilege('backend_device_api', c.oid, 'UPDATE')) "
+        "OR (has_any_column_privilege('backend_device_api', c.oid, 'REFERENCES') "
+        "AND NOT has_table_privilege('backend_device_api', c.oid, 'REFERENCES'))) AS extra_column_privilege "
         "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
         "WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm', 'f')"
     )
@@ -368,11 +576,15 @@ def _device_api_effective_privilege_checks():
         }
         for table in DEVICE_API_TABLES
     }
-    for name, kind, can_select, can_insert, can_update, can_delete, can_admin in rows:
+    for (name, kind, can_select, can_insert, can_update, can_delete,
+         can_admin, extra_column_privilege) in rows:
         actual = {label for label, flag in (
             ("select", can_select), ("insert", can_insert),
             ("update", can_update), ("delete", can_delete)) if flag}
-        if can_admin or kind != "r" or actual != expected.get(name, set()):
+        expected_privileges = expected.get(name, set())
+        if (can_admin or extra_column_privilege or kind != "r"
+                or not actual <= expected_privileges
+                or (require_complete and actual != expected_privileges)):
             raise RuntimeError("Device API role has unexpected effective table privileges")
     rows = yield "SELECT has_schema_privilege('backend_device_api', 'public', 'CREATE')"
     if rows != [(False,)]:
@@ -385,6 +597,7 @@ def check_device_api_ready(connection):
         raise RuntimeError("Device API runtime requires the dedicated device API login")
     _run_checks(connection, _device_api_role_checks())
     _run_checks(connection, _device_api_effective_privilege_checks())
+    _run_checks(connection, _device_api_schema_checks())
 
 
 def _configure_device_api_role(connection, secret_path):
@@ -400,6 +613,7 @@ def _configure_device_api_role(connection, secret_path):
     ).fetchone():
         connection.execute(sql.SQL("CREATE ROLE {}").format(role))
     _run_checks(connection, _device_api_role_checks())
+    _run_checks(connection, _device_api_effective_privilege_checks(require_complete=False))
     connection.execute(
         sql.SQL("ALTER ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
                 "NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD {}").format(

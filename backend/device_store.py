@@ -267,6 +267,16 @@ class DeviceStore:
                             detail="session revoked")
             return None
 
+    def refresh_session_id(self, refresh_token):
+        digest = sec.hash_token(refresh_token)
+        with self._tx() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT id AS session_id FROM device_sessions WHERE refresh_hash = %s "
+                "UNION ALL SELECT session_id FROM device_refresh_history WHERE refresh_hash = %s "
+                "LIMIT 1", (digest, digest))
+            row = cur.fetchone()
+            return row["session_id"] if row else None
+
     def authenticate_access(self, claims):
         with self._tx() as conn, conn.cursor() as cur:
             cur.execute(

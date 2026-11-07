@@ -107,6 +107,17 @@ class SecurityPrimitives(unittest.TestCase):
         now[0] = 11
         self.assertTrue(limiter.allow("a"))
 
+    def test_rate_limiter_releases_the_exact_reservation(self):
+        now = [0.0]
+        limiter = sec.SlidingWindowLimiter(5, 600, clock=lambda: now[0])
+        successful = limiter.reserve("device")
+        now[0] = 1.0
+        failures = [limiter.reserve("device") for _ in range(4)]
+        self.assertTrue(limiter.release("device", successful))
+        now[0] = 600.5
+        self.assertIsNotNone(limiter.reserve("device"))
+        self.assertIsNone(limiter.reserve("device"))
+
     def test_pairing_code_format_and_base64url_strictness(self):
         code = sec.new_pairing_code()
         self.assertEqual(sec.normalize_pairing_code(code.lower()), code)
@@ -220,6 +231,22 @@ class DeviceApiTests(unittest.TestCase):
         self.assertEqual(self.client.post("/v1/sessions/refresh", json={"refreshToken": new["refreshToken"]}).status_code, 401)
         kinds = [e["kind"] for e in phone.open_new_session().get("/v1/events").json()["events"]]
         self.assertIn("session_refresh_reuse_detected", kinds)
+
+    def test_refresh_rate_limit_is_per_stable_session(self):
+        phone = self.phone("niknolig")
+        token = phone.refresh_token
+        for _ in range(30):
+            response = self.client.post("/v1/sessions/refresh", json={"refreshToken": token})
+            self.assertEqual(response.status_code, 200, response.text)
+            token = response.json()["refreshToken"]
+        session_id = sec.verify_access_token(SECRET, phone.access_token)["sid"]
+        response = self.client.post("/v1/sessions/refresh", json={"refreshToken": token})
+        self.assertEqual(response.status_code, 429)
+        with psycopg.connect(**self.params) as connection:
+            count = connection.execute(
+                "SELECT count(*) FROM device_refresh_history WHERE session_id = %s",
+                (session_id,)).fetchone()[0]
+        self.assertEqual(count, 30)
 
     def test_logout_revokes_only_current_session(self):
         phone = self.phone("niknolig")
@@ -654,6 +681,7 @@ class DeviceApiTests(unittest.TestCase):
         role_params = dict(self.params)
         role_params.update(user="backend_device_api")
         role_params["password"] = password
+        role_params["host"] = "127.0.0.1"
         role_store = device_store.DeviceStore(lambda: psycopg.connect(**role_params), SECRET)
         role_store.ping()
         with psycopg.connect(**self.params, autocommit=True) as admin:
@@ -675,6 +703,55 @@ class DeviceApiTests(unittest.TestCase):
         finally:
             with psycopg.connect(**self.params, autocommit=True) as admin:
                 admin.execute("REVOKE DELETE ON device_sessions FROM backend_device_api")
+
+    def test_device_api_role_rejects_column_level_audit_update(self):
+        import tempfile
+        password = "role-password-different-from-admin"
+        with tempfile.NamedTemporaryFile("w") as handle, psycopg.connect(**self.params) as connection:
+            handle.write(password)
+            handle.flush()
+            migrate._configure_device_api_role(connection, handle.name)
+        role_params = dict(self.params)
+        role_params.update(user="backend_device_api")
+        role_params["password"] = password
+        role_params["host"] = "127.0.0.1"
+        role_store = device_store.DeviceStore(lambda: psycopg.connect(**role_params), SECRET)
+        try:
+            with psycopg.connect(**self.params, autocommit=True) as admin:
+                admin.execute("GRANT UPDATE (detail) ON device_events TO backend_device_api")
+            with self.assertRaisesRegex(RuntimeError, "unexpected effective table privileges"):
+                role_store.ping()
+            with tempfile.NamedTemporaryFile("w") as handle, psycopg.connect(**self.params) as connection:
+                handle.write(password)
+                handle.flush()
+                with self.assertRaisesRegex(RuntimeError, "unexpected effective table privileges"):
+                    migrate._configure_device_api_role(connection, handle.name)
+        finally:
+            with psycopg.connect(**self.params, autocommit=True) as admin:
+                admin.execute("REVOKE UPDATE (detail) ON device_events FROM backend_device_api")
+
+    def test_device_api_readiness_checks_migration_002_schema(self):
+        mutations = (
+            (("DROP TABLE device_refresh_history",), "tables"),
+            (("ALTER TABLE device_installations DROP COLUMN public_key",), "columns"),
+            (("ALTER TABLE device_refresh_history ALTER COLUMN consumed_at DROP DEFAULT",), "defaults"),
+            (("ALTER TABLE device_sessions DROP CONSTRAINT device_sessions_reason_requires_revocation",),
+             "constraints"),
+            (("ALTER TABLE device_sessions DROP CONSTRAINT device_sessions_reason_requires_revocation",
+              "ALTER TABLE device_sessions ADD CONSTRAINT device_sessions_reason_requires_revocation CHECK (true)"),
+             "constraints"),
+            (("DROP INDEX device_refresh_history_session_idx",), "indexes"),
+            (("DROP INDEX device_refresh_history_session_idx",
+              "CREATE INDEX device_refresh_history_session_idx ON device_refresh_history(consumed_at)"),
+             "indexes"),
+        )
+        with psycopg.connect(**self.params) as connection:
+            for statements, category in mutations:
+                with self.subTest(category=category), connection.transaction(force_rollback=True):
+                    for statement in statements:
+                        connection.execute(statement)
+                    with self.assertRaisesRegex(RuntimeError, category):
+                        migrate.check_ready(connection)
 
 
 class Phone:
