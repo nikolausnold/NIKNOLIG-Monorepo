@@ -318,5 +318,36 @@ class ClearAppDataTests(unittest.TestCase):
         )
 
 
+class HierarchyTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    def test_retries_transient_ui_automation_registration_failure(self, adb, sleep):
+        adb.side_effect = [
+            subprocess.CalledProcessError(137, "uiautomator", stderr=""),
+            "UI hierarchy dumped",
+            "<hierarchy><node /></hierarchy>",
+        ]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            hierarchy = android_emulator_smoke.hierarchy()
+
+        self.assertEqual("hierarchy", hierarchy.tag)
+        self.assertEqual(3, adb.call_count)
+        self.assertIn("attempt 1 failed (exit 137)", output.getvalue())
+        sleep.assert_called_once_with(2)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    def test_does_not_retry_permanent_ui_automation_failure(self, adb, sleep):
+        adb.side_effect = subprocess.CalledProcessError(
+            1, "uiautomator", stderr="permission denied"
+        )
+        with self.assertRaisesRegex(AssertionError, "permission denied"):
+            android_emulator_smoke.hierarchy()
+
+        adb.assert_called_once()
+        sleep.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -227,9 +227,34 @@ class HttpsProbeServer:
         self.thread.join(timeout=2)
 
 
-def hierarchy():
-    adb("shell", "uiautomator", "dump", "/sdcard/window.xml", timeout=30)
-    return ET.fromstring(adb("exec-out", "cat", "/sdcard/window.xml"))
+def hierarchy(attempts=3):
+    for attempt in range(attempts):
+        try:
+            adb("shell", "uiautomator", "dump", "/sdcard/window.xml", timeout=30)
+            return ET.fromstring(adb("exec-out", "cat", "/sdcard/window.xml"))
+        except subprocess.CalledProcessError as exc:
+            failure = exc
+            output = "\n".join(value for value in (exc.stdout, exc.stderr) if value)
+            transient = exc.returncode == 137 or any(
+                error in output.lower()
+                for error in (
+                    "deadobjectexception",
+                    "error while registering uitestautomationservice",
+                )
+            )
+            message = (
+                f"UI hierarchy attempt {attempt + 1} failed "
+                f"(exit {exc.returncode}): {output or exc}"
+            )
+        except ET.ParseError as exc:
+            failure = exc
+            transient = True
+            message = f"UI hierarchy attempt {attempt + 1} returned invalid XML: {exc}"
+
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message) from failure
+        time.sleep(2)
 
 
 def screen_size():
