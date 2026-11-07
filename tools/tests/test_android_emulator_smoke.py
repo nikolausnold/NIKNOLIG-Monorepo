@@ -370,6 +370,23 @@ class InstallApkTests(unittest.TestCase):
 
 
 class InstalledLauncherTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.resolve_installed_launcher")
+    @patch("tools.android_emulator_smoke.verify_package_installed")
+    def test_verifies_package_before_resolving_launcher(
+        self, verify_package_installed, resolve_installed_launcher
+    ):
+        resolve_installed_launcher.return_value = "com.example.actual.Launcher"
+
+        activity = android_emulator_smoke.verify_installed_launcher(
+            "com.example.actual", "com.example.actual.Launcher"
+        )
+
+        self.assertEqual("com.example.actual.Launcher", activity)
+        verify_package_installed.assert_called_once_with("com.example.actual")
+        resolve_installed_launcher.assert_called_once_with(
+            "com.example.actual", "com.example.actual.Launcher"
+        )
+
     @patch("tools.android_emulator_smoke.package_diagnostics")
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.run_adb")

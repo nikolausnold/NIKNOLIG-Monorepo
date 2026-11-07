@@ -150,6 +150,11 @@ def verify_package_installed(package):
         )
 
 
+def verify_installed_launcher(package, manifest_activity):
+    verify_package_installed(package)
+    return resolve_installed_launcher(package, manifest_activity)
+
+
 def install_apk(apk, package, attempts=3):
     transient_errors = (
         "broken pipe",
@@ -456,9 +461,9 @@ def test_app(apk, brand, server):
         flush=True,
     )
     install_apk(apk, package)
-    verify_package_installed(package)
-    main_activity = resolve_installed_launcher(package, main_activity)
+    main_activity = verify_installed_launcher(package, main_activity)
     clear_app_data(package)
+    main_activity = verify_installed_launcher(package, main_activity)
     package_state = adb("shell", "dumpsys", "package", package)
     if re.search(
         r"(?m)^\s*android\.permission\.INTERNET:\s+granted=true(?:,|$)",
