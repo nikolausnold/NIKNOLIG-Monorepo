@@ -56,11 +56,14 @@ class EvolutionEngineTests(unittest.TestCase):
     def test_readme_evidence_survives_three_line_inventory_expansion(self):
         backlog = copy.deepcopy(self.backlog)
         backlog["ideas"] = [backlog["ideas"][0]]
-        excerpt = backlog["ideas"][0]["evidence"][0]["excerpt"]
+        citation = backlog["ideas"][0]["evidence"][0]
+        excerpt = citation["excerpt"]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for start_line in (114, 115):
+            for start_line in (citation["startLine"], citation["startLine"] + 1):
                 with self.subTest(start_line=start_line):
+                    citation["startLine"] = start_line
+                    citation["endLine"] = start_line + len(excerpt.splitlines()) - 1
                     source = "\n" * (start_line - 1) + excerpt + "\n" * 4
                     (root / "README.md").write_text(source, encoding="utf-8")
                     self.assertEqual(1, len(validate_backlog(backlog, root)))

@@ -11,6 +11,29 @@
 
 **Audit-Branch:** `copilot/audit-release-integration`
 
+## Android 17 / PR #190 – Stand 2026-11-06
+
+**Ergebnis: BLOCKED.** Im Android-Workflow-Lauf
+[42243314703](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/42243314703)
+(Commit `f6e3336`) waren Build beider Debug-APKs, Unit-Tests, Lint sowie
+Paketidentitäts- und APK-Signaturprüfung erfolgreich. Der separate
+Backend-Workflow [42243318786](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/42243318786)
+war ebenfalls erfolgreich.
+
+Der Job **Android 17 emulator** scheiterte vor dem Start des Emulators: Im
+GitHub-Runner-SDK-Repository war auch im Preview-Kanal 3 kein Android-17-
+x86_64-System-Image verfügbar. Emulatorstart und Smoke-Tests wurden daher
+übersprungen. App-Start, Netzwerkzugriffe und Grundfunktionen sind auf Android
+17 folglich **nicht verifiziert**; der grüne SDK-37-Build ersetzt diesen
+Laufzeitnachweis nicht. Der Job protokolliert den Fehler und bewahrt die
+SDK-Paketdiagnose als Workflow-Artefakt auf.
+
+PR #190 bleibt offen; es wurde weder manuell zusammengeführt noch die
+Auto-Merge-Konfiguration geändert. Die bestehenden signierten Release-Pfade
+wurden für diesen PR nicht ausgelöst; der Lauf erzeugte nur Debug-Artefakte.
+Es wurde nichts veröffentlicht. Eine Veröffentlichung bleibt bis zur
+bestätigten Freigabe in der Play Console gesperrt.
+
 ## Release-Audit v1.0.0 – Stand 2026-11-01 (09:30 UTC)
 
 **Gesamtergebnis: BLOCKED.** Signierte Android-Artefakte existieren als
