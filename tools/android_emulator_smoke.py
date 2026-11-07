@@ -27,6 +27,8 @@ PACKAGE_MANAGER_TRANSIENT_ERRORS = (
     "device not found",
     "connection reset",
     "timed out",
+    "packagemanagerinternal",
+    "storagemanagerservice.allocatebytes",
 )
 
 
@@ -181,10 +183,15 @@ def verify_installed_launcher(package, manifest_activity):
     return resolve_installed_launcher(package, manifest_activity)
 
 
-def install_apk(apk, package, attempts=3):
+def install_apk(apk, package, attempts=6):
     for attempt in range(attempts):
         try:
-            result = run_adb("install", "-r", str(apk), timeout=120)
+            # Alternate to the legacy installer when streamed installs hit
+            # a not-yet-ready storage/package service.
+            install_args = ("install", "-r") + (
+                ("--no-streaming",) if attempt % 2 else ()
+            )
+            result = run_adb(*install_args, str(apk), timeout=120)
             output = f"{result.stdout}\n{result.stderr}".strip()
             returncode = result.returncode
             if returncode == 0 and "success" in result.stdout.lower():
@@ -210,7 +217,7 @@ def install_apk(apk, package, attempts=3):
         print(message, flush=True)
         if not transient or attempt + 1 == attempts:
             raise AssertionError(message)
-        time.sleep(3)
+        time.sleep(5 * (attempt + 1))
 
 
 def resolve_installed_launcher(package, manifest_activity, attempts=5):

@@ -424,10 +424,10 @@ class InstallApkTests(unittest.TestCase):
 
         self.assertEqual(2, run_adb.call_count)
         run_adb.assert_called_with(
-            "install", "-r", "/build/app-debug.apk", timeout=120
+            "install", "-r", "--no-streaming", "/build/app-debug.apk", timeout=120
         )
         diagnostics.assert_called_once_with("com.example.actual")
-        sleep.assert_called_once_with(3)
+        sleep.assert_called_once_with(5)
         self.assertIn("Broken pipe (32)", output.getvalue())
         self.assertIn("boot completed (exit 0): 1", output.getvalue())
 
