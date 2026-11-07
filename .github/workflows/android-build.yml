@@ -161,6 +161,11 @@ jobs:
       - name: Start Android 17 emulator
         run: |
           set -euo pipefail
+          if [[ ! -e /dev/kvm ]]; then
+            echo "::error::KVM device is unavailable on this runner"
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
           avd_home="$RUNNER_TEMP/android-avd"
           mkdir -p "$avd_home"
           export ANDROID_AVD_HOME="$avd_home"
