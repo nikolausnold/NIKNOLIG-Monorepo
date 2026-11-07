@@ -379,6 +379,14 @@ def _device_api_effective_privilege_checks():
         raise RuntimeError("Device API role may create objects")
 
 
+def check_device_api_ready(connection):
+    identity = connection.execute("SELECT current_user, session_user").fetchone()
+    if identity != (DEVICE_API_ROLE, DEVICE_API_ROLE):
+        raise RuntimeError("Device API runtime requires the dedicated device API login")
+    _run_checks(connection, _device_api_role_checks())
+    _run_checks(connection, _device_api_effective_privilege_checks())
+
+
 def _configure_device_api_role(connection, secret_path):
     """Least-privilege login for the device API; refuses pre-existing privileged roles."""
     if not secret_path:

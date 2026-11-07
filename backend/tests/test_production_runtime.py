@@ -524,6 +524,19 @@ class MigrationUnitTests(unittest.TestCase):
 
 
 class AsyncDeadlineTests(unittest.IsolatedAsyncioTestCase):
+    def test_device_api_readiness_checks_runtime_identity_and_live_privileges(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = ("postgres", "postgres")
+        with self.assertRaisesRegex(RuntimeError, "dedicated device API login"):
+            migrate.check_device_api_ready(connection)
+
+        connection.execute.return_value.fetchone.return_value = (
+            "backend_device_api", "backend_device_api",
+        )
+        with patch("migrate._run_checks") as checks:
+            migrate.check_device_api_ready(connection)
+        self.assertEqual(2, checks.call_count)
+
     async def test_probe_enforces_read_only_without_changing_migration_connections(self):
         connection = AsyncMock()
         with patch("database.connection_parameters", return_value=("", {

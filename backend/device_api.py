@@ -214,10 +214,10 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
             claims = sec.verify_access_token(secret, token)
         except sec.TokenError:
             return None
-        return await run_in_threadpool(store.authenticate_access, claims)
+        return await store.call_bounded(store.authenticate_access, claims)
 
     async def call(function, *args):
-        return await run_in_threadpool(function, *args)
+        return await store.call_bounded(function, *args)
 
     router = APIRouter()
 
@@ -237,6 +237,8 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
                 return _fail(*CONFLICT)
             except ValueError:
                 return _fail(*INVALID)
+            except TimeoutError:
+                return _fail(503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable.")
         return functools.wraps(handler)(wrapper)
 
     @router.post("/v1/devices")
@@ -247,7 +249,7 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
         if scheme.lower() != "bearer" or not token or len(token) > 16_384:
             return _fail(*UNAUTHENTICATED)
         try:
-            principal, area = await call(authenticate_principal, token)
+            principal, area = await run_in_threadpool(authenticate_principal, token)
         except (InvalidAccessToken, AppAreaMismatch):
             return _fail(*UNAUTHENTICATED)
         except AuthenticationUnavailable:
@@ -334,7 +336,7 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
         if scheme.lower() != "bearer" or not token or len(token) > 16_384:
             return _fail(*UNAUTHENTICATED)
         try:
-            principal, area = await call(authenticate_principal, token)
+            principal, area = await run_in_threadpool(authenticate_principal, token)
         except (InvalidAccessToken, AppAreaMismatch):
             return _fail(*UNAUTHENTICATED)
         except AuthenticationUnavailable:

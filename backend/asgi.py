@@ -106,7 +106,7 @@ def create_app(*, readiness_probe=None, support_service=None, environment=None):
             await probe(check_health_ready_async)
             device_store = getattr(application.state, "device_store", None)
             if device_store is not None:
-                await run_in_threadpool(device_store.ping)
+                await device_store.call_bounded(device_store.ping)
         except Exception:
             _log_readiness_failure()
             return error(503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable.")

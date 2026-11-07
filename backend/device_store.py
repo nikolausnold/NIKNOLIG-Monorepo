@@ -6,18 +6,25 @@ returns or logs key material, tokens or pairing codes.
 
 from __future__ import annotations
 
+import asyncio
+import contextvars
+import threading
+from contextlib import suppress
 from uuid import UUID, uuid4
 
 import psycopg
 from psycopg.errors import UniqueViolation
-from psycopg.rows import dict_row
+from psycopg.rows import dict_row, tuple_row
 
 import device_security as sec
+import migrate
 
 SCOPES = ("status:read", "events:read", "alerts:send")
 MAX_GRANT_SECONDS = 7 * 24 * 3600
 MAX_PAGE = 100
 PRUNE_BATCH = 100
+DB_CALL_DEADLINE_SECONDS = 4.0
+DB_CALL_CLEANUP_SECONDS = 1.0
 
 
 class Conflict(Exception):
@@ -30,6 +37,37 @@ class NotFound(Exception):
 
 class Forbidden(Exception):
     pass
+
+
+class _ConnectionLease:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._connection = None
+        self._closed = False
+
+    @property
+    def closed(self):
+        with self._lock:
+            return self._closed
+
+    def attach(self, connection):
+        with self._lock:
+            if self._closed:
+                close = True
+            else:
+                self._connection = connection
+                close = False
+        if close:
+            connection.close()
+            raise TimeoutError
+
+    def close(self):
+        with self._lock:
+            self._closed = True
+            connection, self._connection = self._connection, None
+        if connection is not None:
+            with suppress(Exception):
+                connection.close()
 
 
 def _device_view(row, prefix=""):
@@ -46,11 +84,35 @@ class DeviceStore:
     def __init__(self, connect, secret: bytes):
         self._connect = connect
         self._secret = secret
+        self._connection_lease = contextvars.ContextVar(
+            f"device_store_connection_lease_{id(self)}", default=None)
 
     def _tx(self):
+        lease = self._connection_lease.get()
+        if lease is not None and lease.closed:
+            raise TimeoutError
         connection = self._connect()
+        if lease is not None:
+            lease.attach(connection)
         connection.row_factory = dict_row
         return connection
+
+    async def call_bounded(self, function, *args):
+        lease = _ConnectionLease()
+        token = self._connection_lease.set(lease)
+        try:
+            task = asyncio.create_task(asyncio.to_thread(function, *args))
+        finally:
+            self._connection_lease.reset(token)
+        try:
+            return await asyncio.wait_for(
+                asyncio.shield(task), timeout=DB_CALL_DEADLINE_SECONDS)
+        except TimeoutError:
+            lease.close()
+            with suppress(Exception):
+                await asyncio.wait_for(
+                    asyncio.shield(task), timeout=DB_CALL_CLEANUP_SECONDS)
+            raise
 
     @staticmethod
     def _event(cur, device_id, kind, *, source=None, link_id=None, detail=None):
@@ -432,6 +494,16 @@ class DeviceStore:
     def revoke_grant(self, grant_id, device_id):
         with self._tx() as conn, conn.cursor() as cur:
             cur.execute(
+                "SELECT link_id FROM device_grants WHERE id = %s AND grantor_device_id = %s",
+                (grant_id, device_id))
+            grant = cur.fetchone()
+            if not grant:
+                raise NotFound
+            cur.execute("SELECT id FROM device_links WHERE id = %s FOR UPDATE",
+                        (grant["link_id"],))
+            if not cur.fetchone():
+                raise NotFound
+            cur.execute(
                 "UPDATE device_grants SET revoked_at = now() WHERE id = %s AND grantor_device_id = %s "
                 "AND revoked_at IS NULL RETURNING link_id, grantee_device_id, scope", (grant_id, device_id))
             row = cur.fetchone()
@@ -453,8 +525,11 @@ class DeviceStore:
         return peer
 
     def ping(self):
-        with self._tx() as conn, conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM device_sessions LIMIT 0")
+        with self._tx() as conn:
+            with conn.cursor(row_factory=tuple_row) as cur:
+                migrate.check_device_api_ready(cur)
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM device_sessions LIMIT 0")
 
     # ---- status and events ---------------------------------------------
     def set_status(self, device_id, state, detail):

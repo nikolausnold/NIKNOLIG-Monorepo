@@ -1,9 +1,12 @@
+import asyncio
 import os
 import sys
+import threading
 import time
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 import psycopg
 from fastapi.testclient import TestClient
@@ -21,6 +24,60 @@ from authentication import InvalidAccessToken
 
 SECRET = b"s" * 48
 ADMIN_URL = os.environ.get("BACKEND_TEST_DATABASE_URL")
+
+
+class DeviceStoreUnitTests(unittest.IsolatedAsyncioTestCase):
+    async def test_database_deadline_closes_the_active_connection(self):
+        started = threading.Event()
+        closed = threading.Event()
+        cursor = Mock()
+        cursor.execute.side_effect = lambda *_: (started.set(), closed.wait(2))
+        cursor_context = Mock()
+        cursor_context.__enter__ = Mock(return_value=cursor)
+        cursor_context.__exit__ = Mock(return_value=False)
+        connection = Mock()
+        connection.cursor.return_value = cursor_context
+        connection.__enter__ = Mock(return_value=connection)
+        connection.__exit__ = Mock(return_value=False)
+        connection.close.side_effect = closed.set
+        store = device_store.DeviceStore(lambda: connection, SECRET)
+
+        def query():
+            with store._tx() as conn, conn.cursor() as cur:
+                cur.execute("SELECT 1")
+
+        with patch("device_store.DB_CALL_DEADLINE_SECONDS", 0.05):
+            started_at = time.monotonic()
+            with self.assertRaises(TimeoutError):
+                await store.call_bounded(query)
+        self.assertLess(time.monotonic() - started_at, 0.5)
+        self.assertTrue(started.is_set())
+        connection.close.assert_called_once()
+
+    def test_grant_revocation_locks_parent_link_before_grant_update(self):
+        link_id, grant_id, device_id, peer_id = (uuid.uuid4() for _ in range(4))
+        cursor = Mock()
+        cursor.fetchone.side_effect = [
+            {"link_id": link_id},
+            {"id": link_id},
+            {"link_id": link_id, "grantee_device_id": peer_id, "scope": "status:read"},
+        ]
+        cursor_context = Mock()
+        cursor_context.__enter__ = Mock(return_value=cursor)
+        cursor_context.__exit__ = Mock(return_value=False)
+        connection = Mock()
+        connection.cursor.return_value = cursor_context
+        connection.__enter__ = Mock(return_value=connection)
+        connection.__exit__ = Mock(return_value=False)
+        store = device_store.DeviceStore(lambda: connection, SECRET)
+
+        store.revoke_grant(grant_id, device_id)
+
+        statements = [call.args[0] for call in cursor.execute.call_args_list]
+        self.assertIn("SELECT link_id FROM device_grants", statements[0])
+        self.assertIn("SELECT id FROM device_links", statements[1])
+        self.assertIn("FOR UPDATE", statements[1])
+        self.assertIn("UPDATE device_grants", statements[2])
 
 
 class SecurityPrimitives(unittest.TestCase):
@@ -532,7 +589,7 @@ class DeviceApiTests(unittest.TestCase):
         broken.state.device_store = Failing()
         self.assertEqual(TestClient(broken).get("/health/ready").status_code, 503)
         broken.state.device_store = self.store
-        self.assertEqual(TestClient(broken).get("/health/ready").status_code, 200)
+        self.assertEqual(TestClient(broken).get("/health/ready").status_code, 503)
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
             empty, token = Path(directory, "empty"), Path(directory, "token")
@@ -587,10 +644,18 @@ class DeviceApiTests(unittest.TestCase):
 
     def test_device_api_role_cannot_delete_audit_events_or_alter_schema(self):
         import tempfile
+        password = "role-password-different-from-admin"
         with tempfile.NamedTemporaryFile("w") as handle, psycopg.connect(**self.params) as connection:
-            handle.write("role-password-different-from-admin")
+            handle.write(password)
             handle.flush()
             migrate._configure_device_api_role(connection, handle.name)
+        with self.assertRaisesRegex(RuntimeError, "dedicated device API login"):
+            self.store.ping()
+        role_params = dict(self.params)
+        role_params.update(user="backend_device_api")
+        role_params["password"] = password
+        role_store = device_store.DeviceStore(lambda: psycopg.connect(**role_params), SECRET)
+        role_store.ping()
         with psycopg.connect(**self.params, autocommit=True) as admin:
             admin.execute("SELECT 1")
             role = admin.execute(
@@ -602,6 +667,14 @@ class DeviceApiTests(unittest.TestCase):
                 "has_table_privilege('backend_device_api', 'backend_schema_migrations', 'SELECT'), "
                 "has_schema_privilege('backend_device_api', 'public', 'CREATE')").fetchone()
         self.assertEqual(role, (False, True, False, False, False, False, False))
+        try:
+            with psycopg.connect(**self.params, autocommit=True) as admin:
+                admin.execute("GRANT DELETE ON device_sessions TO backend_device_api")
+            with self.assertRaisesRegex(RuntimeError, "unexpected effective table privileges"):
+                role_store.ping()
+        finally:
+            with psycopg.connect(**self.params, autocommit=True) as admin:
+                admin.execute("REVOKE DELETE ON device_sessions FROM backend_device_api")
 
 
 class Phone:
