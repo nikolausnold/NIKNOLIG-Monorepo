@@ -16,6 +16,18 @@ NETWORK_ERROR_TEXT = (
     "Backend konnte nicht sicher erreicht werden",
     "The backend could not be reached securely",
 )
+PACKAGE_MANAGER_TRANSIENT_ERRORS = (
+    "broken pipe",
+    "failure calling service package",
+    "can't find service: package",
+    "could not access the package manager",
+    "package manager has died",
+    "deadobjectexception",
+    "device offline",
+    "device not found",
+    "connection reset",
+    "timed out",
+)
 
 
 def run_adb(*args, timeout=30):
@@ -92,16 +104,6 @@ def package_diagnostics(package):
 
 
 def clear_app_data(package, attempts=3):
-    transient_errors = (
-        "can't find service: package",
-        "could not access the package manager",
-        "package manager has died",
-        "deadobjectexception",
-        "device offline",
-        "device not found",
-        "connection reset",
-        "timed out",
-    )
     for attempt in range(attempts):
         try:
             result = run_adb("shell", "pm", "clear", package, timeout=30)
@@ -121,7 +123,9 @@ def clear_app_data(package, attempts=3):
 
         diagnostics = package_diagnostics(package)
         diagnostic_text = diagnostics.lower()
-        transient = any(error in output.lower() for error in transient_errors) or (
+        transient = any(
+            error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS
+        ) or (
             returncode == 224
             and not output
             and "adb state (exit 0): device" in diagnostic_text
@@ -139,15 +143,37 @@ def clear_app_data(package, attempts=3):
         time.sleep(2)
 
 
-def verify_package_installed(package):
-    result = run_adb("shell", "pm", "path", package, timeout=15)
-    output = f"{result.stdout}\n{result.stderr}".strip()
-    if result.returncode != 0 or not result.stdout.strip().startswith("package:"):
-        raise AssertionError(
-            f"APK package {package} is not installed "
-            f"(exit {result.returncode}): {output or '<no output>'}; "
-            f"{package_diagnostics(package)}"
+def verify_package_installed(package, attempts=3):
+    for attempt in range(attempts):
+        try:
+            result = run_adb("shell", "pm", "path", package, timeout=15)
+            output = f"{result.stdout}\n{result.stderr}".strip()
+            returncode = result.returncode
+            if returncode == 0 and result.stdout.strip().startswith("package:"):
+                return
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace")
+                if isinstance(value, bytes)
+                else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
+            returncode = "timeout"
+
+        diagnostics = package_diagnostics(package)
+        transient = any(
+            error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS
         )
+        message = (
+            f"APK package {package} is not installed "
+            f"(verification attempt {attempt + 1}, exit {returncode}): "
+            f"{output or '<no output>'}; {diagnostics}"
+        )
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message)
+        time.sleep(2)
 
 
 def verify_installed_launcher(package, manifest_activity):
@@ -156,15 +182,6 @@ def verify_installed_launcher(package, manifest_activity):
 
 
 def install_apk(apk, package, attempts=3):
-    transient_errors = (
-        "broken pipe",
-        "failure calling service package",
-        "device offline",
-        "device not found",
-        "connection reset",
-        "timed out",
-        "package manager has died",
-    )
     for attempt in range(attempts):
         try:
             result = run_adb("install", "-r", str(apk), timeout=120)
@@ -183,7 +200,9 @@ def install_apk(apk, package, attempts=3):
             returncode = "timeout"
 
         diagnostics = package_diagnostics(package)
-        transient = any(error in output.lower() for error in transient_errors)
+        transient = any(
+            error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS
+        )
         message = (
             f"APK install attempt {attempt + 1} failed for {package} "
             f"(exit {returncode}): {output or '<no output>'}; {diagnostics}"
@@ -209,13 +228,26 @@ def resolve_installed_launcher(package, manifest_activity, attempts=5):
         package,
     )
     for attempt in range(attempts):
-        result = run_adb(*args, timeout=15)
-        output = f"{result.stdout}\n{result.stderr}".strip()
+        try:
+            result = run_adb(*args, timeout=15)
+            output = f"{result.stdout}\n{result.stderr}".strip()
+            returncode = result.returncode
+            stdout = result.stdout
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace")
+                if isinstance(value, bytes)
+                else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
+            returncode = "timeout"
+
         component = re.search(
             rf"(?m)^\s*{re.escape(package)}/([^\s]+)\s*$",
-            result.stdout,
+            stdout,
         )
-        if result.returncode == 0 and component is not None:
+        if returncode == 0 and component is not None:
             activity = component.group(1)
             if activity.startswith("."):
                 activity = f"{package}{activity}"
@@ -230,12 +262,14 @@ def resolve_installed_launcher(package, manifest_activity, attempts=5):
             return activity
 
         diagnostics = package_diagnostics(package)
-        transient = "no activity found" in output.lower() or (
-            result.returncode == 0 and not output
+        transient = (
+            any(error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS)
+            or "no activity found" in output.lower()
+            or (returncode == 0 and not output)
         )
         message = (
             f"Installed launcher resolution attempt {attempt + 1} failed for {package} "
-            f"(exit {result.returncode}): {output or '<no output>'}; {diagnostics}"
+            f"(exit {returncode}): {output or '<no output>'}; {diagnostics}"
         )
         print(message, flush=True)
         if not transient or attempt + 1 == attempts:
