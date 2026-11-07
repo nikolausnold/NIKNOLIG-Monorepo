@@ -178,7 +178,7 @@ jobs:
           test -s "$avd_home/android-17-api-37.avd/config.ini"
           emulator -avd android-17-api-37 \
             -no-window -no-audio -no-boot-anim -no-snapshot \
-            -gpu swiftshader_indirect -memory 2048 -partition-size 4096 \
+            -gpu swiftshader_indirect -memory 4096 -partition-size 4096 \
             > "$RUNNER_TEMP/android-17-emulator.log" 2>&1 &
           timeout 120 adb wait-for-device
           timeout 240 bash -c \
