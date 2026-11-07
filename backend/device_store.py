@@ -267,15 +267,16 @@ class DeviceStore:
                             detail="session revoked")
             return None
 
-    def refresh_session_id(self, refresh_token):
+    def refresh_token_state(self, refresh_token):
         digest = sec.hash_token(refresh_token)
         with self._tx() as conn, conn.cursor() as cur:
             cur.execute(
-                "SELECT id AS session_id FROM device_sessions WHERE refresh_hash = %s "
-                "UNION ALL SELECT session_id FROM device_refresh_history WHERE refresh_hash = %s "
-                "LIMIT 1", (digest, digest))
+                "SELECT session_id, is_current FROM ("
+                "SELECT id AS session_id, TRUE AS is_current FROM device_sessions WHERE refresh_hash = %s "
+                "UNION ALL SELECT session_id, FALSE AS is_current FROM device_refresh_history "
+                "WHERE refresh_hash = %s) AS tokens ORDER BY is_current DESC LIMIT 1", (digest, digest))
             row = cur.fetchone()
-            return row["session_id"] if row else None
+            return (row["session_id"], row["is_current"]) if row else None
 
     def authenticate_access(self, claims):
         with self._tx() as conn, conn.cursor() as cur:
@@ -307,6 +308,10 @@ class DeviceStore:
         code = sec.new_pairing_code()
         pairing_id = uuid4()
         with self._tx() as conn, conn.cursor() as cur:
+            cur.execute("SELECT id FROM device_installations WHERE id = %s FOR NO KEY UPDATE",
+                        (device["id"],))
+            if not cur.fetchone():
+                raise NotFound
             cur.execute(
                 "UPDATE device_pairings SET state = 'cancelled' WHERE initiator_device_id = %s "
                 "AND state IN ('open', 'claimed')", (device["id"],))
@@ -452,7 +457,7 @@ class DeviceStore:
                      "expiresAt": r["expires_at"].isoformat(), "peer": _device_view(r)}
                     for r in cur.fetchall()]
 
-    def _active_link(self, cur, link_id, device_id, lock=False):
+    def _active_link(self, cur, link_id, device_id, lock=True):
         cur.execute(
             "SELECT * FROM device_links WHERE id = %s AND state = 'active' AND expires_at > now() "
             "AND (first_device_id = %s OR second_device_id = %s)" + (" FOR UPDATE" if lock else ""),

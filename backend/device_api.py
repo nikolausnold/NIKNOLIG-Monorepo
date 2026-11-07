@@ -244,6 +244,8 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
     @router.post("/v1/devices")
     @guard
     async def register_device(body: RegisterBody, request: Request):
+        if limited("global_unauth", "all"):
+            return _fail(*LIMITED)
         header = request.headers.get("authorization", "")
         scheme, _, token = header.partition(" ")
         if scheme.lower() != "bearer" or not token or len(token) > 16_384:
@@ -295,8 +297,14 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
         sec.b64url_decode(body.refreshToken, length=32)
         if limited("global_unauth", "all"):
             return _fail(*LIMITED)
-        session_id = await call(store.refresh_session_id, body.refreshToken)
-        if session_id is not None and limited("refresh", str(session_id)):
+        token_state = await call(store.refresh_token_state, body.refreshToken)
+        if token_state is None:
+            return _fail(*UNAUTHENTICATED)
+        session_id, is_current = token_state
+        if not is_current:
+            await call(store.refresh_session, body.refreshToken)
+            return _fail(*UNAUTHENTICATED)
+        if limited("refresh", str(session_id)):
             return _fail(*LIMITED)
         tokens = await call(store.refresh_session, body.refreshToken)
         return ok(tokens) if tokens else _fail(*UNAUTHENTICATED)
@@ -334,6 +342,8 @@ def install(application: FastAPI, *, store: ds.DeviceStore, secret: bytes, authe
                 return _fail(*FORBIDDEN)
             await call(lambda: store.revoke_device(target))
             return ok({"status": "revoked"})
+        if limited("global_unauth", "all"):
+            return _fail(*LIMITED)
         header = request.headers.get("authorization", "")
         scheme, _, token = header.partition(" ")
         if scheme.lower() != "bearer" or not token or len(token) > 16_384:

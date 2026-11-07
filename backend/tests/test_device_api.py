@@ -6,7 +6,7 @@ import time
 import unittest
 import uuid
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import psycopg
 from fastapi.testclient import TestClient
@@ -78,6 +78,71 @@ class DeviceStoreUnitTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("SELECT id FROM device_links", statements[1])
         self.assertIn("FOR UPDATE", statements[1])
         self.assertIn("UPDATE device_grants", statements[2])
+
+    def test_authorized_link_operations_lock_parent_through_protected_work(self):
+        link_id, device_id, peer_id = (uuid.uuid4() for _ in range(3))
+        link = {"first_device_id": device_id, "second_device_id": peer_id}
+        cursor = Mock()
+        cursor.fetchone.side_effect = [link, {"present": 1}]
+        store = device_store.DeviceStore(lambda: None, SECRET)
+
+        self.assertEqual(store._require_grant(cursor, link_id, device_id, "events:read"), peer_id)
+        link_query, grant_query = [call.args[0] for call in cursor.execute.call_args_list]
+        self.assertIn("FOR UPDATE", link_query)
+        self.assertIn("device_grants", grant_query)
+
+        cursor.reset_mock()
+        cursor.fetchone.side_effect = [link, {"present": 1}]
+        store._active_link(cursor, link_id, device_id)
+        self.assertIn("FOR UPDATE", cursor.execute.call_args.args[0])
+
+        cursor_context = Mock()
+        cursor_context.__enter__ = Mock(return_value=cursor)
+        cursor_context.__exit__ = Mock(return_value=False)
+        connection = Mock()
+        connection.cursor.return_value = cursor_context
+        connection.__enter__ = Mock(return_value=connection)
+        connection.__exit__ = Mock(return_value=False)
+        store = device_store.DeviceStore(lambda: connection, SECRET)
+        store._event = Mock()
+        cursor.reset_mock()
+        cursor.fetchone.side_effect = [link, {"present": 1}]
+        store.send_alert(link_id, device_id, "security_warning", "detail")
+        statements = [call.args[0] for call in cursor.execute.call_args_list]
+        self.assertIn("FOR UPDATE", statements[0])
+        self.assertIn("device_grants", statements[1])
+        self.assertEqual(store._event.call_count, 2)
+
+    def test_principal_verification_is_preceded_by_global_limit(self):
+        verifier_calls = []
+        limiter = sec.SlidingWindowLimiter
+        store = Mock()
+
+        def verify(token):
+            verifier_calls.append(token)
+            raise InvalidAccessToken
+
+        def make_client():
+            app = asgi.create_app(readiness_probe=lambda *_: None, environment="production")
+            with patch.object(sec, "SlidingWindowLimiter",
+                              side_effect=lambda *_: limiter(1, 60)):
+                device_api.install(app, store=store, secret=SECRET, authenticate_principal=verify)
+            return TestClient(app)
+
+        headers = {"Authorization": "Bearer " + "invalid"}
+        body = {"installationId": str(uuid.uuid4()), "publicKey": "A" * 43,
+                "proof": "A" * 86, "displayName": "Phone"}
+        client = make_client()
+        self.assertEqual(client.post("/v1/devices", json=body, headers=headers).status_code, 401)
+        self.assertEqual(client.post("/v1/devices", json=body, headers=headers).status_code, 429)
+        self.assertEqual(len(verifier_calls), 1)
+
+        verifier_calls.clear()
+        client = make_client()
+        target = str(uuid.uuid4())
+        self.assertEqual(client.delete(f"/v1/devices/{target}", headers=headers).status_code, 401)
+        self.assertEqual(client.delete(f"/v1/devices/{target}", headers=headers).status_code, 429)
+        self.assertEqual(len(verifier_calls), 1)
 
 
 class SecurityPrimitives(unittest.TestCase):
@@ -234,11 +299,13 @@ class DeviceApiTests(unittest.TestCase):
 
     def test_refresh_rate_limit_is_per_stable_session(self):
         phone = self.phone("niknolig")
-        token = phone.refresh_token
+        first_token = token = phone.refresh_token
+        latest_access_token = phone.access_token
         for _ in range(30):
             response = self.client.post("/v1/sessions/refresh", json={"refreshToken": token})
             self.assertEqual(response.status_code, 200, response.text)
             token = response.json()["refreshToken"]
+            latest_access_token = response.json()["accessToken"]
         session_id = sec.verify_access_token(SECRET, phone.access_token)["sid"]
         response = self.client.post("/v1/sessions/refresh", json={"refreshToken": token})
         self.assertEqual(response.status_code, 429)
@@ -247,6 +314,9 @@ class DeviceApiTests(unittest.TestCase):
                 "SELECT count(*) FROM device_refresh_history WHERE session_id = %s",
                 (session_id,)).fetchone()[0]
         self.assertEqual(count, 30)
+        replay = self.client.post("/v1/sessions/refresh", json={"refreshToken": first_token})
+        self.assertEqual(replay.status_code, 401)
+        self.assertEqual(phone.get("/v1/devices/me", token=latest_access_token).status_code, 401)
 
     def test_logout_revokes_only_current_session(self):
         phone = self.phone("niknolig")
@@ -314,6 +384,25 @@ class DeviceApiTests(unittest.TestCase):
         first = main.post("/v1/pairings").json()
         main.post("/v1/pairings")
         self.assertEqual(defense.post("/v1/pairings/claim", {"code": first["code"]}).status_code, 404)
+
+    def test_concurrent_pairing_creation_leaves_only_one_open_code(self):
+        import asyncio
+        import httpx
+        main, defense = self.phone("niknolig"), self.phone("niknolig-defense")
+
+        async def run():
+            transport = httpx.ASGITransport(app=self.client.app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+                responses = await asyncio.gather(*[
+                    client.post("/v1/pairings", headers={"Authorization": "Bearer " + main.access_token})
+                    for _ in range(2)])
+            return responses
+
+        responses = asyncio.run(run())
+        self.assertEqual([response.status_code for response in responses], [201, 201])
+        codes = [response.json()["code"] for response in responses]
+        claim_statuses = [defense.post("/v1/pairings/claim", {"code": code}).status_code for code in codes]
+        self.assertCountEqual(claim_statuses, [200, 404])
 
     def test_duplicate_active_link_is_rejected(self):
         main, defense = self.phone("niknolig"), self.phone("niknolig-defense")
