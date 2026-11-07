@@ -54,8 +54,16 @@ class HttpsProbeServer:
             self.connections += 1
             with connection:
                 try:
-                    with self.context.wrap_socket(connection, server_side=True):
-                        pass
+                    with self.context.wrap_socket(connection, server_side=True) as secure_connection:
+                        secure_connection.recv(4096)
+                        body = b'{"status":"ready"}'
+                        secure_connection.sendall(
+                            b"HTTP/1.1 200 OK\r\n"
+                            b"Content-Type: application/json\r\n"
+                            b"Content-Length: 18\r\n"
+                            b"Connection: close\r\n\r\n"
+                            + body
+                        )
                 except (OSError, ssl.SSLError):
                     pass
 

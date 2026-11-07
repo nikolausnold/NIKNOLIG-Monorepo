@@ -186,7 +186,7 @@ jobs:
           adb shell settings put global device_provisioned 1
           adb shell settings put secure user_setup_complete 1
           timeout 240 bash -c \
-            'until [[ "$(adb shell getprop sys.user.0.ce_available | tr -d "\r")" == "1" ]]; do sleep 2; done'
+            'until [[ "$(adb shell getprop sys.user.0.ce_available | tr -d "\r")" == "true" ]]; do sleep 2; done'
           adb shell settings put global window_animation_scale 0
           adb shell settings put global transition_animation_scale 0
           adb shell settings put global animator_duration_scale 0
