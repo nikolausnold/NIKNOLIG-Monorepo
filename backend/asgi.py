@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException
 
 from ai_support import SupportService, error_response
 import database
+import device_api
 from migrate import check_health_ready_async
 from support_http import (
     MAX_SUPPORT_BODY_BYTES, SUPPORT_READ_TIMEOUT_SECONDS,
@@ -158,6 +159,7 @@ def create_app(*, readiness_probe=None, support_service=None, environment=None):
             status, body = error_response(503, "SERVICE_UNAVAILABLE", escalate=True)
         return JSONResponse(body, status_code=status, headers=HEADERS)
 
+    device_api.install_from_environment(application)
     return application
 
 

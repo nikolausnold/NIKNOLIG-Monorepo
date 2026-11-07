@@ -13,6 +13,12 @@ import database
 MIGRATIONS = Path(__file__).resolve().parent / "migrations"
 BASELINE = "000_health_runtime"
 CONTRACT = "001_initial_contract"
+DEVICE_API = "002_device_api"
+DEVICE_API_ROLE = "backend_device_api"
+DEVICE_API_TABLES = (
+    "device_installations", "device_links", "device_challenges", "device_sessions",
+    "device_pairings", "device_grants", "device_status", "device_events",
+)
 LOCK_ID = 723046110
 
 # PostgreSQL's canonical deparser output, not constraint names alone. Relation
@@ -92,7 +98,8 @@ def _records(connection):
 
 def _check_records(records):
     baseline = [(BASELINE, checksum(BASELINE))]
-    if records not in (baseline, baseline + [(CONTRACT, checksum(CONTRACT))]):
+    contract = baseline + [(CONTRACT, checksum(CONTRACT))]
+    if records not in (baseline, contract, contract + [(DEVICE_API, checksum(DEVICE_API))]):
         raise RuntimeError("Unknown, incomplete or changed migration history")
 
 
@@ -168,7 +175,7 @@ def _readiness_checks():
     records = yield "SELECT version, checksum FROM public.backend_schema_migrations ORDER BY version"
     _check_records(records)
     yield from _constraint_checks(LEDGER_CONSTRAINTS, "Migration ledger invariants have drifted")
-    yield from _contract_checks(len(records) == 2)
+    yield from _contract_checks(len(records) >= 2)
 
 
 def _run_checks(connection, checks):
@@ -310,7 +317,51 @@ def _configure_health_role(connection, secret_path):
     ).format(role))
 
 
-def migrate(connection, *, approve_contract=False, health_secret_path=None):
+def _apply_script(connection, version):
+    # Keep the original SQL unchanged but let the outer transaction own atomicity.
+    before, separator, body = migration_text(version).partition("BEGIN;")
+    body, end, after = body.rpartition("COMMIT;")
+    if not separator or not end or after.strip():
+        raise RuntimeError("Migration transaction envelope changed")
+    connection.execute(body)
+    connection.execute(
+        "INSERT INTO public.backend_schema_migrations(version, checksum) VALUES (%s, %s)",
+        (version, checksum(version)),
+    )
+
+
+def _configure_device_api_role(connection, secret_path):
+    """Least-privilege login for the device API: DML on its tables, no DELETE/DDL."""
+    if not secret_path:
+        return
+    password = database.read_secret(secret_path)
+    if password == connection.info.password:
+        raise ValueError("Device API and migration database credentials must differ")
+    role = sql.Identifier(DEVICE_API_ROLE)
+    if not connection.execute(
+        "SELECT 1 FROM pg_roles WHERE rolname = %s", (DEVICE_API_ROLE,)
+    ).fetchone():
+        connection.execute(sql.SQL("CREATE ROLE {}").format(role))
+    connection.execute(
+        sql.SQL("ALTER ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
+                "NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD {}").format(
+                    role, sql.Literal(password)))
+    name = connection.execute("SELECT current_database()").fetchone()[0]
+    connection.execute(sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
+        sql.Identifier(name), role))
+    connection.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(role))
+    for table in DEVICE_API_TABLES:
+        connection.execute(sql.SQL("REVOKE ALL ON public.{} FROM {}").format(
+            sql.Identifier(table), role))
+        privileges = "SELECT, INSERT, UPDATE"
+        if table == "device_challenges":
+            privileges += ", DELETE"
+        connection.execute(sql.SQL("GRANT " + privileges + " ON public.{} TO {}").format(
+            sql.Identifier(table), role))
+
+
+def migrate(connection, *, approve_contract=False, health_secret_path=None,
+            approve_device_api=False, device_api_secret_path=None):
     with connection.transaction():
         connection.execute("SELECT pg_advisory_xact_lock(%s)", (LOCK_ID,))
         connection.execute(migration_text(BASELINE))
@@ -323,21 +374,24 @@ def migrate(connection, *, approve_contract=False, health_secret_path=None):
             )
             records = _records(connection)
         _check_records(records)
-        _check_contract_invariants(connection, len(records) == 2)
+        _check_contract_invariants(connection, len(records) >= 2)
         if approve_contract and len(records) == 1:
-            # Keep the original SQL unchanged but let the outer transaction own atomicity.
-            text = migration_text(CONTRACT)
-            before, separator, body = text.partition("BEGIN;")
-            body, end, after = body.rpartition("COMMIT;")
-            if not separator or not end or after.strip():
-                raise RuntimeError("Migration transaction envelope changed")
-            connection.execute(body)
-            connection.execute(
-                "INSERT INTO public.backend_schema_migrations(version, checksum) VALUES (%s, %s)",
-                (CONTRACT, checksum(CONTRACT)),
-            )
+            _apply_script(connection, CONTRACT)
+            records = _records(connection)
+        if approve_device_api:
+            if len(records) < 2:
+                raise RuntimeError("Device API schema requires the approved contract schema")
+            if len(records) == 2:
+                _apply_script(connection, DEVICE_API)
+                records = _records(connection)
         check_ready(connection)
         _configure_health_role(connection, health_secret_path)
+        if len(records) == 3:
+            _configure_device_api_role(connection, device_api_secret_path)
+
+
+def _nonempty_file(path):
+    return path if path and os.path.getsize(path) > 0 else None
 
 
 def main():
@@ -346,6 +400,10 @@ def main():
         "--approve-contract-schema", action="store_true",
         help="Apply 001 only AFTER actual architecture/security/data-model approval; not a P0 approval",
     )
+    parser.add_argument(
+        "--approve-device-api-schema", action="store_true",
+        help="Apply 002 (device pairing/session API) after 001; requires release approval",
+    )
     args = parser.parse_args()
     try:
         with database.connect() as connection:
@@ -353,6 +411,9 @@ def main():
                 connection,
                 approve_contract=args.approve_contract_schema,
                 health_secret_path=os.environ.get("HEALTH_DB_PASSWORD_FILE"),
+                approve_device_api=args.approve_device_api_schema
+                or os.environ.get("APPROVE_DEVICE_API_SCHEMA") == "1",
+                device_api_secret_path=_nonempty_file(os.environ.get("DEVICE_API_DB_PASSWORD_FILE")),
             )
     except Exception:
         raise SystemExit("Migration failed; database unavailable, unapproved drift, or invalid history.") from None
