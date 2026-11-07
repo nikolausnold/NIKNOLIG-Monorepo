@@ -126,6 +126,40 @@ und Kompatibilitätsprüfung sowie Abnahmekriterien sind offene Freigabepunkte.
   Wiederverbindung authentifiziert den Peer erneut. Widerruf löscht die
   Vertrauensbeziehung und erfordert ein neues beidseitig bestätigtes Pairing.
 
+### 3a. Entwurf: QR-Pairing (nicht aktiviert, ohne Datenübertragung)
+
+**Status: Entwurf zur Prüfung; keine Implementierung, kein Code, keine Berechtigung.**
+Der Entwurf wählt keinen Transport und erteilt keine P0-Freigabe. Er konkretisiert
+nur den Pairing-Ablauf, damit Produkt, Datenschutz und Security ihn bewerten können.
+
+1. **Auslöser:** Nur durch aktives Tippen in einer der Apps (z. B. „Gerät koppeln“);
+   standardmäßig deaktiviert, kein Hintergrund-Discovery.
+2. **QR-Angebot (Gerät A):** Zeigt einen QR-Code mit Protokollversion, App-Bereich
+   (`niknolig` oder `niknolig-defense`), zufälligem einmaligem Pairing-Token
+   (kryptografisch zufällig, kurze Gültigkeit, nur ein Versuch) und dem
+   öffentlichen Teil der Geräteidentität. Keine Nutzdaten, keine langlebigen
+   Geheimnisse, kein Gerätename als Vertrauensanker.
+3. **Scan (Gerät B):** Die andere App scannt den Code. Gleicher App-Bereich, abgelaufene
+   oder bereits benutzte Token und unbekannte Versionen werden abgelehnt.
+4. **Beidseitige Bestätigung:** Beide Geräte zeigen einen kurzen Vergleichscode und
+   den Namen der Gegen-App; ohne ausdrückliche Zustimmung auf beiden Seiten kein
+   Abschluss. Timeout und Abbruch führen zu `failed` ohne gespeicherte Beziehung.
+5. **Vertrauensbeziehung:** Erst nach Bestätigung wird eine Beziehung gespeichert,
+   gebunden an App-Bereich und Ziel-Installation. Sie gibt **keine** Datenfreigabe;
+   jeder Zweck erfordert eine eigene Zustimmung gemäß `device-consent-v1`.
+6. **Widerruf:** Jederzeit in beiden Apps; löscht die Beziehung lokal, ein
+   Neu-Pairing erfordert wieder Schritt 1–4. Ist der Peer nicht erreichbar, gilt der
+   lokale Widerruf sofort; das Verhalten für den Peer ist zu entscheiden.
+7. **Zustände:** Wie in Abschnitt 3 (`idle`, `pairing`, `connected`, `revoked`,
+   `failed`); in diesem Entwurf wird kein Nachrichtenaustausch über `pairing` hinaus
+   definiert.
+
+**Offene Entscheidungen vor Umsetzung:** Kryptografisches Verfahren und Bibliothek
+(kein Eigenbau), Schlüsselspeicherung, Kamera-Berechtigung und Zeitlimits,
+Behandlung des Peer-Widerrufs, Zugehörigkeit zum optionalen `:device-link-core`
+sowie die Freigaben aus Abschnitt 2. Bis dahin bleiben Pairing, Discovery und
+App-zu-App-Übertragung deaktiviert.
+
 ## 4. Erwartete Änderungsorte
 
 Änderungen erfolgen erst nach den Freigaben in Abschnitt 2.
@@ -250,3 +284,64 @@ Transportwahl und Protokollvertrag freigegeben sind. Danach sind die
 Dateiänderungen schrittweise umzusetzen und die Tests in Abschnitt 5 als
 verbindliche Gates in CI und Geräteabnahme zu verankern. Keine bestehende
 Sicherheitsregel oder App-/Repository-Grenze darf dafür abgeschwächt werden.
+
+## 8. Vorschlag zur Entscheidung (Stand 01.11.2026; nicht genehmigt, nicht umgesetzt)
+
+Dieser Abschnitt ist ein Entscheidungsvorschlag für D-04/D-05/D-06 und kein
+Freigabenachweis. Es gibt keinen Code, keine Berechtigung und keinen Transport
+dazu; die Kopplung bleibt deaktiviert.
+
+### 8.1 Vorgeschlagenes kryptografisches Verfahren
+
+- **Geräteidentität:** Pro Installation ein eigenes EC-P-256-Schlüsselpaar im
+  Android Keystore (`KeyGenParameterSpec`, nicht exportierbar, StrongBox wenn
+  verfügbar, sonst TEE; Verhalten ohne Hardware-Backing ist zu entscheiden).
+  Der private Schlüssel verlässt den Keystore nie. Die Zuordnung zum Gerät erfolgt
+  über Key-Attestation (Android-Zertifikatskette) bei der Registrierung.
+- **Sitzungsprotokoll:** Kein Eigenentwurf. Kandidaten für den Review:
+  (a) gegenseitig authentifiziertes TLS 1.3 mit Pinning der beim Pairing
+  bestätigten Schlüssel, oder (b) ein etabliertes Noise-Muster (z. B. `XX`/`IK`)
+  einer gepflegten Bibliothek. Auswahl erst nach unabhängigem Kryptografie-Review.
+- **Pairing-Bindung:** Der QR-Token authentifiziert nur den Erstkontakt
+  (einmalig, kurze Gültigkeit, kein Geheimnis mit Langzeitwirkung). Der
+  Vergleichscode wird aus dem Handshake-Transcript beider öffentlichen
+  Schlüssel abgeleitet, damit ein Man-in-the-Middle sichtbar wird.
+- **Annahmen/Grenzen:** Ein kompromittiertes (gerootetes) Gerät oder ein
+  Nutzer, der einen falschen Vergleichscode bestätigt, wird dadurch nicht
+  verhindert. Keystore-Schutz variiert je Gerät. Nachweise liegen nicht vor.
+
+### 8.2 Widerruf und Schlüsselverwaltung (Vorschlag)
+
+- **Widerruf:** Lokal sofort wirksam (Beziehung und Zustimmungen gesperrt,
+  Sitzungsschlüssel verworfen). Der Peer wird per signierter Widerrufsnachricht
+  informiert, sobald erreichbar.
+- **Offline-Peer:** Der Status bleibt „lokal widerrufen, Peer nicht
+  bestätigt“; es darf nie „vollständig widerrufen“ angezeigt werden. Der
+  Peer lehnt Verbindungen ab, sobald er die Nachricht erhält oder beim
+  nächsten Handshake der Widerruf bekannt wird. Ein Fallback ohne Peer-
+  Bestätigung ist ein zu genehmigendes Restrisiko (Widerrufs-SLA, D-06).
+- **Verlorenes/kompromittiertes Gerät:** Sperrung über das verbleibende
+  Gerät (Beziehung löschen, Schlüssel-ID in eine lokale Sperrliste); ohne
+  Backend wirkt die Sperrung nur lokal.
+- **Schlüsselerneuerung:** Neues Schlüsselpaar, erneute beidseitige
+  Bestätigung; alter öffentlicher Schlüssel wird gesperrt. Kein stilles Ersetzen.
+- **Neu-Kopplung:** Immer vollständiger Ablauf aus 3a; alte Zustimmungen
+  gelten nicht fort.
+
+### 8.3 Nachgewiesene Blocker (Stand der Prüfung)
+
+| Blocker | Beleg |
+| --- | --- |
+| SecurityChain-P0 nicht genehmigt | Spezifikation v0.6 „Reviewentwurf, noch nicht genehmigt“ |
+| D-02–D-06, D-08–D-12 offen; D-03, D-11 blockiert | `securitychain-d01-d12-abschlussstatus.md` |
+| Kein Transport freigegeben (BLE nur mit separater Freigabe) | D-07; keine BLE-/Netzwerkrechte in den Manifesten |
+| Keine Identitäts-/Registrierungsruntime, kein Audit-Sink | D-03, D-05, D-10 |
+| `:device-link-core` nicht freigegeben | Abschnitt 3 |
+| Kein unabhängiger Review, keine Zwei-Geräte-Abnahme | D-12 |
+
+### 8.4 Nächste Aktion
+
+Verantwortliche entscheiden schriftlich D-04, D-05, D-06, D-07 und D-12 gemäß
+Abschnitt 2 (Vorschlag oben annehmen, ändern oder ablehnen). Erst danach
+beginnt die Implementierung in kleinen PRs: zuerst `:device-link-core`
+(reine Zustandsmaschine/Validierung mit Tests), dann App-Integration.
