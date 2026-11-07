@@ -134,6 +134,28 @@ def wait_for_text(*expected, timeout=15):
     raise AssertionError(f"Expected UI text not found: {expected}")
 
 
+def wait_for_input_text(resource_id, expected, timeout=15):
+    deadline = time.monotonic() + timeout
+    suffix = f":id/{resource_id}"
+    while time.monotonic() < deadline:
+        for node in hierarchy().iter("node"):
+            if (
+                node.get("resource-id", "").endswith(suffix)
+                and node.get("text") == expected
+            ):
+                return
+        time.sleep(0.5)
+    raise AssertionError(f"Expected {resource_id} to contain {expected!r}")
+
+
+def has_resumed_activity(activity_state, package):
+    return re.search(
+        rf"(?m)^\s*(?:mResumedActivity|topResumedActivity)\s*[:=]\s*"
+        rf"ActivityRecord\{{[^\n]*\b{re.escape(package)}/",
+        activity_state,
+    ) is not None
+
+
 def test_app(package, brand, main_activity, server):
     adb("shell", "pm", "clear", package)
     adb("shell", "pm", "grant", package, "android.permission.ACCESS_LOCAL_NETWORK")
@@ -173,6 +195,13 @@ def test_app(package, brand, main_activity, server):
     wait_for_text("Zusammenfassung lokal gespeichert", "Summary saved locally")
 
     adb("shell", "input", "keyevent", "KEYCODE_BACK")
+    adb("shell", "am", "force-stop", package)
+    adb("shell", "am", "start", "-W", "-n", f"{package}/{main_activity}")
+    wait_for_text(brand)
+    tap("learning_profile_button")
+    wait_for_input_text("session_summary_input", "CIemulatorcheck")
+
+    adb("shell", "input", "keyevent", "KEYCODE_BACK")
     tap("support_contact_button")
     previous_connections = server.connections
     tap("support_check_ai")
@@ -184,8 +213,8 @@ def test_app(package, brand, main_activity, server):
         raise AssertionError(f"{package} did not reach the local HTTPS test endpoint")
 
     activity_state = adb("shell", "dumpsys", "activity", "activities")
-    if package not in activity_state:
-        raise AssertionError(f"{package} is not present in the resumed activity stack")
+    if not has_resumed_activity(activity_state, package):
+        raise AssertionError(f"{package} has no resumed or top-resumed activity")
     print(f"{package}: app start, assistant, profile persistence, INTERNET, HTTPS failure handling passed")
 
 
