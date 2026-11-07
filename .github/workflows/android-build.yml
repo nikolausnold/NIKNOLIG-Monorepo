@@ -186,6 +186,7 @@ jobs:
           adb shell settings put global window_animation_scale 0
           adb shell settings put global transition_animation_scale 0
           adb shell settings put global animator_duration_scale 0
+          adb shell appops set android GET_USAGE_STATS allow
           test "$(adb shell getprop ro.build.version.sdk | tr -d "\r")" = "37"
       - name: Build smoke APKs with isolated HTTPS probe endpoint
         run: >-
