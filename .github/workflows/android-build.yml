@@ -161,10 +161,16 @@ jobs:
       - name: Start Android 17 emulator
         run: |
           set -euo pipefail
+          avd_home="$RUNNER_TEMP/android-avd"
+          mkdir -p "$avd_home"
+          export ANDROID_AVD_HOME="$avd_home"
           echo no | avdmanager create avd --force \
             --name android-17-api-37 \
             --package "$ANDROID_17_SYSTEM_IMAGE" \
-            --device pixel_2
+            --device pixel_2 \
+            --path "$avd_home/android-17-api-37.avd"
+          test -s "$avd_home/android-17-api-37.ini"
+          test -s "$avd_home/android-17-api-37.avd/config.ini"
           emulator -avd android-17-api-37 \
             -no-window -no-audio -no-boot-anim -no-snapshot \
             -gpu swiftshader_indirect -memory 2048 \
