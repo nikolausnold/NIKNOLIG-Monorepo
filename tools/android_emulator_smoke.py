@@ -29,17 +29,23 @@ def adb(*args, timeout=30):
 
 def start_activity(package, main_activity, attempts=5):
     # am can fail transiently right after install/pm clear while the system settles.
-    result = None
     for attempt in range(attempts):
-        result = subprocess.run(
-            [ADB, "shell", "am", "start", "-W", "-n", f"{package}/{main_activity}"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        output = f"{result.stdout}\n{result.stderr}"
-        if result.returncode == 0 and "Error" not in output:
-            return
+        try:
+            result = subprocess.run(
+                [ADB, "shell", "am", "start", "-W", "-n", f"{package}/{main_activity}"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            output = f"{result.stdout}\n{result.stderr}"
+            if result.returncode == 0 and "Error" not in output:
+                return
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}"
         print(f"am start attempt {attempt + 1} failed: {output.strip()}", flush=True)
         adb("shell", "input", "keyevent", "KEYCODE_HOME")
         time.sleep(3)
