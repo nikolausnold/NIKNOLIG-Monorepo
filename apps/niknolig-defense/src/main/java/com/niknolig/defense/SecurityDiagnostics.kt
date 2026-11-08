@@ -36,8 +36,12 @@ internal class SecurityEventStore(context: Context) {
             buildList {
                 for (index in 0 until stored.length()) {
                     val item = stored.getJSONObject(index)
-                    val finding = item.optString("finding").takeIf(String::isNotEmpty)
-                        ?.let { runCatching { SecurityFinding.valueOf(it) }.getOrNull() }
+                    val findingCode = item.optString("finding")
+                    val finding = if (findingCode.isEmpty()) {
+                        null
+                    } else {
+                        runCatching { SecurityFinding.valueOf(findingCode) }.getOrNull() ?: continue
+                    }
                     add(SecurityEvent(item.getLong("timestamp"), finding))
                 }
             }
