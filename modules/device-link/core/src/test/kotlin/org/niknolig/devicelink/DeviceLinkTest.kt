@@ -2,6 +2,7 @@ package org.niknolig.devicelink
 
 import java.security.KeyPairGenerator
 import java.security.Signature
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -70,6 +71,16 @@ class DeviceLinkTest {
             DeviceLinkClient(DeviceLinkGate(true), ok, signer).register("jwt", "niknolig", "iid", "user", "Phone"),
         )
         assertEquals("jwt", ok.calls[0].second)
+        val body = ok.calls[0].third
+        val publicKey = java.util.Base64.getUrlDecoder().decode(body.getValue("publicKey"))
+        assertArrayEquals(signer.publicKey, publicKey)
+        val proof = java.util.Base64.getUrlDecoder().decode(body.getValue("proof"))
+        assertEquals(64, proof.size)
+        val verifier = Signature.getInstance("Ed25519").apply {
+            initVerify(keyPair.public)
+            update("niknolig-device-register-v1\nniknolig\niid\nuser".toByteArray(Charsets.UTF_8))
+        }
+        assertTrue(verifier.verify(proof))
         val bad = Recorder(ArrayDeque(listOf(TransportResponse(401, emptyMap()))))
         try {
             DeviceLinkClient(DeviceLinkGate(true), bad, signer).refresh(DeviceSession("a", "r")); fail()
