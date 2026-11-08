@@ -30,19 +30,21 @@ internal data class SecurityEvent(val timestamp: Long, val finding: SecurityFind
 internal class SecurityEventStore(context: Context) {
     private val preferences = context.getSharedPreferences(PREFERENCES_FILE, Context.MODE_PRIVATE)
 
-    fun events(): List<SecurityEvent> = runCatching {
-        val stored = JSONArray(preferences.getString(EVENTS_KEY, "[]"))
-        buildList {
-            for (index in 0 until stored.length()) {
-                val item = stored.getJSONObject(index)
-                val finding = item.optString("finding").takeIf(String::isNotEmpty)
-                    ?.let { runCatching { SecurityFinding.valueOf(it) }.getOrNull() }
-                add(SecurityEvent(item.getLong("timestamp"), finding))
+    fun events(): List<SecurityEvent> = synchronized(lock) {
+        runCatching {
+            val stored = JSONArray(preferences.getString(EVENTS_KEY, "[]"))
+            buildList {
+                for (index in 0 until stored.length()) {
+                    val item = stored.getJSONObject(index)
+                    val finding = item.optString("finding").takeIf(String::isNotEmpty)
+                        ?.let { runCatching { SecurityFinding.valueOf(it) }.getOrNull() }
+                    add(SecurityEvent(item.getLong("timestamp"), finding))
+                }
             }
-        }
-    }.getOrDefault(emptyList())
+        }.getOrDefault(emptyList())
+    }
 
-    fun recordScan(findings: List<SecurityFinding>): List<SecurityEvent> {
+    fun recordScan(findings: List<SecurityFinding>): List<SecurityEvent> = synchronized(lock) {
         val current = events().toMutableList()
         val timestamp = System.currentTimeMillis()
         val recordedFindings: List<SecurityFinding?> =
@@ -58,14 +60,17 @@ internal class SecurityEventStore(context: Context) {
             }
         }
         preferences.edit().putString(EVENTS_KEY, serialized.toString()).apply()
-        return recent
+        recent
     }
 
     fun clear() {
-        preferences.edit().remove(EVENTS_KEY).apply()
+        synchronized(lock) {
+            preferences.edit().remove(EVENTS_KEY).apply()
+        }
     }
 
     private companion object {
+        val lock = Any()
         const val PREFERENCES_FILE = "defense_security_events"
         const val EVENTS_KEY = "events"
         const val MAX_EVENTS = 100

@@ -52,14 +52,14 @@ class SecurityDashboardActivity : Activity() {
             val result = runCatching {
                 val facts = AndroidSecurityDiagnostics.capture(this)
                 val findings = SecurityAssessment.findings(facts)
-                val events = eventStore.recordScan(findings)
-                Triple(facts, findings, events)
+                eventStore.recordScan(findings)
+                Pair(facts, findings)
             }
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 scanButton.isEnabled = true
                 progress.visibility = View.GONE
-                result.onSuccess { (facts, findings, events) ->
+                result.onSuccess { (facts, findings) ->
                     factsView.text = getString(
                         R.string.security_facts_format,
                         facts.androidRelease ?: getString(R.string.security_unknown),
@@ -85,7 +85,7 @@ class SecurityDashboardActivity : Activity() {
                     } else {
                         findings.joinToString("\n") { getString(it.messageResource()) }
                     }
-                    showEvents(events)
+                    showEvents(eventStore.events())
                 }
                 result.onFailure {
                     findingsView.setText(R.string.security_scan_failed)
