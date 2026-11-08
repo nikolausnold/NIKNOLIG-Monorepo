@@ -58,7 +58,8 @@ class DeviceLinkTest {
         val sent = java.util.Base64.getUrlDecoder().decode(transport.calls[1].third.getValue("signature"))
         assertEquals(64, sent.size)
         val verifier = Signature.getInstance("Ed25519").apply {
-            initVerify(keyPair.public); update(DeviceProtocol.sessionMessage("dev", nonce))
+            initVerify(keyPair.public)
+            update("niknolig-device-session-v1\ndev\n$nonce".toByteArray(Charsets.UTF_8))
         }
         assertTrue(verifier.verify(sent))
     }
