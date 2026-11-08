@@ -87,6 +87,10 @@ class DeviceLinkTest {
             DeviceLinkClient(DeviceLinkGate(true), bad, signer).refresh(DeviceSession("a", "r")); fail()
         } catch (e: DeviceLinkException) {
             assertEquals(401, e.statusCode)
+            assertEquals(200, e.expectedStatusCode)
+            assertEquals("/v1/sessions/refresh", e.path)
+            assertTrue(e.message!!.contains("/v1/sessions/refresh"))
+            assertTrue(e.message!!.contains("expected HTTP 200"))
         }
     }
 

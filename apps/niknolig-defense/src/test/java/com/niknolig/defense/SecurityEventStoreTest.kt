@@ -53,6 +53,32 @@ class SecurityEventStoreTest {
         )
     }
 
+    @Test
+    fun skipsMalformedEntriesAndKeepsTheRestOfTheLog() {
+        val persistence = MemoryPersistence(
+            """[
+                {"timestamp":"invalid","finding":"DEBUGGABLE_BUILD"},
+                {"timestamp":1,"finding":42},
+                null,
+                {"timestamp":2,"finding":"DEBUGGABLE_BUILD"}
+            ]""",
+        )
+
+        assertEquals(
+            listOf(SecurityEvent(2L, SecurityFinding.DEBUGGABLE_BUILD)),
+            persistence.store.events(),
+        )
+    }
+
+    @Test
+    fun resetsMalformedStoredJsonSoFutureReadsCanRecover() {
+        val persistence = MemoryPersistence("not-json")
+
+        assertTrue(persistence.store.events().isEmpty())
+        assertEquals("[]", persistence.value)
+        assertTrue(persistence.store.events().isEmpty())
+    }
+
     private class MemoryPersistence(var value: String? = null) {
         val store = SecurityEventStore({ value }, { value = it })
     }

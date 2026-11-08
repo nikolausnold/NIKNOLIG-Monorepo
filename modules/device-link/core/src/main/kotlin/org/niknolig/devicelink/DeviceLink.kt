@@ -14,7 +14,13 @@ class DeviceLinkGate(private val p0Approved: Boolean = false) {
 class DeviceLinkBlockedException :
     IllegalStateException("Device link is blocked until SecurityChain-P0 is approved.")
 
-class DeviceLinkException(val statusCode: Int) : RuntimeException("Device link request failed ($statusCode).")
+class DeviceLinkException(
+    val statusCode: Int,
+    val expectedStatusCode: Int,
+    val path: String,
+) : RuntimeException(
+    "Device link request failed for $path (expected HTTP $expectedStatusCode, received HTTP $statusCode).",
+)
 
 class DeviceLinkProtocolException(val statusCode: Int, val field: String) :
     RuntimeException("Device link response is missing '$field' (HTTP $statusCode).")
@@ -73,31 +79,32 @@ class DeviceLinkClient(
                 "displayName" to displayName,
             ),
         )
-        return response.expect(201).body["id"]
+        return response.expect(201, "/v1/devices").body["id"]
             ?: throw DeviceLinkProtocolException(response.status, "id")
     }
 
     fun openSession(deviceId: String): DeviceSession {
         gate.require()
-        val challenge = transport.post("/v1/devices/$deviceId/challenge", null, emptyMap()).expect(200)
+        val challengePath = "/v1/devices/$deviceId/challenge"
+        val challenge = transport.post(challengePath, null, emptyMap()).expect(200, challengePath)
         val nonce = challenge.body["nonce"] ?: throw DeviceLinkProtocolException(challenge.status, "nonce")
         val signature = signer.sign(DeviceProtocol.sessionMessage(deviceId, nonce))
         return transport.post(
             "/v1/devices/$deviceId/session",
             null,
             mapOf("nonce" to nonce, "signature" to DeviceProtocol.b64url(signature)),
-        ).expect(201).toSession()
+        ).expect(201, "/v1/devices/$deviceId/session").toSession()
     }
 
     /** Refresh tokens rotate; callers must persist the returned pair and discard the old one. */
     fun refresh(session: DeviceSession): DeviceSession {
         gate.require()
         return transport.post("/v1/sessions/refresh", null, mapOf("refreshToken" to session.refreshToken))
-            .expect(200).toSession()
+            .expect(200, "/v1/sessions/refresh").toSession()
     }
 
-    private fun TransportResponse.expect(code: Int): TransportResponse {
-        if (status != code) throw DeviceLinkException(status)
+    private fun TransportResponse.expect(code: Int, path: String): TransportResponse {
+        if (status != code) throw DeviceLinkException(status, code, path)
         return this
     }
 
