@@ -55,6 +55,14 @@ Instanzen ist ein gemeinsamer Zähler nötig.
 
 ## 3. Nicht umgesetzt (ehrlich)
 
+Neu: Kotlin-Modul `:device-link-core` (`modules/device-link/`) mit Protokoll-
+Client für Registrierung, Challenge-Session und Refresh (Ed25519-Signatur über
+die Backend-Nachrichten). `DeviceLinkGate` ist standardmäßig geschlossen; ohne
+P0-Freigabe wirft jeder Aufruf, bevor Netzwerk oder Schlüssel berührt werden.
+Das Modul ist noch **in keine App eingebunden** (Keystore-Signer, HTTPS-Transport,
+Pairing-UI fehlen). 3 JVM-Tests liefen isoliert grün; der volle Gradle-Build
+mit Android-Plugin war hier nicht möglich.
+
 - **Android-/iOS-Clients:** Keine Pairing-Oberfläche, kein QR-Scan, kein Android
   Keystore-/iOS-Keychain-Schlüssel, keine lokale Geräteerkennung (NSD/BLE), kein
   Smart-TV. Vorhandene Buttons/Activities sind unverändert; Elektro-Engel-Chat
