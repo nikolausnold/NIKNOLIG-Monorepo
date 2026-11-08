@@ -9,6 +9,9 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import java.text.DateFormat
 import java.util.Date
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 
 class SecurityDashboardActivity : Activity() {
     private lateinit var factsView: TextView
@@ -17,6 +20,8 @@ class SecurityDashboardActivity : Activity() {
     private lateinit var scanButton: Button
     private lateinit var progress: ProgressBar
     private lateinit var eventStore: SecurityEventStore
+    private val scanExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private var scanTask: Future<*>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,11 +49,17 @@ class SecurityDashboardActivity : Activity() {
         showEvents(eventStore.events())
     }
 
+    override fun onDestroy() {
+        scanTask?.cancel(true)
+        scanExecutor.shutdownNow()
+        super.onDestroy()
+    }
+
     private fun runScan() {
         scanButton.isEnabled = false
         progress.visibility = View.VISIBLE
         findingsView.setText(R.string.security_scan_loading)
-        Thread({
+        scanTask = scanExecutor.submit {
             val result = runCatching {
                 val facts = AndroidSecurityDiagnostics.capture(this)
                 val findings = SecurityAssessment.findings(facts)
@@ -91,7 +102,7 @@ class SecurityDashboardActivity : Activity() {
                     findingsView.setText(R.string.security_scan_failed)
                 }
             }
-        }, "defense-local-security-scan").start()
+        }
     }
 
     private fun showEvents(events: List<SecurityEvent>) {

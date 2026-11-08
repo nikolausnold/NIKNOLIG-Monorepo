@@ -27,12 +27,30 @@ internal object AndroidSecurityDiagnostics {
 
 internal data class SecurityEvent(val timestamp: Long, val finding: SecurityFinding?)
 
-internal class SecurityEventStore(context: Context) {
-    private val preferences = context.getSharedPreferences(PREFERENCES_FILE, Context.MODE_PRIVATE)
+internal class SecurityEventStore(
+    private val readEvents: () -> String?,
+    private val writeEvents: (String?) -> Unit,
+) {
+    constructor(context: Context) : this(
+        readEvents = {
+            context.getSharedPreferences(PREFERENCES_FILE, Context.MODE_PRIVATE)
+                .getString(EVENTS_KEY, "[]")
+        },
+        writeEvents = { serialized ->
+            val preferences = context.getSharedPreferences(PREFERENCES_FILE, Context.MODE_PRIVATE)
+            val editor = preferences.edit()
+            if (serialized == null) {
+                editor.remove(EVENTS_KEY)
+            } else {
+                editor.putString(EVENTS_KEY, serialized)
+            }
+            editor.apply()
+        },
+    )
 
     fun events(): List<SecurityEvent> = synchronized(lock) {
         runCatching {
-            val stored = JSONArray(preferences.getString(EVENTS_KEY, "[]"))
+            val stored = JSONArray(readEvents() ?: "[]")
             buildList {
                 for (index in 0 until stored.length()) {
                     val item = stored.getJSONObject(index)
@@ -63,13 +81,13 @@ internal class SecurityEventStore(context: Context) {
                 })
             }
         }
-        preferences.edit().putString(EVENTS_KEY, serialized.toString()).apply()
+        writeEvents(serialized.toString())
         recent
     }
 
     fun clear() {
         synchronized(lock) {
-            preferences.edit().remove(EVENTS_KEY).apply()
+            writeEvents(null)
         }
     }
 

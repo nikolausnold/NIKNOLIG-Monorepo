@@ -16,6 +16,9 @@ class DeviceLinkBlockedException :
 
 class DeviceLinkException(val statusCode: Int) : RuntimeException("Device link request failed ($statusCode).")
 
+class DeviceLinkProtocolException(val statusCode: Int, val field: String) :
+    RuntimeException("Device link response is missing '$field' (HTTP $statusCode).")
+
 /** Device key abstraction; Android implementations must use a non-exportable Keystore key. */
 interface DeviceSigner {
     /** Raw 32-byte Ed25519 public key. */
@@ -70,13 +73,14 @@ class DeviceLinkClient(
                 "displayName" to displayName,
             ),
         )
-        return response.expect(201)["id"] ?: throw DeviceLinkException(response.status)
+        return response.expect(201).body["id"]
+            ?: throw DeviceLinkProtocolException(response.status, "id")
     }
 
     fun openSession(deviceId: String): DeviceSession {
         gate.require()
         val challenge = transport.post("/v1/devices/$deviceId/challenge", null, emptyMap()).expect(200)
-        val nonce = challenge["nonce"] ?: throw DeviceLinkException(200)
+        val nonce = challenge.body["nonce"] ?: throw DeviceLinkProtocolException(challenge.status, "nonce")
         val signature = signer.sign(DeviceProtocol.sessionMessage(deviceId, nonce))
         return transport.post(
             "/v1/devices/$deviceId/session",
@@ -92,13 +96,13 @@ class DeviceLinkClient(
             .expect(200).toSession()
     }
 
-    private fun TransportResponse.expect(code: Int): Map<String, String> {
+    private fun TransportResponse.expect(code: Int): TransportResponse {
         if (status != code) throw DeviceLinkException(status)
-        return body
+        return this
     }
 
-    private fun Map<String, String>.toSession(): DeviceSession = DeviceSession(
-        accessToken = this["accessToken"] ?: throw DeviceLinkException(0),
-        refreshToken = this["refreshToken"] ?: throw DeviceLinkException(0),
+    private fun TransportResponse.toSession(): DeviceSession = DeviceSession(
+        accessToken = body["accessToken"] ?: throw DeviceLinkProtocolException(status, "accessToken"),
+        refreshToken = body["refreshToken"] ?: throw DeviceLinkProtocolException(status, "refreshToken"),
     )
 }

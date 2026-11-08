@@ -2,6 +2,7 @@ package org.niknolig.devicelink
 
 import java.security.KeyPairGenerator
 import java.security.Signature
+import java.security.interfaces.EdECPublicKey
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -11,8 +12,7 @@ import org.junit.Test
 class DeviceLinkTest {
     private val keyPair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair()
     private val signer = object : DeviceSigner {
-        // X.509 Ed25519 encoding ends with the raw 32-byte key.
-        override val publicKey: ByteArray = keyPair.public.encoded.takeLast(32).toByteArray()
+        override val publicKey: ByteArray = rawEd25519PublicKey(keyPair.public as EdECPublicKey)
         override fun sign(message: ByteArray): ByteArray =
             Signature.getInstance("Ed25519").run {
                 initSign(keyPair.private); update(message); sign()
@@ -87,6 +87,52 @@ class DeviceLinkTest {
             DeviceLinkClient(DeviceLinkGate(true), bad, signer).refresh(DeviceSession("a", "r")); fail()
         } catch (e: DeviceLinkException) {
             assertEquals(401, e.statusCode)
+        }
+    }
+
+    @Test
+    fun malformedSuccessfulResponsesReportProtocolErrorsWithHttpStatus() {
+        val missingId = Recorder(ArrayDeque(listOf(TransportResponse(201, emptyMap()))))
+        assertProtocolError(201, "id") {
+            DeviceLinkClient(DeviceLinkGate(true), missingId, signer)
+                .register("jwt", "niknolig", "iid", "user", "Phone")
+        }
+
+        val missingNonce = Recorder(ArrayDeque(listOf(TransportResponse(200, emptyMap()))))
+        assertProtocolError(200, "nonce") {
+            DeviceLinkClient(DeviceLinkGate(true), missingNonce, signer).openSession("dev")
+        }
+
+        val missingRefreshToken = Recorder(ArrayDeque(listOf(TransportResponse(200, mapOf("accessToken" to "a")))))
+        assertProtocolError(200, "refreshToken") {
+            DeviceLinkClient(DeviceLinkGate(true), missingRefreshToken, signer)
+                .refresh(DeviceSession("a", "r"))
+        }
+    }
+
+    private fun assertProtocolError(statusCode: Int, field: String, action: () -> Unit) {
+        try {
+            action()
+            fail("Expected a protocol error for missing $field")
+        } catch (error: DeviceLinkProtocolException) {
+            assertEquals(statusCode, error.statusCode)
+            assertEquals(field, error.field)
+            assertTrue(error.message!!.contains(field))
+        }
+    }
+
+    private fun rawEd25519PublicKey(publicKey: EdECPublicKey): ByteArray {
+        val point = publicKey.point
+        val encodedY = point.y.toByteArray()
+        val unsignedY = if (encodedY.size == 33 && encodedY[0] == 0.toByte()) {
+            encodedY.copyOfRange(1, encodedY.size)
+        } else {
+            encodedY
+        }
+        require(unsignedY.size <= 32)
+        return ByteArray(32).also { raw ->
+            unsignedY.reversedArray().copyInto(raw)
+            if (point.isXOdd) raw[31] = (raw[31].toInt() or 0x80).toByte()
         }
     }
 }
