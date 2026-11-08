@@ -12,8 +12,8 @@ internal object AndroidSecurityDiagnostics {
         val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
         val secureScreenLock = runCatching { keyguard?.isDeviceSecure }.getOrNull()
         val debuggableBuild = runCatching {
-            context.packageManager.getApplicationInfo(context.packageName, 0)
-                .flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+            (context.packageManager.getApplicationInfo(context.packageName, 0)
+                .flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
         }.getOrNull()
         return SecurityFacts(
             androidRelease = Build.VERSION.RELEASE.takeUnless(String::isBlank),
