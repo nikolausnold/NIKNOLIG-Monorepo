@@ -23,6 +23,7 @@ class SecurityDashboardActivity : Activity() {
     private var scanTask: Future<*>? = null
     private var scanGeneration = 0
     private var isStarted = false
+    private var isClearingEvents = false
     private var previousFindingsText: CharSequence? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,8 +42,25 @@ class SecurityDashboardActivity : Activity() {
                 .setMessage(R.string.security_clear_events_confirmation)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.security_clear_events_action) { _, _ ->
-                    eventStore.clear()
+                    scanGeneration++
+                    scanTask?.cancel(true)
+                    scanTask = null
+                    scanButton.isEnabled = true
+                    progress.visibility = View.GONE
+                    previousFindingsText?.let { findingsView.text = it }
+                    previousFindingsText = null
+                    isClearingEvents = true
                     showEvents(emptyList())
+                    scanExecutor.submit {
+                        eventStore.clear()
+                        val events = eventStore.events()
+                        runOnUiThread {
+                            isClearingEvents = false
+                            if (!isFinishing && !isDestroyed && isStarted) {
+                                showEvents(events)
+                            }
+                        }
+                    }
                 }
                 .show()
         }
@@ -54,6 +72,9 @@ class SecurityDashboardActivity : Activity() {
     override fun onStart() {
         super.onStart()
         isStarted = true
+        if (!isClearingEvents) {
+            showEvents(eventStore.events())
+        }
     }
 
     override fun onStop() {
@@ -92,7 +113,13 @@ class SecurityDashboardActivity : Activity() {
                 Triple(facts, findings, events)
             }
             runOnUiThread {
-                if (isFinishing || isDestroyed || !isStarted || generation != scanGeneration) {
+                if (isFinishing || isDestroyed) {
+                    return@runOnUiThread
+                }
+                if (!isStarted || generation != scanGeneration) {
+                    if (isStarted && !isClearingEvents) {
+                        showEvents(eventStore.events())
+                    }
                     return@runOnUiThread
                 }
                 scanTask = null
