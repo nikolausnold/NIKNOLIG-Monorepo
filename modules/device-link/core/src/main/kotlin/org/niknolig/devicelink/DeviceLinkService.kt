@@ -221,3 +221,26 @@ object JwtSubject {
         return subject
     }
 }
+
+class AppAreaClaimException(val reason: Reason) : IllegalStateException("Account token has no usable app_area claim.") {
+    enum class Reason { MISSING, MISMATCH, EXPIRED }
+}
+
+/**
+ * Pre-flight check of the `app_metadata.app_area` claim. The backend remains the authority and verifies the
+ * token signature; this only turns a certain server-side 401/403 into an understandable local error.
+ */
+object AppAreaClaim {
+    fun require(token: String, expectedArea: String, nowEpochSeconds: Long) {
+        val parts = token.split('.')
+        require(parts.size == 3) { "Malformed account token" }
+        val payload = Json.decodeObject(String(Base64.getUrlDecoder().decode(parts[1]), Charsets.UTF_8))
+        (payload["exp"] as? Number)?.let {
+            if (it.toLong() <= nowEpochSeconds) throw AppAreaClaimException(AppAreaClaimException.Reason.EXPIRED)
+        }
+        val metadata = payload["app_metadata"] as? Map<*, *>
+        val area = metadata?.get("app_area") as? String
+            ?: throw AppAreaClaimException(AppAreaClaimException.Reason.MISSING)
+        if (area != expectedArea) throw AppAreaClaimException(AppAreaClaimException.Reason.MISMATCH)
+    }
+}
