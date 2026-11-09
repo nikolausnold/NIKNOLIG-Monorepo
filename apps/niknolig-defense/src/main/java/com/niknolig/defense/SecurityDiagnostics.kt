@@ -12,7 +12,12 @@ import java.util.WeakHashMap
 internal object AndroidSecurityDiagnostics {
     fun capture(context: Context): SecurityFacts {
         val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-        val secureScreenLock = runCatching { keyguard?.isDeviceSecure }.getOrNull()
+        val supportsSecurityApis = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+        val secureScreenLock = if (supportsSecurityApis) {
+            runCatching { keyguard?.isDeviceSecure }.getOrNull()
+        } else {
+            null
+        }
         val debuggableBuild = runCatching {
             (context.packageManager.getApplicationInfo(context.packageName, 0)
                 .flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -20,7 +25,11 @@ internal object AndroidSecurityDiagnostics {
         return SecurityFacts(
             androidRelease = Build.VERSION.RELEASE.takeUnless(String::isBlank),
             sdkLevel = Build.VERSION.SDK_INT,
-            securityPatch = Build.VERSION.SECURITY_PATCH.takeUnless(String::isBlank),
+            securityPatch = if (supportsSecurityApis) {
+                runCatching { Build.VERSION.SECURITY_PATCH.takeUnless(String::isBlank) }.getOrNull()
+            } else {
+                null
+            },
             secureScreenLock = secureScreenLock,
             debuggableBuild = debuggableBuild,
         )
@@ -56,12 +65,16 @@ internal class SecurityEventStore private constructor(
     )
 
     fun events(): List<SecurityEvent> = synchronized(lock) {
+        loadEventsLocked()
+    }
+
+    private fun loadEventsLocked(): List<SecurityEvent> {
         val serialized = runCatching { readEvents() ?: "[]" }.getOrElse { return emptyList() }
         val stored = runCatching { JSONArray(serialized) }.getOrElse {
             writeEvents("[]")
             return emptyList()
         }
-        buildList {
+        return buildList {
             for (index in 0 until stored.length()) {
                 val item = stored.optJSONObject(index) ?: continue
                 val timestamp = (item.opt("timestamp") as? Number)?.toLong() ?: continue
@@ -77,7 +90,7 @@ internal class SecurityEventStore private constructor(
     }
 
     fun recordScan(findings: List<SecurityFinding>): List<SecurityEvent> = synchronized(lock) {
-        val current = events().toMutableList()
+        val current = loadEventsLocked().toMutableList()
         val timestamp = System.currentTimeMillis()
         val recordedFindings: List<SecurityFinding?> =
             if (findings.isEmpty()) listOf(null) else findings

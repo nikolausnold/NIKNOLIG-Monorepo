@@ -20,8 +20,10 @@ class SecurityDashboardActivity : Activity() {
     private lateinit var scanButton: Button
     private lateinit var progress: ProgressBar
     private lateinit var eventStore: SecurityEventStore
-    private val scanExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var scanTask: Future<*>? = null
+    private var scanGeneration = 0
+    private var isStarted = false
+    private var previousFindingsText: CharSequence? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,25 +51,52 @@ class SecurityDashboardActivity : Activity() {
         showEvents(eventStore.events())
     }
 
+    override fun onStart() {
+        super.onStart()
+        isStarted = true
+    }
+
+    override fun onStop() {
+        isStarted = false
+        scanGeneration++
+        val hadPendingScan = scanTask != null
+        scanTask?.cancel(true)
+        scanTask = null
+        if (hadPendingScan) {
+            scanButton.isEnabled = true
+            progress.visibility = View.GONE
+            previousFindingsText?.let { findingsView.text = it }
+            previousFindingsText = null
+        }
+        super.onStop()
+    }
+
     override fun onDestroy() {
         scanTask?.cancel(true)
-        scanExecutor.shutdownNow()
         super.onDestroy()
     }
 
     private fun runScan() {
+        val generation = ++scanGeneration
+        previousFindingsText = findingsView.text
         scanButton.isEnabled = false
         progress.visibility = View.VISIBLE
         findingsView.setText(R.string.security_scan_loading)
         scanTask = scanExecutor.submit {
             val result = runCatching {
                 val facts = AndroidSecurityDiagnostics.capture(this)
+                if (Thread.currentThread().isInterrupted) return@submit
                 val findings = SecurityAssessment.findings(facts)
+                if (Thread.currentThread().isInterrupted) return@submit
                 eventStore.recordScan(findings)
                 Pair(facts, findings)
             }
             runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (isFinishing || isDestroyed || !isStarted || generation != scanGeneration) {
+                    return@runOnUiThread
+                }
+                scanTask = null
+                previousFindingsText = null
                 scanButton.isEnabled = true
                 progress.visibility = View.GONE
                 result.onSuccess { (facts, findings) ->
@@ -103,6 +132,10 @@ class SecurityDashboardActivity : Activity() {
                 }
             }
         }
+    }
+
+    private companion object {
+        val scanExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     }
 
     private fun showEvents(events: List<SecurityEvent>) {
