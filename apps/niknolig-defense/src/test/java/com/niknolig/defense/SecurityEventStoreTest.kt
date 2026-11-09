@@ -79,6 +79,21 @@ class SecurityEventStoreTest {
         assertTrue(persistence.store.events().isEmpty())
     }
 
+    @Test
+    fun resetsStoredEventsWhenReadingFailsSoFutureReadsCanRecover() {
+        var value: String? = "previous"
+        var failRead = true
+        val store = SecurityEventStore(
+            { if (failRead) error("read failed") else value },
+            { value = it },
+        )
+
+        assertTrue(store.events().isEmpty())
+        assertEquals("[]", value)
+        failRead = false
+        assertTrue(store.events().isEmpty())
+    }
+
     private class MemoryPersistence(var value: String? = null) {
         val store = SecurityEventStore({ value }, { value = it })
     }

@@ -88,8 +88,8 @@ class SecurityDashboardActivity : Activity() {
                 if (Thread.currentThread().isInterrupted) return@submit
                 val findings = SecurityAssessment.findings(facts)
                 if (Thread.currentThread().isInterrupted) return@submit
-                eventStore.recordScan(findings)
-                Pair(facts, findings)
+                val events = eventStore.recordScan(findings)
+                Triple(facts, findings, events)
             }
             runOnUiThread {
                 if (isFinishing || isDestroyed || !isStarted || generation != scanGeneration) {
@@ -99,7 +99,7 @@ class SecurityDashboardActivity : Activity() {
                 previousFindingsText = null
                 scanButton.isEnabled = true
                 progress.visibility = View.GONE
-                result.onSuccess { (facts, findings) ->
+                result.onSuccess { (facts, findings, events) ->
                     factsView.text = getString(
                         R.string.security_facts_format,
                         facts.androidRelease ?: getString(R.string.security_unknown),
@@ -125,7 +125,7 @@ class SecurityDashboardActivity : Activity() {
                     } else {
                         findings.joinToString("\n") { getString(it.messageResource()) }
                     }
-                    showEvents(eventStore.events())
+                    showEvents(events)
                 }
                 result.onFailure {
                     findingsView.setText(R.string.security_scan_failed)
@@ -142,12 +142,13 @@ class SecurityDashboardActivity : Activity() {
         eventsView.text = if (events.isEmpty()) {
             getString(R.string.security_events_empty)
         } else {
+            val dateFormatter = DateFormat.getDateTimeInstance()
             events.asReversed().joinToString("\n\n") { event ->
                 val label = event.finding?.let { getString(it.messageResource()) }
                     ?: getString(R.string.security_scan_completed)
                 getString(
                     R.string.security_event_row_format,
-                    DateFormat.getDateTimeInstance().format(Date(event.timestamp)),
+                    dateFormatter.format(Date(event.timestamp)),
                     label,
                 )
             }

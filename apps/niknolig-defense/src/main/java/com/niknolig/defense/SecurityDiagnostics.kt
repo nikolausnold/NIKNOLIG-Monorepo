@@ -69,7 +69,10 @@ internal class SecurityEventStore private constructor(
     }
 
     private fun loadEventsLocked(): List<SecurityEvent> {
-        val serialized = runCatching { readEvents() ?: "[]" }.getOrElse { return emptyList() }
+        val serialized = runCatching { readEvents() ?: "[]" }.getOrElse {
+            writeEvents("[]")
+            return emptyList()
+        }
         val stored = runCatching { JSONArray(serialized) }.getOrElse {
             writeEvents("[]")
             return emptyList()
