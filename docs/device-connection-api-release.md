@@ -55,17 +55,34 @@ Instanzen ist ein gemeinsamer Zähler nötig.
 
 ## 3. Nicht umgesetzt (ehrlich)
 
-Neu: Kotlin-Modul `:device-link-core` (`modules/device-link/`) mit Protokoll-
-Client für Registrierung, Challenge-Session und Refresh (Ed25519-Signatur über
-die Backend-Nachrichten). `DeviceLinkGate` ist standardmäßig geschlossen; ohne
-P0-Freigabe wirft jeder Aufruf, bevor Netzwerk oder Schlüssel berührt werden.
-Das Modul ist noch **in keine App eingebunden** (Keystore-Signer, HTTPS-Transport,
-Pairing-UI fehlen). 3 JVM-Tests liefen isoliert grün; der volle Gradle-Build
-mit Android-Plugin war hier nicht möglich.
+Android-Client (neu): `:device-link-core` enthält Protokoll, JSON-Codec,
+HTTPS-Transport (nur HTTPS, keine Redirects, Timeouts, Größenlimit) und
+`DeviceLinkService` (Registrierung, Challenge-Session, Refresh mit Rotation und
+Fallback auf neue Challenge, Pairing, Verbindungen, Freigaben, Widerruf, Status).
+Beide Apps haben eine `DeviceLinkActivity` (Button auf dem Startbildschirm) mit
+Ed25519-Schlüssel im Android Keystore (nur Android 13+/API 33), Keystore-
+verschlüsselten Sitzungstoken, Konto-Anmeldung (Supabase-Passwort-Login; Passwort und
+JWT werden nicht gespeichert), Einmalcode-Pairing mit gegenseitigem Abgleichscode,
+Freigabe/Widerruf, Gerätewiderruf und verständlichen Fehlermeldungen.
+NIKNOLIG Defense meldet nach Aktualisierung den lokalen Diagnosestatus (3 Prüfungen);
+NIKNOLIG ruft ihn nur mit Freigabe ab.
 
-- **Android-/iOS-Clients:** Keine Pairing-Oberfläche, kein QR-Scan, kein Android
-  Keystore-/iOS-Keychain-Schlüssel, keine lokale Geräteerkennung (NSD/BLE), kein
-  Smart-TV. Vorhandene Buttons/Activities sind unverändert; Elektro-Engel-Chat
+**Das Gate bleibt standardmäßig geschlossen.** Ohne Build-Eigenschaft
+`-PdeviceLinkP0Approved=true` (oder `NIKNOLIG_DEVICE_LINK_P0_APPROVED=true`) zeigt die
+Oberfläche nur den Sperrhinweis. Konto-Login benötigt zusätzlich
+`-PniknoligAccountAuthUrl`/`-PniknoligAccountAuthKey` (bzw.
+`-PniknoligDefenseAccountAuthUrl`/`-PniknoligDefenseAccountAuthKey`; Umgebungsvariablen
+`NIKNOLIG_ACCOUNT_AUTH_URL|KEY`, `NIKNOLIG_DEFENSE_ACCOUNT_AUTH_URL|KEY`), und das
+Konto-JWT muss den Claim `app_metadata.app_area` tragen.
+JVM-Tests des Moduls (inkl. Refresh-/Fallback-/Widerrufspfade) laufen in CI.
+
+**Offen:** Kopplung per QR-Code (kein Scanner/Generator ohne neue Abhängigkeit), Geräteerkennung
+im lokalen Netz (NSD/BLE), Geräte unter Android 12 und älter (kein Keystore-Ed25519),
+Test mit zwei echten Android-Geräten inkl. Verifikation von Keystore-Ed25519 auf
+echter Hardware, Staging-Smoke-Test.
+
+- **iOS-Client / Smart-TV:** keine Pairing-Oberfläche, kein iOS-Keychain-Schlüssel;
+  kein QR-Scan und keine lokale Geräteerkennung (NSD/BLE) auf Android. Elektro-Engel-Chat
   nutzt das bestehende Backend.
 - Android-/iOS-Builds, Installation und Integrationstest wurden in dieser
   Umgebung nicht ausgeführt (kein Android-SDK/macOS-Runner); sie laufen über die

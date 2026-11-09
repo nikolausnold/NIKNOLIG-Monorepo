@@ -22,7 +22,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  assemble-release:
+  check-validations:
+    # Both validation workflows finish at different times. The first completion would
+    # otherwise fail this workflow although the other validation is still running;
+    # the later completion triggers a new run that performs the release.
     if: >-
       (github.event_name == 'workflow_dispatch' &&
        github.ref == 'refs/heads/main') ||
@@ -31,6 +34,68 @@ jobs:
        github.event.workflow_run.head_repository.full_name == github.repository &&
        github.event.workflow_run.head_branch == 'main' &&
        contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event.workflow_run.event))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Wait for both validations of the release commit
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          runs="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs" \
+            -f "head_sha=$RELEASE_SHA" -f per_page=100)"
+          state="$(python3 -c '
+          import json
+          import sys
+
+          release_sha = sys.argv[1]
+          workflow_runs = json.load(sys.stdin).get("workflow_runs", [])
+          valid_events = {"push", "schedule", "workflow_dispatch"}
+          states = []
+          for name in ("android-build.yml", "backend-contracts.yml"):
+              matching = [
+                  run for run in workflow_runs
+                  if run.get("path") == f".github/workflows/{name}"
+                  and run.get("head_sha") == release_sha
+                  and run.get("head_branch") == "main"
+                  and run.get("event") in valid_events
+              ]
+              if any(r.get("status") == "completed" and r.get("conclusion") == "success" for r in matching):
+                  states.append("success")
+              elif any(r.get("status") != "completed" for r in matching):
+                  states.append("pending")
+              else:
+                  states.append("missing")
+          if "missing" in states:
+              print("missing")
+          elif "pending" in states:
+              print("pending")
+          else:
+              print("success")
+          ' "$RELEASE_SHA" <<< "$runs")"
+          if [[ "$state" == "pending" ]]; then
+            echo "::notice::Another validation of $RELEASE_SHA is still running; its completion will start the release run."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            # "missing" proceeds so the strict verification below fails with its explicit error.
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  assemble-release:
+    needs: check-validations
+    if: >-
+      needs.check-validations.outputs.ready == 'true' && (
+      (github.event_name == 'workflow_dispatch' &&
+         github.ref == 'refs/heads/main') ||
+        (github.event_name == 'workflow_run' &&
+         github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.head_repository.full_name == github.repository &&
+         github.event.workflow_run.head_branch == 'main' &&
+         contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event.workflow_run.event)))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: android-release

@@ -24,6 +24,10 @@
             android:name=".AssistantActivity"
             android:exported="false" />
         <activity
+            android:name=".DeviceLinkActivity"
+            android:label="@string/device_link_heading"
+            android:exported="false" />
+        <activity
             android:name=".SupportActivity"
             android:exported="false" />
     </application>

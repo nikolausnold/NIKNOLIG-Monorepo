@@ -9,6 +9,7 @@ plugins {
 dependencies {
     implementation(project(":electro-engel-core"))
     implementation(project(":support-core"))
+    implementation(project(":device-link-core"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
 }
@@ -44,6 +45,21 @@ fun isLoopbackOrUnspecifiedAddress(host: String): Boolean {
 }
 
 validateBackendBaseUrl(backendBaseUrl)
+
+// The device link stays closed until the written SecurityChain-P0 approval exists.
+val deviceLinkP0Approved = (providers.gradleProperty("deviceLinkP0Approved")
+    .orElse(providers.environmentVariable("NIKNOLIG_DEVICE_LINK_P0_APPROVED"))
+    .orNull?.trim() == "true")
+
+fun optionalSetting(property: String, environment: String): String =
+    providers.gradleProperty(property).orElse(providers.environmentVariable(environment)).orNull?.trim().orEmpty()
+
+val accountAuthUrl = optionalSetting("niknoligDefenseAccountAuthUrl", "NIKNOLIG_DEFENSE_ACCOUNT_AUTH_URL")
+val accountAuthKey = optionalSetting("niknoligDefenseAccountAuthKey", "NIKNOLIG_DEFENSE_ACCOUNT_AUTH_KEY")
+require(accountAuthUrl.isEmpty() || accountAuthUrl.startsWith("https://")) {
+    "Account auth URL must be an HTTPS origin."
+}
+require(!accountAuthKey.contains('"') && !accountAuthKey.contains('\\')) { "Invalid account auth key." }
 
 val updateVersionCode = providers.environmentVariable("NIKNOLIG_VERSION_CODE").orNull?.let {
     val code = requireNotNull(it.toIntOrNull()) { "Invalid NIKNOLIG_VERSION_CODE" }
@@ -95,6 +111,9 @@ android {
         versionCode = updateVersionCode ?: 1
         versionName = updateVersionCode?.let { "0.1.$it" } ?: "0.1.0"
         buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
+        buildConfigField("boolean", "DEVICE_LINK_P0_APPROVED", deviceLinkP0Approved.toString())
+        buildConfigField("String", "ACCOUNT_AUTH_URL", "\"$accountAuthUrl\"")
+        buildConfigField("String", "ACCOUNT_AUTH_KEY", "\"$accountAuthKey\"")
     }
 
     buildTypes {
