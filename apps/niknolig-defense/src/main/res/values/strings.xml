@@ -119,6 +119,7 @@
     <string name="security_events_heading">LOKALES EREIGNISPROTOKOLL</string>
     <string name="security_events_empty">Noch keine Diagnoseereignisse gespeichert.</string>
     <string name="security_scan_completed">Prüfung abgeschlossen; keine aufgeführten Warnungen festgestellt.</string>
+    <string name="security_event_row_format">%1$s: %2$s</string>
     <string name="security_clear_events_button">Protokoll löschen</string>
     <string name="security_clear_events_title">Protokoll löschen?</string>
     <string name="security_clear_events_confirmation">Alle lokal gespeicherten Diagnoseereignisse dieser App werden gelöscht.</string>

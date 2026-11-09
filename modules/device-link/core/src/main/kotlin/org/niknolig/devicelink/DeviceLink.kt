@@ -12,7 +12,7 @@ class DeviceLinkGate(private val p0Approved: Boolean = false) {
 }
 
 class DeviceLinkBlockedException :
-    IllegalStateException("Device link is blocked until SecurityChain-P0 is approved.")
+    IllegalStateException("Device link is disabled; enable it only after the required security approval.")
 
 class DeviceLinkException(
     val statusCode: Int,

@@ -119,6 +119,7 @@
     <string name="security_events_heading">LOCAL EVENT LOG</string>
     <string name="security_events_empty">No diagnostic events saved yet.</string>
     <string name="security_scan_completed">Check completed; no listed warnings were found.</string>
+    <string name="security_event_row_format">%1$s: %2$s</string>
     <string name="security_clear_events_button">Clear event log</string>
     <string name="security_clear_events_title">Clear the event log?</string>
     <string name="security_clear_events_confirmation">All locally stored diagnostic events for this app will be deleted.</string>

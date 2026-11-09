@@ -145,7 +145,11 @@ class SecurityDashboardActivity : Activity() {
             events.asReversed().joinToString("\n\n") { event ->
                 val label = event.finding?.let { getString(it.messageResource()) }
                     ?: getString(R.string.security_scan_completed)
-                "${DateFormat.getDateTimeInstance().format(Date(event.timestamp))}: $label"
+                getString(
+                    R.string.security_event_row_format,
+                    DateFormat.getDateTimeInstance().format(Date(event.timestamp)),
+                    label,
+                )
             }
         }
     }
