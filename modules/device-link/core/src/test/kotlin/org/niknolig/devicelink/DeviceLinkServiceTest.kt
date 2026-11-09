@@ -94,6 +94,26 @@ class DeviceLinkServiceTest {
     }
 
     @Test
+    fun rotatedSessionFromAnotherCallerIsReusedInsteadOfReplayingRefresh() {
+        val store = registered()
+        val transport = object : DeviceLinkTransport {
+            val calls = mutableListOf<Pair<String, String?>>()
+            override fun request(method: String, path: String, bearer: String?, body: Map<String, Any?>?): TransportResponse {
+                calls += path to bearer
+                if (bearer == "a1") {
+                    // A concurrent caller renews the shared session while this request is in flight.
+                    store.current = DeviceSession("a2", "r2")
+                    return TransportResponse(401, emptyMap())
+                }
+                return TransportResponse(200, mapOf("links" to emptyList<Any>()))
+            }
+        }
+        DeviceLinkService(DeviceLinkGate(true), transport, signer, store).links()
+        assertTrue(transport.calls.none { it.first == "/v1/sessions/refresh" })
+        assertEquals("a2", transport.calls.last().second)
+    }
+
+    @Test
     fun revokedRefreshFallsBackToChallengeSession() {
         val store = registered()
         val nonce = DeviceProtocol.b64url(ByteArray(32))

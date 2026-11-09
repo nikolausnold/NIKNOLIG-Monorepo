@@ -130,3 +130,17 @@ Staging-Smoke-Test.
 3. Client-Umsetzung (Keystore/Keychain, Pairing-UI, Discovery) und Builds.
 4. Test mit zwei echten Smartphones und Smart-TV-Hardware.
 5. Staging-Deployment mit echten Secrets, danach Produktivfreigabe.
+
+## Zwei-Geräte-Hardwaretest (NICHT durchgeführt)
+
+Status: **offen**. Kein Test mit zwei realen Android-Geräten wurde ausgeführt; die Freigabe (`DEVICE_LINK_P0_APPROVED`) bleibt bis zur SecurityChain-P0-Freigabe geschlossen.
+
+Ablauf nach Freigabe (Android 13+, zwei Geräte, Staging-Backend):
+
+- [ ] Gerät A (NIKNOLIG) und Gerät B (Defense) anmelden und registrieren.
+- [ ] Pairing-Code auf A erzeugen, auf B eingeben; 6-stellige Kurzprüfung auf beiden vergleichen und bestätigen.
+- [ ] Ablauf nach 120 s, Abbruch und App-Wechsel (`onStop`) beenden das Pairing serverseitig.
+- [ ] Freigabe `status:read` erteilen; Diagnose wird nur mit aktiver Freigabe übertragen.
+- [ ] Widerruf stoppt Übertragung sofort.
+- [ ] Offline/Reconnect und parallele Session-Erneuerung prüfen.
+- [ ] Ed25519-Keystore auf realer Hardware prüfen.

@@ -119,7 +119,8 @@ internal class PrefsLinkStateStore(context: Context, private val keyAlias: Strin
     }
 
     override fun clear() {
-        prefs.edit().remove(KEY_SESSION).remove(KEY_DEVICE).commit()
+        // A revoked installation id is rejected by the backend, so re-registration needs a fresh one.
+        prefs.edit().remove(KEY_SESSION).remove(KEY_DEVICE).remove(KEY_INSTALLATION).commit()
         if (keyStore.containsAlias(keyAlias)) keyStore.deleteEntry(keyAlias)
     }
 

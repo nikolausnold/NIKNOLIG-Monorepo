@@ -35,7 +35,7 @@ jobs:
        github.event.workflow_run.head_branch == 'main' &&
        contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event.workflow_run.event))
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 25
     outputs:
       ready: ${{ steps.check.outputs.ready }}
     steps:
@@ -46,9 +46,13 @@ jobs:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
-          runs="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs" \
-            -f "head_sha=$RELEASE_SHA" -f per_page=100)"
-          state="$(python3 -c '
+          # Manual dispatches carry the requested release tag and cannot be re-created by a later
+          # workflow_run, so they wait for pending validations. Automatic runs just defer.
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then attempts=40; else attempts=1; fi
+          for ((attempt = 1; attempt <= attempts; attempt++)); do
+            runs="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs" \
+              -f "head_sha=$RELEASE_SHA" -f per_page=100)"
+            state="$(python3 -c '
           import json
           import sys
 
@@ -77,7 +81,14 @@ jobs:
           else:
               print("success")
           ' "$RELEASE_SHA" <<< "$runs")"
+            [[ "$state" != "pending" ]] && break
+            if (( attempt < attempts )); then sleep 30; fi
+          done
           if [[ "$state" == "pending" ]]; then
+            if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+              echo "::error::Validations for $RELEASE_SHA are still running after 20 minutes. Re-run this manual release once they finish."
+              exit 1
+            fi
             echo "::notice::Another validation of $RELEASE_SHA is still running; its completion will start the release run."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else

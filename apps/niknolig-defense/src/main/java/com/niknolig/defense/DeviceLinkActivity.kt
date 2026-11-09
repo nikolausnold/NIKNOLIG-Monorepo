@@ -15,6 +15,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import org.niknolig.devicelink.DeviceLinkException
 import org.niknolig.devicelink.DeviceLinkGate
 import org.niknolig.devicelink.DeviceLinkScopes
 import org.niknolig.devicelink.DeviceLinkService
@@ -46,6 +47,8 @@ class DeviceLinkActivity : Activity() {
 
     private var activePairingId: String? = null
     private var confirmedPairingId: String? = null
+    private var offeredCode: String? = null
+    private var confirmDialog: AlertDialog? = null
     private var polling = false
     private var started = false
 
@@ -74,7 +77,23 @@ class DeviceLinkActivity : Activity() {
     override fun onStop() {
         started = false
         polling = false
+        confirmDialog?.dismiss()
+        confirmDialog = null
+        abandonPairing()
         super.onStop()
+    }
+
+    /** A pending pairing is cancelled when the screen is left; the one-time code is never kept around. */
+    private fun abandonPairing() {
+        val pairingId = activePairingId ?: return
+        activePairingId = null
+        confirmedPairingId = null
+        offeredCode = null
+        val svc = service
+        if (svc != null && !executor.isShutdown) {
+            executor.execute { runCatching { svc.cancelPairing(pairingId) } }
+        }
+        setPairingText(getString(R.string.device_link_no_pairing))
     }
 
     override fun onDestroy() {
@@ -137,9 +156,21 @@ class DeviceLinkActivity : Activity() {
                 }
                 return@background
             }
-            val links = svc.links()
-            val grants = links.associate { it.linkId to svc.grants(it.linkId) }
-            DeviceLinkProfile.statusReport(this)?.let { svc.reportStatus(it.first, it.second) }
+            // The server lists expired links too; their grants are gone (404), so only active links count.
+            val links = svc.links().filter { it.state == "active" }
+            val grants = links.associate { link ->
+                link.linkId to try {
+                    svc.grants(link.linkId)
+                } catch (error: DeviceLinkException) {
+                    if (error.statusCode != 404) throw error
+                    emptyList()
+                }
+            }
+            // Diagnostics leave the device only while an active outgoing status:read grant exists.
+            val sharing = grants.values.any { list ->
+                list.any { it.direction == "given" && it.scope == DeviceLinkScopes.STATUS_READ }
+            }
+            if (sharing) DeviceLinkProfile.statusReport(this)?.let { svc.reportStatus(it.first, it.second) }
             onUi {
                 signInBox.visibility = View.GONE
                 connectedBox.visibility = View.VISIBLE
@@ -192,6 +223,7 @@ class DeviceLinkActivity : Activity() {
             val offer = svc.createPairing()
             activePairingId = offer.pairingId
             confirmedPairingId = null
+            offeredCode = offer.code
             onUi { pairingView.text = getString(R.string.device_link_code_shown, offer.code) }
             poll(svc, offer.pairingId)
         }
@@ -208,6 +240,7 @@ class DeviceLinkActivity : Activity() {
             val state = svc.claimPairing(code)
             activePairingId = state.pairingId
             confirmedPairingId = null
+            offeredCode = null
             onUi { codeInput.setText("") }
             showPairing(svc, state)
             poll(svc, state.pairingId)
@@ -245,8 +278,12 @@ class DeviceLinkActivity : Activity() {
     private fun showPairing(svc: DeviceLinkService, state: PairingState) {
         onUi {
             when (state.state) {
-                "open" -> setPairingText(getString(R.string.device_link_waiting_for_peer))
+                "open" -> setPairingText(
+                    offeredCode?.let { getString(R.string.device_link_code_shown, it) }
+                        ?: getString(R.string.device_link_waiting_for_peer),
+                )
                 "claimed" -> {
+                    offeredCode = null
                     val peer = state.peer?.displayName.orEmpty()
                     setPairingText(getString(R.string.device_link_compare_codes, peer, state.shortAuthString.orEmpty()))
                     if (!state.confirmedByMe) {
@@ -267,15 +304,27 @@ class DeviceLinkActivity : Activity() {
     private fun askConfirmation(svc: DeviceLinkService, state: PairingState) {
         if (confirmedPairingId == state.pairingId) return
         confirmedPairingId = state.pairingId
-        AlertDialog.Builder(this)
+        confirmDialog = AlertDialog.Builder(this)
             .setTitle(R.string.device_link_confirm_title)
             .setMessage(getString(R.string.device_link_confirm_message, state.peer?.displayName.orEmpty(), state.shortAuthString.orEmpty()))
             .setPositiveButton(R.string.device_link_confirm_yes) { _, _ ->
-                background { showPairing(svc, svc.confirmPairing(state.pairingId)) }
+                background {
+                    try {
+                        showPairing(svc, svc.confirmPairing(state.pairingId))
+                    } catch (error: Exception) {
+                        confirmedPairingId = null // lets the next poll offer a retry
+                        throw error
+                    }
+                }
             }
             .setNegativeButton(R.string.device_link_confirm_no) { _, _ ->
                 background {
-                    svc.cancelPairing(state.pairingId)
+                    try {
+                        svc.cancelPairing(state.pairingId)
+                    } catch (error: Exception) {
+                        confirmedPairingId = null
+                        throw error
+                    }
                     activePairingId = null
                     onUi { endPairing(R.string.device_link_pairing_cancelled) }
                 }
@@ -286,6 +335,7 @@ class DeviceLinkActivity : Activity() {
 
     private fun endPairing(message: Int) {
         activePairingId = null
+        offeredCode = null
         polling = false
         setPairingText(getString(message))
     }

@@ -135,10 +135,12 @@ class DeviceLinkService(
         }
     }
 
+    private val renewLock = Any()
+
     private fun call(method: String, path: String, body: Map<String, Any?>?, expected: Int): Map<String, Any?> {
         gate.require()
         val deviceId = store.deviceId() ?: throw DeviceLinkNotRegisteredException()
-        var session = store.session() ?: openSession(deviceId)
+        var session = store.session() ?: synchronized(renewLock) { store.session() ?: openSession(deviceId) }
         var response = transport.request(method, path, session.accessToken, body)
         if (response.status == 401) {
             session = renew(deviceId, session)
@@ -148,15 +150,21 @@ class DeviceLinkService(
         return response.body
     }
 
-    private fun renew(deviceId: String, old: DeviceSession): DeviceSession {
+    /**
+     * Callers share one stored session. Renewal is serialized and re-reads the store: if another caller already
+     * rotated the tokens, those are used instead of replaying the consumed refresh token (which would revoke them).
+     */
+    private fun renew(deviceId: String, stale: DeviceSession): DeviceSession = synchronized(renewLock) {
+        val current = store.session()
+        if (current != null && current != stale) return current
         val renewed = try {
-            client.refresh(old)
+            client.refresh(stale)
         } catch (error: DeviceLinkException) {
             if (error.statusCode != 401) throw error
             openSession(deviceId)
         }
         store.saveSession(renewed)
-        return renewed
+        renewed
     }
 
     private fun openSession(deviceId: String): DeviceSession =
