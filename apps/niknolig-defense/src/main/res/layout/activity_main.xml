@@ -165,6 +165,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_medium"
                 android:text="@string/learning_profile_button" />
+
+            <Button
+                android:id="@+id/security_dashboard_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_small"
+                android:text="@string/security_dashboard_button" />
         </LinearLayout>
 
         <LinearLayout

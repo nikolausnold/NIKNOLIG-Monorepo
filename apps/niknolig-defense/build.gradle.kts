@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":electro-engel-core"))
     implementation(project(":support-core"))
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }
 
 val backendBaseUrl = providers.gradleProperty("niknoligDefenseBackendUrl")

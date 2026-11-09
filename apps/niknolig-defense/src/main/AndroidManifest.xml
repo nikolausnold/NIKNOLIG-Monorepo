@@ -24,6 +24,10 @@
             android:name=".AssistantActivity"
             android:exported="false" />
         <activity
+            android:name=".SecurityDashboardActivity"
+            android:label="@string/security_dashboard_title"
+            android:exported="false" />
+        <activity
             android:name=".SupportActivity"
             android:exported="false" />
     </application>
