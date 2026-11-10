@@ -60,7 +60,8 @@ class DeviceLinkActivity : Activity() {
     private var offeredCode: String? = null
     private var confirmDialog: AlertDialog? = null
     private var polling = false
-    private var started = false
+    @Volatile private var started = false
+    @Volatile private var lifecycleGeneration = 0L
     private var pendingScanCode: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,6 +86,7 @@ class DeviceLinkActivity : Activity() {
     override fun onStart() {
         super.onStart()
         started = true
+        lifecycleGeneration++
         refresh()
         if (BuildConfig.DEVICE_LINK_P0_APPROVED && store.deviceId() != null) nearby.startDiscovery()
         pendingScanCode?.let {
@@ -95,6 +97,7 @@ class DeviceLinkActivity : Activity() {
 
     override fun onStop() {
         started = false
+        lifecycleGeneration++
         polling = false
         confirmDialog?.dismiss()
         confirmDialog = null
@@ -184,9 +187,11 @@ class DeviceLinkActivity : Activity() {
 
     private fun refresh() {
         val svc = prerequisites() ?: return
+        val generation = lifecycleGeneration
         background {
             if (!svc.isRegistered) {
                 onUi {
+                    if (!isCurrentLifecycle(generation)) return@onUi
                     signInBox.visibility = View.VISIBLE
                     connectedBox.visibility = View.GONE
                     setStatus(R.string.device_link_status_not_registered)
@@ -209,6 +214,7 @@ class DeviceLinkActivity : Activity() {
             }
             if (sharing) DeviceLinkProfile.statusReport(this)?.let { svc.reportStatus(it.first, it.second) }
             onUi {
+                if (!isCurrentLifecycle(generation)) return@onUi
                 signInBox.visibility = View.GONE
                 connectedBox.visibility = View.VISIBLE
                 nearby.startDiscovery()
@@ -258,12 +264,19 @@ class DeviceLinkActivity : Activity() {
 
     private fun startPairing() {
         val svc = prerequisites() ?: return
+        if (!started) return
+        val generation = lifecycleGeneration
         background {
             val offer = svc.createPairing()
+            if (!isCurrentLifecycle(generation)) {
+                runCatching { svc.cancelPairing(offer.pairingId) }
+                return@background
+            }
             activePairingId = offer.pairingId
             confirmedPairingId = null
             offeredCode = offer.code
             onUi {
+                if (!isCurrentLifecycle(generation)) return@onUi
                 pairingView.text = getString(R.string.device_link_code_shown, offer.code)
                 showOffer(PairingQr(offer.code, DeviceLinkProfile.APP_AREA).encode())
                 nearby.startAdvertising()
@@ -535,6 +548,9 @@ class DeviceLinkActivity : Activity() {
     private fun onUi(block: () -> Unit) {
         ui.post { if (!isFinishing && !isDestroyed) block() }
     }
+
+    private fun isCurrentLifecycle(generation: Long): Boolean =
+        started && lifecycleGeneration == generation
 
     private fun setStatus(resource: Int): Unit = setStatus(getString(resource))
 

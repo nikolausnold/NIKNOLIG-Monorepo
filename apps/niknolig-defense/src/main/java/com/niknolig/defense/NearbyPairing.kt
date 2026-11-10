@@ -26,6 +26,7 @@ internal class NearbyPairing(
     private val peers = LinkedHashMap<String, DiscoveryAnnouncement>()
     private val pending = ArrayDeque<NsdServiceInfo>()
     private var resolving = false
+    private var discoveryGeneration = 0L
     private var registration: NsdManager.RegistrationListener? = null
     private var discovery: NsdManager.DiscoveryListener? = null
 
@@ -63,15 +64,20 @@ internal class NearbyPairing(
 
     fun startDiscovery() {
         if (discovery != null) return
-        val listener = object : NsdManager.DiscoveryListener {
+        val generation = ++discoveryGeneration
+        lateinit var listener: NsdManager.DiscoveryListener
+        listener = object : NsdManager.DiscoveryListener {
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
-                handler.post { discovery = null }
+                handler.post {
+                    if (isCurrentDiscovery(generation, listener)) discovery = null
+                }
             }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
             override fun onDiscoveryStarted(serviceType: String) {}
             override fun onDiscoveryStopped(serviceType: String) {}
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
                 handler.post {
+                    if (!isCurrentDiscovery(generation, listener)) return@post
                     if (serviceInfo.serviceType.trimEnd('.') == DiscoveryAnnouncement.SERVICE_TYPE.trimEnd('.')) {
                         pending.addLast(serviceInfo)
                         resolveNext()
@@ -80,17 +86,19 @@ internal class NearbyPairing(
             }
             override fun onServiceLost(serviceInfo: NsdServiceInfo) {
                 handler.post {
+                    if (!isCurrentDiscovery(generation, listener)) return@post
                     if (peers.remove(serviceInfo.serviceName) != null) onPeersChanged(peers.values.toList())
                 }
             }
         }
         discovery = listener
         runCatching { nsd.discoverServices(DiscoveryAnnouncement.SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener) }
-            .onFailure { discovery = null }
+            .onFailure { if (isCurrentDiscovery(generation, listener)) discovery = null }
     }
 
     fun stop() {
         stopAdvertising()
+        discoveryGeneration++
         discovery?.let { runCatching { nsd.stopServiceDiscovery(it) } }
         discovery = null
         pending.clear()
@@ -103,16 +111,26 @@ internal class NearbyPairing(
     @Suppress("DEPRECATION")
     private fun resolveNext() {
         if (resolving) return
+        val listener = discovery ?: return
+        val generation = discoveryGeneration
         val info = pending.removeFirstOrNull() ?: return
         resolving = true
-        val done = { resolving = false; resolveNext() }
+        val done = {
+            if (isCurrentDiscovery(generation, listener)) {
+                resolving = false
+                resolveNext()
+            }
+        }
         runCatching {
             nsd.resolveService(info, object : NsdManager.ResolveListener {
                 override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                    handler.post { done() }
+                    handler.post {
+                        if (isCurrentDiscovery(generation, listener)) done()
+                    }
                 }
                 override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
                     handler.post {
+                        if (!isCurrentDiscovery(generation, listener)) return@post
                         DiscoveryAnnouncement.parse(serviceInfo.attributes, area)?.let {
                             peers[serviceInfo.serviceName] = it
                             onPeersChanged(peers.values.toList())
@@ -123,4 +141,7 @@ internal class NearbyPairing(
             })
         }.onFailure { done() }
     }
+
+    private fun isCurrentDiscovery(generation: Long, listener: NsdManager.DiscoveryListener): Boolean =
+        discoveryGeneration == generation && discovery === listener
 }

@@ -3,6 +3,7 @@ package org.niknolig.devicelink
 import java.security.SecureRandom
 import java.util.UUID
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
@@ -50,7 +51,12 @@ class StagingIntegrationTest {
             val claimed = defense.service.claimPairing(PairingQr.parse(PairingQr(offer.code, app.area).encode(), defense.area)!!.code)
             assertEquals("claimed", claimed.state)
             val sasApp = app.service.pairing(offer.pairingId).shortAuthString
-            assertEquals(sasApp, claimed.shortAuthString)
+            val sasDefense = claimed.shortAuthString
+            assertNotNull(sasApp)
+            assertTrue(sasApp!!.matches(Regex("\\d{6}")))
+            assertNotNull(sasDefense)
+            assertTrue(sasDefense!!.matches(Regex("\\d{6}")))
+            assertEquals(sasApp, sasDefense)
 
             app.service.confirmPairing(offer.pairingId)
             val done = defense.service.confirmPairing(claimed.pairingId)

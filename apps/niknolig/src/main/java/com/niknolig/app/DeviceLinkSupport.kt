@@ -86,6 +86,8 @@ internal class KeystoreDeviceSigner(private val alias: String) : DeviceKey {
         if (keyStore.containsAlias(alias)) keyStore.deleteEntry(alias)
     }
 
+    fun exists(): Boolean = keyStore.containsAlias(alias)
+
     companion object {
         private const val ED25519_SPKI_BYTES = 44
         fun isSupported(): Boolean = Build.VERSION.SDK_INT >= 33
@@ -201,9 +203,10 @@ internal object DeviceKeys {
     }
 
     private fun choose(context: Context, deviceAlias: String, sealAlias: String, prefs: SharedPreferences): DeviceKey {
-        val chosen: DeviceKey = if (KeystoreDeviceSigner.isSupported()) {
-            val keystoreKey = KeystoreDeviceSigner(deviceAlias)
-            try {
+        val keystoreKey = KeystoreDeviceSigner(deviceAlias)
+        val chosen: DeviceKey = when {
+            keystoreKey.exists() -> keystoreKey
+            KeystoreDeviceSigner.isSupported() -> try {
                 // Probe: some Android 13+ devices advertise Ed25519 but fail on key generation or signing.
                 keystoreKey.sign(ByteArray(1))
                 keystoreKey
@@ -211,8 +214,7 @@ internal object DeviceKeys {
                 runCatching { keystoreKey.deleteKey() }
                 SoftwareDeviceKey(context, sealAlias)
             }
-        } else {
-            SoftwareDeviceKey(context, sealAlias)
+            else -> SoftwareDeviceKey(context, sealAlias)
         }
         prefs.edit().putString(KEY_MODE, chosen.mode).commit()
         return chosen
