@@ -6,6 +6,7 @@ internal object DeviceLinkProfile {
     const val APP_AREA = "niknolig-defense"
     const val DEVICE_KEY_ALIAS = "niknolig_defense_device_key_v1"
     const val STATE_KEY_ALIAS = "niknolig_defense_link_state_v1"
+    const val SEED_KEY_ALIAS = "niknolig_defense_device_seed_v1"
 
     /** Local diagnosis only: three device checks, not a claim of complete protection. */
     fun statusReport(context: Context): Pair<String, String?>? {

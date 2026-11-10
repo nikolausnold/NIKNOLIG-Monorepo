@@ -76,17 +76,42 @@ Oberfläche nur den Sperrhinweis. Konto-Login benötigt zusätzlich
 Konto-JWT muss den Claim `app_metadata.app_area` tragen.
 JVM-Tests des Moduls (inkl. Refresh-/Fallback-/Widerrufspfade) laufen in CI.
 
-**Offen:** Kopplung per QR-Code (kein Scanner/Generator ohne neue Abhängigkeit), Geräteerkennung
-im lokalen Netz (NSD/BLE), Geräte unter Android 12 und älter (kein Keystore-Ed25519),
-Test mit zwei echten Android-Geräten inkl. Verifikation von Keystore-Ed25519 auf
-echter Hardware, Staging-Smoke-Test.
+**Neu in diesem Stand (Code, durch CI gebaut; nicht auf echten Geräten getestet):**
+
+- **QR-Kopplung:** Das Gerät mit offenem Pairing zeigt den Einmalcode zusätzlich als QR
+  (`niknolig-pair://pair?v=1&area=…&code=…`, ZXing-Encoder); das andere Gerät scannt mit dem
+  Google-Play-Dienste-Codescanner (keine Kamera-Berechtigung). Der Parser (`PairingQr`) akzeptiert nur
+  wohlgeformte Payloads der *anderen* App; ohne Play-Dienste bleibt die manuelle Codeeingabe.
+- **Geräteerkennung (Android NSD):** Während ein Pairing offen ist, kündigt das Gerät `_niknolig-pair._tcp`
+  mit App-Bereich und Gerätename an; die andere App zeigt solche Geräte als Hinweis. Der Code wird nie
+  gesendet, Erkennung begründet kein Vertrauen – Kopplung erfordert weiterhin Code/QR und die gegenseitige
+  Bestätigung des Abgleichscodes auf beiden Geräten (serverseitig erzwungen).
+- **Schlüssel für Android 8–12:** Ed25519 im Keystore nur ab Android 13 (und nur wenn ein Probe-Signieren
+  gelingt). Sonst Software-Ed25519 (BouncyCastle, RFC-8032-Testvektor in CI): 32-Byte-Seed aus `SecureRandom`,
+  nur AES-GCM-verschlüsselt unter einem nicht exportierbaren Keystore-Schlüssel gespeichert, pro Signatur
+  entschlüsselt und überschrieben. Die Schlüsselart wird pro Installation einmal festgelegt und nie still
+  gewechselt. Das ist softwaregeschützt, **nicht** hardwaregebundenes Ed25519.
+- **Konto und `app_area`:** Vor der Registrierung prüft der Client den `app_metadata.app_area`-Claim und das
+  Ablaufdatum und zeigt verständliche Fehler (fehlt / anderer Bereich / abgelaufen). Autorität bleibt das
+  Backend. Gesetzt wird der Claim nur serverseitig: `tools/provision_app_area.py` (Operator-Werkzeug mit
+  Service-Role-Key, Dry-Run standardmäßig).
+- **Staging-Integrationstest:** `StagingIntegrationTest` führt den echten Client-Code (HTTPS, Ed25519,
+  Pairing, Freigabe, Statusabruf, Widerruf) gegen ein Staging-Backend aus. Workflow
+  `device-staging.yml` (nur manuell, Environment `staging`) benötigt Variablen/Secrets
+  `NIKNOLIG_STAGING_URL`, `NIKNOLIG_STAGING_AUTH_URL`, `NIKNOLIG_STAGING_AUTH_KEY` und zwei Testkonten
+  (`…_APP_EMAIL|PASSWORD`, `…_DEFENSE_EMAIL|PASSWORD`, `app_area` je gesetzt). Ohne Konfiguration
+  wird der Test übersprungen bzw. der Workflow schlägt fehl – ein Skip gilt nie als bestanden.
+  **Für diese Nacharbeit nicht ausgeführt**; siehe Validierungsstand in Abschnitt 8.
+- Anzeigen von Code/QR sind mit `FLAG_SECURE` gegen Screenshots geschützt.
+
+**Offen:** Test mit zwei echten Android-Geräten (inkl. Keystore-Ed25519 auf realer Hardware und des
+Software-Fallbacks auf Android ≤ 12), NSD-Verhalten in echten WLANs (Client-Isolation, VPN),
+Ausführung des Staging-Tests, Bereitstellung der Konto-Konfiguration, SecurityChain-P0-Freigabe.
 
 - **iOS-Client / Smart-TV:** keine Pairing-Oberfläche, kein iOS-Keychain-Schlüssel;
-  kein QR-Scan und keine lokale Geräteerkennung (NSD/BLE) auf Android. Elektro-Engel-Chat
-  nutzt das bestehende Backend.
-- Android-/iOS-Builds, Installation und Integrationstest wurden in dieser
-  Umgebung nicht ausgeführt (kein Android-SDK/macOS-Runner); sie laufen über die
-  bestehenden Workflows.
+  keine BLE-Erkennung. Elektro-Engel-Chat nutzt das bestehende Backend.
+- Android-Debug-Builds, Android-Unit-Tests und Android-Lint laufen über den bestehenden Workflow (siehe
+  Abschnitt 8). CI ersetzt weder die Installation auf echten Geräten noch den Staging-Integrationstest.
 - Zwei Geräte derselben App (z. B. zwei NIKNOLIG-Smartphones) sind durch die
   bestehende DB-Regel `device_links_distinct_app_areas` ausgeschlossen; Änderung
   erfordert eine eigene Migration und Freigabe.
@@ -133,14 +158,54 @@ Staging-Smoke-Test.
 
 ## Zwei-Geräte-Hardwaretest (NICHT durchgeführt)
 
-Status: **offen**. Kein Test mit zwei realen Android-Geräten wurde ausgeführt; die Freigabe (`DEVICE_LINK_P0_APPROVED`) bleibt bis zur SecurityChain-P0-Freigabe geschlossen.
+Status: **offen**. Kein Test mit zwei realen Android-Geräten wurde ausgeführt; `DEVICE_LINK_P0_APPROVED`
+bleibt bis zur schriftlichen SecurityChain-P0-Freigabe geschlossen. Ergebnisse unten erst nach
+tatsächlicher Durchführung eintragen (Datum, Gerät, Android-Version, Build-SHA).
 
-Ablauf nach Freigabe (Android 13+, zwei Geräte, Staging-Backend):
+**Voraussetzungen:** Staging-Backend (HTTPS, Gerät-API aktiv), zwei Testkonten mit gesetztem `app_area`
+(`tools/provision_app_area.py`), Debug-Builds beider Apps mit
+`-PdeviceLinkP0Approved=true -PniknoligBackendUrl=… -PniknoligAccountAuthUrl|Key=…` (nur Testbuilds, nicht
+veröffentlichen), Gerät A mit NIKNOLIG und Gerät B mit NIKNOLIG Defense, beide im selben WLAN. Mindestens
+ein Durchlauf mit Android 13+ (Keystore) und einer mit Android 8–12 (Software-Schlüssel).
 
-- [ ] Gerät A (NIKNOLIG) und Gerät B (Defense) anmelden und registrieren.
-- [ ] Pairing-Code auf A erzeugen, auf B eingeben; 6-stellige Kurzprüfung auf beiden vergleichen und bestätigen.
-- [ ] Ablauf nach 120 s, Abbruch und App-Wechsel (`onStop`) beenden das Pairing serverseitig.
-- [ ] Freigabe `status:read` erteilen; Diagnose wird nur mit aktiver Freigabe übertragen.
-- [ ] Widerruf stoppt Übertragung sofort.
-- [ ] Offline/Reconnect und parallele Session-Erneuerung prüfen.
-- [ ] Ed25519-Keystore auf realer Hardware prüfen.
+| # | Schritt | Erwartung | Ergebnis |
+|---|---------|-----------|----------|
+| 1 | Beide Apps öffnen → Geräteverbindung | Anmeldeformular, Hinweis auf Schlüsselart (Keystore/Software) | offen |
+| 2 | Mit falschem Konto (anderer `app_area`) anmelden | Verständliche Fehlermeldung, keine Registrierung | offen |
+| 3 | Mit richtigem Konto anmelden und registrieren | „Gerät registriert“ | offen |
+| 4 | A: Kopplungscode erzeugen | Code + QR sichtbar; Screenshot wird blockiert | offen |
+| 5 | B: Hinweis „Gerät in der Nähe“ (NSD) erscheint | Nur Name/Bereich, kein Code | offen |
+| 6 | B: QR scannen (alternativ Code tippen) | Abgleichscode auf beiden Geräten identisch (6 Ziffern) | offen |
+| 7 | Nur auf einem Gerät bestätigen, anschließend mehr als 300 s warten | Pairing läuft ab, keine Verbindung (120 s gelten nur für unbeanspruchte Angebote) | offen |
+| 8 | Neues Pairing, Abgleichscode absichtlich ablehnen | Beide Seiten „abgebrochen“ | offen |
+| 9 | Neues Pairing, auf A die App verlassen | Pairing serverseitig abgebrochen | offen |
+| 10 | Neues Pairing, beide bestätigen | Verbindung aktiv, Peer-Name + Schlüsselabdruck | offen |
+| 11 | Verbindungsabbruch: WLAN/Daten auf B aus, 1 min, wieder an | Offline-Meldung, danach Wiederverbindung ohne neue Kopplung | offen |
+| 12 | Defense: Status freigeben (24 h); NIKNOLIG ruft Status ab | Lokaler Diagnosestatus sichtbar | offen |
+| 13 | Freigabe widerrufen; NIKNOLIG ruft Status ab | Abruf wird mit „Berechtigung fehlt“ abgelehnt; Defense lädt nichts mehr hoch | offen |
+| 14 | Verbindung trennen | Beide Seiten ohne aktive Verbindung | offen |
+| 15 | Erneut koppeln (Wiederverbinden) | Neue Verbindung funktioniert | offen |
+| 16 | Gerät widerrufen | Serverseitig entfernt, lokal Schlüssel/Sitzung gelöscht, neue Registrierung nötig | offen |
+| 17 | Zwei NIKNOLIG- oder zwei Defense-Geräte koppeln | Abgelehnt (Bereichsregel) | offen |
+| 18 | `StagingIntegrationTest` über Workflow `device-staging.yml` | Grün, nicht übersprungen | offen |
+
+Freigabekriterium: alle Zeilen bestanden, keine sicherheitskritische Abweichung, schriftliche
+P0-Freigabe – erst danach `DEVICE_LINK_P0_APPROVED` in Release-Builds aktivieren.
+
+## 8. Validierungsstand der Review-Nacharbeit (2026-11-10)
+
+- **Android-CI:** [Workflow-Lauf 42766547545](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/42766547545),
+  Commit `9745a0218ce69c9fac73dd95ea64218c181a2a78`: beide Debug-APKs gebaut, Unit-Tests bestanden,
+  Android-Lint für beide Apps bestanden sowie Paketidentitäten und APK-Signaturen geprüft. Der Lauf enthält
+  die Discovery-Tests einschließlich der Unicode- und Bytebudget-Roundtrips.
+- Ein vorheriger Lauf schlug an einer bestehenden Erwartung fehl, die zu lange Namen ablehnen soll. Die
+  Empfängerprüfung wurde auf höchstens 40 Unicode-Codepoints plus 160 UTF-8-Bytes begrenzt; der oben
+  verlinkte Lauf auf dem korrigierten Commit ist erfolgreich.
+- **Lokaler Gradle-Lauf:** konnte vor Task-Ausführung das Android-Gradle-Plugin `9.5.1` nicht auflösen.
+  Die erfolgreiche Build-/Test-/Lint-Validierung stammt daher aus dem verlinkten GitHub-Actions-Lauf.
+- **Staging:** `StagingIntegrationTest` und der manuelle Workflow `device-staging.yml` sind vorbereitet,
+  wurden für diese Nacharbeit aber nicht ausgeführt. Es liegt kein Staging-Ergebnis vor; der Workflow
+  benötigt die in Abschnitt 3 genannten HTTPS-URLs, Konten und Secrets und bricht bei einem übersprungenen
+  Test ab.
+- **Echte Geräte / P0:** kein Zwei-Geräte-Test wurde ausgeführt. `DEVICE_LINK_P0_APPROVED` bleibt geschlossen;
+  Android-CI-Erfolg ist keine Staging- oder Hardwarefreigabe.
