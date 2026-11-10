@@ -17,6 +17,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.time.Instant
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import org.niknolig.devicelink.AppAreaClaim
@@ -72,10 +73,10 @@ class DeviceLinkActivity : Activity() {
         store = PrefsLinkStateStore(this, DeviceLinkProfile.STATE_KEY_ALIAS)
         // Pairing codes and QR codes must not end up in screenshots or the recents thumbnail.
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        signer = DeviceKeys.open(this, DeviceLinkProfile.DEVICE_KEY_ALIAS, DeviceLinkProfile.SEED_KEY_ALIAS)
         nearby = NearbyPairing(this, DeviceLinkProfile.APP_AREA, deviceName()) { peers -> showNearby(peers) }
         val backend = BuildConfig.BACKEND_BASE_URL
-        if (backend.startsWith("https://", ignoreCase = true)) {
+        if (BuildConfig.DEVICE_LINK_P0_APPROVED && backend.startsWith("https://", ignoreCase = true)) {
+            signer = DeviceKeys.open(this, DeviceLinkProfile.DEVICE_KEY_ALIAS, DeviceLinkProfile.SEED_KEY_ALIAS)
             service = DeviceLinkService(
                 DeviceLinkGate(BuildConfig.DEVICE_LINK_P0_APPROVED),
                 HttpsTransport(backend),
@@ -124,7 +125,7 @@ class DeviceLinkActivity : Activity() {
     }
 
     override fun onDestroy() {
-        executor.shutdownNow()
+        executor.shutdown()
         pollExecutor.shutdownNow()
         super.onDestroy()
     }
@@ -166,12 +167,14 @@ class DeviceLinkActivity : Activity() {
             margin(this, 12)
         }
         connectedBox.addView(qrView)
-        keyInfoView = text(
-            if (signer.mode == DeviceKeys.MODE_KEYSTORE) R.string.device_link_key_info_keystore
-            else R.string.device_link_key_info_software,
-            13f, R.color.text_secondary,
-        )
-        connectedBox.addView(keyInfoView)
+        if (::signer.isInitialized) {
+            keyInfoView = text(
+                if (signer.mode == DeviceKeys.MODE_KEYSTORE) R.string.device_link_key_info_keystore
+                else R.string.device_link_key_info_software,
+                13f, R.color.text_secondary,
+            )
+            connectedBox.addView(keyInfoView)
+        }
         connectedBox.addView(text(R.string.device_link_links_heading, 18f, R.color.gold, bold = true).also(::markHeading))
         linksBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         connectedBox.addView(linksBox)
@@ -300,13 +303,43 @@ class DeviceLinkActivity : Activity() {
 
     private fun claimWith(code: String) {
         val svc = prerequisites() ?: return
+        val generation = lifecycleGeneration
         background {
             val state = svc.claimPairing(code)
-            activePairingId = state.pairingId
-            confirmedPairingId = null
-            offeredCode = null
-            onUi { codeInput.setText("") }
-            showPairing(svc, state)
+            val published = CountDownLatch(1)
+            var adopted = false
+            if (!ui.post {
+                try {
+                    if (isCurrentLifecycle(generation)) {
+                        activePairingId = state.pairingId
+                        confirmedPairingId = null
+                        offeredCode = null
+                        codeInput.setText("")
+                        showPairing(svc, state)
+                        adopted = true
+                    }
+                } finally {
+                    published.countDown()
+                }
+            }) {
+                runCatching { svc.cancelPairing(state.pairingId) }
+                return@background
+            }
+            var interrupted = false
+            while (true) {
+                try {
+                    published.await()
+                    break
+                } catch (_: InterruptedException) {
+                    interrupted = true
+                }
+            }
+            if (!adopted) {
+                runCatching { svc.cancelPairing(state.pairingId) }
+                if (interrupted) Thread.currentThread().interrupt()
+                return@background
+            }
+            if (interrupted) Thread.currentThread().interrupt()
             poll(svc, state.pairingId)
         }
     }
@@ -341,6 +374,7 @@ class DeviceLinkActivity : Activity() {
 
     private fun showPairing(svc: DeviceLinkService, state: PairingState) {
         onUi {
+            if (!started || activePairingId != state.pairingId) return@onUi
             when (state.state) {
                 "open" -> setPairingText(
                     offeredCode?.let { getString(R.string.device_link_code_shown, it) }
@@ -458,6 +492,9 @@ class DeviceLinkActivity : Activity() {
     private fun endPairing(message: Int) {
         activePairingId = null
         offeredCode = null
+        confirmDialog?.dismiss()
+        confirmDialog = null
+        confirmedPairingId = null
         hideOffer()
         polling = false
         setPairingText(getString(message))
