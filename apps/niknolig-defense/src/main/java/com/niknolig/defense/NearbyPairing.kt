@@ -70,7 +70,13 @@ internal class NearbyPairing(
         listener = object : NsdManager.DiscoveryListener {
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
                 handler.post {
-                    if (isCurrentDiscovery(generation, listener)) discovery = null
+                    if (isCurrentDiscovery(generation, listener)) {
+                        discovery = null
+                        pending.clear()
+                        present.clear()
+                        resolving = false
+                        clearPeers()
+                    }
                 }
             }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
@@ -98,7 +104,15 @@ internal class NearbyPairing(
         }
         discovery = listener
         runCatching { nsd.discoverServices(DiscoveryAnnouncement.SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener) }
-            .onFailure { if (isCurrentDiscovery(generation, listener)) discovery = null }
+            .onFailure {
+                if (isCurrentDiscovery(generation, listener)) {
+                    discovery = null
+                    pending.clear()
+                    present.clear()
+                    resolving = false
+                    clearPeers()
+                }
+            }
     }
 
     fun stop() {
@@ -132,7 +146,10 @@ internal class NearbyPairing(
             nsd.resolveService(info, object : NsdManager.ResolveListener {
                 override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
                     handler.post {
-                        if (isCurrentDiscovery(generation, listener)) done()
+                        if (isCurrentDiscovery(generation, listener)) {
+                            if (present[info.serviceName] === info) removePeer(info.serviceName)
+                            done()
+                        }
                     }
                 }
                 override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
@@ -142,8 +159,10 @@ internal class NearbyPairing(
                             done()
                             return@post
                         }
-                        DiscoveryAnnouncement.parse(serviceInfo.attributes, area)?.let {
-                            peers[serviceInfo.serviceName] = it
+                        val announcement = DiscoveryAnnouncement.parse(serviceInfo.attributes, area)
+                        if (announcement == null) removePeer(serviceInfo.serviceName)
+                        else {
+                            peers[serviceInfo.serviceName] = announcement
                             onPeersChanged(peers.values.toList())
                         }
                         done()
@@ -155,4 +174,15 @@ internal class NearbyPairing(
 
     private fun isCurrentDiscovery(generation: Long, listener: NsdManager.DiscoveryListener): Boolean =
         discoveryGeneration == generation && discovery === listener
+
+    private fun removePeer(serviceName: String) {
+        if (peers.remove(serviceName) != null) onPeersChanged(peers.values.toList())
+    }
+
+    private fun clearPeers() {
+        if (peers.isNotEmpty()) {
+            peers.clear()
+            onPeersChanged(emptyList())
+        }
+    }
 }
