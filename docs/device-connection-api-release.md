@@ -176,7 +176,7 @@ ein Durchlauf mit Android 13+ (Keystore) und einer mit Android 8–12 (Software-
 | 4 | A: Kopplungscode erzeugen | Code + QR sichtbar; Screenshot wird blockiert | offen |
 | 5 | B: Hinweis „Gerät in der Nähe“ (NSD) erscheint | Nur Name/Bereich, kein Code | offen |
 | 6 | B: QR scannen (alternativ Code tippen) | Abgleichscode auf beiden Geräten identisch (6 Ziffern) | offen |
-| 7 | Nur auf einem Gerät bestätigen, 120 s warten | Pairing läuft ab, keine Verbindung | offen |
+| 7 | Nur auf einem Gerät bestätigen, anschließend mehr als 300 s warten | Pairing läuft ab, keine Verbindung (120 s gelten nur für unbeanspruchte Angebote) | offen |
 | 8 | Neues Pairing, Abgleichscode absichtlich ablehnen | Beide Seiten „abgebrochen“ | offen |
 | 9 | Neues Pairing, auf A die App verlassen | Pairing serverseitig abgebrochen | offen |
 | 10 | Neues Pairing, beide bestätigen | Verbindung aktiv, Peer-Name + Schlüsselabdruck | offen |
