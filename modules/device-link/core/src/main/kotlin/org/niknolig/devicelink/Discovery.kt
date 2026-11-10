@@ -20,7 +20,9 @@ data class DiscoveryAnnouncement(val area: String, val displayName: String) {
             if (value("v") != "1") return null
             val area = value("area") ?: return null
             if (area !in PairingQr.AREAS || area == ownArea) return null
-            val name = sanitizeName(value("name", MAX_NAME_BYTES) ?: return null)
+            val rawName = value("name", MAX_NAME_BYTES) ?: return null
+            if (rawName.codePointCount(0, rawName.length) > MAX_NAME) return null
+            val name = sanitizeName(rawName)
             return DiscoveryAnnouncement(area, name.ifBlank { area })
         }
 
