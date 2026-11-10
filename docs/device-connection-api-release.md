@@ -101,7 +101,7 @@ JVM-Tests des Moduls (inkl. Refresh-/Fallback-/Widerrufspfade) laufen in CI.
   `NIKNOLIG_STAGING_URL`, `NIKNOLIG_STAGING_AUTH_URL`, `NIKNOLIG_STAGING_AUTH_KEY` und zwei Testkonten
   (`…_APP_EMAIL|PASSWORD`, `…_DEFENSE_EMAIL|PASSWORD`, `app_area` je gesetzt). Ohne Konfiguration
   wird der Test übersprungen bzw. der Workflow schlägt fehl – ein Skip gilt nie als bestanden.
-  **Noch nicht ausgeführt**: es gibt kein Staging-Backend in dieser Umgebung.
+  **Für diese Nacharbeit nicht ausgeführt**; siehe Validierungsstand in Abschnitt 8.
 - Anzeigen von Code/QR sind mit `FLAG_SECURE` gegen Screenshots geschützt.
 
 **Offen:** Test mit zwei echten Android-Geräten (inkl. Keystore-Ed25519 auf realer Hardware und des
@@ -110,9 +110,8 @@ Ausführung des Staging-Tests, Bereitstellung der Konto-Konfiguration, SecurityC
 
 - **iOS-Client / Smart-TV:** keine Pairing-Oberfläche, kein iOS-Keychain-Schlüssel;
   keine BLE-Erkennung. Elektro-Engel-Chat nutzt das bestehende Backend.
-- Android-/iOS-Builds, Installation und Integrationstest wurden in dieser
-  Umgebung nicht ausgeführt (kein Android-SDK/macOS-Runner); sie laufen über die
-  bestehenden Workflows.
+- Android-Debug-Builds, Android-Unit-Tests und Android-Lint laufen über den bestehenden Workflow (siehe
+  Abschnitt 8). CI ersetzt weder die Installation auf echten Geräten noch den Staging-Integrationstest.
 - Zwei Geräte derselben App (z. B. zwei NIKNOLIG-Smartphones) sind durch die
   bestehende DB-Regel `device_links_distinct_app_areas` ausgeschlossen; Änderung
   erfordert eine eigene Migration und Freigabe.
@@ -192,3 +191,21 @@ ein Durchlauf mit Android 13+ (Keystore) und einer mit Android 8–12 (Software-
 
 Freigabekriterium: alle Zeilen bestanden, keine sicherheitskritische Abweichung, schriftliche
 P0-Freigabe – erst danach `DEVICE_LINK_P0_APPROVED` in Release-Builds aktivieren.
+
+## 8. Validierungsstand der Review-Nacharbeit (2026-11-10)
+
+- **Android-CI:** [Workflow-Lauf 42766547545](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/42766547545),
+  Commit `9745a0218ce69c9fac73dd95ea64218c181a2a78`: beide Debug-APKs gebaut, Unit-Tests bestanden,
+  Android-Lint für beide Apps bestanden sowie Paketidentitäten und APK-Signaturen geprüft. Der Lauf enthält
+  die Discovery-Tests einschließlich der Unicode- und Bytebudget-Roundtrips.
+- Ein vorheriger Lauf schlug an einer bestehenden Erwartung fehl, die zu lange Namen ablehnen soll. Die
+  Empfängerprüfung wurde auf höchstens 40 Unicode-Codepoints plus 160 UTF-8-Bytes begrenzt; der oben
+  verlinkte Lauf auf dem korrigierten Commit ist erfolgreich.
+- **Lokaler Gradle-Lauf:** konnte vor Task-Ausführung das Android-Gradle-Plugin `9.5.1` nicht auflösen.
+  Die erfolgreiche Build-/Test-/Lint-Validierung stammt daher aus dem verlinkten GitHub-Actions-Lauf.
+- **Staging:** `StagingIntegrationTest` und der manuelle Workflow `device-staging.yml` sind vorbereitet,
+  wurden für diese Nacharbeit aber nicht ausgeführt. Es liegt kein Staging-Ergebnis vor; der Workflow
+  benötigt die in Abschnitt 3 genannten HTTPS-URLs, Konten und Secrets und bricht bei einem übersprungenen
+  Test ab.
+- **Echte Geräte / P0:** kein Zwei-Geräte-Test wurde ausgeführt. `DEVICE_LINK_P0_APPROVED` bleibt geschlossen;
+  Android-CI-Erfolg ist keine Staging- oder Hardwarefreigabe.
