@@ -47,7 +47,7 @@ class PairingDiscoveryTest {
         assertNull(DiscoveryAnnouncement.parse(txt("v" to "1", "area" to "niknolig", "name" to "x"), "niknolig"))
         assertNull(DiscoveryAnnouncement.parse(txt("v" to "2", "area" to "niknolig-defense", "name" to "x"), "niknolig"))
         assertNull(DiscoveryAnnouncement.parse(txt("area" to "niknolig-defense", "name" to "x"), "niknolig"))
-        assertNull(DiscoveryAnnouncement.parse(txt("v" to "1", "area" to "niknolig-defense", "name" to "x".repeat(100)), "niknolig"))
+        assertNull(DiscoveryAnnouncement.parse(txt("v" to "1", "area" to "niknolig-defense", "name" to "x".repeat(DiscoveryAnnouncement.MAX_NAME * 4 + 1)), "niknolig"))
         assertEquals("niknolig-defense", DiscoveryAnnouncement.parse(txt("v" to "1", "area" to "niknolig-defense", "name" to "\n"), "niknolig")!!.displayName)
     }
 

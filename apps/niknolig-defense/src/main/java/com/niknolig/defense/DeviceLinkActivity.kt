@@ -439,7 +439,9 @@ class DeviceLinkActivity : Activity() {
         }.getOrDefault(0L)
         offerExpiry = Runnable {
             if (isCurrentLifecycle(generation) && activePairingId == offer.pairingId && offeredCode == offer.code) {
-                endPairing(R.string.device_link_pairing_expired)
+                offeredCode = null
+                hideOffer()
+                setPairingText(getString(R.string.device_link_waiting_for_peer))
             }
         }.also { ui.postDelayed(it, delayMillis) }
     }

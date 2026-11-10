@@ -24,6 +24,7 @@ internal class NearbyPairing(
     private val nsd = context.applicationContext.getSystemService(Context.NSD_SERVICE) as NsdManager
     private val handler = Handler(Looper.getMainLooper())
     private val peers = LinkedHashMap<String, DiscoveryAnnouncement>()
+    private val present = HashMap<String, NsdServiceInfo>()
     private val pending = ArrayDeque<NsdServiceInfo>()
     private var resolving = false
     private var discoveryGeneration = 0L
@@ -79,6 +80,8 @@ internal class NearbyPairing(
                 handler.post {
                     if (!isCurrentDiscovery(generation, listener)) return@post
                     if (serviceInfo.serviceType.trimEnd('.') == DiscoveryAnnouncement.SERVICE_TYPE.trimEnd('.')) {
+                        present[serviceInfo.serviceName] = serviceInfo
+                        pending.removeAll { it.serviceName == serviceInfo.serviceName }
                         pending.addLast(serviceInfo)
                         resolveNext()
                     }
@@ -87,6 +90,8 @@ internal class NearbyPairing(
             override fun onServiceLost(serviceInfo: NsdServiceInfo) {
                 handler.post {
                     if (!isCurrentDiscovery(generation, listener)) return@post
+                    present.remove(serviceInfo.serviceName)
+                    pending.removeAll { it.serviceName == serviceInfo.serviceName }
                     if (peers.remove(serviceInfo.serviceName) != null) onPeersChanged(peers.values.toList())
                 }
             }
@@ -102,6 +107,7 @@ internal class NearbyPairing(
         discovery?.let { runCatching { nsd.stopServiceDiscovery(it) } }
         discovery = null
         pending.clear()
+        present.clear()
         resolving = false
         peers.clear()
         onPeersChanged(emptyList())
@@ -132,6 +138,10 @@ internal class NearbyPairing(
                 override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
                     handler.post {
                         if (!isCurrentDiscovery(generation, listener)) return@post
+                        if (present[info.serviceName] !== info) {
+                            done()
+                            return@post
+                        }
                         DiscoveryAnnouncement.parse(serviceInfo.attributes, area)?.let {
                             peers[serviceInfo.serviceName] = it
                             onPeersChanged(peers.values.toList())
