@@ -16,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import java.time.Instant
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import org.niknolig.devicelink.AppAreaClaim
@@ -27,6 +28,7 @@ import org.niknolig.devicelink.DiscoveryAnnouncement
 import org.niknolig.devicelink.GrantInfo
 import org.niknolig.devicelink.HttpsTransport
 import org.niknolig.devicelink.LinkInfo
+import org.niknolig.devicelink.PairingOffer
 import org.niknolig.devicelink.PairingQr
 import org.niknolig.devicelink.PairingState
 
@@ -59,6 +61,7 @@ class DeviceLinkActivity : Activity() {
     private var confirmedPairingId: String? = null
     private var offeredCode: String? = null
     private var confirmDialog: AlertDialog? = null
+    private var offerExpiry: Runnable? = null
     private var polling = false
     @Volatile private var started = false
     @Volatile private var lifecycleGeneration = 0L
@@ -280,6 +283,7 @@ class DeviceLinkActivity : Activity() {
                 pairingView.text = getString(R.string.device_link_code_shown, offer.code)
                 showOffer(PairingQr(offer.code, DeviceLinkProfile.APP_AREA).encode())
                 nearby.startAdvertising()
+                scheduleOfferExpiry(offer, generation)
             }
             poll(svc, offer.pairingId)
         }
@@ -420,11 +424,24 @@ class DeviceLinkActivity : Activity() {
     }
 
     private fun hideOffer() {
+        offerExpiry?.let(ui::removeCallbacks)
+        offerExpiry = null
         onUi {
             qrView.setImageDrawable(null)
             qrView.visibility = View.GONE
         }
         nearby.stopAdvertising()
+    }
+
+    private fun scheduleOfferExpiry(offer: PairingOffer, generation: Long) {
+        val delayMillis = runCatching {
+            (Instant.parse(offer.expiresAt).toEpochMilli() - System.currentTimeMillis()).coerceAtLeast(0L)
+        }.getOrDefault(0L)
+        offerExpiry = Runnable {
+            if (isCurrentLifecycle(generation) && activePairingId == offer.pairingId && offeredCode == offer.code) {
+                endPairing(R.string.device_link_pairing_expired)
+            }
+        }.also { ui.postDelayed(it, delayMillis) }
     }
 
     private fun showNearby(peers: List<DiscoveryAnnouncement>) {

@@ -6,24 +6,32 @@ package org.niknolig.devicelink
  * exclusively by the backend pairing flow with mutual confirmation.
  */
 data class DiscoveryAnnouncement(val area: String, val displayName: String) {
-    fun txt(): Map<String, String> = mapOf("v" to "1", "area" to area, "name" to displayName.take(MAX_NAME))
+    fun txt(): Map<String, String> = mapOf("v" to "1", "area" to area, "name" to sanitizeName(displayName))
 
     companion object {
         const val SERVICE_TYPE = "_niknolig-pair._tcp."
         const val MAX_NAME = 40
+        private const val MAX_NAME_BYTES = MAX_NAME * 4
 
         /** Accepts only well-formed announcements of the other app; names are stripped of control characters. */
         fun parse(txt: Map<String, ByteArray?>, ownArea: String): DiscoveryAnnouncement? {
-            fun value(key: String) = txt[key]?.takeIf { it.size <= 64 }?.toString(Charsets.UTF_8)
+            fun value(key: String, maxBytes: Int = 64) =
+                txt[key]?.takeIf { it.size <= maxBytes }?.toString(Charsets.UTF_8)
             if (value("v") != "1") return null
             val area = value("area") ?: return null
             if (area !in PairingQr.AREAS || area == ownArea) return null
-            val name = sanitizeName(value("name") ?: return null)
+            val name = sanitizeName(value("name", MAX_NAME_BYTES) ?: return null)
             return DiscoveryAnnouncement(area, name.ifBlank { area })
         }
 
-        fun sanitizeName(raw: String): String =
-            raw.filter { !it.isISOControl() && it != '\u202E' && it != '\u2066' && it != '\u2067' && it != '\u2069' }
-                .trim().take(MAX_NAME)
+        fun sanitizeName(raw: String): String {
+            val codePoints = raw.codePoints()
+                .filter {
+                    !Character.isISOControl(it) && it != 0x202E && it != 0x2066 && it != 0x2067 && it != 0x2069
+                }
+                .limit(MAX_NAME.toLong())
+                .toArray()
+            return String(codePoints, 0, codePoints.size).trim()
+        }
     }
 }

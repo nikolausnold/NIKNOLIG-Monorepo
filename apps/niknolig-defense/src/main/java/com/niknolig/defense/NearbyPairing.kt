@@ -104,6 +104,7 @@ internal class NearbyPairing(
         pending.clear()
         resolving = false
         peers.clear()
+        onPeersChanged(emptyList())
         handler.removeCallbacksAndMessages(null)
     }
 

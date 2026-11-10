@@ -57,6 +57,29 @@ class PairingDiscoveryTest {
         assertEquals(setOf("v", "area", "name"), txt.keys)
     }
 
+    @Test
+    fun announcementRoundTripsUnicodeNamesWithinTheByteBudget() {
+        fun parse(announcement: DiscoveryAnnouncement) =
+            DiscoveryAnnouncement.parse(
+                announcement.txt().mapValues { (_, value) -> value.toByteArray(Charsets.UTF_8) },
+                "niknolig",
+            )
+
+        val cjk = DiscoveryAnnouncement("niknolig-defense", "界".repeat(22))
+        assertEquals(cjk, parse(cjk))
+
+        val supplementary = DiscoveryAnnouncement("niknolig-defense", "😀".repeat(DiscoveryAnnouncement.MAX_NAME))
+        assertEquals(supplementary, parse(supplementary))
+        assertEquals("😀".repeat(DiscoveryAnnouncement.MAX_NAME), supplementary.txt()["name"])
+
+        val overBudget = mapOf(
+            "v" to "1".toByteArray(),
+            "area" to "niknolig-defense".toByteArray(),
+            "name" to "界".repeat(DiscoveryAnnouncement.MAX_NAME * 4 / 3 + 1).toByteArray(Charsets.UTF_8),
+        )
+        assertNull(DiscoveryAnnouncement.parse(overBudget, "niknolig"))
+    }
+
     private fun token(payload: String) =
         "h." + Base64.getUrlEncoder().withoutPadding().encodeToString(payload.toByteArray()) + ".s"
 
