@@ -203,11 +203,11 @@ P0-Freigabe – erst danach `DEVICE_LINK_P0_APPROVED` in Release-Builds aktivier
 
 ## 8. Validierungsstand (2026-11-11)
 
-- **Android-CI:** [Workflow-Lauf 43041221763](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/43041221763),
-  Code-Commit `6e6780257fecd522ca5a3f0da93a48e7f1a15ad8`: beide Debug-APKs gebaut, Android-Unit-Tests und
+- **Android-CI:** [Workflow-Lauf 43048695383](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/43048695383),
+  Code-Commit `e0b2c89d0f73ac160a5f5c2abd828193f5af3f9f`: beide Debug-APKs gebaut, Android-Unit-Tests und
   Lint für beide Apps bestanden; Paketidentitäten und APK-Signaturen geprüft. Separate Debug-APK-Artefakte
   wurden hochgeladen. Die CI-Simulation ist kein Hardware- oder Staging-Nachweis.
-- **Backend-/Tooling-CI:** [Workflow-Lauf 43041221755](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/43041221755),
+- **Backend-/Tooling-CI:** [Workflow-Lauf 43048695284](https://github.com/nikolausnold/NIKNOLIG-Monorepo/actions/runs/43048695284),
   gleicher Code-Commit: Backend-Regressionstests mit PostgreSQL-Service sowie Tooling-Tests erfolgreich.
 - **Lokaler Gradle-Lauf:** konnte vor Task-Ausführung das Android-Gradle-Plugin `9.5.1` nicht auflösen.
   Die erfolgreiche Build-/Test-/Lint-Validierung erfolgte daher über GitHub Actions.
