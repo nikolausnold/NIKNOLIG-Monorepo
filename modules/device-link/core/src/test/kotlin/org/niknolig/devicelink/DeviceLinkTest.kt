@@ -20,9 +20,9 @@ class DeviceLinkTest {
     }
 
     private class Recorder(val replies: ArrayDeque<TransportResponse>) : DeviceLinkTransport {
-        val calls = mutableListOf<Triple<String, String?, Map<String, String>>>()
-        override fun post(path: String, bearer: String?, body: Map<String, String>): TransportResponse {
-            calls += Triple(path, bearer, body)
+        val calls = mutableListOf<Triple<String, String?, Map<String, Any?>>>()
+        override fun request(method: String, path: String, bearer: String?, body: Map<String, Any?>?): TransportResponse {
+            calls += Triple(path, bearer, body.orEmpty())
             return replies.removeFirst()
         }
     }
@@ -55,7 +55,7 @@ class DeviceLinkTest {
         )
         val session = DeviceLinkClient(DeviceLinkGate(true), transport, signer).openSession("dev")
         assertEquals(DeviceSession("a", "r"), session)
-        val sent = java.util.Base64.getUrlDecoder().decode(transport.calls[1].third.getValue("signature"))
+        val sent = java.util.Base64.getUrlDecoder().decode(transport.calls[1].third.getValue("signature") as String)
         assertEquals(64, sent.size)
         val verifier = Signature.getInstance("Ed25519").apply {
             initVerify(keyPair.public)
@@ -73,9 +73,9 @@ class DeviceLinkTest {
         )
         assertEquals("jwt", ok.calls[0].second)
         val body = ok.calls[0].third
-        val publicKey = java.util.Base64.getUrlDecoder().decode(body.getValue("publicKey"))
+        val publicKey = java.util.Base64.getUrlDecoder().decode(body.getValue("publicKey") as String)
         assertArrayEquals(signer.publicKey, publicKey)
-        val proof = java.util.Base64.getUrlDecoder().decode(body.getValue("proof"))
+        val proof = java.util.Base64.getUrlDecoder().decode(body.getValue("proof") as String)
         assertEquals(64, proof.size)
         val verifier = Signature.getInstance("Ed25519").apply {
             initVerify(keyPair.public)

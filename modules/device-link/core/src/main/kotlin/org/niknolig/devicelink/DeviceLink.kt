@@ -34,10 +34,15 @@ interface DeviceSigner {
     fun sign(message: ByteArray): ByteArray
 }
 
-data class TransportResponse(val status: Int, val body: Map<String, String>)
+data class TransportResponse(val status: Int, val body: Map<String, Any?>)
+
+/** Transport failure before any HTTP response was received (offline, DNS, TLS, timeout). */
+class DeviceLinkNetworkException(val timedOut: Boolean, cause: Throwable? = null) :
+    RuntimeException(if (timedOut) "Device link request timed out." else "Device link network error.", cause)
 
 interface DeviceLinkTransport {
-    fun post(path: String, bearer: String?, body: Map<String, String>): TransportResponse
+    /** Implementations must throw [DeviceLinkNetworkException] for failures without an HTTP response. */
+    fun request(method: String, path: String, bearer: String?, body: Map<String, Any?>?): TransportResponse
 }
 
 data class DeviceSession(val accessToken: String, val refreshToken: String)
@@ -69,7 +74,8 @@ class DeviceLinkClient(
     ): String {
         gate.require()
         val proof = signer.sign(DeviceProtocol.registrationMessage(area, installationId, principal))
-        val response = transport.post(
+        val response = transport.request(
+            "POST",
             "/v1/devices",
             userToken,
             mapOf(
@@ -79,17 +85,18 @@ class DeviceLinkClient(
                 "displayName" to displayName,
             ),
         )
-        return response.expect(201, "/v1/devices").body["id"]
+        return response.expect(201, "/v1/devices").body["id"] as? String
             ?: throw DeviceLinkProtocolException(response.status, "id")
     }
 
     fun openSession(deviceId: String): DeviceSession {
         gate.require()
         val challengePath = "/v1/devices/$deviceId/challenge"
-        val challenge = transport.post(challengePath, null, emptyMap()).expect(200, challengePath)
-        val nonce = challenge.body["nonce"] ?: throw DeviceLinkProtocolException(challenge.status, "nonce")
+        val challenge = transport.request("POST", challengePath, null, emptyMap()).expect(200, challengePath)
+        val nonce = challenge.body["nonce"] as? String ?: throw DeviceLinkProtocolException(challenge.status, "nonce")
         val signature = signer.sign(DeviceProtocol.sessionMessage(deviceId, nonce))
-        return transport.post(
+        return transport.request(
+            "POST",
             "/v1/devices/$deviceId/session",
             null,
             mapOf("nonce" to nonce, "signature" to DeviceProtocol.b64url(signature)),
@@ -99,7 +106,7 @@ class DeviceLinkClient(
     /** Refresh tokens rotate; callers must persist the returned pair and discard the old one. */
     fun refresh(session: DeviceSession): DeviceSession {
         gate.require()
-        return transport.post("/v1/sessions/refresh", null, mapOf("refreshToken" to session.refreshToken))
+        return transport.request("POST", "/v1/sessions/refresh", null, mapOf("refreshToken" to session.refreshToken))
             .expect(200, "/v1/sessions/refresh").toSession()
     }
 
@@ -109,7 +116,7 @@ class DeviceLinkClient(
     }
 
     private fun TransportResponse.toSession(): DeviceSession = DeviceSession(
-        accessToken = body["accessToken"] ?: throw DeviceLinkProtocolException(status, "accessToken"),
-        refreshToken = body["refreshToken"] ?: throw DeviceLinkProtocolException(status, "refreshToken"),
+        accessToken = body["accessToken"] as? String ?: throw DeviceLinkProtocolException(status, "accessToken"),
+        refreshToken = body["refreshToken"] as? String ?: throw DeviceLinkProtocolException(status, "refreshToken"),
     )
 }

@@ -10,6 +10,7 @@ kotlin {
 }
 
 dependencies {
+    testImplementation("org.bouncycastle:bcprov-jdk18on:1.80")
     testImplementation("junit:junit:4.13.2")
 }
 

@@ -172,6 +172,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/space_small"
                 android:text="@string/security_dashboard_button" />
+
+            <Button
+                android:id="@+id/device_link_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_small"
+                android:text="@string/device_link_button" />
         </LinearLayout>
 
         <LinearLayout

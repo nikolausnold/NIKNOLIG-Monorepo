@@ -1,4 +1,5 @@
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import os
 import sys
 import threading
@@ -414,10 +415,12 @@ class DeviceApiTests(unittest.TestCase):
     def test_grants_are_least_privilege_directional_and_revocable(self):
         main, defense = self.phone("niknolig"), self.phone("niknolig-defense")
         link = self.pair(main, defense)
-        defense.put("/v1/status", {"state": "warning", "detail": "Unknown network"})
+        status = {"state": "warning", "detail": "Unknown network"}
+        self.assertEqual(defense.put("/v1/status", status).status_code, 403)
         self.assertEqual(main.get(f"/v1/links/{link}/peer/status").status_code, 403)
         grant = defense.post(f"/v1/links/{link}/grants", {"scope": "status:read", "ttlSeconds": 3600})
         self.assertEqual(grant.status_code, 201)
+        self.assertEqual(defense.put("/v1/status", status).status_code, 200)
         self.assertEqual(main.get(f"/v1/links/{link}/peer/status").json()["state"], "warning")
         # grant is one-directional and scope-specific
         self.assertEqual(defense.get(f"/v1/links/{link}/peer/status").status_code, 403)
@@ -427,6 +430,54 @@ class DeviceApiTests(unittest.TestCase):
         self.assertEqual([g["direction"] for g in listed], ["received"])
         self.assertEqual(defense.delete(f"/v1/grants/{grant.json()['grantId']}").status_code, 200)
         self.assertEqual(main.get(f"/v1/links/{link}/peer/status").status_code, 403)
+        self.assertEqual(defense.put("/v1/status", status).status_code, 403)
+
+    def test_status_upload_rechecks_grant_after_waiting_for_link_lock(self):
+        main, defense = self.phone("niknolig"), self.phone("niknolig-defense")
+        link = self.pair(main, defense)
+        grant = defense.post(
+            f"/v1/links/{link}/grants", {"scope": "status:read", "ttlSeconds": 3600}).json()
+        status = {"state": "warning", "detail": "Unknown network"}
+        revoked = threading.Event()
+        continue_revocation = threading.Event()
+        original_event = self.store._event
+
+        def pause_after_revoke(cur, device_id, kind, **kwargs):
+            if kind == "grant_revoked":
+                revoked.set()
+                if not continue_revocation.wait(5):
+                    raise TimeoutError("grant revocation was not released")
+            return original_event(cur, device_id, kind, **kwargs)
+
+        with patch.object(self.store, "_event", side_effect=pause_after_revoke):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                revoke = pool.submit(defense.delete, f"/v1/grants/{grant['grantId']}")
+                self.assertTrue(revoked.wait(5), "grant revocation did not reach its locked update")
+                upload = pool.submit(defense.put, "/v1/status", status)
+                deadline = time.monotonic() + 5
+                waiting = False
+                try:
+                    while time.monotonic() < deadline:
+                        with psycopg.connect(**self.params) as connection:
+                            waiting = connection.execute(
+                                "SELECT EXISTS (SELECT 1 FROM pg_stat_activity "
+                                "WHERE datname = current_database() AND state = 'active' "
+                                "AND wait_event_type = 'Lock' AND query LIKE '%device_links%')"
+                            ).fetchone()[0]
+                        if waiting:
+                            break
+                        time.sleep(0.02)
+                    self.assertTrue(waiting, "status upload did not wait for the parent-link lock")
+                finally:
+                    continue_revocation.set()
+                self.assertEqual(revoke.result(timeout=5).status_code, 200)
+                self.assertEqual(upload.result(timeout=5).status_code, 403)
+
+        other_main = self.phone("niknolig")
+        other_link = self.pair(other_main, defense)
+        defense.post(
+            f"/v1/links/{other_link}/grants", {"scope": "status:read", "ttlSeconds": 3600})
+        self.assertEqual(defense.put("/v1/status", status).status_code, 200)
 
     def test_grant_validation_and_expiry_cap(self):
         main, defense = self.phone("niknolig"), self.phone("niknolig-defense")
