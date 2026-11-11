@@ -16,7 +16,7 @@ Neu in `backend/`: `device_security.py` (Kryptografie, Tokens, Rate-Limiter),
 | Pairing | `POST /v1/pairings`, `POST /v1/pairings/claim`, `GET /v1/pairings/{id}`, `POST /v1/pairings/{id}/confirm`, `POST /v1/pairings/{id}/cancel` |
 | Verbindungen | `GET /v1/links`, `DELETE /v1/links/{id}` |
 | Freigaben | `POST/GET /v1/links/{id}/grants`, `DELETE /v1/grants/{id}` (Scopes: `status:read`, `events:read`, `alerts:send`) |
-| Status/Ereignisse | `PUT /v1/status`, `GET /v1/links/{id}/peer/status`, `POST/GET /v1/events`, `GET /v1/links/{id}/peer/events` |
+| Status/Ereignisse | `PUT /v1/status` (nur mit mindestens einer aktiven ausgehenden `status:read`-Freigabe; sonst `403`), `GET /v1/links/{id}/peer/status` (erfordert die entsprechende Freigabe des Peers), `POST/GET /v1/events`, `GET /v1/links/{id}/peer/events` |
 
 Sicherheitsmechanismen: gerätegebundene HMAC-Access-Tokens (300 s) mit
 Serverprüfung der Live-Session (sofortiger Widerruf); rotierende Refresh-Tokens
