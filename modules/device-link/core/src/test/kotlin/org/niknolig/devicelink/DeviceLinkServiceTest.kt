@@ -1,6 +1,10 @@
 package org.niknolig.devicelink
 
 import java.util.Base64
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -111,6 +115,40 @@ class DeviceLinkServiceTest {
         DeviceLinkService(DeviceLinkGate(true), transport, signer, store).links()
         assertTrue(transport.calls.none { it.first == "/v1/sessions/refresh" })
         assertEquals("a2", transport.calls.last().second)
+    }
+
+    @Test
+    fun concurrentServiceInstancesShareRefreshRenewalLock() {
+        val store = registered()
+        val initialRequests = CountDownLatch(2)
+        val refreshRequests = AtomicInteger()
+        val transport = object : DeviceLinkTransport {
+            override fun request(method: String, path: String, bearer: String?, body: Map<String, Any?>?): TransportResponse {
+                if (path == "/v1/links" && bearer == "a1") {
+                    initialRequests.countDown()
+                    check(initialRequests.await(5, TimeUnit.SECONDS))
+                    return TransportResponse(401, emptyMap())
+                }
+                if (path == "/v1/sessions/refresh") {
+                    refreshRequests.incrementAndGet()
+                    return TransportResponse(200, mapOf("accessToken" to "a2", "refreshToken" to "r2"))
+                }
+                check(bearer == "a2")
+                return TransportResponse(200, mapOf("links" to emptyList<Any>()))
+            }
+        }
+        val services = List(2) { DeviceLinkService(DeviceLinkGate(true), transport, signer, store) }
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val results = services.map { service ->
+                executor.submit<Boolean> { service.links().isEmpty() }
+            }
+            results.forEach { assertTrue(it.get(10, TimeUnit.SECONDS)) }
+            assertEquals(1, refreshRequests.get())
+            assertEquals(DeviceSession("a2", "r2"), store.current)
+        } finally {
+            executor.shutdownNow()
+        }
     }
 
     @Test

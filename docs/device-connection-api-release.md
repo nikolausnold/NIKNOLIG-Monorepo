@@ -86,11 +86,10 @@ JVM-Tests des Moduls (inkl. Refresh-/Fallback-/Widerrufspfade) laufen in CI.
   mit App-Bereich und Gerätename an; die andere App zeigt solche Geräte als Hinweis. Der Code wird nie
   gesendet, Erkennung begründet kein Vertrauen – Kopplung erfordert weiterhin Code/QR und die gegenseitige
   Bestätigung des Abgleichscodes auf beiden Geräten (serverseitig erzwungen).
-- **Schlüssel für Android 8–12:** Ed25519 im Keystore nur ab Android 13 (und nur wenn ein Probe-Signieren
-  gelingt). Sonst Software-Ed25519 (BouncyCastle, RFC-8032-Testvektor in CI): 32-Byte-Seed aus `SecureRandom`,
-  nur AES-GCM-verschlüsselt unter einem nicht exportierbaren Keystore-Schlüssel gespeichert, pro Signatur
-  entschlüsselt und überschrieben. Die Schlüsselart wird pro Installation einmal festgelegt und nie still
-  gewechselt. Das ist softwaregeschützt, **nicht** hardwaregebundenes Ed25519.
+- **Geräteschlüssel:** Der Android-Client verwendet ausschließlich nicht exportierbare Ed25519-Schlüssel im
+  Android Keystore (Android 13+). Geräte ohne unterstützte Keystore-Ed25519-Implementierung und bestehende
+  Installationen mit einem früheren Software-Schlüssel bleiben gesperrt; es gibt keinen Software-Fallback.
+  RFC-8032-Software-Signer wird nur noch in JVM-Tests verwendet und ist nicht Teil des App-Artefakts.
 - **Konto und `app_area`:** Vor der Registrierung prüft der Client den `app_metadata.app_area`-Claim und das
   Ablaufdatum und zeigt verständliche Fehler (fehlt / anderer Bereich / abgelaufen). Autorität bleibt das
   Backend. Gesetzt wird der Claim nur serverseitig: `tools/provision_app_area.py` (Operator-Werkzeug mit
@@ -152,8 +151,8 @@ Staging-Smoke-Test.
 
 1. Schriftliche P0-/Datenfluss-Freigabe (siehe `device-link-security-design.md`).
 2. Unabhängiger Security-Review des Protokolls.
-3. Client-Umsetzung (Keystore/Keychain, Pairing-UI, Discovery) und Builds.
-4. Test mit zwei echten Smartphones und Smart-TV-Hardware.
+3. Unabhängige Prüfung und Abnahme der vorhandenen Client-Umsetzung.
+4. Test mit zwei echten Android-Geräten und Smart-TV-Hardware, soweit vorgesehen.
 5. Staging-Deployment mit echten Secrets, danach Produktivfreigabe.
 
 ## Zwei-Geräte-Hardwaretest (NICHT durchgeführt)
@@ -165,12 +164,13 @@ tatsächlicher Durchführung eintragen (Datum, Gerät, Android-Version, Build-SH
 **Voraussetzungen:** Staging-Backend (HTTPS, Gerät-API aktiv), zwei Testkonten mit gesetztem `app_area`
 (`tools/provision_app_area.py`), Debug-Builds beider Apps mit
 `-PdeviceLinkP0Approved=true -PniknoligBackendUrl=… -PniknoligAccountAuthUrl|Key=…` (nur Testbuilds, nicht
-veröffentlichen), Gerät A mit NIKNOLIG und Gerät B mit NIKNOLIG Defense, beide im selben WLAN. Mindestens
-ein Durchlauf mit Android 13+ (Keystore) und einer mit Android 8–12 (Software-Schlüssel).
+veröffentlichen), Gerät A mit NIKNOLIG und Gerät B mit NIKNOLIG Defense, beide im selben WLAN. Beide Geräte
+müssen Android 13+ und eine funktionsfähige Ed25519-Implementierung im Android Keystore unterstützen;
+ältere Geräte werden ohne Software-Fallback abgewiesen.
 
 | # | Schritt | Erwartung | Ergebnis |
 |---|---------|-----------|----------|
-| 1 | Beide Apps öffnen → Geräteverbindung | Anmeldeformular, Hinweis auf Schlüsselart (Keystore/Software) | offen |
+| 1 | Beide Apps öffnen → Geräteverbindung | Anmeldeformular, Hinweis auf nicht exportierbaren Keystore-Schlüssel | offen |
 | 2 | Mit falschem Konto (anderer `app_area`) anmelden | Verständliche Fehlermeldung, keine Registrierung | offen |
 | 3 | Mit richtigem Konto anmelden und registrieren | „Gerät registriert“ | offen |
 | 4 | A: Kopplungscode erzeugen | Code + QR sichtbar; Screenshot wird blockiert | offen |

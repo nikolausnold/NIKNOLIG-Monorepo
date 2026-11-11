@@ -4,7 +4,7 @@ import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 
 /**
- * Ed25519 signer for devices without Keystore Ed25519 (Android 12 and older).
+ * Test-only Ed25519 signer. Production app keys must remain non-exportable in Android Keystore.
  *
  * The 32-byte seed lives outside this class; [seedSource] must return it from protected storage
  * (the apps keep it AES-GCM encrypted under a non-exportable Keystore key). The seed is wiped

@@ -67,6 +67,7 @@ class DeviceLinkActivity : Activity() {
     @Volatile private var started = false
     @Volatile private var lifecycleGeneration = 0L
     private var pendingScanCode: String? = null
+    private var deviceKeyUnavailable = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,13 +77,17 @@ class DeviceLinkActivity : Activity() {
         nearby = NearbyPairing(this, DeviceLinkProfile.APP_AREA, deviceName()) { peers -> showNearby(peers) }
         val backend = BuildConfig.BACKEND_BASE_URL
         if (BuildConfig.DEVICE_LINK_P0_APPROVED && backend.startsWith("https://", ignoreCase = true)) {
-            signer = DeviceKeys.open(this, DeviceLinkProfile.DEVICE_KEY_ALIAS, DeviceLinkProfile.SEED_KEY_ALIAS)
-            service = DeviceLinkService(
-                DeviceLinkGate(BuildConfig.DEVICE_LINK_P0_APPROVED),
-                HttpsTransport(backend),
-                signer,
-                store,
-            )
+            try {
+                signer = DeviceKeys.open(this, DeviceLinkProfile.DEVICE_KEY_ALIAS)
+                service = DeviceLinkService(
+                    DeviceLinkGate(BuildConfig.DEVICE_LINK_P0_APPROVED),
+                    HttpsTransport(backend),
+                    signer,
+                    store,
+                )
+            } catch (_: Exception) {
+                deviceKeyUnavailable = true
+            }
         }
         buildLayout()
     }
@@ -169,8 +174,7 @@ class DeviceLinkActivity : Activity() {
         connectedBox.addView(qrView)
         if (::signer.isInitialized) {
             keyInfoView = text(
-                if (signer.mode == DeviceKeys.MODE_KEYSTORE) R.string.device_link_key_info_keystore
-                else R.string.device_link_key_info_software,
+                R.string.device_link_key_info_keystore,
                 13f, R.color.text_secondary,
             )
             connectedBox.addView(keyInfoView)
@@ -573,6 +577,11 @@ class DeviceLinkActivity : Activity() {
     private fun prerequisites(): DeviceLinkService? {
         if (!BuildConfig.DEVICE_LINK_P0_APPROVED) {
             setStatus(R.string.device_link_error_blocked)
+            hideActions()
+            return null
+        }
+        if (deviceKeyUnavailable) {
+            setStatus(R.string.device_link_error_key)
             hideActions()
             return null
         }

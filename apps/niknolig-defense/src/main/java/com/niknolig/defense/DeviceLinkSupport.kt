@@ -13,7 +13,6 @@ import java.net.URL
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
-import java.security.SecureRandom
 import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 import java.util.UUID
@@ -32,23 +31,17 @@ import org.niknolig.devicelink.DeviceSession
 import org.niknolig.devicelink.DeviceSigner
 import org.niknolig.devicelink.Json
 import org.niknolig.devicelink.LinkStateStore
-import org.niknolig.devicelink.SoftwareEd25519Signer
 
 private const val ANDROID_KEYSTORE = "AndroidKeyStore"
 
-/** Device identity key. Which implementation is used is fixed per installation, see [DeviceKeys]. */
+/** Device identity key. Device keys must remain non-exportable in Android Keystore. */
 internal interface DeviceKey : DeviceSigner {
-    /** Persisted key origin: "keystore" (hardware/TEE Ed25519, Android 13+) or "software" (wrapped seed). */
-    val mode: String
-
     /** Removes the key material; the device identity must be registered again afterwards. */
     fun deleteKey()
 }
 
 /** Non-exportable Ed25519 device key in the Android Keystore (requires Android 13 / API 33). */
 internal class KeystoreDeviceSigner(private val alias: String) : DeviceKey {
-    override val mode: String = DeviceKeys.MODE_KEYSTORE
-
     private val keyStore: KeyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
 
     override val publicKey: ByteArray
@@ -134,90 +127,35 @@ internal class KeystoreSealer(private val alias: String) {
     }
 }
 
-/**
- * Ed25519 fallback for Android 12 and older (and devices whose Keystore lacks Ed25519). The 32-byte seed is
- * generated with [SecureRandom] and only ever stored sealed by a non-exportable Keystore AES key; it is
- * unwrapped per signature and wiped afterwards. This is software-protected, not hardware-bound Ed25519.
- */
-internal class SoftwareDeviceKey(context: Context, private val sealAlias: String) : DeviceKey {
-    private val prefs: SharedPreferences =
-        context.applicationContext.getSharedPreferences("device_link_key", Context.MODE_PRIVATE)
-    private val sealer = KeystoreSealer(sealAlias)
-    override val mode: String = DeviceKeys.MODE_SOFTWARE
-
-    private val signer: SoftwareEd25519Signer by lazy { loadOrCreate() }
-
-    override val publicKey: ByteArray get() = signer.publicKey
-
-    override fun sign(message: ByteArray): ByteArray = signer.sign(message)
-
-    private fun loadOrCreate(): SoftwareEd25519Signer = synchronized(prefs) {
-        val sealed = prefs.getString(KEY_SEED, null)?.let { Base64.decode(it, Base64.NO_WRAP) }
-        val publicKey = prefs.getString(KEY_PUBLIC, null)?.let { Base64.decode(it, Base64.NO_WRAP) }
-        if (sealed != null && publicKey != null) {
-            return SoftwareEd25519Signer(publicKey) { sealer.open(sealed) }
-        }
-        val seed = ByteArray(SoftwareEd25519Signer.SEED_BYTES).also { SecureRandom().nextBytes(it) }
-        try {
-            val newSealed = sealer.seal(seed)
-            val newPublic = SoftwareEd25519Signer.publicKeyOf(seed)
-            prefs.edit()
-                .putString(KEY_SEED, Base64.encodeToString(newSealed, Base64.NO_WRAP))
-                .putString(KEY_PUBLIC, Base64.encodeToString(newPublic, Base64.NO_WRAP))
-                .commit()
-            SoftwareEd25519Signer(newPublic) { sealer.open(newSealed) }
-        } finally {
-            seed.fill(0)
-        }
-    }
-
-    override fun deleteKey() {
-        prefs.edit().remove(KEY_SEED).remove(KEY_PUBLIC).commit()
-        sealer.delete()
-    }
-
-    private companion object {
-        const val KEY_SEED = "seed"
-        const val KEY_PUBLIC = "public"
-    }
-}
-
-/**
- * Chooses the device key once per installation and persists the choice: the registered public key is bound to
- * the backend identity, so the key type must never change silently. Android 13+ uses a Keystore Ed25519 key when
- * the device really supports it; everything else uses [SoftwareDeviceKey].
- */
+/** Uses only non-exportable Android Keystore Ed25519 keys; unsupported devices fail closed. */
 internal object DeviceKeys {
     const val MODE_KEYSTORE = "keystore"
     const val MODE_SOFTWARE = "software"
     private const val PREFS = "device_link_key"
     private const val KEY_MODE = "mode"
 
-    fun open(context: Context, deviceAlias: String, sealAlias: String): DeviceKey {
+    fun open(context: Context, deviceAlias: String): DeviceKey {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return when (prefs.getString(KEY_MODE, null)) {
-            MODE_KEYSTORE -> KeystoreDeviceSigner(deviceAlias)
-            MODE_SOFTWARE -> SoftwareDeviceKey(context, sealAlias)
-            else -> choose(context, deviceAlias, sealAlias, prefs)
+            MODE_KEYSTORE -> KeystoreDeviceSigner(deviceAlias).also {
+                check(it.exists()) { "The registered Android Keystore device key is missing." }
+                it.sign(ByteArray(1))
+            }
+            MODE_SOFTWARE -> throw IllegalStateException("Software device keys are not supported.")
+            else -> choose(deviceAlias, prefs)
         }
     }
 
-    private fun choose(context: Context, deviceAlias: String, sealAlias: String, prefs: SharedPreferences): DeviceKey {
+    private fun choose(deviceAlias: String, prefs: SharedPreferences): DeviceKey {
         val keystoreKey = KeystoreDeviceSigner(deviceAlias)
-        val chosen: DeviceKey = when {
-            keystoreKey.exists() -> keystoreKey
-            KeystoreDeviceSigner.isSupported() -> try {
-                // Probe: some Android 13+ devices advertise Ed25519 but fail on key generation or signing.
-                keystoreKey.sign(ByteArray(1))
-                keystoreKey
-            } catch (_: Exception) {
-                runCatching { keystoreKey.deleteKey() }
-                SoftwareDeviceKey(context, sealAlias)
-            }
-            else -> SoftwareDeviceKey(context, sealAlias)
+        check(KeystoreDeviceSigner.isSupported()) {
+            "Non-exportable Ed25519 device keys need Android 13 or newer."
         }
-        prefs.edit().putString(KEY_MODE, chosen.mode).commit()
-        return chosen
+        keystoreKey.sign(ByteArray(1))
+        check(prefs.edit().putString(KEY_MODE, MODE_KEYSTORE).commit()) {
+            "Could not persist device key mode."
+        }
+        return keystoreKey
     }
 
     /** Forgets the stored choice; call together with [DeviceKey.deleteKey]. */

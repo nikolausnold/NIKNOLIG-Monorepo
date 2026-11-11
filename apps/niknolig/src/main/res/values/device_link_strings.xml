@@ -64,7 +64,6 @@
     <string name="device_link_scan_unavailable">Der QR-Scanner ist auf diesem Gerät nicht verfügbar (Google Play-Dienste nötig). Gib den Code manuell ein.</string>
     <string name="device_link_nearby">In der Nähe bietet ein Gerät eine Kopplung an: %1$s. Scanne dessen QR-Code oder gib den angezeigten Code ein. Das Erkennen ersetzt nicht die Bestätigung beider Geräte.</string>
     <string name="device_link_key_info_keystore">Geräteschlüssel: Ed25519 im Android Keystore (nicht exportierbar).</string>
-    <string name="device_link_key_info_software">Geräteschlüssel: Ed25519, Schlüsselmaterial durch den Android Keystore geschützt (Softwareschlüssel für Android 12 und älter).</string>
     <string name="device_link_error_area_missing">Dein Konto ist für diese App nicht freigeschaltet (Claim app_area fehlt). Wende dich an den Support.</string>
     <string name="device_link_error_area_mismatch">Dein Konto gehört zur anderen App. Melde dich mit dem passenden Konto an.</string>
     <string name="device_link_error_token_expired">Das Anmeldetoken ist abgelaufen. Bitte erneut anmelden.</string>

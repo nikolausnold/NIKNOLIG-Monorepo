@@ -64,7 +64,6 @@
     <string name="device_link_scan_unavailable">The QR scanner is not available on this device (Google Play services required). Enter the code manually.</string>
     <string name="device_link_nearby">A nearby device offers pairing: %1$s. Scan its QR code or enter the code it shows. Discovery does not replace confirmation on both devices.</string>
     <string name="device_link_key_info_keystore">Device key: Ed25519 in the Android Keystore (non-exportable).</string>
-    <string name="device_link_key_info_software">Device key: Ed25519, key material protected by the Android Keystore (software key for Android 12 and older).</string>
     <string name="device_link_error_area_missing">Your account is not enabled for this app (app_area claim missing). Contact support.</string>
     <string name="device_link_error_area_mismatch">Your account belongs to the other app. Sign in with the matching account.</string>
     <string name="device_link_error_token_expired">The sign-in token has expired. Please sign in again.</string>
