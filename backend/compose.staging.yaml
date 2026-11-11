@@ -1,0 +1,58 @@
+# Staging deployment (Hetzner): API on 127.0.0.1:8001 behind the host's existing TLS reverse proxy
+# for https://staging-api.niknolig.com, using the host PostgreSQL database `nold_staging`.
+# Standalone file; never combine with compose.production.yaml. See docs/staging-deployment.md.
+x-backend: &backend
+  image: niknolig-health-backend:staging
+  build:
+    context: .
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  extra_hosts: ["host.docker.internal:host-gateway"]
+
+services:
+  # Manual one-shot, never started automatically: docker compose -f compose.staging.yaml run --rm migrate
+  migrate:
+    <<: *backend
+    profiles: ["migrate"]
+    command: ["python", "migrate.py", "--approve-contract-schema", "--approve-device-api-schema"]
+    environment:
+      PGHOST: host.docker.internal
+      PGPORT: ${STAGING_PGPORT:-5432}
+      PGDATABASE: nold_staging
+      PGUSER: ${STAGING_MIGRATOR_USER:?Set the migration role of nold_staging}
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      HEALTH_DB_PASSWORD_FILE: /run/secrets/health_password
+      DEVICE_API_DB_PASSWORD_FILE: /run/secrets/device_api_password
+    secrets: [postgres_password, health_password, device_api_password]
+    restart: "no"
+
+  api:
+    <<: *backend
+    environment:
+      BACKEND_ENV: staging
+      PGHOST: host.docker.internal
+      PGPORT: ${STAGING_PGPORT:-5432}
+      PGDATABASE: nold_staging
+      PGUSER: backend_health
+      PGPASSWORD_FILE: /run/secrets/health_password
+      DEVICE_API_ENABLED: "1"
+      DEVICE_API_DB_USER: backend_device_api
+      DEVICE_API_DB_PASSWORD_FILE: /run/secrets/device_api_password
+      DEVICE_TOKEN_SECRET_FILE: /run/secrets/device_token_secret
+      AUTH_ISSUER: ${AUTH_ISSUER:?Set the Supabase issuer, e.g. https://<project>.supabase.co/auth/v1}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE:-authenticated}
+      AUTH_JWKS_URL: ${AUTH_JWKS_URL:?Set the Supabase JWKS URL}
+    secrets: [health_password, device_api_password, device_token_secret]
+    ports: ["127.0.0.1:8001:8000"]
+    restart: unless-stopped
+
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_SECRET_FILE:?Set path to the migration role password file}
+  health_password:
+    file: ${HEALTH_PASSWORD_SECRET_FILE:?Set path to the backend_health password file}
+  device_api_password:
+    file: ${DEVICE_API_PASSWORD_SECRET_FILE:?Set path to the backend_device_api password file}
+  device_token_secret:
+    file: ${DEVICE_TOKEN_SECRET_HOST_FILE:?Set path to the device token signing secret file}
