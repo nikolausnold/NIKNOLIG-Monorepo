@@ -280,7 +280,11 @@ class DeviceLinkActivity : Activity() {
             }
             AppAreaClaim.require(token, DeviceLinkProfile.APP_AREA, System.currentTimeMillis() / 1000)
             svc.register(token, DeviceLinkProfile.APP_AREA, store.installationId(), deviceName())
-            onUi { passwordInput.setText("") }
+            onUi {
+                passwordInput.setText("")
+                recoveryBox.visibility =
+                    if (recovery != null && store.deviceId() != null) View.VISIBLE else View.GONE
+            }
             refresh()
         }
     }
