@@ -70,6 +70,10 @@ JWT werden nicht gespeichert), Einmalcode-Pairing mit gegenseitigem Abgleichscod
 Freigabe/Widerruf, Gerätewiderruf und verständlichen Fehlermeldungen.
 NIKNOLIG Defense meldet nach Aktualisierung den lokalen Diagnosestatus (3 Prüfungen);
 NIKNOLIG ruft ihn nur mit Freigabe ab.
+Bei widerrufener oder ungültiger Gerätesitzung können Nutzer die Registrierung
+in beiden Apps erneut mit ihrem App-Konto autorisieren. Der Backend-Widerruf
+muss bestätigt werden, bevor Schlüsselmaterial, Sitzung und Installations-ID
+lokal entfernt werden; anschließend ist eine neue Registrierung erforderlich.
 
 **Das Gate bleibt standardmäßig geschlossen.** Ohne Build-Eigenschaft
 `-PdeviceLinkP0Approved=true` (oder `NIKNOLIG_DEVICE_LINK_P0_APPROVED=true`) zeigt die

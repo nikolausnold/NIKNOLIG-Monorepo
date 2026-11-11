@@ -23,6 +23,7 @@ import java.util.concurrent.Executors
 import org.niknolig.devicelink.AppAreaClaim
 import org.niknolig.devicelink.DeviceLinkException
 import org.niknolig.devicelink.DeviceLinkGate
+import org.niknolig.devicelink.DeviceLinkRecovery
 import org.niknolig.devicelink.DeviceLinkScopes
 import org.niknolig.devicelink.DeviceLinkService
 import org.niknolig.devicelink.DiscoveryAnnouncement
@@ -45,9 +46,11 @@ class DeviceLinkActivity : Activity() {
     private lateinit var signer: DeviceKey
     private lateinit var nearby: NearbyPairing
     private var service: DeviceLinkService? = null
+    private var recovery: DeviceLinkRecovery? = null
 
     private lateinit var statusView: TextView
     private lateinit var signInBox: LinearLayout
+    private lateinit var recoveryBox: LinearLayout
     private lateinit var connectedBox: LinearLayout
     private lateinit var pairingView: TextView
     private lateinit var linksBox: LinearLayout
@@ -77,11 +80,14 @@ class DeviceLinkActivity : Activity() {
         nearby = NearbyPairing(this, DeviceLinkProfile.APP_AREA, deviceName()) { peers -> showNearby(peers) }
         val backend = BuildConfig.BACKEND_BASE_URL
         if (BuildConfig.DEVICE_LINK_P0_APPROVED && backend.startsWith("https://", ignoreCase = true)) {
+            val gate = DeviceLinkGate(BuildConfig.DEVICE_LINK_P0_APPROVED)
+            val transport = HttpsTransport(backend)
+            recovery = DeviceLinkRecovery(gate, transport, store)
             try {
                 signer = DeviceKeys.open(this, DeviceLinkProfile.DEVICE_KEY_ALIAS)
                 service = DeviceLinkService(
-                    DeviceLinkGate(BuildConfig.DEVICE_LINK_P0_APPROVED),
-                    HttpsTransport(backend),
+                    gate,
+                    transport,
                     signer,
                     store,
                 )
@@ -154,6 +160,13 @@ class DeviceLinkActivity : Activity() {
         signInBox.addView(passwordInput)
         signInBox.addView(button(R.string.device_link_register_button) { register() })
         root.addView(signInBox)
+
+        recoveryBox = box().apply {
+            visibility = if (recovery != null && store.deviceId() != null) View.VISIBLE else View.GONE
+            addView(text(R.string.device_link_recovery_hint, 14f, R.color.text_secondary))
+            addView(button(R.string.device_link_recovery_button) { recoverDevice() })
+        }
+        root.addView(recoveryBox)
 
         connectedBox = box()
         connectedBox.addView(button(R.string.device_link_create_code_button) { startPairing() })
@@ -564,6 +577,63 @@ class DeviceLinkActivity : Activity() {
                     onUi {
                         Toast.makeText(this, R.string.device_link_status_revoked, Toast.LENGTH_LONG).show()
                         recreate() // reopens the activity with a fresh key and an unregistered state
+                    }
+                }
+            }
+            .setNegativeButton(R.string.device_link_confirm_no, null)
+            .show()
+    }
+
+    private fun recoverDevice() {
+        val recoveryService = recovery ?: return
+        val fields = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 0, 24, 0)
+        }
+        val email = input(R.string.device_link_email, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
+        val password = input(R.string.device_link_password, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        fields.addView(email)
+        fields.addView(password)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.device_link_recovery_title)
+            .setMessage(R.string.device_link_recovery_message)
+            .setView(fields)
+            .setPositiveButton(R.string.device_link_recovery_button) { _, _ ->
+                val address = email.text.toString().trim()
+                val secret = password.text.toString()
+                password.setText("")
+                if (address.isEmpty() || secret.isEmpty()) {
+                    setStatus(R.string.device_link_error_credentials_missing)
+                    return@setPositiveButton
+                }
+                background {
+                    val result = AccountSignIn(BuildConfig.ACCOUNT_AUTH_URL, BuildConfig.ACCOUNT_AUTH_KEY)
+                        .signIn(address, secret)
+                    val token = when (result) {
+                        is AccountSignInResult.Success -> result.accessToken
+                        else -> {
+                            onUi {
+                                setStatus(
+                                    when (result) {
+                                        AccountSignInResult.NotConfigured -> R.string.device_link_error_account_not_configured
+                                        AccountSignInResult.InvalidCredentials -> R.string.device_link_error_credentials
+                                        AccountSignInResult.TimedOut -> R.string.device_link_error_timeout
+                                        AccountSignInResult.NetworkError -> R.string.device_link_error_offline
+                                        else -> R.string.device_link_error_generic
+                                    },
+                                )
+                            }
+                            return@background
+                        }
+                    }
+                    AppAreaClaim.require(token, DeviceLinkProfile.APP_AREA, System.currentTimeMillis() / 1000)
+                    recoveryService.recoverRevokedDevice(token) {
+                        KeystoreDeviceSigner(DeviceLinkProfile.DEVICE_KEY_ALIAS).deleteKey()
+                        DeviceKeys.reset(this)
+                    }
+                    onUi {
+                        Toast.makeText(this, R.string.device_link_status_revoked, Toast.LENGTH_LONG).show()
+                        recreate()
                     }
                 }
             }

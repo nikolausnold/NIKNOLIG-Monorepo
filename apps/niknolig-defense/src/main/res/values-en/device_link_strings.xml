@@ -40,6 +40,10 @@
     <string name="device_link_revoke_device_title">Revoke device?</string>
     <string name="device_link_revoke_device_message">All connections and sessions of this device are ended on the server. Registering again is required afterwards.</string>
     <string name="device_link_revoke_device_yes">Revoke</string>
+    <string name="device_link_recovery_hint">If this device session was revoked or is invalid, you can safely reset its registration with your account.</string>
+    <string name="device_link_recovery_button">Recover device registration</string>
+    <string name="device_link_recovery_title">Recover device registration?</string>
+    <string name="device_link_recovery_message">Your account will revoke this device record on the server. Connections will end; this device must then be registered again.</string>
     <string name="device_link_error_blocked">The device connection is disabled in this build until the written security approval (SecurityChain-P0) exists.</string>
     <string name="device_link_error_backend_missing">No HTTPS backend is configured. This feature is unavailable without a backend.</string>
     <string name="device_link_error_account_not_configured">Account sign-in is not configured in this build.</string>

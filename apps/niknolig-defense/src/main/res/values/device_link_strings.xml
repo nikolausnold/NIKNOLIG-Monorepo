@@ -40,6 +40,10 @@
     <string name="device_link_revoke_device_title">Gerät widerrufen?</string>
     <string name="device_link_revoke_device_message">Alle Verbindungen und Sitzungen dieses Geräts werden serverseitig beendet. Danach ist eine neue Registrierung nötig.</string>
     <string name="device_link_revoke_device_yes">Widerrufen</string>
+    <string name="device_link_recovery_hint">Wenn die Gerätesitzung widerrufen oder ungültig ist, kann die Registrierung mit deinem Konto sicher zurückgesetzt werden.</string>
+    <string name="device_link_recovery_button">Geräteregistrierung wiederherstellen</string>
+    <string name="device_link_recovery_title">Geräteregistrierung wiederherstellen?</string>
+    <string name="device_link_recovery_message">Mit deinem Konto wird der Geräteeintrag serverseitig widerrufen. Verbindungen enden; danach muss dieses Gerät neu registriert werden.</string>
     <string name="device_link_error_blocked">Die Geräteverbindung ist in diesem Build gesperrt, bis die schriftliche Sicherheitsfreigabe (SecurityChain-P0) vorliegt.</string>
     <string name="device_link_error_backend_missing">Kein HTTPS-Backend konfiguriert. Diese Funktion ist ohne Backend nicht verfügbar.</string>
     <string name="device_link_error_account_not_configured">Die Kontoanmeldung ist in diesem Build nicht konfiguriert.</string>

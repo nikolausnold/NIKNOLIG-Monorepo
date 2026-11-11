@@ -232,6 +232,40 @@ class DeviceLinkServiceTest {
     }
 
     @Test
+    fun ownerRecoveryClearsLocalIdentityOnlyAfterServerConfirmsRevocation() {
+        val store = registered()
+        val transport = Script(ArrayDeque(listOf(TransportResponse(200, mapOf("status" to "revoked")))))
+        var keyCleared = false
+
+        DeviceLinkRecovery(DeviceLinkGate(true), transport, store)
+            .recoverRevokedDevice("owner-jwt") { keyCleared = true }
+
+        assertEquals(Triple("DELETE", "/v1/devices/dev", "owner-jwt"), transport.calls.single())
+        assertTrue(keyCleared)
+        assertNull(store.id)
+        assertNull(store.current)
+    }
+
+    @Test
+    fun failedOwnerRecoveryKeepsLocalIdentityAndKey() {
+        val store = registered()
+        val transport = Script(ArrayDeque(listOf(TransportResponse(503, emptyMap()))))
+        var keyCleared = false
+
+        try {
+            DeviceLinkRecovery(DeviceLinkGate(true), transport, store)
+                .recoverRevokedDevice("owner-jwt") { keyCleared = true }
+            fail()
+        } catch (error: DeviceLinkException) {
+            assertEquals(503, error.statusCode)
+        }
+
+        assertEquals("dev", store.id)
+        assertEquals(DeviceSession("a1", "r1"), store.current)
+        assertTrue(!keyCleared)
+    }
+
+    @Test
     fun closedGateBlocksServiceCalls() {
         val (svc, transport) = service(registered(), open = false)
         try {

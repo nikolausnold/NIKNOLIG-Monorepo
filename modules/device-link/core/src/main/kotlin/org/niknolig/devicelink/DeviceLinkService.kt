@@ -211,6 +211,32 @@ class DeviceLinkService(
     )
 }
 
+/** Owner-account recovery for a registered device whose device-authenticated session was revoked. */
+class DeviceLinkRecovery(
+    private val gate: DeviceLinkGate,
+    private val transport: DeviceLinkTransport,
+    private val store: LinkStateStore,
+) {
+    /**
+     * Confirms revocation through the owner-JWT endpoint before clearing the local identity.
+     * [clearDeviceKey] must remove platform key material and key-mode metadata.
+     */
+    fun recoverRevokedDevice(userToken: String, clearDeviceKey: () -> Unit) {
+        gate.require()
+        val deviceId = store.deviceId() ?: throw DeviceLinkNotRegisteredException()
+        val path = "/v1/devices/${segment(deviceId)}"
+        val response = transport.request("DELETE", path, userToken, null)
+        if (response.status != 200) throw DeviceLinkException(response.status, 200, path)
+        clearDeviceKey()
+        store.clear()
+    }
+
+    private fun segment(value: String): String {
+        require(value.isNotEmpty() && value.all { it.isLetterOrDigit() || it == '-' }) { "Invalid identifier" }
+        return value
+    }
+}
+
 class DeviceLinkNotRegisteredException : IllegalStateException("This device is not registered.")
 
 /** Reads the `sub` claim only to build the registration proof; the backend verifies the full JWT. */
