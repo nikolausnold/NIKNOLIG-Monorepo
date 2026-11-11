@@ -550,12 +550,21 @@ class DeviceStore:
     def set_status(self, device_id, state, detail):
         with self._tx() as conn, conn.cursor() as cur:
             cur.execute(
-                "SELECT l.id FROM device_grants g "
-                "JOIN device_links l ON l.id = g.link_id "
-                "WHERE g.grantor_device_id = %s AND g.scope = 'status:read' "
+                "SELECT l.id FROM device_links l WHERE l.state = 'active' AND l.expires_at > now() "
+                "AND (l.first_device_id = %s OR l.second_device_id = %s) "
+                "AND EXISTS (SELECT 1 FROM device_grants g WHERE g.link_id = l.id "
+                "AND g.grantor_device_id = %s AND g.scope = 'status:read' "
+                "AND g.revoked_at IS NULL AND g.expires_at > now()) "
+                "ORDER BY l.id FOR UPDATE OF l", (device_id, device_id, device_id))
+            link_ids = [row["id"] for row in cur.fetchall()]
+            if not link_ids:
+                raise Forbidden
+            cur.execute(
+                "SELECT 1 FROM device_grants g JOIN device_links l ON l.id = g.link_id "
+                "WHERE g.link_id = ANY(%s) AND g.grantor_device_id = %s AND g.scope = 'status:read' "
                 "AND g.revoked_at IS NULL AND g.expires_at > now() "
-                "AND l.state = 'active' AND l.expires_at > now() "
-                "LIMIT 1 FOR UPDATE OF l", (device_id,))
+                "AND l.state = 'active' AND l.expires_at > now() LIMIT 1",
+                (link_ids, device_id))
             if not cur.fetchone():
                 raise Forbidden
             cur.execute(
