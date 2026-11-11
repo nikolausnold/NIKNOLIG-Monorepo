@@ -414,10 +414,12 @@ class DeviceApiTests(unittest.TestCase):
     def test_grants_are_least_privilege_directional_and_revocable(self):
         main, defense = self.phone("niknolig"), self.phone("niknolig-defense")
         link = self.pair(main, defense)
-        defense.put("/v1/status", {"state": "warning", "detail": "Unknown network"})
+        status = {"state": "warning", "detail": "Unknown network"}
+        self.assertEqual(defense.put("/v1/status", status).status_code, 403)
         self.assertEqual(main.get(f"/v1/links/{link}/peer/status").status_code, 403)
         grant = defense.post(f"/v1/links/{link}/grants", {"scope": "status:read", "ttlSeconds": 3600})
         self.assertEqual(grant.status_code, 201)
+        self.assertEqual(defense.put("/v1/status", status).status_code, 200)
         self.assertEqual(main.get(f"/v1/links/{link}/peer/status").json()["state"], "warning")
         # grant is one-directional and scope-specific
         self.assertEqual(defense.get(f"/v1/links/{link}/peer/status").status_code, 403)
@@ -427,6 +429,7 @@ class DeviceApiTests(unittest.TestCase):
         self.assertEqual([g["direction"] for g in listed], ["received"])
         self.assertEqual(defense.delete(f"/v1/grants/{grant.json()['grantId']}").status_code, 200)
         self.assertEqual(main.get(f"/v1/links/{link}/peer/status").status_code, 403)
+        self.assertEqual(defense.put("/v1/status", status).status_code, 403)
 
     def test_grant_validation_and_expiry_cap(self):
         main, defense = self.phone("niknolig"), self.phone("niknolig-defense")

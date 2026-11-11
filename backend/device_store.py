@@ -550,6 +550,15 @@ class DeviceStore:
     def set_status(self, device_id, state, detail):
         with self._tx() as conn, conn.cursor() as cur:
             cur.execute(
+                "SELECT l.id FROM device_grants g "
+                "JOIN device_links l ON l.id = g.link_id "
+                "WHERE g.grantor_device_id = %s AND g.scope = 'status:read' "
+                "AND g.revoked_at IS NULL AND g.expires_at > now() "
+                "AND l.state = 'active' AND l.expires_at > now() "
+                "LIMIT 1 FOR UPDATE OF l", (device_id,))
+            if not cur.fetchone():
+                raise Forbidden
+            cur.execute(
                 "INSERT INTO device_status(device_id, state, detail) VALUES (%s, %s, %s) "
                 "ON CONFLICT (device_id) DO UPDATE SET state = EXCLUDED.state, "
                 "detail = EXCLUDED.detail, reported_at = now()", (device_id, state, detail))
