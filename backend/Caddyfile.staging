@@ -1,0 +1,51 @@
+# HTTPS edge for staging only. Add to (or run as) the host Caddy; it proxies to the loopback-published
+# staging API (compose.staging.yaml, 127.0.0.1:8001). Certificates come from automatic ACME issuance, so
+# DNS for staging-api.niknolig.com must point at this host. Do not merge into the production Caddyfile.
+staging-api.niknolig.com {
+	encode off
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		Cache-Control "no-store"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+	request_body {
+		max_size 8192
+	}
+	@health {
+		method GET
+		path /health/live /health/ready
+	}
+	@support {
+		method POST
+		path /support /v1/ai/support
+	}
+	@device_api path /v1/devices /v1/devices/* /v1/sessions /v1/sessions/* /v1/pairings /v1/pairings/* /v1/links /v1/links/* /v1/grants/* /v1/status /v1/events
+	handle @health {
+		reverse_proxy 127.0.0.1:8001 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 8s
+			}
+		}
+	}
+	handle @support {
+		reverse_proxy 127.0.0.1:8001 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 15s
+			}
+		}
+	}
+	handle @device_api {
+		reverse_proxy 127.0.0.1:8001 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 10s
+			}
+		}
+	}
+	handle {
+		respond 404
+	}
+}

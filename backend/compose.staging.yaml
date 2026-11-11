@@ -1,0 +1,95 @@
+# Staging stack: isolated from production (own project name, network, volume, database and secrets).
+# Standalone file; run with `--env-file staging.env` via scripts/staging-deploy.sh. The HTTPS edge is the
+# host Caddy (see Caddyfile.staging); the API is published on loopback port 8001 only.
+name: niknolig-staging
+
+x-backend: &backend
+  image: niknolig-health-backend:staging
+  build:
+    context: .
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  postgres:
+    image: postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
+    environment:
+      POSTGRES_DB: ${STAGING_DB_NAME:-niknolig_staging}
+      POSTGRES_USER: backend_migrator
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [postgres_password]
+    volumes: [staging-postgres-data:/var/lib/postgresql/data]
+    networks: [database]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backend_migrator -d ${STAGING_DB_NAME:-niknolig_staging}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+
+  migrate:
+    <<: *backend
+    # Staging only: applies 001 and 002 (the approvals are explicit here and never inherited by production).
+    command: ["python", "migrate.py", "--approve-contract-schema", "--approve-device-api-schema"]
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${STAGING_DB_NAME:-niknolig_staging}
+      PGUSER: backend_migrator
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      HEALTH_DB_PASSWORD_FILE: /run/secrets/health_password
+      DEVICE_API_DB_PASSWORD_FILE: /run/secrets/device_api_password
+    secrets: [postgres_password, health_password, device_api_password]
+    networks: [database]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  api:
+    <<: *backend
+    environment:
+      BACKEND_ENV: staging
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${STAGING_DB_NAME:-niknolig_staging}
+      PGUSER: backend_health
+      PGPASSWORD_FILE: /run/secrets/health_password
+      DEVICE_API_ENABLED: "1"
+      DEVICE_API_DB_USER: backend_device_api
+      DEVICE_API_DB_PASSWORD_FILE: /run/secrets/device_api_password
+      DEVICE_TOKEN_SECRET_FILE: /run/secrets/device_token_secret
+      AUTH_ISSUER: ${AUTH_ISSUER:?Set the Supabase STAGING project issuer (https://<ref>.supabase.co/auth/v1)}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE:?Set the Supabase audience}
+      AUTH_JWKS_URL: ${AUTH_JWKS_URL:?Set the Supabase STAGING JWKS URL}
+    secrets: [health_password, device_api_password, device_token_secret]
+    # Loopback only: the host Caddy terminates TLS for staging-api.niknolig.com.
+    ports: ["127.0.0.1:8001:8000"]
+    networks: [database, edge]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+networks:
+  database:
+    internal: true
+  edge:
+
+volumes:
+  staging-postgres-data:
+
+secrets:
+  postgres_password:
+    file: ${STAGING_SECRETS_DIR:?Set the staging secrets directory}/postgres_password
+  health_password:
+    file: ${STAGING_SECRETS_DIR:?Set the staging secrets directory}/health_password
+  device_api_password:
+    file: ${STAGING_SECRETS_DIR:?Set the staging secrets directory}/device_api_password
+  device_token_secret:
+    file: ${STAGING_SECRETS_DIR:?Set the staging secrets directory}/device_token_secret

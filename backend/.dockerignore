@@ -12,3 +12,6 @@
 !workers_ai.py
 !migrations/
 !migrations/*.sql
+!device_security.py
+!device_store.py
+!device_api.py
