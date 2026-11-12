@@ -1,5 +1,5 @@
 # Staging deployment (Hetzner): API on 127.0.0.1:8001 behind the host's existing TLS reverse proxy
-# for https://staging-api.niknolig.com, using the host PostgreSQL database `nold_staging`.
+# for https://staging-api.niknolig.com, using `nold_staging` on a dedicated staging PostgreSQL cluster.
 # Standalone file; never combine with compose.production.yaml. See docs/staging-deployment.md.
 name: niknolig-staging
 
@@ -20,7 +20,7 @@ services:
     command: ["python", "migrate.py", "--approve-contract-schema", "--approve-device-api-schema"]
     environment:
       PGHOST: host.docker.internal
-      PGPORT: ${STAGING_PGPORT:-5432}
+      PGPORT: ${STAGING_PGPORT:?Set the port of the dedicated staging PostgreSQL cluster}
       PGDATABASE: nold_staging
       PGUSER: ${STAGING_MIGRATOR_USER:?Set the migration role of nold_staging}
       PGPASSWORD_FILE: /run/secrets/postgres_password
@@ -34,7 +34,7 @@ services:
     environment:
       BACKEND_ENV: staging
       PGHOST: host.docker.internal
-      PGPORT: ${STAGING_PGPORT:-5432}
+      PGPORT: ${STAGING_PGPORT:?Set the port of the dedicated staging PostgreSQL cluster}
       PGDATABASE: nold_staging
       PGUSER: backend_device_api
       PGPASSWORD_FILE: /run/secrets/device_api_password

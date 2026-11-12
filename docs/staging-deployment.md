@@ -16,8 +16,12 @@ ausgeführt werden. Sie wurden von dieser Änderung **nicht** ausgeführt.
 
 ## Voraussetzungen
 
-- Docker + Compose-Plugin; Host-PostgreSQL erreichbar für Container (`listen_addresses` und
-  `pg_hba.conf` für die Docker-Bridge, z. B. `172.17.0.0/16`) mit Datenbank `nold_staging`.
+- Docker + Compose-Plugin; ein eigener PostgreSQL-Cluster ausschließlich für Staging. Eine separate
+  Datenbank im selben Cluster wie andere Backend-Installationen isoliert die clusterweiten Rollen
+  nicht; das kann die Rollenprüfungen der Migration scheitern lassen. `STAGING_PGPORT` muss auf den
+  Port dieses dedizierten Clusters zeigen (nicht auf eine weitere Datenbank im Produktionscluster).
+  Der Cluster muss für Container erreichbar sein (`listen_addresses` und `pg_hba.conf` für die
+  Docker-Bridge, z. B. `172.17.0.0/16`) und die Datenbank `nold_staging` enthalten.
 - Passwortdateien (nicht im Repository) für: Migrationsrolle, `backend_health`,
   `backend_device_api`, sowie ein zufälliges Token-Secret (`openssl rand -base64 48`).
   Die Dateien müssen für die numerische UID/GID `10001` der API- und Migrationscontainer lesbar
@@ -36,14 +40,15 @@ ausgeführt werden. Sie wurden von dieser Änderung **nicht** ausgeführt.
 
 ```bash
 git pull && cd backend
-# 1. Backup (Pflicht vor Migration 002)
-pg_dump -Fc nold_staging > ~/nold_staging-$(date +%F).dump
-# 2. Konfiguration (Pfade/Werte anpassen)
-export STAGING_MIGRATOR_USER=... POSTGRES_PASSWORD_SECRET_FILE=/etc/niknolig/staging/migrator.pw \
+# 1. Konfiguration (Pfade/Werte anpassen); Port des dedizierten Staging-Clusters einsetzen
+export STAGING_PGPORT=... STAGING_MIGRATOR_USER=... \
+  POSTGRES_PASSWORD_SECRET_FILE=/etc/niknolig/staging/migrator.pw \
   HEALTH_PASSWORD_SECRET_FILE=/etc/niknolig/staging/health.pw \
   DEVICE_API_PASSWORD_SECRET_FILE=/etc/niknolig/staging/device_api.pw \
   DEVICE_TOKEN_SECRET_HOST_FILE=/etc/niknolig/staging/token.secret \
   AUTH_ISSUER=... AUTH_JWKS_URL=...
+# 2. Backup des dedizierten Staging-Clusters (Pflicht vor Migration 002)
+pg_dump -p "$STAGING_PGPORT" -Fc nold_staging > ~/nold_staging-$(date +%F).dump
 # 3. Migrationen 000–002 (bewusste, manuelle Freigabe durch den Betreiber)
 docker compose -f compose.staging.yaml build
 docker compose -f compose.staging.yaml run --rm migrate
@@ -83,8 +88,13 @@ manuell starten. Er muss grün sein und darf nicht übersprungen werden.
 Siehe `docs/device-connection-api-release.md`, Abschnitt 4. Für den nicht-destruktiven Notfall-
 Rollback `DEVICE_API_ENABLED=0` exportieren und den API-Container neu erstellen:
 `docker compose -f compose.staging.yaml up -d --force-recreate api` (Routen entfallen, Daten
-bleiben). Zum Reaktivieren die Variable unsetzen und den Container erneut erstellen oder das
-`pg_dump` wiederherstellen.
+bleiben). Zum Reaktivieren die Variable wieder auf `1` setzen und den Container erneut erstellen,
+sofern Migration 002 und das Geräte-API-Schema weiterhin vorhanden sind.
+
+Das Wiederherstellen des Backups von vor Migration 002 ist ein separater, ausdrücklich
+freizugebender Schema-Rollback, keine Reaktivierung: Es entfernt das Geräte-API-Schema und ändert
+`DEVICE_API_ENABLED` nicht. Die API muss deaktiviert bleiben, bis Migration 002 erneut angewendet
+und `/health/ready` erfolgreich geprüft wurde.
 
 ## Status
 
