@@ -362,9 +362,10 @@ class HttpsProbeServer:
         self.thread.join(timeout=2)
 
 
-def hierarchy(attempts=3):
+def hierarchy(attempts=6):
     for attempt in range(attempts):
         try:
+            run_adb("shell", "rm", "-f", "/sdcard/window.xml", timeout=15)
             adb("shell", "uiautomator", "dump", "/sdcard/window.xml", timeout=30)
             return ET.fromstring(adb("exec-out", "cat", "/sdcard/window.xml"))
         except subprocess.CalledProcessError as exc:
@@ -389,7 +390,8 @@ def hierarchy(attempts=3):
         print(message, flush=True)
         if not transient or attempt + 1 == attempts:
             raise AssertionError(message) from failure
-        time.sleep(2)
+        run_adb("shell", "killall", "uiautomator", timeout=15)
+        time.sleep(3)
 
 
 def screen_size():
