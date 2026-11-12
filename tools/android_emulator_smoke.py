@@ -401,10 +401,10 @@ def wait_for_text(*expected, timeout=15):
 def tap_until_text(resource_id, *expected, status_resource_id=None, attempts=3):
     failure = None
     for _ in range(attempts):
-        tap(resource_id)
-        if status_resource_id is not None:
-            tap(status_resource_id)
         try:
+            tap(resource_id)
+            if status_resource_id is not None:
+                tap(status_resource_id)
             return wait_for_text(*expected, timeout=3)
         except AssertionError as exc:
             failure = exc

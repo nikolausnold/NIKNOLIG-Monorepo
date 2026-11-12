@@ -736,6 +736,62 @@ class TapUntilTextTests(unittest.TestCase):
         )
         self.assertEqual(2, wait_for_text.call_count)
 
+    def test_retries_when_first_status_lookup_fails(self):
+        with (
+            patch("tools.android_emulator_smoke.tap") as tap,
+            patch("tools.android_emulator_smoke.wait_for_text") as wait_for_text,
+        ):
+            tap.side_effect = [
+                None,
+                AssertionError("Could not find status"),
+                None,
+                None,
+            ]
+            wait_for_text.return_value = "Enter a term or statement first."
+
+            result = android_emulator_smoke.tap_until_text(
+                "assistant_request_button",
+                "Enter a term",
+                status_resource_id="assistant_request_status",
+            )
+
+        self.assertEqual("Enter a term or statement first.", result)
+        self.assertEqual(
+            [
+                call("assistant_request_button"),
+                call("assistant_request_status"),
+                call("assistant_request_button"),
+                call("assistant_request_status"),
+            ],
+            tap.call_args_list,
+        )
+        wait_for_text.assert_called_once_with("Enter a term", timeout=3)
+
+    def test_retries_when_first_request_lookup_fails(self):
+        with (
+            patch("tools.android_emulator_smoke.tap") as tap,
+            patch("tools.android_emulator_smoke.wait_for_text") as wait_for_text,
+        ):
+            tap.side_effect = [AssertionError("Could not find request"), None, None]
+            wait_for_text.return_value = "Enter a term or statement first."
+
+            result = android_emulator_smoke.tap_until_text(
+                "assistant_request_button",
+                "Enter a term",
+                status_resource_id="assistant_request_status",
+            )
+
+        self.assertEqual("Enter a term or statement first.", result)
+        self.assertEqual(
+            [
+                call("assistant_request_button"),
+                call("assistant_request_button"),
+                call("assistant_request_status"),
+            ],
+            tap.call_args_list,
+        )
+        wait_for_text.assert_called_once_with("Enter a term", timeout=3)
+
     def test_raises_after_all_tap_attempts(self):
         with (
             patch("tools.android_emulator_smoke.tap") as tap,
