@@ -21,8 +21,12 @@ val backendBaseUrl = providers.gradleProperty("niknoligDefenseBackendUrl")
     .orNull
     ?.trim()
     .orEmpty()
+val debugBackendBaseUrl = providers.gradleProperty("niknoligDefenseDebugBackendUrl")
+    .orNull
+    ?.trim()
+    .orEmpty()
 
-fun validateBackendBaseUrl(value: String) {
+fun validateBackendBaseUrl(value: String, allowLoopback: Boolean = false) {
     if (value.isEmpty()) return
     val uri = runCatching { URI(value) }.getOrNull()
         ?: error("NIKNOLIG Defense backend URL must be an absolute HTTPS origin.")
@@ -32,10 +36,15 @@ fun validateBackendBaseUrl(value: String) {
         uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null &&
         uri.path in listOf("", "/") && (uri.port == -1 || uri.port in 1..65535)
     ) { "NIKNOLIG Defense backend URL must be an HTTPS origin without credentials, path, query, or fragment." }
-    require(host != "localhost" && !host.endsWith(".localhost") &&
-        host != "backend.invalid" && !host.endsWith(".invalid") &&
-        !isLoopbackOrUnspecifiedAddress(host)
-    ) { "NIKNOLIG Defense backend URL must not use a placeholder or loopback host." }
+    val validHost = if (allowLoopback) {
+        host == "127.0.0.1"
+    } else {
+        host != "localhost" && !host.endsWith(".localhost") &&
+            !isLoopbackOrUnspecifiedAddress(host)
+    }
+    require(validHost && host != "backend.invalid" && !host.endsWith(".invalid")) {
+        "NIKNOLIG Defense backend URL must not use a placeholder or loopback host."
+    }
 }
 
 fun isLoopbackOrUnspecifiedAddress(host: String): Boolean {
@@ -47,6 +56,7 @@ fun isLoopbackOrUnspecifiedAddress(host: String): Boolean {
 }
 
 validateBackendBaseUrl(backendBaseUrl)
+validateBackendBaseUrl(debugBackendBaseUrl, allowLoopback = true)
 
 // The device link stays closed until the written SecurityChain-P0 approval exists.
 val deviceLinkP0Approved = (providers.gradleProperty("deviceLinkP0Approved")
@@ -82,7 +92,7 @@ val releaseSigningConfigured = listOf(
 
 android {
     namespace = "com.niknolig.defense"
-    compileSdk = 35
+    compileSdk = 37
     buildToolsVersion = "35.0.0"
 
     buildFeatures {
@@ -109,7 +119,7 @@ android {
     defaultConfig {
         applicationId = "com.niknolig.defense"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 37
         versionCode = updateVersionCode ?: 1
         versionName = updateVersionCode?.let { "0.1.$it" } ?: "0.1.0"
         buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
@@ -119,6 +129,11 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            if (debugBackendBaseUrl.isNotEmpty()) {
+                buildConfigField("String", "BACKEND_BASE_URL", "\"$debugBackendBaseUrl\"")
+            }
+        }
         getByName("release") {
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("release")

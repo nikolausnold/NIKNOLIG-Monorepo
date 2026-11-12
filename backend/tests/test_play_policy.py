@@ -1,0 +1,101 @@
+import re
+import unittest
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+MODULES = ("niknolig", "niknolig-defense")
+SOURCE_MODULES = (
+    "apps/niknolig",
+    "apps/niknolig-defense",
+    "modules/electro-engel/core",
+    "modules/support/core",
+)
+REVIEWED_NSD_SOURCES = {
+    "apps/niknolig/src/main/java/com/niknolig/app/NearbyPairing.kt",
+    "apps/niknolig-defense/src/main/java/com/niknolig/defense/NearbyPairing.kt",
+}
+ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
+ALLOWED_PERMISSIONS = {"android.permission.INTERNET"}
+FORBIDDEN_SOURCE = re.compile(
+    r"AppFunction|appfunctions|com\.android\.billingclient|BillingClient|"
+    r"MANAGE_EXTERNAL_STORAGE|READ_SMS|SEND_SMS|READ_CALL_LOG|WRITE_CALL_LOG|"
+    r"READ_CONTACTS|WRITE_CONTACTS|MANAGE_CONTACTS|NEARBY_WIFI_DEVICES|"
+    r"\bContactsContract\b|\bCallLog\b|\bSmsManager\b|\bSmsMessage\b|Telephony\.Sms|"
+    r"ACCESS_LOCAL_NETWORK|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|"
+    r"android\.location|NsdManager|MulticastLock"
+)
+
+
+class GooglePlayPolicyTests(unittest.TestCase):
+    def test_forbidden_source_detects_restricted_android_apis(self):
+        references = (
+            "ContactsContract.Contacts",
+            "CallLog.Calls",
+            "SmsManager.getDefault()",
+            "SmsMessage.createFromPdu(pdu)",
+            "Telephony.Sms.CONTENT_URI",
+            "NsdManager.registerService(...)",
+        )
+        for reference in references:
+            with self.subTest(reference=reference):
+                self.assertIsNotNone(FORBIDDEN_SOURCE.search(reference))
+
+    def test_each_release_manifest_declares_only_internet_and_no_restricted_features(self):
+        for module in MODULES:
+            with self.subTest(module=module):
+                manifest = ET.parse(
+                    ROOT / f"apps/{module}/src/main/AndroidManifest.xml"
+                ).getroot()
+                declared = {
+                    e.get(f"{ANDROID_NS}name")
+                    for e in manifest.iter()
+                    if e.tag.startswith("uses-permission")
+                }
+                self.assertEqual(declared, ALLOWED_PERMISSIONS)
+                self.assertEqual(manifest.findall("queries"), [])
+                for service in manifest.iter("service"):
+                    self.fail("Unreviewed service declared: AppFunctions need review")
+                application = manifest.find("application")
+                self.assertEqual(application.get(f"{ANDROID_NS}usesCleartextTraffic"), "false")
+                self.assertEqual(application.get(f"{ANDROID_NS}allowBackup"), "false")
+
+    def test_debug_manifests_do_not_declare_local_network_permission(self):
+        for module in MODULES:
+            with self.subTest(module=module):
+                path = ROOT / f"apps/{module}/src/debug/AndroidManifest.xml"
+                if not path.exists():
+                    continue
+                manifest = ET.parse(path).getroot()
+                declared = {
+                    e.get(f"{ANDROID_NS}name")
+                    for e in manifest.iter()
+                    if e.tag.startswith("uses-permission")
+                }
+                self.assertNotIn("android.permission.ACCESS_LOCAL_NETWORK", declared)
+
+    def test_sources_and_builds_use_no_restricted_apis_or_billing(self):
+        for module_path in SOURCE_MODULES:
+            with self.subTest(module=module_path):
+                base = ROOT / module_path
+                files = [base / "build.gradle.kts", *base.glob("src/main/**/*.kt")]
+                for path in files:
+                    relative_path = path.relative_to(ROOT).as_posix()
+                    for match in FORBIDDEN_SOURCE.finditer(path.read_text(encoding="utf-8")):
+                        if (
+                            match.group() == "NsdManager"
+                            and relative_path in REVIEWED_NSD_SOURCES
+                        ):
+                            continue
+                        self.fail(f"Forbidden source API {match.group()}: {path}")
+
+    def test_both_modules_keep_identical_sdk_levels(self):
+        levels = set()
+        for module in MODULES:
+            text = (ROOT / f"apps/{module}/build.gradle.kts").read_text(encoding="utf-8")
+            levels.add(tuple(re.findall(r"(?:compileSdk|targetSdk|minSdk) = (\d+)", text)))
+        self.assertEqual(len(levels), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -101,6 +101,135 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  android-17-emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Add Android SDK tools to PATH
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager" ]]; then
+            sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          fi
+          if [[ -z "$sdkmanager" ]]; then
+            echo "::error::Android SDK command-line tools are missing from $ANDROID_HOME"
+            exit 1
+          fi
+          sdk_tools="$(dirname "$sdkmanager")"
+          test -x "$sdk_tools/avdmanager"
+          echo "$sdk_tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
+          echo "ANDROID_SDK_TOOLS=$sdk_tools" >> "$GITHUB_ENV"
+      - name: Install Android 17 emulator image
+        run: |
+          yes 2>/dev/null | "$ANDROID_SDK_TOOLS/sdkmanager" --licenses >/dev/null
+          set -o pipefail
+          sdkmanager="$ANDROID_SDK_TOOLS/sdkmanager"
+          "$sdkmanager" --list --channel=3 > "$RUNNER_TEMP/android-sdk-packages.txt"
+          system_image="$(awk -F '|' '
+            $1 ~ /^[[:space:]]*system-images;android-37([.][0-9]+)?;.*;x86_64[[:space:]]*$/ {
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
+              if ($1 ~ /google_apis/) {
+                print $1
+                found = 1
+                exit
+              }
+              if (fallback == "") fallback = $1
+            }
+            END {
+              if (!found && fallback != "") print fallback
+            }
+          ' "$RUNNER_TEMP/android-sdk-packages.txt")"
+          if [[ -z "$system_image" ]]; then
+            grep -E 'system-images;android-(37|CinnamonBun);' "$RUNNER_TEMP/android-sdk-packages.txt" || true
+            echo "::error::No stable Android 17 API 37 x86_64 system image is available in SDK channel 3"
+            exit 1
+          fi
+          echo "ANDROID_17_SYSTEM_IMAGE=$system_image" >> "$GITHUB_ENV"
+          "$sdkmanager" --install --channel=3 \
+            "emulator" "$system_image" \
+            2>&1 | tee "$RUNNER_TEMP/android-sdk-install.log"
+      - name: Start Android 17 emulator
+        run: |
+          set -euo pipefail
+          if [[ ! -e /dev/kvm ]]; then
+            echo "::error::KVM device is unavailable on this runner"
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+          avd_home="$RUNNER_TEMP/android-avd"
+          mkdir -p "$avd_home"
+          export ANDROID_AVD_HOME="$avd_home"
+          echo no | avdmanager create avd --force \
+            --name android-17-api-37 \
+            --package "$ANDROID_17_SYSTEM_IMAGE" \
+            --device pixel_2 \
+            --path "$avd_home/android-17-api-37.avd"
+          test -s "$avd_home/android-17-api-37.ini"
+          test -s "$avd_home/android-17-api-37.avd/config.ini"
+          emulator -avd android-17-api-37 \
+            -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -memory 4096 -partition-size 4096 \
+            > "$RUNNER_TEMP/android-17-emulator.log" 2>&1 &
+          timeout 120 adb wait-for-device
+          timeout 240 bash -c \
+            'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == "1" ]]; do sleep 2; done'
+          timeout 240 bash -c \
+            'until [[ "$(adb shell getprop sys.user.0.ce_available | tr -d "\r")" == "true" ]]; do sleep 2; done'
+          # The settings service can lag behind boot_completed; retry until it accepts writes.
+          put_setting() {
+            for _ in $(seq 1 60); do
+              if adb shell settings put "$1" "$2" "$3"; then return 0; fi
+              sleep 3
+            done
+            echo "::error::Android settings service did not accept $1 $2"
+            return 1
+          }
+          put_setting global device_provisioned 1
+          put_setting secure user_setup_complete 1
+          put_setting global window_animation_scale 0
+          put_setting global transition_animation_scale 0
+          put_setting global animator_duration_scale 0
+          test "$(adb shell getprop ro.build.version.sdk | tr -d "\r")" = "37"
+      - name: Build smoke APKs with isolated HTTPS probe endpoint
+        run: >-
+          ./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug
+          -PniknoligDebugBackendUrl=https://127.0.0.1:18443
+          -PniknoligDefenseDebugBackendUrl=https://127.0.0.1:18443 --no-daemon
+      - name: Install both apps and exercise Android 17 flows
+        run: |
+          adb reverse tcp:18443 tcp:18443
+          python3 tools/android_emulator_smoke.py
+      - name: Preserve Android 17 emulator diagnostics
+        if: always()
+        run: |
+          if timeout 15 adb devices | grep -q '^emulator-'; then
+            timeout 30 adb logcat -d -t 5000 > "$RUNNER_TEMP/android-17-logcat.txt" 2>/dev/null || true
+            timeout 30 adb shell dumpsys activity activities > "$RUNNER_TEMP/android-17-activities.txt" 2>/dev/null || true
+          fi
+      - name: Upload Android 17 emulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: android-17-emulator-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/android-sdk-packages.txt
+            ${{ runner.temp }}/android-sdk-install.log
+            ${{ runner.temp }}/android-17-emulator.log
+            ${{ runner.temp }}/android-17-logcat.txt
+            ${{ runner.temp }}/android-17-activities.txt
+          if-no-files-found: warn
+          retention-days: 7
+
   electro-engel-ios-core:
     runs-on: macos-15
     timeout-minutes: 10

@@ -47,6 +47,9 @@ scheiterte für beide Domains bereits an der DNS-Auflösung (`curl`-Fehler 6);
 HTTP-Antwort, TLS-Zertifikat und Redirects konnten daher nicht geprüft werden.
 Das ist kein Nachweis allgemeiner Nichterreichbarkeit.
 
+Der [Google-Play-Richtlinienstand](docs/google-play-policy-compliance.md) dokumentiert
+Berechtigungen je Modul und manuelle Play-Console-Angaben.
+
 Der [App-Web-Designabgleich](docs/app-web-design-alignment.md) dokumentiert
 die gemeinsame Farbpalette und die absichtlich getrennten Produktlayouts.
 
