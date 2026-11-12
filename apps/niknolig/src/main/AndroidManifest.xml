@@ -24,6 +24,11 @@
             android:name=".AssistantActivity"
             android:exported="false" />
         <activity
+            android:name=".DeviceLinkActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:label="@string/device_link_heading"
+            android:exported="false" />
+        <activity
             android:name=".SupportActivity"
             android:exported="false" />
     </application>

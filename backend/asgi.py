@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException
 
 from ai_support import SupportService, error_response
 import database
+import device_api
 from migrate import check_health_ready_async
 from support_http import (
     MAX_SUPPORT_BODY_BYTES, SUPPORT_READ_TIMEOUT_SECONDS,
@@ -102,7 +103,10 @@ def create_app(*, readiness_probe=None, support_service=None, environment=None):
     @application.get("/health/ready")
     async def ready():
         try:
-            await probe(check_health_ready_async)
+            await probe(check_health_ready_async, health_login=True)
+            device_store = getattr(application.state, "device_store", None)
+            if device_store is not None:
+                await device_store.call_bounded(device_store.ping)
         except Exception:
             _log_readiness_failure()
             return error(503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable.")
@@ -158,6 +162,7 @@ def create_app(*, readiness_probe=None, support_service=None, environment=None):
             status, body = error_response(503, "SERVICE_UNAVAILABLE", escalate=True)
         return JSONResponse(body, status_code=status, headers=HEADERS)
 
+    device_api.install_from_environment(application)
     return application
 
 

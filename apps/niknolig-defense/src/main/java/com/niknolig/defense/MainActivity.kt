@@ -21,5 +21,13 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.assistant_button).setOnClickListener {
             startActivity(Intent(this, AssistantActivity::class.java))
         }
+
+        findViewById<Button>(R.id.security_dashboard_button).setOnClickListener {
+            startActivity(Intent(this, SecurityDashboardActivity::class.java))
+        }
+
+        findViewById<Button>(R.id.device_link_button).setOnClickListener {
+            startActivity(Intent(this, DeviceLinkActivity::class.java))
+        }
     }
 }

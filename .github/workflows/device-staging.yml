@@ -1,0 +1,89 @@
+name: Device link staging integration
+
+# Manual only: runs the real client code (HTTPS, Ed25519 proofs, pairing, grants, revocation) against the
+# deployed staging backend. It never runs on pull requests and needs the staging secrets below. A missing
+# configuration fails the run; the test is never reported as passed when it was skipped.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: staging
+    env:
+      NIKNOLIG_STAGING_URL: ${{ vars.NIKNOLIG_STAGING_URL }}
+      STAGING_AUTH_URL: ${{ vars.NIKNOLIG_STAGING_AUTH_URL }}
+      STAGING_AUTH_KEY: ${{ secrets.NIKNOLIG_STAGING_AUTH_KEY }}
+      STAGING_APP_EMAIL: ${{ secrets.NIKNOLIG_STAGING_APP_EMAIL }}
+      STAGING_APP_PASSWORD: ${{ secrets.NIKNOLIG_STAGING_APP_PASSWORD }}
+      STAGING_DEFENSE_EMAIL: ${{ secrets.NIKNOLIG_STAGING_DEFENSE_EMAIL }}
+      STAGING_DEFENSE_PASSWORD: ${{ secrets.NIKNOLIG_STAGING_DEFENSE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Sign in the two staging test accounts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in NIKNOLIG_STAGING_URL STAGING_AUTH_URL STAGING_AUTH_KEY STAGING_APP_EMAIL STAGING_APP_PASSWORD \
+                      STAGING_DEFENSE_EMAIL STAGING_DEFENSE_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing staging configuration: $name"
+              exit 1
+            fi
+          done
+          [[ "$STAGING_AUTH_URL" == https://* && "$NIKNOLIG_STAGING_URL" == https://* ]] || {
+            echo "::error::Staging URLs must use HTTPS"; exit 1; }
+          sign_in() {
+            jq -n --arg e "$1" --arg p "$2" '{email:$e,password:$p}' |
+              curl --fail --silent --show-error --proto '=https' --max-time 20 \
+                -H "apikey: $STAGING_AUTH_KEY" -H 'Content-Type: application/json' --data @- \
+                "${STAGING_AUTH_URL%/}/auth/v1/token?grant_type=password" | jq -er .access_token
+          }
+          # The backend rejects (HTTP 401) tokens whose app_metadata.app_area does not match the app.
+          require_area() {
+            local payload="$(cut -d. -f2 <<<"$1" | tr '_-' '/+')"
+            while (( ${#payload} % 4 )); do payload+="="; done
+            local actual
+            actual="$(base64 -d <<<"$payload" 2>/dev/null | jq -r '.app_metadata.app_area // "missing"')"
+            if [[ "$actual" != "$2" ]]; then
+              echo "::error::Staging account for $2 has app_metadata.app_area='$actual'; set it to '$2' in the staging auth project."
+              exit 1
+            fi
+          }
+          app_token="$(sign_in "$STAGING_APP_EMAIL" "$STAGING_APP_PASSWORD")"
+          echo "::add-mask::$app_token"
+          require_area "$app_token" niknolig
+          defense_token="$(sign_in "$STAGING_DEFENSE_EMAIL" "$STAGING_DEFENSE_PASSWORD")"
+          echo "::add-mask::$defense_token"
+          require_area "$defense_token" niknolig-defense
+          {
+            echo "NIKNOLIG_STAGING_TOKEN_APP=$app_token"
+            echo "NIKNOLIG_STAGING_TOKEN_DEFENSE=$defense_token"
+          } >> "$GITHUB_ENV"
+      - name: Run staging integration test
+        run: ./gradlew :device-link-core:test --tests 'org.niknolig.devicelink.StagingIntegrationTest' --no-daemon
+      - name: Fail when the test was skipped
+        shell: bash
+        run: |
+          set -euo pipefail
+          report=modules/device-link/core/build/test-results/test/TEST-org.niknolig.devicelink.StagingIntegrationTest.xml
+          grep -q 'tests="1" skipped="0" failures="0" errors="0"' "$report" || {
+            echo "::error::Staging integration test did not run and pass"; exit 1; }
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: device-staging-test-${{ github.sha }}
+          path: modules/device-link/core/build/test-results/test/*.xml
+          if-no-files-found: warn
+          retention-days: 7

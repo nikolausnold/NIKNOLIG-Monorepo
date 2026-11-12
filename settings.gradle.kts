@@ -5,7 +5,7 @@ pluginManagement {
         gradlePluginPortal()
     }
     plugins {
-        id("com.android.application") version "9.5.0"
+        id("com.android.application") version "9.5.1"
         id("org.jetbrains.kotlin.android") version "2.4.21"
         id("org.jetbrains.kotlin.jvm") version "2.4.21"
     }
@@ -27,3 +27,5 @@ include(":electro-engel-core")
 project(":electro-engel-core").projectDir = file("modules/electro-engel/core")
 include(":support-core")
 project(":support-core").projectDir = file("modules/support/core")
+include(":device-link-core")
+project(":device-link-core").projectDir = file("modules/device-link/core")
