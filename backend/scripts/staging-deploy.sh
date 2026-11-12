@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Staging deployment helper. Never touches production (/opt/nold/backend) and never prints secrets.
 # Usage (from /opt/nold/staging/backend):
-#   scripts/staging-deploy.sh init-secrets   create missing staging secret files (mode 600)
+#   scripts/staging-deploy.sh init-secrets   create missing staging secret files and grant UID 10001 read access
 #   scripts/staging-deploy.sh preflight      validate paths, secrets, configuration and host ports
 #   scripts/staging-deploy.sh backup         pg_dump of the staging database (if it is running)
 #   scripts/staging-deploy.sh deploy         preflight, backup, build, migrate, start API on 127.0.0.1:8001
@@ -36,20 +36,28 @@ dc() { env -u COMPOSE_PROJECT_NAME docker compose --project-name niknolig-stagin
 
 init_secrets() {
   [[ -n "$SECRETS_DIR" && "$SECRETS_DIR" == /opt/nold/staging/* ]] || { echo "STAGING_SECRETS_DIR must be under /opt/nold/staging/" >&2; exit 1; }
+  command -v setfacl >/dev/null || { echo "setfacl from the acl package is required" >&2; exit 1; }
   install -d -m 700 "$SECRETS_DIR"
   for name in "${SECRET_NAMES[@]}"; do
     [[ -s "$SECRETS_DIR/$name" ]] || { openssl rand -hex 32 > "$SECRETS_DIR/$name"; echo "created $name"; }
+    setfacl -b -- "$SECRETS_DIR/$name"
+    chmod 600 "$SECRETS_DIR/$name"
+    setfacl -m u:10001:r-- "$SECRETS_DIR/$name"
   done
 }
 
 preflight() {
   [[ "$SECRETS_DIR" == /opt/nold/staging/* ]] || { echo "STAGING_SECRETS_DIR must be under /opt/nold/staging/" >&2; exit 1; }
+  command -v getfacl >/dev/null || { echo "getfacl from the acl package is required" >&2; exit 1; }
   [[ "$DB_NAME" =~ ^[a-z][a-z0-9_]{2,40}$ && "$DB_NAME" != niknolig_health ]] || { echo "Invalid or production database name" >&2; exit 1; }
   local seen=""
   for name in "${SECRET_NAMES[@]}"; do
     local file="$SECRETS_DIR/$name"
     [[ -s "$file" ]] || { echo "Missing or empty secret: $name" >&2; exit 1; }
-    [[ "$(stat -c %a "$file")" == 600 ]] || { echo "Secret $name must be mode 600" >&2; exit 1; }
+    [[ "$(stat -c %a "$file")" == 640 ]] || { echo "Secret $name must have owner-only access plus a restricted UID 10001 ACL" >&2; exit 1; }
+    local acl; acl="$(getfacl -cp -- "$file")"
+    [[ "$acl" == *$'user::rw-\n'* && "$acl" == *$'user:10001:r--\n'* && "$acl" == *$'group::---\n'* && "$acl" == *$'mask::r--\n'* && "$acl" == *$'other::---'* ]] \
+      || { echo "Secret $name must grant read-only access to UID 10001 and no other users" >&2; exit 1; }
     [[ "$(wc -l < "$file")" -le 1 ]] || { echo "Secret $name must be single-line" >&2; exit 1; }
     local digest; digest="$(sha256sum "$file" | cut -d' ' -f1)"
     [[ "$seen" != *"$digest"* ]] || { echo "Staging secrets must all differ" >&2; exit 1; }
@@ -97,6 +105,9 @@ verify() {
   echo "unauthenticated protected route rejected ($code)"
   curl --fail --silent --show-error --proto '=https' --max-time 15 "https://$STAGING_HOST/health/ready" >/dev/null
   echo "public https://$STAGING_HOST/health/ready ok"
+  code="$(curl --silent --output /dev/null --write-out '%{http_code}' --proto '=https' --max-time 15 "https://$STAGING_HOST/v1/devices/me")"
+  [[ "$code" == 401 ]] || { echo "Public unauthenticated protected route returned $code (expected 401)" >&2; exit 1; }
+  echo "public unauthenticated protected route rejected ($code)"
 }
 
 case "${1:-}" in

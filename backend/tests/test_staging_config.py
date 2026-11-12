@@ -59,7 +59,18 @@ class StagingConfigurationTests(unittest.TestCase):
     def test_staging_verification_checks_authentication_on_protected_route(self):
         self.assertIn("http://127.0.0.1:8001/v1/devices/me", self.deploy_script)
         self.assertIn('[[ "$code" == 401 ]] ||', self.deploy_script)
+        self.assertIn('https://$STAGING_HOST/v1/devices/me', self.deploy_script)
+        self.assertIn("Public unauthenticated protected route returned $code (expected 401)", self.deploy_script)
         self.assertNotIn("-X POST", self.deploy_script)
+
+    def test_staging_secrets_are_readable_only_by_the_container_uid(self):
+        self.assertIn("setfacl -b --", self.deploy_script)
+        self.assertIn('chmod 600 "$SECRETS_DIR/$name"', self.deploy_script)
+        self.assertIn("setfacl -m u:10001:r--", self.deploy_script)
+        self.assertIn('command -v getfacl >/dev/null', self.deploy_script)
+        self.assertIn('$(stat -c %a "$file")" == 640', self.deploy_script)
+        self.assertIn("'user:10001:r--\\n'", self.deploy_script)
+        self.assertIn("'group::---\\n'", self.deploy_script)
 
     def test_deploy_starts_database_and_backs_up_before_migration(self):
         deploy = self.deploy_script.split('  deploy)', 1)[1].split('  verify)', 1)[0]

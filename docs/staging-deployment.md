@@ -9,7 +9,8 @@ PostgreSQL-Datenbank. Produktion (`https://api.niknolig.com`, `/opt/nold/backend
   Geräte-API aktiv, Port nur `127.0.0.1:8001`.
 - `backend/Caddyfile.staging`: HTTPS (automatisches ACME) für `staging-api.niknolig.com`, gleiche Pfad-Allowlist wie Produktion.
 - `backend/scripts/staging-deploy.sh`: `init-secrets | preflight | backup | deploy | verify`. Läuft nur aus
-  `/opt/nold/staging/backend`, verlangt Modus 600, verwirft doppelte/produktive Secrets, erstellt vor jedem Deploy ein `pg_dump`.
+  `/opt/nold/staging/backend`, verlangt `acl` auf dem Host, vergibt für Secrets einen eingeschränkten Lese-ACL an UID 10001,
+  verwirft doppelte/produktive Secrets und erstellt vor jedem Deploy ein `pg_dump`.
 - `backend/staging.env.example`: Vorlage ohne Zugangsdaten (`staging.env` ist git-ignoriert).
 - Fix: `.dockerignore` schloss `device_*.py` aus dem Build-Kontext aus (Image war so nicht baubar).
 
