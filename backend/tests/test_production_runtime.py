@@ -339,7 +339,7 @@ class ProductionRuntimeTests(unittest.TestCase):
                 self.assertNotIn(str(failure), json.dumps(body))
 
     def test_liveness_remains_responsive_during_concurrent_readiness_timeouts(self):
-        async def stalled(check):
+        async def stalled(check, *, health_login=False):
             await asyncio.sleep(0.3)
             raise TimeoutError("private database")
 
@@ -1055,12 +1055,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         proxy_thread.start()
         connections = []
 
-        async def probe(check):
+        async def probe(check, *, health_login=False):
             async def drop_then_check(connection):
                 connections.append(connection)
                 blackhole.set()
                 await check(connection)
-            await database.probe(drop_then_check)
+            await database.probe(drop_then_check, health_login=health_login)
 
         app_socket = socket.socket()
         app_socket.bind(("127.0.0.1", 0))

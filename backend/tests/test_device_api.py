@@ -744,7 +744,7 @@ class DeviceApiTests(unittest.TestCase):
         asgi_probe = lambda check: None
         self.assertTrue(application.state is not None)
 
-        async def noop(check):
+        async def noop(check, *, health_login=False):
             return None
 
         broken = asgi.create_app(readiness_probe=noop, environment="production")

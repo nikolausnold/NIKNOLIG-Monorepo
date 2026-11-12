@@ -1,6 +1,8 @@
 # Staging deployment (Hetzner): API on 127.0.0.1:8001 behind the host's existing TLS reverse proxy
 # for https://staging-api.niknolig.com, using the host PostgreSQL database `nold_staging`.
 # Standalone file; never combine with compose.production.yaml. See docs/staging-deployment.md.
+name: niknolig-staging
+
 x-backend: &backend
   image: niknolig-health-backend:staging
   build:
@@ -39,7 +41,7 @@ services:
       # Read-only readiness login (/health/ready); the API itself keeps backend_device_api.
       HEALTH_DB_USER: backend_health
       HEALTH_DB_PASSWORD_FILE: /run/secrets/health_password
-      DEVICE_API_ENABLED: "1"
+      DEVICE_API_ENABLED: "${DEVICE_API_ENABLED:-1}"
       DEVICE_API_DB_USER: backend_device_api
       DEVICE_API_DB_PASSWORD_FILE: /run/secrets/device_api_password
       DEVICE_TOKEN_SECRET_FILE: /run/secrets/device_token_secret

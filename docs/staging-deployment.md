@@ -18,8 +18,14 @@ ausgeführt werden. Sie wurden von dieser Änderung **nicht** ausgeführt.
 
 - Docker + Compose-Plugin; Host-PostgreSQL erreichbar für Container (`listen_addresses` und
   `pg_hba.conf` für die Docker-Bridge, z. B. `172.17.0.0/16`) mit Datenbank `nold_staging`.
-- Passwortdateien (Modus `0400`, nicht im Repository) für: Migrationsrolle, `backend_health`,
+- Passwortdateien (nicht im Repository) für: Migrationsrolle, `backend_health`,
   `backend_device_api`, sowie ein zufälliges Token-Secret (`openssl rand -base64 48`).
+  Die Dateien müssen für die numerische UID/GID `10001` der API- und Migrationscontainer lesbar
+  sein; Datei-Secrets übernehmen die Host-Dateirechte und Compose kann sie nicht zuverlässig
+  remappen. Bei rootful Docker eignen sich beispielsweise root-eigene Dateien mit Gruppe `10001`
+  und Modus `0640` in einem geschützten Verzeichnis. Bei rootless Docker oder User-Namespace-
+  Remapping die tatsächlich gemappten IDs oder eine eng begrenzte ACL verwenden und den Zugriff
+  im Container prüfen. Nicht weltlesbar machen.
   Die Rollen `backend_health` und `backend_device_api` legt `migrate.py` an bzw. setzt deren Passwort.
 - Supabase-Werte (öffentlich): `AUTH_ISSUER=https://<projekt>.supabase.co/auth/v1`,
   `AUTH_JWKS_URL=<issuer>/.well-known/jwks.json`, `AUTH_AUDIENCE=authenticated`.
@@ -65,7 +71,7 @@ stimmt mit `health.pw` überein (Migration setzt es), Migration 002 wurde angewe
 ```bash
 curl -fsS https://staging-api.niknolig.com/health/ready
 # Ohne Token muss 401 kommen, nicht 404:
-curl -s -o /dev/null -w '%{http_code}\n' -X POST https://staging-api.niknolig.com/v1/devices
+curl -s -o /dev/null -w '%{http_code}\n' https://staging-api.niknolig.com/v1/devices/me
 ```
 
 Danach den Workflow
@@ -74,8 +80,11 @@ manuell starten. Er muss grün sein und darf nicht übersprungen werden.
 
 ## Rollback
 
-Siehe `docs/device-connection-api-release.md`, Abschnitt 4: `DEVICE_API_ENABLED=0` (Routen entfallen,
-Daten bleiben) oder Wiederherstellung des `pg_dump`.
+Siehe `docs/device-connection-api-release.md`, Abschnitt 4. Für den nicht-destruktiven Notfall-
+Rollback `DEVICE_API_ENABLED=0` exportieren und den API-Container neu erstellen:
+`docker compose -f compose.staging.yaml up -d --force-recreate api` (Routen entfallen, Daten
+bleiben). Zum Reaktivieren die Variable unsetzen und den Container erneut erstellen oder das
+`pg_dump` wiederherstellen.
 
 ## Status
 
