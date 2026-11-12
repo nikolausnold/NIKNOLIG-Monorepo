@@ -2,7 +2,6 @@
 # staging API (compose.staging.yaml, 127.0.0.1:8001). Certificates come from automatic ACME issuance, so
 # DNS for staging-api.niknolig.com must point at this host. Do not merge into the production Caddyfile.
 staging-api.niknolig.com {
-	encode off
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		Cache-Control "no-store"
