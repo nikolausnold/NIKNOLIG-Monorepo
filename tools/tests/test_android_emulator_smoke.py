@@ -440,6 +440,10 @@ class InstallApkTests(unittest.TestCase):
         errors = (
             "java.lang.NullPointerException at "
             "com.android.server.StorageManagerService.allocateBytes",
+            "java.lang.NullPointerException: Attempt to invoke virtual method "
+            "'java.util.List android.os.storage.StorageManager.getVolumes()' "
+            "on a null object reference at "
+            "com.android.internal.content.InstallLocationUtils.resolveInstallVolume",
             "java.lang.NullPointerException at "
             "com.android.server.pm.PackageManagerInternal",
         )
