@@ -284,7 +284,7 @@ def resolve_installed_launcher(package, manifest_activity, attempts=5):
         time.sleep(2)
 
 
-def start_activity(package, main_activity, attempts=5):
+def start_activity(package, main_activity, attempts=5, recover=None):
     # am can fail transiently right after install/pm clear while the system settles.
     for attempt in range(attempts):
         try:
@@ -309,6 +309,12 @@ def start_activity(package, main_activity, attempts=5):
             )
             output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}"
         print(f"am start attempt {attempt + 1} failed: {output.strip()}", flush=True)
+        if recover is not None and "does not exist" in output:
+            # A system_server restart can leave the package unloadable; reinstall it.
+            try:
+                recover()
+            except (AssertionError, subprocess.SubprocessError, OSError) as exc:
+                print(f"Recovery reinstall failed: {exc}", flush=True)
         try:
             adb("shell", "input", "keyevent", "KEYCODE_HOME")
         except (subprocess.SubprocessError, OSError) as exc:
@@ -514,7 +520,7 @@ def test_app(apk, brand, server):
     ) is None:
         raise AssertionError(f"{package} INTERNET is not granted")
 
-    start_activity(package, main_activity)
+    start_activity(package, main_activity, recover=lambda: install_apk(apk, package))
     wait_for_resumed_activity(package)
     wait_for_text(brand)
 
