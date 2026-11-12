@@ -707,5 +707,41 @@ class HierarchyTests(unittest.TestCase):
         sleep.assert_not_called()
 
 
+class TapUntilTextTests(unittest.TestCase):
+    def test_retries_the_tap_until_expected_text_appears(self):
+        with (
+            patch("tools.android_emulator_smoke.tap") as tap,
+            patch("tools.android_emulator_smoke.wait_for_text") as wait_for_text,
+        ):
+            wait_for_text.side_effect = [
+                AssertionError("Expected UI text not found"),
+                "Enter a term or statement first.",
+            ]
+
+            result = android_emulator_smoke.tap_until_text(
+                "assistant_request_button", "Enter a term"
+            )
+
+        self.assertEqual("Enter a term or statement first.", result)
+        self.assertEqual(2, tap.call_count)
+        self.assertEqual(2, wait_for_text.call_count)
+
+    def test_raises_after_all_tap_attempts(self):
+        with (
+            patch("tools.android_emulator_smoke.tap") as tap,
+            patch(
+                "tools.android_emulator_smoke.wait_for_text",
+                side_effect=AssertionError("Expected UI text not found"),
+            ) as wait_for_text,
+        ):
+            with self.assertRaisesRegex(AssertionError, "Expected UI text not found"):
+                android_emulator_smoke.tap_until_text(
+                    "assistant_request_button", "Enter a term"
+                )
+
+        self.assertEqual(3, tap.call_count)
+        self.assertEqual(3, wait_for_text.call_count)
+
+
 if __name__ == "__main__":
     unittest.main()
