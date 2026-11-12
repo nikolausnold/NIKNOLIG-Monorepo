@@ -398,10 +398,12 @@ def wait_for_text(*expected, timeout=15):
     raise AssertionError(f"Expected UI text not found: {expected}")
 
 
-def tap_until_text(resource_id, *expected, attempts=3):
+def tap_until_text(resource_id, *expected, status_resource_id=None, attempts=3):
     failure = None
     for _ in range(attempts):
         tap(resource_id)
+        if status_resource_id is not None:
+            tap(status_resource_id)
         try:
             return wait_for_text(*expected, timeout=3)
         except AssertionError as exc:
@@ -491,7 +493,12 @@ def test_app(apk, brand, server):
     wait_for_text(brand)
 
     tap("assistant_button")
-    tap_until_text("assistant_request_button", "Bitte gib zuerst", "Enter a term")
+    tap_until_text(
+        "assistant_request_button",
+        "Bitte gib zuerst",
+        "Enter a term",
+        status_resource_id="assistant_request_status",
+    )
     tap("assistant_close_button")
 
     tap("learning_profile_button")

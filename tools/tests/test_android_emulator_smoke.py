@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 
 with patch.dict(os.environ, {"ANDROID_HOME": "/android-sdk"}):
@@ -719,11 +719,21 @@ class TapUntilTextTests(unittest.TestCase):
             ]
 
             result = android_emulator_smoke.tap_until_text(
-                "assistant_request_button", "Enter a term"
+                "assistant_request_button",
+                "Enter a term",
+                status_resource_id="assistant_request_status",
             )
 
         self.assertEqual("Enter a term or statement first.", result)
-        self.assertEqual(2, tap.call_count)
+        self.assertEqual(
+            [
+                call("assistant_request_button"),
+                call("assistant_request_status"),
+                call("assistant_request_button"),
+                call("assistant_request_status"),
+            ],
+            tap.call_args_list,
+        )
         self.assertEqual(2, wait_for_text.call_count)
 
     def test_raises_after_all_tap_attempts(self):
