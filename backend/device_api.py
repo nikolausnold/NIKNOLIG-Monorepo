@@ -535,6 +535,9 @@ def install_from_environment(application: FastAPI, environ=None):
         database.read_secret(password_file)  # reject empty/missing secrets before routes exist
         authenticate = principal_authenticator_from_env(env)
         host, dbname, user = env["PGHOST"], env["PGDATABASE"], env["DEVICE_API_DB_USER"]
+        port = int(env.get("PGPORT") or 5432)
+        if not 1 <= port <= 65535:
+            raise ValueError("invalid PGPORT")
     except (KeyError, ValueError, OSError, AuthenticationConfigurationError):
         try:
             sys.stderr.write('{"event":"device_api_disabled_invalid_configuration"}\n')
@@ -544,7 +547,7 @@ def install_from_environment(application: FastAPI, environ=None):
 
     def connect():
         return psycopg.connect(
-            host=host, dbname=dbname, user=user,
+            host=host, port=port, dbname=dbname, user=user,
             password=database.read_secret(password_file), connect_timeout=3,
             options="-c statement_timeout=3000 -c lock_timeout=2000",
         )

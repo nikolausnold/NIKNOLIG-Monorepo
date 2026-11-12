@@ -106,17 +106,38 @@ def connection_parameters():
     return dsn, kwargs
 
 
+def health_connection_parameters():
+    """Readiness login: HEALTH_DB_USER + HEALTH_DB_PASSWORD_FILE override the normal API login.
+
+    Both or neither must be set; with neither, the normal PG* login is used (it must then be the
+    health role, which the readiness check enforces). Never falls back to a different secret.
+    """
+    dsn, kwargs = connection_parameters()
+    user = os.environ.get("HEALTH_DB_USER")
+    secret_file = os.environ.get("HEALTH_DB_PASSWORD_FILE")
+    if bool(user) != bool(secret_file):
+        raise ValueError("HEALTH_DB_USER and HEALTH_DB_PASSWORD_FILE must be set together")
+    if user:
+        host = os.environ.get("PGHOST")
+        dbname = os.environ.get("PGDATABASE")
+        if dsn or not host or not dbname:
+            raise ValueError("Explicit PostgreSQL host and database are required for the health login")
+        kwargs.update(host=host, dbname=dbname, user=user, password=read_secret(secret_file))
+        return "", kwargs
+    return dsn, kwargs
+
+
 def connect():
     dsn, kwargs = connection_parameters()
     return psycopg.connect(dsn, **kwargs)
 
 
-async def probe(check):
+async def probe(check, *, health_login=False):
     connection = None
 
     async def run():
         nonlocal connection
-        dsn, kwargs = connection_parameters()
+        dsn, kwargs = health_connection_parameters() if health_login else connection_parameters()
         kwargs["options"] = (
             kwargs.get("options", "") + " -c default_transaction_read_only=on"
         ).strip()
