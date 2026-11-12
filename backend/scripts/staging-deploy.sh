@@ -34,10 +34,17 @@ export STAGING_SECRETS_DIR="$SECRETS_DIR" STAGING_DB_NAME
 export AUTH_ISSUER AUTH_AUDIENCE AUTH_JWKS_URL
 dc() { env -u COMPOSE_PROJECT_NAME docker compose --project-name niknolig-staging --env-file "$ENV_FILE" -f compose.staging.yaml "$@"; }
 
+reject_secret_symlinks() {
+  for name in "${SECRET_NAMES[@]}"; do
+    [[ ! -L "$SECRETS_DIR/$name" ]] || { echo "Secret $name must not be a symbolic link" >&2; exit 1; }
+  done
+}
+
 init_secrets() {
   [[ -n "$SECRETS_DIR" && "$SECRETS_DIR" == /opt/nold/staging/* ]] || { echo "STAGING_SECRETS_DIR must be under /opt/nold/staging/" >&2; exit 1; }
   command -v setfacl >/dev/null || { echo "setfacl from the acl package is required" >&2; exit 1; }
   install -d -m 700 "$SECRETS_DIR"
+  reject_secret_symlinks
   for name in "${SECRET_NAMES[@]}"; do
     [[ -s "$SECRETS_DIR/$name" ]] || { openssl rand -hex 32 > "$SECRETS_DIR/$name"; echo "created $name"; }
     setfacl -b -- "$SECRETS_DIR/$name"
@@ -48,6 +55,7 @@ init_secrets() {
 
 preflight() {
   [[ "$SECRETS_DIR" == /opt/nold/staging/* ]] || { echo "STAGING_SECRETS_DIR must be under /opt/nold/staging/" >&2; exit 1; }
+  reject_secret_symlinks
   command -v getfacl >/dev/null || { echo "getfacl from the acl package is required" >&2; exit 1; }
   [[ "$DB_NAME" =~ ^[a-z][a-z0-9_]{2,40}$ && "$DB_NAME" != niknolig_health ]] || { echo "Invalid or production database name" >&2; exit 1; }
   local seen=""
@@ -55,8 +63,8 @@ preflight() {
     local file="$SECRETS_DIR/$name"
     [[ -s "$file" ]] || { echo "Missing or empty secret: $name" >&2; exit 1; }
     [[ "$(stat -c %a "$file")" == 640 ]] || { echo "Secret $name must have owner-only access plus a restricted UID 10001 ACL" >&2; exit 1; }
-    local acl; acl="$(getfacl -cp -- "$file")"
-    [[ "$acl" == *$'user::rw-\n'* && "$acl" == *$'user:10001:r--\n'* && "$acl" == *$'group::---\n'* && "$acl" == *$'mask::r--\n'* && "$acl" == *$'other::---'* ]] \
+    local acl; acl="$(getfacl -cpn -- "$file")"
+    [[ "$acl" == $'user::rw-\nuser:10001:r--\ngroup::---\nmask::r--\nother::---' ]] \
       || { echo "Secret $name must grant read-only access to UID 10001 and no other users" >&2; exit 1; }
     [[ "$(wc -l < "$file")" -le 1 ]] || { echo "Secret $name must be single-line" >&2; exit 1; }
     local digest; digest="$(sha256sum "$file" | cut -d' ' -f1)"

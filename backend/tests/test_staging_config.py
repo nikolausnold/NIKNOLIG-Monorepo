@@ -69,8 +69,14 @@ class StagingConfigurationTests(unittest.TestCase):
         self.assertIn("setfacl -m u:10001:r--", self.deploy_script)
         self.assertIn('command -v getfacl >/dev/null', self.deploy_script)
         self.assertIn('$(stat -c %a "$file")" == 640', self.deploy_script)
-        self.assertIn("'user:10001:r--\\n'", self.deploy_script)
-        self.assertIn("'group::---\\n'", self.deploy_script)
+        self.assertIn('getfacl -cpn -- "$file"', self.deploy_script)
+        self.assertIn("$'user::rw-\\nuser:10001:r--\\ngroup::---\\nmask::r--\\nother::---'", self.deploy_script)
+
+    def test_staging_secret_symlinks_are_rejected_before_file_access(self):
+        self.assertIn('[[ ! -L "$SECRETS_DIR/$name" ]] ||', self.deploy_script)
+        self.assertIn("reject_secret_symlinks", self.deploy_script)
+        self.assertLess(self.deploy_script.index("reject_secret_symlinks\n  for name"), self.deploy_script.index('[[ -s "$SECRETS_DIR/$name" ]]'))
+        self.assertLess(self.deploy_script.index("reject_secret_symlinks\n  command -v getfacl"), self.deploy_script.index('[[ -s "$file" ]]'))
 
     def test_deploy_starts_database_and_backs_up_before_migration(self):
         deploy = self.deploy_script.split('  deploy)', 1)[1].split('  verify)', 1)[0]
