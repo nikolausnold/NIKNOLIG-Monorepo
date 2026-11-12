@@ -505,6 +505,17 @@ def wait_for_resumed_activity(package, attempts=5):
         time.sleep(2)
 
 
+def wake_and_unlock_device(attempts=10):
+    adb("shell", "input", "keyevent", "KEYCODE_WAKEUP")
+    adb("shell", "wm", "dismiss-keyguard")
+    for _ in range(attempts):
+        state = adb("shell", "dumpsys", "window", "policy")
+        if re.search(r"(?m)^\s*isKeyguardShowing=false\b", state):
+            return
+        time.sleep(1)
+    raise AssertionError("Android keyguard remained visible after dismiss request")
+
+
 def test_app(apk, brand, server):
     package, main_activity = resolve_apk_launch_target(apk)
     print(
@@ -522,6 +533,7 @@ def test_app(apk, brand, server):
     ) is None:
         raise AssertionError(f"{package} INTERNET is not granted")
 
+    wake_and_unlock_device()
     start_activity(package, main_activity)
     wait_for_resumed_activity(package)
     wait_for_text(brand)

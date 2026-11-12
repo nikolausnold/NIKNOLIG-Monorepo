@@ -682,6 +682,44 @@ class ActivityReadinessTests(unittest.TestCase):
         sleep.assert_called_once_with(2)
 
 
+class DeviceUiReadinessTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    def test_wakes_and_dismisses_keyguard_before_ui_testing(self, adb, sleep):
+        adb.side_effect = [
+            "",
+            "",
+            "isKeyguardShowing=true",
+            "isKeyguardShowing=false",
+        ]
+
+        android_emulator_smoke.wake_and_unlock_device()
+
+        self.assertEqual(
+            [
+                ("shell", "input", "keyevent", "KEYCODE_WAKEUP"),
+                ("shell", "wm", "dismiss-keyguard"),
+                ("shell", "dumpsys", "window", "policy"),
+                ("shell", "dumpsys", "window", "policy"),
+            ],
+            [call.args for call in adb.call_args_list],
+        )
+        sleep.assert_called_once_with(1)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    def test_fails_if_keyguard_cannot_be_dismissed(self, adb, sleep):
+        adb.side_effect = ["", "", *["isKeyguardShowing=true"] * 2]
+
+        with self.assertRaisesRegex(
+            AssertionError, "Android keyguard remained visible"
+        ):
+            android_emulator_smoke.wake_and_unlock_device(attempts=2)
+
+        self.assertEqual(4, adb.call_count)
+        self.assertEqual(2, sleep.call_count)
+
+
 class HierarchyTests(unittest.TestCase):
     @patch("tools.android_emulator_smoke.subprocess.run")
     @patch("tools.android_emulator_smoke.time.sleep")
