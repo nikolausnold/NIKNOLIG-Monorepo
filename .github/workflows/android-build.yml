@@ -138,15 +138,17 @@ jobs:
           system_image="$(awk -F '|' '
             $1 ~ /^[[:space:]]*system-images;android-37([.][0-9]+)?;.*;x86_64[[:space:]]*$/ {
               gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
-              if ($1 ~ /google_apis/) {
+              if ($1 ~ /google_atd/) {
                 print $1
                 found = 1
                 exit
               }
+              if ($1 ~ /google_apis/ && google_apis == "") google_apis = $1
               if (fallback == "") fallback = $1
             }
             END {
-              if (!found && fallback != "") print fallback
+              if (!found && google_apis != "") print google_apis
+              else if (!found && fallback != "") print fallback
             }
           ' "$RUNNER_TEMP/android-sdk-packages.txt")"
           if [[ -z "$system_image" ]]; then
@@ -199,6 +201,7 @@ jobs:
           put_setting global window_animation_scale 0
           put_setting global transition_animation_scale 0
           put_setting global animator_duration_scale 0
+          adb shell locksettings set-disabled true
           test "$(adb shell getprop ro.build.version.sdk | tr -d "\r")" = "37"
       - name: Build smoke APKs with isolated HTTPS probe endpoint
         run: >-

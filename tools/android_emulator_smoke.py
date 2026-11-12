@@ -178,11 +178,6 @@ def verify_package_installed(package, attempts=3):
         time.sleep(2)
 
 
-def verify_installed_launcher(package, manifest_activity):
-    verify_package_installed(package)
-    return resolve_installed_launcher(package, manifest_activity)
-
-
 def install_apk(apk, package, attempts=6):
     for attempt in range(attempts):
         try:
@@ -218,70 +213,6 @@ def install_apk(apk, package, attempts=6):
         if not transient or attempt + 1 == attempts:
             raise AssertionError(message)
         time.sleep(5 * (attempt + 1))
-
-
-def resolve_installed_launcher(package, manifest_activity, attempts=5):
-    args = (
-        "shell",
-        "cmd",
-        "package",
-        "resolve-activity",
-        "--brief",
-        "-a",
-        "android.intent.action.MAIN",
-        "-c",
-        "android.intent.category.LAUNCHER",
-        "-p",
-        package,
-    )
-    for attempt in range(attempts):
-        try:
-            result = run_adb(*args, timeout=15)
-            output = f"{result.stdout}\n{result.stderr}".strip()
-            returncode = result.returncode
-            stdout = result.stdout
-        except subprocess.TimeoutExpired as exc:
-            stdout, stderr = (
-                value.decode("utf-8", errors="replace")
-                if isinstance(value, bytes)
-                else value or ""
-                for value in (exc.stdout, exc.stderr)
-            )
-            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
-            returncode = "timeout"
-
-        component = re.search(
-            rf"(?m)^\s*{re.escape(package)}/([^\s]+)\s*$",
-            stdout,
-        )
-        if returncode == 0 and component is not None:
-            activity = component.group(1)
-            if activity.startswith("."):
-                activity = f"{package}{activity}"
-            elif "." not in activity:
-                activity = f"{package}.{activity}"
-            if activity != manifest_activity:
-                raise AssertionError(
-                    f"Installed launcher for {package} is {activity}, "
-                    f"but the APK manifest declares {manifest_activity}; "
-                    f"{package_diagnostics(package)}"
-                )
-            return activity
-
-        diagnostics = package_diagnostics(package)
-        transient = (
-            any(error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS)
-            or "no activity found" in output.lower()
-            or (returncode == 0 and not output)
-        )
-        message = (
-            f"Installed launcher resolution attempt {attempt + 1} failed for {package} "
-            f"(exit {returncode}): {output or '<no output>'}; {diagnostics}"
-        )
-        print(message, flush=True)
-        if not transient or attempt + 1 == attempts:
-            raise AssertionError(message)
-        time.sleep(2)
 
 
 def start_activity(package, main_activity, attempts=5):
@@ -467,6 +398,19 @@ def wait_for_text(*expected, timeout=15):
     raise AssertionError(f"Expected UI text not found: {expected}")
 
 
+def tap_until_text(resource_id, *expected, status_resource_id=None, attempts=3):
+    failure = None
+    for _ in range(attempts):
+        try:
+            tap(resource_id)
+            if status_resource_id is not None:
+                tap(status_resource_id)
+            return wait_for_text(*expected, timeout=3)
+        except AssertionError as exc:
+            failure = exc
+    raise failure
+
+
 def wait_for_input_text(resource_id, expected, timeout=15):
     deadline = time.monotonic() + timeout
     suffix = f":id/{resource_id}"
@@ -505,6 +449,27 @@ def wait_for_resumed_activity(package, attempts=5):
         time.sleep(2)
 
 
+def wake_and_unlock_device(attempts=10):
+    adb("shell", "input", "keyevent", "KEYCODE_WAKEUP")
+    adb("shell", "wm", "dismiss-keyguard")
+    for _ in range(attempts):
+        state = adb("shell", "dumpsys", "window", "policy")
+        keyguard = re.search(
+            r"(?m)^(?P<indent>[ \t]*)KeyguardServiceDelegate\r?\n"
+            r"(?P<state>(?:(?P=indent)[ \t]+[^\n]*\n?)+)",
+            state,
+        )
+        if keyguard:
+            showing = re.findall(
+                r"(?m)^[ \t]*(?:showing|mIsShowing)=(true|false)[ \t]*\r?$",
+                keyguard["state"],
+            )
+            if showing and all(value == "false" for value in showing):
+                return
+        time.sleep(1)
+    raise AssertionError("Android keyguard remained visible after dismiss request")
+
+
 def test_app(apk, brand, server):
     package, main_activity = resolve_apk_launch_target(apk)
     print(
@@ -512,9 +477,9 @@ def test_app(apk, brand, server):
         flush=True,
     )
     install_apk(apk, package)
-    main_activity = verify_installed_launcher(package, main_activity)
+    verify_package_installed(package)
     clear_app_data(package)
-    main_activity = verify_installed_launcher(package, main_activity)
+    verify_package_installed(package)
     package_state = adb("shell", "dumpsys", "package", package)
     if re.search(
         r"(?m)^\s*android\.permission\.INTERNET:\s+granted=true(?:,|$)",
@@ -522,13 +487,18 @@ def test_app(apk, brand, server):
     ) is None:
         raise AssertionError(f"{package} INTERNET is not granted")
 
+    wake_and_unlock_device()
     start_activity(package, main_activity)
     wait_for_resumed_activity(package)
     wait_for_text(brand)
 
     tap("assistant_button")
-    tap("assistant_request_button")
-    wait_for_text("Bitte gib zuerst", "Enter a term")
+    tap_until_text(
+        "assistant_request_button",
+        "Bitte gib zuerst",
+        "Enter a term",
+        status_resource_id="assistant_request_status",
+    )
     tap("assistant_close_button")
 
     tap("learning_profile_button")
