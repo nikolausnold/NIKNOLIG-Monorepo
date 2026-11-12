@@ -373,6 +373,10 @@ def hierarchy(attempts=6):
             )
             adb("shell", "uiautomator", "dump", "/sdcard/window.xml", timeout=30)
             return ET.fromstring(adb("exec-out", "cat", "/sdcard/window.xml"))
+        except subprocess.TimeoutExpired as exc:
+            failure = exc
+            transient = True
+            message = f"UI hierarchy attempt {attempt + 1} timed out: {exc}"
         except subprocess.CalledProcessError as exc:
             failure = exc
             output = "\n".join(value for value in (exc.stdout, exc.stderr) if value)

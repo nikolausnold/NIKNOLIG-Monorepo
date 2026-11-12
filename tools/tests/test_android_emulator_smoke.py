@@ -700,6 +700,23 @@ class HierarchyTests(unittest.TestCase):
         self.assertIn("attempt 1 failed (exit 137)", output.getvalue())
         sleep.assert_called_once_with(2)
 
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    def test_retries_subprocess_timeout(self, adb, sleep, run):
+        adb.side_effect = [
+            subprocess.TimeoutExpired("uiautomator", 30),
+            "UI hierarchy dumped",
+            "<hierarchy><node /></hierarchy>",
+        ]
+
+        hierarchy = android_emulator_smoke.hierarchy()
+
+        self.assertEqual("hierarchy", hierarchy.tag)
+        self.assertEqual(3, adb.call_count)
+        self.assertEqual(2, run.call_count)
+        sleep.assert_called_once_with(2)
+
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
     def test_does_not_retry_permanent_ui_automation_failure(self, adb, sleep):
