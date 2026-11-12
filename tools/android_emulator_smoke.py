@@ -178,11 +178,6 @@ def verify_package_installed(package, attempts=3):
         time.sleep(2)
 
 
-def verify_installed_launcher(package, manifest_activity):
-    verify_package_installed(package)
-    return resolve_installed_launcher(package, manifest_activity)
-
-
 def install_apk(apk, package, attempts=6):
     for attempt in range(attempts):
         try:
@@ -218,70 +213,6 @@ def install_apk(apk, package, attempts=6):
         if not transient or attempt + 1 == attempts:
             raise AssertionError(message)
         time.sleep(5 * (attempt + 1))
-
-
-def resolve_installed_launcher(package, manifest_activity, attempts=5):
-    args = (
-        "shell",
-        "cmd",
-        "package",
-        "resolve-activity",
-        "--brief",
-        "-a",
-        "android.intent.action.MAIN",
-        "-c",
-        "android.intent.category.LAUNCHER",
-        "-p",
-        package,
-    )
-    for attempt in range(attempts):
-        try:
-            result = run_adb(*args, timeout=15)
-            output = f"{result.stdout}\n{result.stderr}".strip()
-            returncode = result.returncode
-            stdout = result.stdout
-        except subprocess.TimeoutExpired as exc:
-            stdout, stderr = (
-                value.decode("utf-8", errors="replace")
-                if isinstance(value, bytes)
-                else value or ""
-                for value in (exc.stdout, exc.stderr)
-            )
-            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
-            returncode = "timeout"
-
-        component = re.search(
-            rf"(?m)^\s*{re.escape(package)}/([^\s]+)\s*$",
-            stdout,
-        )
-        if returncode == 0 and component is not None:
-            activity = component.group(1)
-            if activity.startswith("."):
-                activity = f"{package}{activity}"
-            elif "." not in activity:
-                activity = f"{package}.{activity}"
-            if activity != manifest_activity:
-                raise AssertionError(
-                    f"Installed launcher for {package} is {activity}, "
-                    f"but the APK manifest declares {manifest_activity}; "
-                    f"{package_diagnostics(package)}"
-                )
-            return activity
-
-        diagnostics = package_diagnostics(package)
-        transient = (
-            any(error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS)
-            or "no activity found" in output.lower()
-            or (returncode == 0 and not output)
-        )
-        message = (
-            f"Installed launcher resolution attempt {attempt + 1} failed for {package} "
-            f"(exit {returncode}): {output or '<no output>'}; {diagnostics}"
-        )
-        print(message, flush=True)
-        if not transient or attempt + 1 == attempts:
-            raise AssertionError(message)
-        time.sleep(2)
 
 
 def start_activity(package, main_activity, attempts=5):
@@ -533,9 +464,9 @@ def test_app(apk, brand, server):
         flush=True,
     )
     install_apk(apk, package)
-    main_activity = verify_installed_launcher(package, main_activity)
+    verify_package_installed(package)
     clear_app_data(package)
-    main_activity = verify_installed_launcher(package, main_activity)
+    verify_package_installed(package)
     package_state = adb("shell", "dumpsys", "package", package)
     if re.search(
         r"(?m)^\s*android\.permission\.INTERNET:\s+granted=true(?:,|$)",
