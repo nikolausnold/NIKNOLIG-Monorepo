@@ -126,6 +126,82 @@ class StartActivityTests(unittest.TestCase):
         adb.assert_called_once()
         sleep.assert_called_once_with(3)
 
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    def test_missing_activity_recovers_and_retries_launch(self, run, adb, sleep):
+        run.side_effect = [
+            subprocess.CompletedProcess(
+                "adb", 1, stdout="", stderr="Error: Activity class does not exist"
+            ),
+            subprocess.CompletedProcess("adb", 0, stdout="Started", stderr=""),
+        ]
+        recovery_calls = []
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            android_emulator_smoke.start_activity(
+                "example",
+                ".MainActivity",
+                recover=lambda: recovery_calls.append(True),
+            )
+
+        self.assertEqual([True], recovery_calls)
+        self.assertEqual(2, run.call_count)
+        self.assertIn("attempt 1 failed:", output.getvalue())
+        adb.assert_called_once_with("shell", "input", "keyevent", "KEYCODE_HOME")
+        sleep.assert_called_once_with(3)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    def test_recovery_failure_does_not_stop_next_launch_attempt(self, run, adb, sleep):
+        run.side_effect = [
+            subprocess.CompletedProcess(
+                "adb", 1, stdout="", stderr="Error: Activity class does not exist"
+            ),
+            subprocess.CompletedProcess("adb", 0, stdout="Started", stderr=""),
+        ]
+        recovery_calls = []
+
+        def fail_recovery():
+            recovery_calls.append(True)
+            raise AssertionError("install failed")
+
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            android_emulator_smoke.start_activity(
+                "example", ".MainActivity", recover=fail_recovery
+            )
+
+        self.assertEqual(2, run.call_count)
+        self.assertEqual([True], recovery_calls)
+        self.assertIn("Recovery reinstall failed: install failed", output.getvalue())
+        adb.assert_called_once_with("shell", "input", "keyevent", "KEYCODE_HOME")
+        sleep.assert_called_once_with(3)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    def test_unrelated_launch_error_does_not_invoke_recovery(self, run, adb, sleep):
+        run.side_effect = [
+            subprocess.CompletedProcess("adb", 1, stdout="", stderr="Permission denied"),
+            subprocess.CompletedProcess("adb", 0, stdout="Started", stderr=""),
+        ]
+        recovery_calls = []
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            android_emulator_smoke.start_activity(
+                "example",
+                ".MainActivity",
+                recover=lambda: recovery_calls.append(True),
+            )
+
+        self.assertEqual([], recovery_calls)
+        self.assertEqual(2, run.call_count)
+        self.assertIn("attempt 1 failed: Permission denied", output.getvalue())
+        adb.assert_called_once_with("shell", "input", "keyevent", "KEYCODE_HOME")
+        sleep.assert_called_once_with(3)
+
 
 class ApkLaunchTargetTests(unittest.TestCase):
     def test_resolves_application_id_and_launcher_from_apk_badging(self):
