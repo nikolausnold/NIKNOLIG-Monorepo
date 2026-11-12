@@ -683,9 +683,10 @@ class ActivityReadinessTests(unittest.TestCase):
 
 
 class HierarchyTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.subprocess.run")
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
-    def test_retries_transient_ui_automation_registration_failure(self, adb, sleep):
+    def test_retries_transient_ui_automation_registration_failure(self, adb, sleep, run):
         adb.side_effect = [
             subprocess.CalledProcessError(137, "uiautomator", stderr=""),
             "UI hierarchy dumped",
@@ -697,6 +698,7 @@ class HierarchyTests(unittest.TestCase):
 
         self.assertEqual("hierarchy", hierarchy.tag)
         self.assertEqual(3, adb.call_count)
+        self.assertEqual(2, run.call_count)
         self.assertIn("attempt 1 failed (exit 137)", output.getvalue())
         sleep.assert_called_once_with(2)
 
@@ -717,9 +719,10 @@ class HierarchyTests(unittest.TestCase):
         self.assertEqual(2, run.call_count)
         sleep.assert_called_once_with(2)
 
+    @patch("tools.android_emulator_smoke.subprocess.run")
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
-    def test_does_not_retry_permanent_ui_automation_failure(self, adb, sleep):
+    def test_does_not_retry_permanent_ui_automation_failure(self, adb, sleep, run):
         adb.side_effect = subprocess.CalledProcessError(
             1, "uiautomator", stderr="permission denied"
         )
@@ -727,6 +730,7 @@ class HierarchyTests(unittest.TestCase):
             android_emulator_smoke.hierarchy()
 
         adb.assert_called_once()
+        run.assert_called_once()
         sleep.assert_not_called()
 
 
