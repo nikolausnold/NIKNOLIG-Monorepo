@@ -441,6 +441,8 @@ class InstallApkTests(unittest.TestCase):
             "java.lang.NullPointerException at "
             "com.android.server.StorageManagerService.allocateBytes",
             "java.lang.NullPointerException at "
+            "android.os.storage.StorageManager.getVolumes()",
+            "java.lang.NullPointerException at "
             "com.android.server.pm.PackageManagerInternal",
         )
         diagnostics.return_value = "package service is starting"
