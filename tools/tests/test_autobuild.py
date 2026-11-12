@@ -181,6 +181,13 @@ class AutobuildTests(unittest.TestCase):
         self.assertNotIn("python3 -m unittest", build_workflow)
         self.assertIn("./gradlew :niknolig:assembleDebug :niknolig-defense:assembleDebug", build_workflow)
 
+    def test_android_emulator_disables_keyguard_before_smoke_tests(self):
+        workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
+        emulator_setup = workflow.split("- name: Start Android 17 emulator", 1)[1].split(
+            "- name: Build smoke APKs", 1
+        )[0]
+        self.assertIn("adb shell locksettings set-disabled true", emulator_setup)
+
     def test_manual_release_installs_backend_dependencies_before_regression_tests(self):
         workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
         install = workflow.index("- name: Install backend test dependencies")

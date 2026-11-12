@@ -199,6 +199,7 @@ jobs:
           put_setting global window_animation_scale 0
           put_setting global transition_animation_scale 0
           put_setting global animator_duration_scale 0
+          adb shell locksettings set-disabled true
           test "$(adb shell getprop ro.build.version.sdk | tr -d "\r")" = "37"
       - name: Build smoke APKs with isolated HTTPS probe endpoint
         run: >-
