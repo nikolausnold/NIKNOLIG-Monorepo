@@ -50,6 +50,16 @@ Der bestehende TLS-Reverse-Proxy muss `/v1/devices*`, `/v1/sessions*`, `/v1/pair
 (Pfadliste wie in `backend/Caddyfile`). Wird ein Wildcard-`proxy_pass` auf Port 8001 verwendet, ist
 nichts weiter nötig.
 
+## Readiness-Verbindungen
+
+`/health/ready` nutzt eine eigene, nur lesende Verbindung (`default_transaction_read_only=on`) als
+`backend_health` (`HEALTH_DB_USER` + `HEALTH_DB_PASSWORD_FILE`); die Rollenprüfung verlangt genau diese
+Rolle. Die API selbst nutzt weiter `backend_device_api`, und `device_store.ping` prüft zusätzlich diese
+Rolle samt Schema. Fehlt eine der beiden Variablen oder das Secret, antwortet `/health/ready` mit 503
+(fail closed). Schlägt `/health/ready` mit 503 fehl, zuerst prüfen: Passwort von `backend_health`
+stimmt mit `health.pw` überein (Migration setzt es), Migration 002 wurde angewendet, Rolle
+`backend_device_api` hat das Passwort aus `device_api.pw`. Der Container auf Port 8000 bleibt unberührt.
+
 ## Verifikation
 
 ```bash

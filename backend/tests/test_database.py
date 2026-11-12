@@ -1,9 +1,10 @@
 import sys
+import tempfile
 import threading
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -11,6 +12,90 @@ sys.path.insert(0, str(BACKEND))
 
 import database
 from database import check_database
+
+
+class HealthLoginTests(unittest.TestCase):
+    base = {"PGHOST": "db", "PGDATABASE": "nold_staging", "PGUSER": "backend_device_api"}
+
+    def params(self, extra, secrets):
+        with tempfile.TemporaryDirectory() as directory:
+            env = dict(self.base)
+            for name, value in secrets.items():
+                path = Path(directory, name)
+                path.write_text(value)
+                env[name] = str(path)
+            env.update(extra)
+            with patch.dict("os.environ", env, clear=True):
+                return database.health_connection_parameters()
+
+    def test_dedicated_health_login_overrides_api_login(self):
+        dsn, kwargs = self.params(
+            {"HEALTH_DB_USER": "backend_health"},
+            {"PGPASSWORD_FILE": "api-secret", "HEALTH_DB_PASSWORD_FILE": "health-secret"},
+        )
+        self.assertEqual("", dsn)
+        self.assertEqual(("backend_health", "health-secret"), (kwargs["user"], kwargs["password"]))
+
+    def test_normal_connection_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory, "pw")
+            path.write_text("api-secret")
+            env = {**self.base, "PGPASSWORD_FILE": str(path), "HEALTH_DB_USER": "backend_health",
+                   "HEALTH_DB_PASSWORD_FILE": str(path)}
+            with patch.dict("os.environ", env, clear=True):
+                _, kwargs = database.connection_parameters()
+        self.assertNotIn("user", kwargs)
+
+    def test_incomplete_or_missing_secret_fails_closed(self):
+        with self.assertRaises(ValueError):
+            self.params({"HEALTH_DB_USER": "backend_health"}, {"PGPASSWORD_FILE": "x"})
+        with self.assertRaises(ValueError):
+            self.params({}, {"PGPASSWORD_FILE": "x", "HEALTH_DB_PASSWORD_FILE": "y"})
+        with self.assertRaises(OSError):
+            self.params({"HEALTH_DB_USER": "backend_health",
+                         "HEALTH_DB_PASSWORD_FILE": "/nonexistent/secret"}, {"PGPASSWORD_FILE": "x"})
+        with self.assertRaises(ValueError):
+            self.params({"HEALTH_DB_USER": "backend_health"},
+                        {"PGPASSWORD_FILE": "x", "HEALTH_DB_PASSWORD_FILE": ""})
+
+    def test_probe_connects_with_health_login_and_wrong_role_is_rejected(self):
+        import asyncio
+        import migrate
+
+        class Result:
+            def __init__(self, rows): self.rows = rows
+            async def fetchall(self): return self.rows
+
+        class Connection:
+            async def execute(self, *_): return Result([("backend_device_api", "backend_device_api")])
+            async def close(self): pass
+
+        seen = {}
+
+        async def connect(dsn, **kwargs):
+            seen.update(kwargs)
+            return Connection()
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory, "pw")
+            path.write_text("health-secret")
+            env = {**self.base, "HEALTH_DB_USER": "backend_health", "HEALTH_DB_PASSWORD_FILE": str(path)}
+            with patch.dict("os.environ", env, clear=True), \
+                    patch("database.psycopg.AsyncConnection.connect", connect):
+                with self.assertRaises(RuntimeError):
+                    asyncio.run(database.probe(migrate.check_health_ready_async, health_login=True))
+        self.assertEqual("backend_health", seen["user"])
+        self.assertTrue(seen["options"].endswith("default_transaction_read_only=on"))
+
+    def test_database_outage_propagates_for_503(self):
+        import asyncio
+
+        async def down(*_, **__): raise OSError("down")
+
+        with patch.dict("os.environ", self.base, clear=True), \
+                patch("database.psycopg.AsyncConnection.connect", down):
+            with self.assertRaises(OSError):
+                asyncio.run(database.probe(AsyncMock(), health_login=True))
 
 
 class DatabaseReadinessTests(unittest.TestCase):

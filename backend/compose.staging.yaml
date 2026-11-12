@@ -34,8 +34,11 @@ services:
       PGHOST: host.docker.internal
       PGPORT: ${STAGING_PGPORT:-5432}
       PGDATABASE: nold_staging
-      PGUSER: backend_health
-      PGPASSWORD_FILE: /run/secrets/health_password
+      PGUSER: backend_device_api
+      PGPASSWORD_FILE: /run/secrets/device_api_password
+      # Read-only readiness login (/health/ready); the API itself keeps backend_device_api.
+      HEALTH_DB_USER: backend_health
+      HEALTH_DB_PASSWORD_FILE: /run/secrets/health_password
       DEVICE_API_ENABLED: "1"
       DEVICE_API_DB_USER: backend_device_api
       DEVICE_API_DB_PASSWORD_FILE: /run/secrets/device_api_password

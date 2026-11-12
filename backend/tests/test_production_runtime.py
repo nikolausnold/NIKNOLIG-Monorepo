@@ -303,7 +303,7 @@ class ProductionRuntimeTests(unittest.TestCase):
 
     def test_readiness_checks_database_and_migration_invariants(self):
         self.assertEqual((200, {"status": "ready"}), self.request("/health/ready"))
-        self.factory.assert_awaited_once_with(migrate.check_health_ready_async)
+        self.factory.assert_awaited_once_with(migrate.check_health_ready_async, health_login=True)
 
     def test_unavailable_database_returns_generic_503(self):
         self.factory.side_effect = psycopg.OperationalError("password and internal address")
