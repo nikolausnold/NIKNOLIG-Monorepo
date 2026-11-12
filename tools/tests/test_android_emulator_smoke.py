@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 
 with patch.dict(os.environ, {"ANDROID_HOME": "/android-sdk"}):
@@ -685,7 +685,8 @@ class ActivityReadinessTests(unittest.TestCase):
 class HierarchyTests(unittest.TestCase):
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
-    def test_retries_transient_ui_automation_registration_failure(self, adb, sleep):
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_transient_ui_automation_registration_failure(self, run_adb, adb, sleep):
         adb.side_effect = [
             subprocess.CalledProcessError(137, "uiautomator", stderr=""),
             "UI hierarchy dumped",
@@ -698,11 +699,20 @@ class HierarchyTests(unittest.TestCase):
         self.assertEqual("hierarchy", hierarchy.tag)
         self.assertEqual(3, adb.call_count)
         self.assertIn("attempt 1 failed (exit 137)", output.getvalue())
-        sleep.assert_called_once_with(2)
+        run_adb.assert_has_calls(
+            [
+                call("shell", "rm", "-f", "/sdcard/window.xml", timeout=15),
+                call("shell", "killall", "uiautomator", timeout=15),
+                call("shell", "rm", "-f", "/sdcard/window.xml", timeout=15),
+            ]
+        )
+        self.assertEqual(3, run_adb.call_count)
+        sleep.assert_called_once_with(3)
 
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
-    def test_does_not_retry_permanent_ui_automation_failure(self, adb, sleep):
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_does_not_retry_permanent_ui_automation_failure(self, run_adb, adb, sleep):
         adb.side_effect = subprocess.CalledProcessError(
             1, "uiautomator", stderr="permission denied"
         )
@@ -710,6 +720,9 @@ class HierarchyTests(unittest.TestCase):
             android_emulator_smoke.hierarchy()
 
         adb.assert_called_once()
+        run_adb.assert_called_once_with(
+            "shell", "rm", "-f", "/sdcard/window.xml", timeout=15
+        )
         sleep.assert_not_called()
 
 
