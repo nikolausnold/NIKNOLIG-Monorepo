@@ -103,7 +103,7 @@ def create_app(*, readiness_probe=None, support_service=None, environment=None):
     @application.get("/health/ready")
     async def ready():
         try:
-            await probe(check_health_ready_async)
+            await probe(check_health_ready_async, health_login=True)
             device_store = getattr(application.state, "device_store", None)
             if device_store is not None:
                 await device_store.call_bounded(device_store.ping)

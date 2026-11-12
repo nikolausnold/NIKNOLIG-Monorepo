@@ -58,8 +58,10 @@ services:
       PGHOST: postgres
       PGPORT: "5432"
       PGDATABASE: ${STAGING_DB_NAME:-niknolig_staging}
-      PGUSER: backend_health
-      PGPASSWORD_FILE: /run/secrets/health_password
+      PGUSER: backend_device_api
+      PGPASSWORD_FILE: /run/secrets/device_api_password
+      HEALTH_DB_USER: backend_health
+      HEALTH_DB_PASSWORD_FILE: /run/secrets/health_password
       DEVICE_API_ENABLED: "1"
       DEVICE_API_DB_USER: backend_device_api
       DEVICE_API_DB_PASSWORD_FILE: /run/secrets/device_api_password
