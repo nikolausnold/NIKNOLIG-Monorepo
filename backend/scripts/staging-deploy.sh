@@ -21,10 +21,18 @@ ENV_FILE=staging.env
 [[ "$(stat -c %a "$ENV_FILE")" =~ ^[46]00$ ]] || { echo "$ENV_FILE must be mode 600" >&2; exit 1; }
 
 # Values are read as data, never sourced/executed.
-get() { grep -E "^$1=" "$ENV_FILE" | tail -n1 | cut -d= -f2-; }
+get() { grep -E "^$1=" "$ENV_FILE" | tail -n1 | cut -d= -f2- || true; }
 SECRETS_DIR="$(get STAGING_SECRETS_DIR)"
+[[ -n "$SECRETS_DIR" ]] || { echo "STAGING_SECRETS_DIR is required" >&2; exit 1; }
+SECRETS_DIR="$(realpath -m -- "$SECRETS_DIR")"
 DB_NAME="$(get STAGING_DB_NAME)"; DB_NAME="${DB_NAME:-niknolig_staging}"
-dc() { docker compose --env-file "$ENV_FILE" -f compose.staging.yaml "$@"; }
+STAGING_DB_NAME="$DB_NAME"
+AUTH_ISSUER="$(get AUTH_ISSUER)"
+AUTH_AUDIENCE="$(get AUTH_AUDIENCE)"
+AUTH_JWKS_URL="$(get AUTH_JWKS_URL)"
+export STAGING_SECRETS_DIR="$SECRETS_DIR" STAGING_DB_NAME
+export AUTH_ISSUER AUTH_AUDIENCE AUTH_JWKS_URL
+dc() { env -u COMPOSE_PROJECT_NAME docker compose --project-name niknolig-staging --env-file "$ENV_FILE" -f compose.staging.yaml "$@"; }
 
 init_secrets() {
   [[ -n "$SECRETS_DIR" && "$SECRETS_DIR" == /opt/nold/staging/* ]] || { echo "STAGING_SECRETS_DIR must be under /opt/nold/staging/" >&2; exit 1; }
@@ -84,9 +92,9 @@ verify() {
   local code
   curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8001/health/ready >/dev/null
   echo "local /health/ready ok"
-  code="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 -X POST -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:8001/v1/devices)"
-  [[ "$code" == 401 || "$code" == 400 || "$code" == 422 ]] || { echo "Unauthenticated device registration returned $code (expected rejection)" >&2; exit 1; }
-  echo "unauthenticated registration rejected ($code)"
+  code="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 http://127.0.0.1:8001/v1/devices/me)"
+  [[ "$code" == 401 ]] || { echo "Unauthenticated protected route returned $code (expected 401)" >&2; exit 1; }
+  echo "unauthenticated protected route rejected ($code)"
   curl --fail --silent --show-error --proto '=https' --max-time 15 "https://$STAGING_HOST/health/ready" >/dev/null
   echo "public https://$STAGING_HOST/health/ready ok"
 }
@@ -96,9 +104,10 @@ case "${1:-}" in
   preflight) preflight ;;
   backup) preflight; backup ;;
   deploy)
-    preflight; backup
+    preflight
+    dc up -d --wait postgres
+    backup
     dc build api
-    dc up -d --wait --remove-orphans postgres
     dc run --rm migrate
     dc up -d --wait api
     echo "Deployed. Run: scripts/staging-deploy.sh verify"

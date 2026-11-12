@@ -7,6 +7,7 @@ BACKEND = Path(__file__).resolve().parents[1]
 class StagingConfigurationTests(unittest.TestCase):
     def setUp(self):
         self.compose = (BACKEND / "compose.staging.yaml").read_text()
+        self.deploy_script = (BACKEND / "scripts/staging-deploy.sh").read_text()
 
     def test_staging_is_isolated_from_production(self):
         self.assertIn("name: niknolig-staging", self.compose)
@@ -46,6 +47,24 @@ class StagingConfigurationTests(unittest.TestCase):
         for module in ("device_security.py", "device_store.py", "device_api.py"):
             self.assertIn(f"!{module}", ignore)
             self.assertIn(module, dockerfile)
+
+    def test_staging_script_uses_canonical_paths_and_validated_compose_settings(self):
+        self.assertIn('SECRETS_DIR="$(realpath -m -- "$SECRETS_DIR")"', self.deploy_script)
+        self.assertIn("get() { grep -E", self.deploy_script)
+        self.assertIn("| cut -d= -f2- || true; }", self.deploy_script)
+        self.assertIn('export STAGING_SECRETS_DIR="$SECRETS_DIR" STAGING_DB_NAME', self.deploy_script)
+        self.assertIn("export AUTH_ISSUER AUTH_AUDIENCE AUTH_JWKS_URL", self.deploy_script)
+        self.assertIn("env -u COMPOSE_PROJECT_NAME docker compose --project-name niknolig-staging", self.deploy_script)
+
+    def test_staging_verification_checks_authentication_on_protected_route(self):
+        self.assertIn("http://127.0.0.1:8001/v1/devices/me", self.deploy_script)
+        self.assertIn('[[ "$code" == 401 ]] ||', self.deploy_script)
+        self.assertNotIn("-X POST", self.deploy_script)
+
+    def test_deploy_starts_database_and_backs_up_before_migration(self):
+        deploy = self.deploy_script.split('  deploy)', 1)[1].split('  verify)', 1)[0]
+        self.assertLess(deploy.index("dc up -d --wait postgres"), deploy.index("backup"))
+        self.assertLess(deploy.index("backup"), deploy.index("dc run --rm migrate"))
 
 
 if __name__ == "__main__":
