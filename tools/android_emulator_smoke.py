@@ -179,6 +179,11 @@ def verify_package_installed(package, attempts=3):
         time.sleep(2)
 
 
+def verify_installed_launcher(package, manifest_activity):
+    verify_package_installed(package)
+    return resolve_installed_launcher(package, manifest_activity)
+
+
 def install_apk(apk, package, attempts=6):
     for attempt in range(attempts):
         try:
@@ -216,7 +221,84 @@ def install_apk(apk, package, attempts=6):
         time.sleep(5 * (attempt + 1))
 
 
-def start_activity(package, main_activity, attempts=5):
+def resolve_installed_launcher(package, manifest_activity, attempts=5):
+    args = (
+        "shell",
+        "cmd",
+        "package",
+        "resolve-activity",
+        "--brief",
+        "-a",
+        "android.intent.action.MAIN",
+        "-c",
+        "android.intent.category.LAUNCHER",
+        "-p",
+        package,
+    )
+    for attempt in range(attempts):
+        try:
+            result = run_adb(*args, timeout=15)
+            output = f"{result.stdout}\n{result.stderr}".strip()
+            returncode = result.returncode
+            stdout = result.stdout
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace")
+                if isinstance(value, bytes)
+                else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
+            returncode = "timeout"
+
+        component = re.search(
+            rf"(?m)^\s*{re.escape(package)}/([^\s]+)\s*$",
+            stdout,
+        )
+        if returncode == 0 and component is not None:
+            activity = component.group(1)
+            if activity.startswith("."):
+                activity = f"{package}{activity}"
+            elif "." not in activity:
+                activity = f"{package}.{activity}"
+            if activity != manifest_activity:
+                raise AssertionError(
+                    f"Installed launcher for {package} is {activity}, "
+                    f"but the APK manifest declares {manifest_activity}; "
+                    f"{package_diagnostics(package)}"
+                )
+            return activity
+
+        diagnostics = package_diagnostics(package)
+        transient = (
+            any(error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS)
+            or "no activity found" in output.lower()
+            or (returncode == 0 and not output)
+        )
+        message = (
+            f"Installed launcher resolution attempt {attempt + 1} failed for {package} "
+            f"(exit {returncode}): {output or '<no output>'}; {diagnostics}"
+        )
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message)
+        time.sleep(2)
+
+
+def wait_for_activity_service(timeout=90):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            result = run_adb("shell", "cmd", "activity", "get-current-user", timeout=10)
+            if result.returncode == 0 and result.stdout.strip().isdigit():
+                return True
+        except (subprocess.SubprocessError, OSError):
+            pass
+        time.sleep(3)
+    return False
+
+
+def start_activity(package, main_activity, attempts=8, recover=None):
     # am can fail transiently right after install/pm clear while the system settles.
     for attempt in range(attempts):
         try:
@@ -241,6 +323,19 @@ def start_activity(package, main_activity, attempts=5):
             )
             output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}"
         print(f"am start attempt {attempt + 1} failed: {output.strip()}", flush=True)
+        if attempt + 1 < attempts and (
+            "broken pipe" in output.lower()
+            or "failure calling service" in output.lower()
+            or "can't find service: activity" in output.lower()
+        ):
+            # system_server is restarting; wait for the activity service instead of retrying blindly.
+            print(f"Activity service ready: {wait_for_activity_service()}", flush=True)
+        if recover is not None and attempt + 1 < attempts and "does not exist" in output:
+            # A system_server restart can leave the package unloadable; reinstall it.
+            try:
+                recover()
+            except (AssertionError, subprocess.SubprocessError, OSError) as exc:
+                print(f"Recovery reinstall failed: {exc}", flush=True)
         try:
             adb("shell", "input", "keyevent", "KEYCODE_HOME")
         except (subprocess.SubprocessError, OSError) as exc:
@@ -480,7 +575,7 @@ def test_app(apk, brand, server):
     install_apk(apk, package)
     verify_package_installed(package)
     clear_app_data(package)
-    verify_package_installed(package)
+    main_activity = verify_installed_launcher(package, main_activity)
     package_state = adb("shell", "dumpsys", "package", package)
     if re.search(
         r"(?m)^\s*android\.permission\.INTERNET:\s+granted=true(?:,|$)",
@@ -489,7 +584,7 @@ def test_app(apk, brand, server):
         raise AssertionError(f"{package} INTERNET is not granted")
 
     wake_and_unlock_device()
-    start_activity(package, main_activity)
+    start_activity(package, main_activity, recover=lambda: install_apk(apk, package))
     wait_for_resumed_activity(package)
     wait_for_text(brand)
 

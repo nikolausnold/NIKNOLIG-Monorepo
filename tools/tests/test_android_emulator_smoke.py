@@ -13,6 +13,41 @@ with patch.dict(os.environ, {"ANDROID_HOME": "/android-sdk"}):
 
 
 class StartActivityTests(unittest.TestCase):
+    def assert_service_wait_before_retry(self, diagnostic):
+        events = []
+        results = iter(
+            (
+                subprocess.CompletedProcess("adb", 1, stdout="", stderr=diagnostic),
+                subprocess.CompletedProcess("adb", 0, stdout="Status: ok", stderr=""),
+            )
+        )
+
+        def launch(*args, **kwargs):
+            events.append("launch")
+            return next(results)
+
+        def wait_for_service():
+            events.append("service")
+            return True
+
+        with (
+            patch("tools.android_emulator_smoke.subprocess.run", side_effect=launch) as run,
+            patch(
+                "tools.android_emulator_smoke.wait_for_activity_service",
+                side_effect=wait_for_service,
+            ) as wait,
+            patch("tools.android_emulator_smoke.adb"),
+            patch("tools.android_emulator_smoke.time.sleep"),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            android_emulator_smoke.start_activity(
+                "example", ".MainActivity", attempts=2
+            )
+
+        self.assertEqual(["launch", "service", "launch"], events)
+        self.assertEqual(2, run.call_count)
+        wait.assert_called_once_with()
+
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
     @patch("tools.android_emulator_smoke.subprocess.run")
@@ -124,6 +159,114 @@ class StartActivityTests(unittest.TestCase):
         self.assertIn("HOME keyevent failed", output.getvalue())
         self.assertIn("attempt 1 failed: launch failed", output.getvalue())
         adb.assert_called_once()
+        sleep.assert_called_once_with(3)
+
+    def test_broken_pipe_waits_for_service_before_retry(self):
+        self.assert_service_wait_before_retry(
+            "cmd: Failure calling service activity: Broken pipe (32)"
+        )
+
+    def test_missing_activity_service_waits_before_retry(self):
+        self.assert_service_wait_before_retry("cmd: Can't find service: activity")
+
+    @patch("tools.android_emulator_smoke.wait_for_activity_service")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    def test_does_not_wait_after_final_launch_attempt(
+        self, sleep, run, adb, wait_for_service
+    ):
+        run.return_value = subprocess.CompletedProcess(
+            "adb",
+            1,
+            stdout="",
+            stderr="Failure calling service activity: Broken pipe (32)",
+        )
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(AssertionError, "Broken pipe"):
+                android_emulator_smoke.start_activity(
+                    "example", ".MainActivity", attempts=1
+                )
+
+        wait_for_service.assert_not_called()
+        sleep.assert_called_once_with(3)
+        adb.assert_called_once_with("shell", "input", "keyevent", "KEYCODE_HOME")
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    def test_missing_activity_recovers_and_retries_launch(self, run, adb, sleep):
+        run.side_effect = [
+            subprocess.CompletedProcess(
+                "adb", 1, stdout="", stderr="Error: Activity class does not exist"
+            ),
+            subprocess.CompletedProcess("adb", 0, stdout="Started", stderr=""),
+        ]
+        recovery_calls = []
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            android_emulator_smoke.start_activity(
+                "example",
+                ".MainActivity",
+                recover=lambda: recovery_calls.append(True),
+            )
+
+        self.assertEqual([True], recovery_calls)
+        self.assertEqual(2, run.call_count)
+        self.assertIn("attempt 1 failed:", output.getvalue())
+        adb.assert_called_once_with("shell", "input", "keyevent", "KEYCODE_HOME")
+        sleep.assert_called_once_with(3)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    def test_recovery_failure_does_not_stop_next_launch_attempt(self, run, adb, sleep):
+        run.side_effect = [
+            subprocess.CompletedProcess(
+                "adb", 1, stdout="", stderr="Error: Activity class does not exist"
+            ),
+            subprocess.CompletedProcess("adb", 0, stdout="Started", stderr=""),
+        ]
+        recovery_calls = []
+
+        def fail_recovery():
+            recovery_calls.append(True)
+            raise AssertionError("install failed")
+
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            android_emulator_smoke.start_activity(
+                "example", ".MainActivity", recover=fail_recovery
+            )
+
+        self.assertEqual(2, run.call_count)
+        self.assertEqual([True], recovery_calls)
+        self.assertIn("Recovery reinstall failed: install failed", output.getvalue())
+        adb.assert_called_once_with("shell", "input", "keyevent", "KEYCODE_HOME")
+        sleep.assert_called_once_with(3)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    def test_unrelated_launch_error_does_not_invoke_recovery(self, run, adb, sleep):
+        run.side_effect = [
+            subprocess.CompletedProcess("adb", 1, stdout="", stderr="Permission denied"),
+            subprocess.CompletedProcess("adb", 0, stdout="Started", stderr=""),
+        ]
+        recovery_calls = []
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            android_emulator_smoke.start_activity(
+                "example",
+                ".MainActivity",
+                recover=lambda: recovery_calls.append(True),
+            )
+
+        self.assertEqual([], recovery_calls)
+        self.assertEqual(2, run.call_count)
+        self.assertIn("attempt 1 failed: Permission denied", output.getvalue())
+        adb.assert_called_once_with("shell", "input", "keyevent", "KEYCODE_HOME")
         sleep.assert_called_once_with(3)
 
 
@@ -534,6 +677,173 @@ class InstallApkTests(unittest.TestCase):
         sleep.assert_not_called()
 
 
+class InstalledLauncherTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.resolve_installed_launcher")
+    @patch("tools.android_emulator_smoke.verify_package_installed")
+    def test_verifies_package_before_resolving_launcher(
+        self, verify_package_installed, resolve_installed_launcher
+    ):
+        resolve_installed_launcher.return_value = "com.example.actual.Launcher"
+
+        activity = android_emulator_smoke.verify_installed_launcher(
+            "com.example.actual", "com.example.actual.Launcher"
+        )
+
+        self.assertEqual("com.example.actual.Launcher", activity)
+        verify_package_installed.assert_called_once_with("com.example.actual")
+        resolve_installed_launcher.assert_called_once_with(
+            "com.example.actual", "com.example.actual.Launcher"
+        )
+
+    @patch("tools.android_emulator_smoke.package_diagnostics")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_until_package_manager_resolves_manifest_launcher(
+        self, run_adb, sleep, diagnostics
+    ):
+        run_adb.side_effect = [
+            subprocess.CompletedProcess("adb", 0, stdout="No activity found", stderr=""),
+            subprocess.CompletedProcess(
+                "adb", 0, stdout="com.example.actual/.Launcher\n", stderr=""
+            ),
+        ]
+        diagnostics.return_value = "installed APK (exit 0): package:/data/app/base.apk"
+
+        activity = android_emulator_smoke.resolve_installed_launcher(
+            "com.example.actual", "com.example.actual.Launcher", attempts=2
+        )
+
+        self.assertEqual("com.example.actual.Launcher", activity)
+        self.assertEqual(2, run_adb.call_count)
+        self.assertEqual(1, diagnostics.call_count)
+        sleep.assert_called_once_with(2)
+
+    @patch("tools.android_emulator_smoke.package_diagnostics")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_transient_package_service_failure(
+        self, run_adb, sleep, diagnostics
+    ):
+        run_adb.side_effect = [
+            subprocess.CompletedProcess(
+                "adb",
+                1,
+                stdout="",
+                stderr="cmd: Failure calling service package: Broken pipe (32)",
+            ),
+            subprocess.CompletedProcess(
+                "adb", 0, stdout="com.example.actual/.Launcher\n", stderr=""
+            ),
+        ]
+        diagnostics.return_value = "installed APK (exit 0): package:/data/app/base.apk"
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            activity = android_emulator_smoke.resolve_installed_launcher(
+                "com.example.actual",
+                "com.example.actual.Launcher",
+                attempts=2,
+            )
+
+        self.assertEqual("com.example.actual.Launcher", activity)
+        self.assertEqual(2, run_adb.call_count)
+        diagnostics.assert_called_once_with("com.example.actual")
+        sleep.assert_called_once_with(2)
+        self.assertIn("Broken pipe (32)", output.getvalue())
+
+    @patch("tools.android_emulator_smoke.package_diagnostics")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_timeout_and_logs_captured_output(
+        self, run_adb, sleep, diagnostics
+    ):
+        run_adb.side_effect = [
+            subprocess.TimeoutExpired(
+                "adb", 15, output=b"partial stdout", stderr=b"partial stderr"
+            ),
+            subprocess.CompletedProcess(
+                "adb", 0, stdout="com.example.actual/.Launcher\n", stderr=""
+            ),
+        ]
+        diagnostics.return_value = "installed APK (exit 0): package:/data/app/base.apk"
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            activity = android_emulator_smoke.resolve_installed_launcher(
+                "com.example.actual",
+                "com.example.actual.Launcher",
+                attempts=2,
+            )
+
+        self.assertEqual("com.example.actual.Launcher", activity)
+        self.assertEqual(2, run_adb.call_count)
+        diagnostics.assert_called_once_with("com.example.actual")
+        sleep.assert_called_once_with(2)
+        self.assertIn("timed out after 15s", output.getvalue())
+        self.assertIn("partial stdout", output.getvalue())
+        self.assertIn("partial stderr", output.getvalue())
+
+    @patch("tools.android_emulator_smoke.package_diagnostics")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_does_not_retry_permanent_launcher_resolution_error(
+        self, run_adb, sleep, diagnostics
+    ):
+        run_adb.return_value = subprocess.CompletedProcess(
+            "adb", 1, stdout="", stderr="unknown package command"
+        )
+        diagnostics.return_value = "package state (exit 0): installed"
+
+        with self.assertRaisesRegex(AssertionError, "unknown package command"):
+            android_emulator_smoke.resolve_installed_launcher(
+                "com.example.actual", "com.example.actual.Launcher"
+            )
+
+        run_adb.assert_called_once()
+        sleep.assert_not_called()
+
+
+class TestAppInstalledLauncherTests(unittest.TestCase):
+    def test_uses_verified_installed_launcher_before_starting_app(self):
+        package = "com.example.actual"
+        manifest_activity = "com.example.actual.ManifestLauncher"
+        installed_activity = "com.example.actual.InstalledLauncher"
+        stop_after_launch = RuntimeError("stop after launch")
+
+        with (
+            patch(
+                "tools.android_emulator_smoke.resolve_apk_launch_target",
+                return_value=(package, manifest_activity),
+            ),
+            patch("tools.android_emulator_smoke.install_apk") as install_apk,
+            patch(
+                "tools.android_emulator_smoke.verify_package_installed"
+            ) as verify_package_installed,
+            patch("tools.android_emulator_smoke.clear_app_data") as clear_app_data,
+            patch(
+                "tools.android_emulator_smoke.verify_installed_launcher",
+                return_value=installed_activity,
+            ) as verify_installed_launcher,
+            patch(
+                "tools.android_emulator_smoke.adb",
+                return_value="android.permission.INTERNET: granted=true",
+            ),
+            patch("tools.android_emulator_smoke.wake_and_unlock_device"),
+            patch(
+                "tools.android_emulator_smoke.start_activity",
+                side_effect=stop_after_launch,
+            ) as start_activity,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "stop after launch"):
+                android_emulator_smoke.test_app(Path("app.apk"), "NIKNOLIG", None)
+
+        install_apk.assert_called_once_with(Path("app.apk"), package)
+        verify_package_installed.assert_called_once_with(package)
+        clear_app_data.assert_called_once_with(package)
+        verify_installed_launcher.assert_called_once_with(package, manifest_activity)
+        self.assertEqual(
+            (package, installed_activity), start_activity.call_args.args[:2]
+        )
+
+
 class ActivityReadinessTests(unittest.TestCase):
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.run_adb")
@@ -560,6 +870,59 @@ class ActivityReadinessTests(unittest.TestCase):
 
         self.assertEqual(2, run_adb.call_count)
         sleep.assert_called_once_with(2)
+
+
+class ActivityServiceReadinessTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.time.monotonic", return_value=0)
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_failed_probes_until_numeric_current_user(
+        self, run_adb, monotonic, sleep
+    ):
+        run_adb.side_effect = [
+            subprocess.CompletedProcess("adb", 1, stdout="", stderr="service unavailable"),
+            subprocess.CompletedProcess("adb", 0, stdout="10\n", stderr=""),
+        ]
+
+        self.assertTrue(android_emulator_smoke.wait_for_activity_service(timeout=5))
+
+        self.assertEqual(2, run_adb.call_count)
+        sleep.assert_called_once_with(3)
+        self.assertEqual(3, monotonic.call_count)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.time.monotonic", return_value=0)
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_probe_exceptions_until_service_is_ready(
+        self, run_adb, monotonic, sleep
+    ):
+        run_adb.side_effect = [
+            OSError("adb transport unavailable"),
+            subprocess.SubprocessError("activity service restarting"),
+            subprocess.CompletedProcess("adb", 0, stdout="0", stderr=""),
+        ]
+
+        self.assertTrue(android_emulator_smoke.wait_for_activity_service(timeout=5))
+
+        self.assertEqual(3, run_adb.call_count)
+        self.assertEqual(2, sleep.call_count)
+        self.assertEqual([3, 3], [call.args[0] for call in sleep.call_args_list])
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.time.monotonic", side_effect=[0, 0, 3])
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_returns_false_when_readiness_deadline_expires(
+        self, run_adb, monotonic, sleep
+    ):
+        run_adb.return_value = subprocess.CompletedProcess(
+            "adb", 1, stdout="", stderr="service unavailable"
+        )
+
+        self.assertFalse(android_emulator_smoke.wait_for_activity_service(timeout=2))
+
+        run_adb.assert_called_once()
+        sleep.assert_called_once_with(3)
+        self.assertEqual(3, monotonic.call_count)
 
 
 class DeviceUiReadinessTests(unittest.TestCase):
