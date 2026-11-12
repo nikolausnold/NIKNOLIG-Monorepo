@@ -309,7 +309,7 @@ def start_activity(package, main_activity, attempts=5, recover=None):
             )
             output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}"
         print(f"am start attempt {attempt + 1} failed: {output.strip()}", flush=True)
-        if recover is not None and "does not exist" in output:
+        if recover is not None and attempt + 1 < attempts and "does not exist" in output:
             # A system_server restart can leave the package unloadable; reinstall it.
             try:
                 recover()
