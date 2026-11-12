@@ -29,6 +29,7 @@ PACKAGE_MANAGER_TRANSIENT_ERRORS = (
     "timed out",
     "packagemanagerinternal",
     "storagemanagerservice.allocatebytes",
+    "storagemanager.getvolumes()",
 )
 
 
