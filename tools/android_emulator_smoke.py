@@ -575,7 +575,7 @@ def test_app(apk, brand, server):
     install_apk(apk, package)
     verify_package_installed(package)
     clear_app_data(package)
-    verify_package_installed(package)
+    main_activity = verify_installed_launcher(package, main_activity)
     package_state = adb("shell", "dumpsys", "package", package)
     if re.search(
         r"(?m)^\s*android\.permission\.INTERNET:\s+granted=true(?:,|$)",

@@ -801,6 +801,49 @@ class InstalledLauncherTests(unittest.TestCase):
         sleep.assert_not_called()
 
 
+class TestAppInstalledLauncherTests(unittest.TestCase):
+    def test_uses_verified_installed_launcher_before_starting_app(self):
+        package = "com.example.actual"
+        manifest_activity = "com.example.actual.ManifestLauncher"
+        installed_activity = "com.example.actual.InstalledLauncher"
+        stop_after_launch = RuntimeError("stop after launch")
+
+        with (
+            patch(
+                "tools.android_emulator_smoke.resolve_apk_launch_target",
+                return_value=(package, manifest_activity),
+            ),
+            patch("tools.android_emulator_smoke.install_apk") as install_apk,
+            patch(
+                "tools.android_emulator_smoke.verify_package_installed"
+            ) as verify_package_installed,
+            patch("tools.android_emulator_smoke.clear_app_data") as clear_app_data,
+            patch(
+                "tools.android_emulator_smoke.verify_installed_launcher",
+                return_value=installed_activity,
+            ) as verify_installed_launcher,
+            patch(
+                "tools.android_emulator_smoke.adb",
+                return_value="android.permission.INTERNET: granted=true",
+            ),
+            patch("tools.android_emulator_smoke.wake_and_unlock_device"),
+            patch(
+                "tools.android_emulator_smoke.start_activity",
+                side_effect=stop_after_launch,
+            ) as start_activity,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "stop after launch"):
+                android_emulator_smoke.test_app(Path("app.apk"), "NIKNOLIG", None)
+
+        install_apk.assert_called_once_with(Path("app.apk"), package)
+        verify_package_installed.assert_called_once_with(package)
+        clear_app_data.assert_called_once_with(package)
+        verify_installed_launcher.assert_called_once_with(package, manifest_activity)
+        self.assertEqual(
+            (package, installed_activity), start_activity.call_args.args[:2]
+        )
+
+
 class ActivityReadinessTests(unittest.TestCase):
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.run_adb")
