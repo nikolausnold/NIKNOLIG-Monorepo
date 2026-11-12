@@ -510,8 +510,18 @@ def wake_and_unlock_device(attempts=10):
     adb("shell", "wm", "dismiss-keyguard")
     for _ in range(attempts):
         state = adb("shell", "dumpsys", "window", "policy")
-        if re.search(r"(?m)^\s*isKeyguardShowing=false\b", state):
-            return
+        keyguard = re.search(
+            r"(?m)^(?P<indent>[ \t]*)KeyguardServiceDelegate\r?\n"
+            r"(?P<state>(?:(?P=indent)[ \t]+[^\n]*\n?)+)",
+            state,
+        )
+        if keyguard:
+            showing = re.findall(
+                r"(?m)^[ \t]*(?:showing|mIsShowing)=(true|false)[ \t]*\r?$",
+                keyguard["state"],
+            )
+            if showing and all(value == "false" for value in showing):
+                return
         time.sleep(1)
     raise AssertionError("Android keyguard remained visible after dismiss request")
 
