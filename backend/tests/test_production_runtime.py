@@ -303,7 +303,7 @@ class ProductionRuntimeTests(unittest.TestCase):
 
     def test_readiness_checks_database_and_migration_invariants(self):
         self.assertEqual((200, {"status": "ready"}), self.request("/health/ready"))
-        self.factory.assert_awaited_once_with(migrate.check_health_ready_async)
+        self.factory.assert_awaited_once_with(migrate.check_health_ready_async, health_login=True)
 
     def test_unavailable_database_returns_generic_503(self):
         self.factory.side_effect = psycopg.OperationalError("password and internal address")
@@ -339,7 +339,7 @@ class ProductionRuntimeTests(unittest.TestCase):
                 self.assertNotIn(str(failure), json.dumps(body))
 
     def test_liveness_remains_responsive_during_concurrent_readiness_timeouts(self):
-        async def stalled(check):
+        async def stalled(check, *, health_login=False):
             await asyncio.sleep(0.3)
             raise TimeoutError("private database")
 
@@ -524,6 +524,19 @@ class MigrationUnitTests(unittest.TestCase):
 
 
 class AsyncDeadlineTests(unittest.IsolatedAsyncioTestCase):
+    def test_device_api_readiness_checks_runtime_identity_and_live_privileges(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = ("postgres", "postgres")
+        with self.assertRaisesRegex(RuntimeError, "dedicated device API login"):
+            migrate.check_device_api_ready(connection)
+
+        connection.execute.return_value.fetchone.return_value = (
+            "backend_device_api", "backend_device_api",
+        )
+        with patch("migrate._run_checks") as checks:
+            migrate.check_device_api_ready(connection)
+        self.assertEqual(3, checks.call_count)
+
     async def test_probe_enforces_read_only_without_changing_migration_connections(self):
         connection = AsyncMock()
         with patch("database.connection_parameters", return_value=("", {
@@ -778,7 +791,8 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
     def test_async_health_role_readiness_accepts_valid_schema_and_rejects_drift(self):
         from psycopg.conninfo import make_conninfo
         with patch("database.read_secret", return_value="integration-test-only"):
-            migrate.migrate(self.connection, approve_contract=True, health_secret_path="mock-only")
+            migrate.migrate(self.connection, approve_contract=True, approve_device_api=True,
+                            health_secret_path="mock-only")
         dsn = make_conninfo(
             os.environ["BACKEND_TEST_DATABASE_URL"], user="backend_health",
             **{"password": "integration-test-only"},
@@ -1041,12 +1055,12 @@ class PostgreSQLIntegrationTests(unittest.TestCase):
         proxy_thread.start()
         connections = []
 
-        async def probe(check):
+        async def probe(check, *, health_login=False):
             async def drop_then_check(connection):
                 connections.append(connection)
                 blackhole.set()
                 await check(connection)
-            await database.probe(drop_then_check)
+            await database.probe(drop_then_check, health_login=health_login)
 
         app_socket = socket.socket()
         app_socket.bind(("127.0.0.1", 0))

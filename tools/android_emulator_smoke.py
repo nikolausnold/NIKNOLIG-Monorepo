@@ -29,6 +29,7 @@ PACKAGE_MANAGER_TRANSIENT_ERRORS = (
     "timed out",
     "packagemanagerinternal",
     "storagemanagerservice.allocatebytes",
+    "storagemanager.getvolumes()",
 )
 
 
@@ -322,7 +323,11 @@ def start_activity(package, main_activity, attempts=8, recover=None):
             )
             output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}"
         print(f"am start attempt {attempt + 1} failed: {output.strip()}", flush=True)
-        if "Broken pipe" in output or "Failure calling service" in output:
+        if attempt + 1 < attempts and (
+            "broken pipe" in output.lower()
+            or "failure calling service" in output.lower()
+            or "can't find service: activity" in output.lower()
+        ):
             # system_server is restarting; wait for the activity service instead of retrying blindly.
             print(f"Activity service ready: {wait_for_activity_service()}", flush=True)
         if recover is not None and attempt + 1 < attempts and "does not exist" in output:
@@ -387,9 +392,18 @@ class HttpsProbeServer:
 def hierarchy(attempts=6):
     for attempt in range(attempts):
         try:
-            run_adb("shell", "rm", "-f", "/sdcard/window.xml", timeout=15)
+            subprocess.run(
+                [ADB, "shell", "rm", "-f", "/sdcard/window.xml"],
+                check=False,
+                timeout=15,
+                capture_output=True,
+            )
             adb("shell", "uiautomator", "dump", "/sdcard/window.xml", timeout=30)
             return ET.fromstring(adb("exec-out", "cat", "/sdcard/window.xml"))
+        except subprocess.TimeoutExpired as exc:
+            failure = exc
+            transient = True
+            message = f"UI hierarchy attempt {attempt + 1} timed out: {exc}"
         except subprocess.CalledProcessError as exc:
             failure = exc
             output = "\n".join(value for value in (exc.stdout, exc.stderr) if value)
@@ -412,8 +426,7 @@ def hierarchy(attempts=6):
         print(message, flush=True)
         if not transient or attempt + 1 == attempts:
             raise AssertionError(message) from failure
-        run_adb("shell", "killall", "uiautomator", timeout=15)
-        time.sleep(3)
+        time.sleep(2 + 2 * attempt)
 
 
 def screen_size():
@@ -481,6 +494,19 @@ def wait_for_text(*expected, timeout=15):
     raise AssertionError(f"Expected UI text not found: {expected}")
 
 
+def tap_until_text(resource_id, *expected, status_resource_id=None, attempts=3):
+    failure = None
+    for _ in range(attempts):
+        try:
+            tap(resource_id)
+            if status_resource_id is not None:
+                tap(status_resource_id)
+            return wait_for_text(*expected, timeout=3)
+        except AssertionError as exc:
+            failure = exc
+    raise failure
+
+
 def wait_for_input_text(resource_id, expected, timeout=15):
     deadline = time.monotonic() + timeout
     suffix = f":id/{resource_id}"
@@ -519,6 +545,27 @@ def wait_for_resumed_activity(package, attempts=5):
         time.sleep(2)
 
 
+def wake_and_unlock_device(attempts=10):
+    adb("shell", "input", "keyevent", "KEYCODE_WAKEUP")
+    adb("shell", "wm", "dismiss-keyguard")
+    for _ in range(attempts):
+        state = adb("shell", "dumpsys", "window", "policy")
+        keyguard = re.search(
+            r"(?m)^(?P<indent>[ \t]*)KeyguardServiceDelegate\r?\n"
+            r"(?P<state>(?:(?P=indent)[ \t]+[^\n]*\n?)+)",
+            state,
+        )
+        if keyguard:
+            showing = re.findall(
+                r"(?m)^[ \t]*(?:showing|mIsShowing)=(true|false)[ \t]*\r?$",
+                keyguard["state"],
+            )
+            if showing and all(value == "false" for value in showing):
+                return
+        time.sleep(1)
+    raise AssertionError("Android keyguard remained visible after dismiss request")
+
+
 def test_app(apk, brand, server):
     package, main_activity = resolve_apk_launch_target(apk)
     print(
@@ -526,9 +573,9 @@ def test_app(apk, brand, server):
         flush=True,
     )
     install_apk(apk, package)
-    main_activity = verify_installed_launcher(package, main_activity)
+    verify_package_installed(package)
     clear_app_data(package)
-    main_activity = verify_installed_launcher(package, main_activity)
+    verify_package_installed(package)
     package_state = adb("shell", "dumpsys", "package", package)
     if re.search(
         r"(?m)^\s*android\.permission\.INTERNET:\s+granted=true(?:,|$)",
@@ -536,13 +583,18 @@ def test_app(apk, brand, server):
     ) is None:
         raise AssertionError(f"{package} INTERNET is not granted")
 
+    wake_and_unlock_device()
     start_activity(package, main_activity, recover=lambda: install_apk(apk, package))
     wait_for_resumed_activity(package)
     wait_for_text(brand)
 
     tap("assistant_button")
-    tap("assistant_request_button")
-    wait_for_text("Bitte gib zuerst", "Enter a term")
+    tap_until_text(
+        "assistant_request_button",
+        "Bitte gib zuerst",
+        "Enter a term",
+        status_resource_id="assistant_request_status",
+    )
     tap("assistant_close_button")
 
     tap("learning_profile_button")

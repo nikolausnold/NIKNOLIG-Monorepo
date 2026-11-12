@@ -48,7 +48,9 @@ services:
       PGUSER: backend_migrator
       PGPASSWORD_FILE: /run/secrets/postgres_password
       HEALTH_DB_PASSWORD_FILE: /run/secrets/health_password
-    secrets: [postgres_password, health_password]
+      DEVICE_API_DB_PASSWORD_FILE: /run/secrets/device_api_password
+      APPROVE_DEVICE_API_SCHEMA: ${APPROVE_DEVICE_API_SCHEMA:-0}
+    secrets: [postgres_password, health_password, device_api_password]
     networks: [database]
     depends_on:
       preflight:
@@ -66,7 +68,15 @@ services:
       PGDATABASE: niknolig_health
       PGUSER: backend_health
       PGPASSWORD_FILE: /run/secrets/health_password
-    secrets: [health_password]
+      # Device API stays disabled (routes absent) unless explicitly enabled with real secrets.
+      DEVICE_API_ENABLED: ${DEVICE_API_ENABLED:-0}
+      DEVICE_API_DB_USER: backend_device_api
+      DEVICE_API_DB_PASSWORD_FILE: /run/secrets/device_api_password
+      DEVICE_TOKEN_SECRET_FILE: /run/secrets/device_token_secret
+      AUTH_ISSUER: ${AUTH_ISSUER:-}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE:-}
+      AUTH_JWKS_URL: ${AUTH_JWKS_URL:-}
+    secrets: [health_password, device_api_password, device_token_secret]
     networks: [database, edge]
     depends_on:
       migrate:
@@ -109,6 +119,10 @@ secrets:
     file: ${POSTGRES_PASSWORD_SECRET_FILE:?Set path to operator-provisioned migration password}
   health_password:
     file: ${HEALTH_PASSWORD_SECRET_FILE:?Set path to separate operator-provisioned health password}
+  device_api_password:
+    file: ${DEVICE_API_PASSWORD_SECRET_FILE:-/dev/null}
+  device_token_secret:
+    file: ${DEVICE_TOKEN_SECRET_HOST_FILE:-/dev/null}
   tls_certificate:
     file: ${TLS_CERTIFICATE_FILE:?Set path to real certificate chain}
   tls_private_key:

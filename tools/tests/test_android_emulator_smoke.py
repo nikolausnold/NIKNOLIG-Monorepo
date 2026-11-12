@@ -13,6 +13,41 @@ with patch.dict(os.environ, {"ANDROID_HOME": "/android-sdk"}):
 
 
 class StartActivityTests(unittest.TestCase):
+    def assert_service_wait_before_retry(self, diagnostic):
+        events = []
+        results = iter(
+            (
+                subprocess.CompletedProcess("adb", 1, stdout="", stderr=diagnostic),
+                subprocess.CompletedProcess("adb", 0, stdout="Status: ok", stderr=""),
+            )
+        )
+
+        def launch(*args, **kwargs):
+            events.append("launch")
+            return next(results)
+
+        def wait_for_service():
+            events.append("service")
+            return True
+
+        with (
+            patch("tools.android_emulator_smoke.subprocess.run", side_effect=launch) as run,
+            patch(
+                "tools.android_emulator_smoke.wait_for_activity_service",
+                side_effect=wait_for_service,
+            ) as wait,
+            patch("tools.android_emulator_smoke.adb"),
+            patch("tools.android_emulator_smoke.time.sleep"),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            android_emulator_smoke.start_activity(
+                "example", ".MainActivity", attempts=2
+            )
+
+        self.assertEqual(["launch", "service", "launch"], events)
+        self.assertEqual(2, run.call_count)
+        wait.assert_called_once_with()
+
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
     @patch("tools.android_emulator_smoke.subprocess.run")
@@ -125,6 +160,38 @@ class StartActivityTests(unittest.TestCase):
         self.assertIn("attempt 1 failed: launch failed", output.getvalue())
         adb.assert_called_once()
         sleep.assert_called_once_with(3)
+
+    def test_broken_pipe_waits_for_service_before_retry(self):
+        self.assert_service_wait_before_retry(
+            "cmd: Failure calling service activity: Broken pipe (32)"
+        )
+
+    def test_missing_activity_service_waits_before_retry(self):
+        self.assert_service_wait_before_retry("cmd: Can't find service: activity")
+
+    @patch("tools.android_emulator_smoke.wait_for_activity_service")
+    @patch("tools.android_emulator_smoke.adb")
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    def test_does_not_wait_after_final_launch_attempt(
+        self, sleep, run, adb, wait_for_service
+    ):
+        run.return_value = subprocess.CompletedProcess(
+            "adb",
+            1,
+            stdout="",
+            stderr="Failure calling service activity: Broken pipe (32)",
+        )
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(AssertionError, "Broken pipe"):
+                android_emulator_smoke.start_activity(
+                    "example", ".MainActivity", attempts=1
+                )
+
+        wait_for_service.assert_not_called()
+        sleep.assert_called_once_with(3)
+        adb.assert_called_once_with("shell", "input", "keyevent", "KEYCODE_HOME")
 
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
@@ -516,6 +583,10 @@ class InstallApkTests(unittest.TestCase):
         errors = (
             "java.lang.NullPointerException at "
             "com.android.server.StorageManagerService.allocateBytes",
+            "java.lang.NullPointerException: Attempt to invoke virtual method "
+            "'java.util.List android.os.storage.StorageManager.getVolumes()' "
+            "on a null object reference at "
+            "com.android.internal.content.InstallLocationUtils.resolveInstallVolume",
             "java.lang.NullPointerException at "
             "com.android.server.pm.PackageManagerInternal",
         )
@@ -758,11 +829,161 @@ class ActivityReadinessTests(unittest.TestCase):
         sleep.assert_called_once_with(2)
 
 
-class HierarchyTests(unittest.TestCase):
+class ActivityServiceReadinessTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.time.monotonic", return_value=0)
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_failed_probes_until_numeric_current_user(
+        self, run_adb, monotonic, sleep
+    ):
+        run_adb.side_effect = [
+            subprocess.CompletedProcess("adb", 1, stdout="", stderr="service unavailable"),
+            subprocess.CompletedProcess("adb", 0, stdout="10\n", stderr=""),
+        ]
+
+        self.assertTrue(android_emulator_smoke.wait_for_activity_service(timeout=5))
+
+        self.assertEqual(2, run_adb.call_count)
+        sleep.assert_called_once_with(3)
+        self.assertEqual(3, monotonic.call_count)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.time.monotonic", return_value=0)
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_probe_exceptions_until_service_is_ready(
+        self, run_adb, monotonic, sleep
+    ):
+        run_adb.side_effect = [
+            OSError("adb transport unavailable"),
+            subprocess.SubprocessError("activity service restarting"),
+            subprocess.CompletedProcess("adb", 0, stdout="0", stderr=""),
+        ]
+
+        self.assertTrue(android_emulator_smoke.wait_for_activity_service(timeout=5))
+
+        self.assertEqual(3, run_adb.call_count)
+        self.assertEqual(2, sleep.call_count)
+        self.assertEqual([3, 3], [call.args[0] for call in sleep.call_args_list])
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.time.monotonic", side_effect=[0, 0, 3])
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_returns_false_when_readiness_deadline_expires(
+        self, run_adb, monotonic, sleep
+    ):
+        run_adb.return_value = subprocess.CompletedProcess(
+            "adb", 1, stdout="", stderr="service unavailable"
+        )
+
+        self.assertFalse(android_emulator_smoke.wait_for_activity_service(timeout=2))
+
+        run_adb.assert_called_once()
+        sleep.assert_called_once_with(3)
+        self.assertEqual(3, monotonic.call_count)
+
+
+class DeviceUiReadinessTests(unittest.TestCase):
+    # KeyguardServiceDelegate.dump / KeyguardStateMonitor.dump layout from AOSP.
+    UNLOCKED_POLICY = """WINDOW MANAGER POLICY STATE (dumpsys window policy)
+    mSafeMode=false mSystemReady=true mSystemBooted=true
+    KeyguardServiceDelegate
+      showing=false
+      inputRestricted=false
+      occluded=false
+      secure=false
+      dreaming=false
+      systemIsReady=true
+      deviceHasKeyguard=true
+      enabled=true
+      offReason=OFF_BECAUSE_OF_USER
+      currentUser=0
+      bootCompleted=true
+      screenState=SCREEN_STATE_ON
+      interactiveState=INTERACTIVE_STATE_AWAKE
+      KeyguardStateMonitor
+        mIsShowing=false
+        mSimSecure=false
+        mInputRestricted=false
+        mTrusted=false
+        mCurrentUserId=0
+    Looper state:
+      showing=true
+"""
+    LOCKED_POLICY = UNLOCKED_POLICY.replace(
+        "showing=false", "showing=true"
+    ).replace("mIsShowing=false", "mIsShowing=true")
+
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
-    @patch("tools.android_emulator_smoke.run_adb")
-    def test_retries_transient_ui_automation_registration_failure(self, run_adb, adb, sleep):
+    def test_wakes_and_dismisses_keyguard_before_ui_testing(self, adb, sleep):
+        adb.side_effect = [
+            "",
+            "",
+            self.LOCKED_POLICY,
+            self.UNLOCKED_POLICY,
+        ]
+
+        android_emulator_smoke.wake_and_unlock_device()
+
+        self.assertEqual(
+            [
+                ("shell", "input", "keyevent", "KEYCODE_WAKEUP"),
+                ("shell", "wm", "dismiss-keyguard"),
+                ("shell", "dumpsys", "window", "policy"),
+                ("shell", "dumpsys", "window", "policy"),
+            ],
+            [call.args for call in adb.call_args_list],
+        )
+        sleep.assert_called_once_with(1)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    def test_fails_if_keyguard_cannot_be_dismissed(self, adb, sleep):
+        adb.side_effect = ["", "", *[self.LOCKED_POLICY] * 2]
+
+        with self.assertRaisesRegex(
+            AssertionError, "Android keyguard remained visible"
+        ):
+            android_emulator_smoke.wake_and_unlock_device(attempts=2)
+
+        self.assertEqual(4, adb.call_count)
+        self.assertEqual(2, sleep.call_count)
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    def test_accepts_already_unlocked_keyguard(self, adb, sleep):
+        adb.side_effect = ["", "", self.UNLOCKED_POLICY]
+
+        android_emulator_smoke.wake_and_unlock_device(attempts=1)
+
+        self.assertEqual(3, adb.call_count)
+        sleep.assert_not_called()
+
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    def test_rejects_unknown_or_conflicting_keyguard_state(self, adb, sleep):
+        for state in (
+            "",
+            "isKeyguardShowing=false",
+            "showing=false\nmIsShowing=false",
+            "    KeyguardServiceDelegate\n      secure=false\n"
+            "    Other section\n      showing=false\n",
+            self.UNLOCKED_POLICY.replace("showing=false", "showing=true"),
+            self.UNLOCKED_POLICY.replace("mIsShowing=false", "mIsShowing=true"),
+        ):
+            with self.subTest(state=state):
+                adb.side_effect = ["", "", state]
+                with self.assertRaisesRegex(
+                    AssertionError, "Android keyguard remained visible"
+                ):
+                    android_emulator_smoke.wake_and_unlock_device(attempts=1)
+
+
+class HierarchyTests(unittest.TestCase):
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    def test_retries_transient_ui_automation_registration_failure(self, adb, sleep, run):
         adb.side_effect = [
             subprocess.CalledProcessError(137, "uiautomator", stderr=""),
             "UI hierarchy dumped",
@@ -774,21 +995,31 @@ class HierarchyTests(unittest.TestCase):
 
         self.assertEqual("hierarchy", hierarchy.tag)
         self.assertEqual(3, adb.call_count)
+        self.assertEqual(2, run.call_count)
         self.assertIn("attempt 1 failed (exit 137)", output.getvalue())
-        run_adb.assert_has_calls(
-            [
-                call("shell", "rm", "-f", "/sdcard/window.xml", timeout=15),
-                call("shell", "killall", "uiautomator", timeout=15),
-                call("shell", "rm", "-f", "/sdcard/window.xml", timeout=15),
-            ]
-        )
-        self.assertEqual(3, run_adb.call_count)
-        sleep.assert_called_once_with(3)
+        sleep.assert_called_once_with(2)
 
+    @patch("tools.android_emulator_smoke.subprocess.run")
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.adb")
-    @patch("tools.android_emulator_smoke.run_adb")
-    def test_does_not_retry_permanent_ui_automation_failure(self, run_adb, adb, sleep):
+    def test_retries_subprocess_timeout(self, adb, sleep, run):
+        adb.side_effect = [
+            subprocess.TimeoutExpired("uiautomator", 30),
+            "UI hierarchy dumped",
+            "<hierarchy><node /></hierarchy>",
+        ]
+
+        hierarchy = android_emulator_smoke.hierarchy()
+
+        self.assertEqual("hierarchy", hierarchy.tag)
+        self.assertEqual(3, adb.call_count)
+        self.assertEqual(2, run.call_count)
+        sleep.assert_called_once_with(2)
+
+    @patch("tools.android_emulator_smoke.subprocess.run")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.adb")
+    def test_does_not_retry_permanent_ui_automation_failure(self, adb, sleep, run):
         adb.side_effect = subprocess.CalledProcessError(
             1, "uiautomator", stderr="permission denied"
         )
@@ -796,10 +1027,110 @@ class HierarchyTests(unittest.TestCase):
             android_emulator_smoke.hierarchy()
 
         adb.assert_called_once()
-        run_adb.assert_called_once_with(
-            "shell", "rm", "-f", "/sdcard/window.xml", timeout=15
-        )
+        run.assert_called_once()
         sleep.assert_not_called()
+
+
+class TapUntilTextTests(unittest.TestCase):
+    def test_retries_the_tap_until_expected_text_appears(self):
+        with (
+            patch("tools.android_emulator_smoke.tap") as tap,
+            patch("tools.android_emulator_smoke.wait_for_text") as wait_for_text,
+        ):
+            wait_for_text.side_effect = [
+                AssertionError("Expected UI text not found"),
+                "Enter a term or statement first.",
+            ]
+
+            result = android_emulator_smoke.tap_until_text(
+                "assistant_request_button",
+                "Enter a term",
+                status_resource_id="assistant_request_status",
+            )
+
+        self.assertEqual("Enter a term or statement first.", result)
+        self.assertEqual(
+            [
+                call("assistant_request_button"),
+                call("assistant_request_status"),
+                call("assistant_request_button"),
+                call("assistant_request_status"),
+            ],
+            tap.call_args_list,
+        )
+        self.assertEqual(2, wait_for_text.call_count)
+
+    def test_retries_when_first_status_lookup_fails(self):
+        with (
+            patch("tools.android_emulator_smoke.tap") as tap,
+            patch("tools.android_emulator_smoke.wait_for_text") as wait_for_text,
+        ):
+            tap.side_effect = [
+                None,
+                AssertionError("Could not find status"),
+                None,
+                None,
+            ]
+            wait_for_text.return_value = "Enter a term or statement first."
+
+            result = android_emulator_smoke.tap_until_text(
+                "assistant_request_button",
+                "Enter a term",
+                status_resource_id="assistant_request_status",
+            )
+
+        self.assertEqual("Enter a term or statement first.", result)
+        self.assertEqual(
+            [
+                call("assistant_request_button"),
+                call("assistant_request_status"),
+                call("assistant_request_button"),
+                call("assistant_request_status"),
+            ],
+            tap.call_args_list,
+        )
+        wait_for_text.assert_called_once_with("Enter a term", timeout=3)
+
+    def test_retries_when_first_request_lookup_fails(self):
+        with (
+            patch("tools.android_emulator_smoke.tap") as tap,
+            patch("tools.android_emulator_smoke.wait_for_text") as wait_for_text,
+        ):
+            tap.side_effect = [AssertionError("Could not find request"), None, None]
+            wait_for_text.return_value = "Enter a term or statement first."
+
+            result = android_emulator_smoke.tap_until_text(
+                "assistant_request_button",
+                "Enter a term",
+                status_resource_id="assistant_request_status",
+            )
+
+        self.assertEqual("Enter a term or statement first.", result)
+        self.assertEqual(
+            [
+                call("assistant_request_button"),
+                call("assistant_request_button"),
+                call("assistant_request_status"),
+            ],
+            tap.call_args_list,
+        )
+        wait_for_text.assert_called_once_with("Enter a term", timeout=3)
+
+    def test_raises_after_all_tap_attempts(self):
+        with (
+            patch("tools.android_emulator_smoke.tap") as tap,
+            patch(
+                "tools.android_emulator_smoke.wait_for_text",
+                side_effect=AssertionError("Expected UI text not found"),
+            ) as wait_for_text,
+        ):
+            with self.assertRaisesRegex(AssertionError, "Expected UI text not found"):
+                android_emulator_smoke.tap_until_text(
+                    "assistant_request_button", "Enter a term"
+                )
+
+        self.assertEqual(3, tap.call_count)
+        self.assertEqual(3, wait_for_text.call_count)
 
 
 if __name__ == "__main__":

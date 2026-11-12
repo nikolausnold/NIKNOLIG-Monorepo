@@ -303,6 +303,8 @@ class AppDesignTests(unittest.TestCase):
                 "@+id/support_contact_button",
                 "@+id/learning_profile_button",
                 "@+id/assistant_button",
+                "@+id/security_dashboard_button",
+                "@+id/device_link_button",
             },
             {button.get(ANDROID + "id") for button in layout.iter("Button")},
         )
