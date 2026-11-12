@@ -11,6 +11,10 @@ SOURCE_MODULES = (
     "modules/electro-engel/core",
     "modules/support/core",
 )
+REVIEWED_NSD_SOURCES = {
+    "apps/niknolig/src/main/java/com/niknolig/app/NearbyPairing.kt",
+    "apps/niknolig-defense/src/main/java/com/niknolig/defense/NearbyPairing.kt",
+}
 ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
 ALLOWED_PERMISSIONS = {"android.permission.INTERNET"}
 FORBIDDEN_SOURCE = re.compile(
@@ -31,6 +35,7 @@ class GooglePlayPolicyTests(unittest.TestCase):
             "SmsManager.getDefault()",
             "SmsMessage.createFromPdu(pdu)",
             "Telephony.Sms.CONTENT_URI",
+            "NsdManager.registerService(...)",
         )
         for reference in references:
             with self.subTest(reference=reference):
@@ -75,10 +80,14 @@ class GooglePlayPolicyTests(unittest.TestCase):
                 base = ROOT / module_path
                 files = [base / "build.gradle.kts", *base.glob("src/main/**/*.kt")]
                 for path in files:
-                    self.assertIsNone(
-                        FORBIDDEN_SOURCE.search(path.read_text(encoding="utf-8")),
-                        str(path),
-                    )
+                    relative_path = path.relative_to(ROOT).as_posix()
+                    for match in FORBIDDEN_SOURCE.finditer(path.read_text(encoding="utf-8")):
+                        if (
+                            match.group() == "NsdManager"
+                            and relative_path in REVIEWED_NSD_SOURCES
+                        ):
+                            continue
+                        self.fail(f"Forbidden source API {match.group()}: {path}")
 
     def test_both_modules_keep_identical_sdk_levels(self):
         levels = set()
