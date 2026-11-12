@@ -434,6 +434,87 @@ class InstallApkTests(unittest.TestCase):
     @patch("tools.android_emulator_smoke.package_diagnostics")
     @patch("tools.android_emulator_smoke.time.sleep")
     @patch("tools.android_emulator_smoke.run_adb")
+    def test_retries_android_17_package_service_npe_markers(
+        self, run_adb, sleep, diagnostics
+    ):
+        errors = (
+            "java.lang.NullPointerException at "
+            "com.android.server.StorageManagerService.allocateBytes",
+            "java.lang.NullPointerException at "
+            "com.android.server.pm.PackageManagerInternal",
+        )
+        diagnostics.return_value = "package service is starting"
+
+        for error in errors:
+            with self.subTest(error=error):
+                self.assertNotIn("broken pipe", error.lower())
+                run_adb.reset_mock()
+                run_adb.side_effect = [
+                    subprocess.CompletedProcess("adb", 1, stdout="", stderr=error),
+                    subprocess.CompletedProcess("adb", 0, stdout="Success", stderr=""),
+                ]
+                sleep.reset_mock()
+                diagnostics.reset_mock()
+
+                with contextlib.redirect_stdout(io.StringIO()):
+                    android_emulator_smoke.install_apk(
+                        Path("/build/app-debug.apk"), "com.example.actual"
+                    )
+
+                self.assertEqual(2, run_adb.call_count)
+                self.assertEqual(
+                    [
+                        ("install", "-r", "/build/app-debug.apk"),
+                        ("install", "-r", "--no-streaming", "/build/app-debug.apk"),
+                    ],
+                    [call.args for call in run_adb.call_args_list],
+                )
+                diagnostics.assert_called_once_with("com.example.actual")
+                sleep.assert_called_once_with(5)
+
+    @patch("tools.android_emulator_smoke.package_diagnostics")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
+    def test_stops_after_six_transient_failures_with_alternating_installs(
+        self, run_adb, sleep, diagnostics
+    ):
+        error = (
+            "java.lang.NullPointerException at "
+            "com.android.server.StorageManagerService.allocateBytes"
+        )
+        run_adb.side_effect = [
+            subprocess.CompletedProcess("adb", 1, stdout="", stderr=error)
+            for _ in range(6)
+        ]
+        diagnostics.return_value = "package service is starting"
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(AssertionError, "allocateBytes"):
+                android_emulator_smoke.install_apk(
+                    Path("/build/app-debug.apk"), "com.example.actual"
+                )
+
+        self.assertEqual(6, run_adb.call_count)
+        self.assertEqual(
+            [
+                ("install", "-r", "/build/app-debug.apk"),
+                ("install", "-r", "--no-streaming", "/build/app-debug.apk"),
+                ("install", "-r", "/build/app-debug.apk"),
+                ("install", "-r", "--no-streaming", "/build/app-debug.apk"),
+                ("install", "-r", "/build/app-debug.apk"),
+                ("install", "-r", "--no-streaming", "/build/app-debug.apk"),
+            ],
+            [call.args for call in run_adb.call_args_list],
+        )
+        self.assertTrue(
+            all(call.kwargs == {"timeout": 120} for call in run_adb.call_args_list)
+        )
+        self.assertEqual(6, diagnostics.call_count)
+        self.assertEqual([5, 10, 15, 20, 25], [call.args[0] for call in sleep.call_args_list])
+
+    @patch("tools.android_emulator_smoke.package_diagnostics")
+    @patch("tools.android_emulator_smoke.time.sleep")
+    @patch("tools.android_emulator_smoke.run_adb")
     def test_does_not_retry_permanent_install_error(self, run_adb, sleep, diagnostics):
         run_adb.return_value = subprocess.CompletedProcess(
             "adb", 1, stdout="", stderr="Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]"
