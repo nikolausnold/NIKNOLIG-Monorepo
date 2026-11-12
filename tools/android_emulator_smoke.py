@@ -284,7 +284,20 @@ def resolve_installed_launcher(package, manifest_activity, attempts=5):
         time.sleep(2)
 
 
-def start_activity(package, main_activity, attempts=5, recover=None):
+def wait_for_activity_service(timeout=90):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            result = run_adb("shell", "cmd", "activity", "get-current-user", timeout=10)
+            if result.returncode == 0 and result.stdout.strip().isdigit():
+                return True
+        except (subprocess.SubprocessError, OSError):
+            pass
+        time.sleep(3)
+    return False
+
+
+def start_activity(package, main_activity, attempts=8, recover=None):
     # am can fail transiently right after install/pm clear while the system settles.
     for attempt in range(attempts):
         try:
@@ -309,6 +322,9 @@ def start_activity(package, main_activity, attempts=5, recover=None):
             )
             output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}"
         print(f"am start attempt {attempt + 1} failed: {output.strip()}", flush=True)
+        if "Broken pipe" in output or "Failure calling service" in output:
+            # system_server is restarting; wait for the activity service instead of retrying blindly.
+            print(f"Activity service ready: {wait_for_activity_service()}", flush=True)
         if recover is not None and attempt + 1 < attempts and "does not exist" in output:
             # A system_server restart can leave the package unloadable; reinstall it.
             try:
