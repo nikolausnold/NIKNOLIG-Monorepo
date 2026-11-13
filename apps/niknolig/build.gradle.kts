@@ -10,7 +10,7 @@ dependencies {
     implementation(project(":electro-engel-core"))
     implementation(project(":support-core"))
     implementation(project(":device-link-core"))
-    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.zxing:core:3.5.4")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     testImplementation("junit:junit:4.13.2")
 }
