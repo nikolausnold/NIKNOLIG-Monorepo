@@ -389,17 +389,22 @@ class HttpsProbeServer:
         self.thread.join(timeout=2)
 
 
+# /sdcard is a FUSE mount that can drop (ENOTCONN) while vold remounts storage
+# after boot; /data/local/tmp is shell-writable and unaffected.
+DUMP_PATH = "/data/local/tmp/window.xml"
+
+
 def hierarchy(attempts=6):
     for attempt in range(attempts):
         try:
             subprocess.run(
-                [ADB, "shell", "rm", "-f", "/sdcard/window.xml"],
+                [ADB, "shell", "rm", "-f", DUMP_PATH],
                 check=False,
                 timeout=15,
                 capture_output=True,
             )
-            adb("shell", "uiautomator", "dump", "/sdcard/window.xml", timeout=30)
-            return ET.fromstring(adb("exec-out", "cat", "/sdcard/window.xml"))
+            adb("shell", "uiautomator", "dump", DUMP_PATH, timeout=30)
+            return ET.fromstring(adb("exec-out", "cat", DUMP_PATH))
         except subprocess.TimeoutExpired as exc:
             failure = exc
             transient = True
