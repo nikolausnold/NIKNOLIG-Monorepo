@@ -11,20 +11,316 @@ from pathlib import Path
 
 ANDROID_HOME = Path(__import__("os").environ["ANDROID_HOME"])
 ADB = str(ANDROID_HOME / "platform-tools" / "adb")
+ANDROID_BUILD_TOOLS = ANDROID_HOME / "build-tools"
 NETWORK_ERROR_TEXT = (
     "Backend konnte nicht sicher erreicht werden",
     "The backend could not be reached securely",
 )
+PACKAGE_MANAGER_TRANSIENT_ERRORS = (
+    "broken pipe",
+    "failure calling service package",
+    "can't find service: package",
+    "could not access the package manager",
+    "package manager has died",
+    "deadobjectexception",
+    "device offline",
+    "device not found",
+    "connection reset",
+    "timed out",
+    "packagemanagerinternal",
+    "storagemanagerservice.allocatebytes",
+)
 
 
-def adb(*args, timeout=30):
+def run_adb(*args, timeout=30):
     return subprocess.run(
         [ADB, *args],
-        check=True,
         capture_output=True,
         text=True,
         timeout=timeout,
-    ).stdout.strip()
+        check=False,
+    )
+
+
+def adb(*args, timeout=30):
+    result = run_adb(*args, timeout=timeout)
+    if result.returncode:
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            [ADB, *args],
+            output=result.stdout,
+            stderr=result.stderr,
+        )
+    return result.stdout.strip()
+
+
+def parse_apk_launch_target(badging):
+    package = re.search(r"(?m)^package: name='([^']+)'", badging)
+    activity = re.search(r"(?m)^launchable-activity: name='([^']+)'", badging)
+    if package is None or activity is None:
+        raise AssertionError(f"APK manifest has no application ID or launcher activity:\n{badging}")
+    package_name = package.group(1)
+    activity_name = activity.group(1)
+    if activity_name.startswith("."):
+        activity_name = f"{package_name}{activity_name}"
+    elif "." not in activity_name:
+        activity_name = f"{package_name}.{activity_name}"
+    return package_name, activity_name
+
+
+def resolve_apk_launch_target(apk):
+    tools = sorted(
+        (path for path in ANDROID_BUILD_TOOLS.glob("*/aapt") if path.is_file()),
+        key=lambda path: tuple(int(part) for part in re.findall(r"\d+", path.parent.name)),
+    )
+    if not tools:
+        raise AssertionError(f"Android build-tools aapt was not found under {ANDROID_BUILD_TOOLS}")
+    result = subprocess.run(
+        [str(tools[-1]), "dump", "badging", str(apk)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    return parse_apk_launch_target(result.stdout)
+
+
+def package_diagnostics(package):
+    diagnostics = []
+    for label, args in (
+        ("adb state", ("get-state",)),
+        ("boot completed", ("shell", "getprop", "sys.boot_completed")),
+        ("user CE available", ("shell", "getprop", "sys.user.0.ce_available")),
+        ("installed APK", ("shell", "pm", "path", package)),
+        ("package state", ("shell", "dumpsys", "package", package)),
+    ):
+        try:
+            result = run_adb(*args, timeout=10)
+            output = (result.stdout + "\n" + result.stderr).strip()
+            if label == "package state":
+                output = output[:600]
+            diagnostics.append(f"{label} (exit {result.returncode}): {output or '<no output>'}")
+        except (OSError, subprocess.SubprocessError) as exc:
+            diagnostics.append(f"{label}: {exc}")
+    return "; ".join(diagnostics)
+
+
+def clear_app_data(package, attempts=3):
+    for attempt in range(attempts):
+        try:
+            result = run_adb("shell", "pm", "clear", package, timeout=30)
+            output = f"{result.stdout}\n{result.stderr}".strip()
+            if result.returncode == 0 and result.stdout.strip() == "Success":
+                return
+            returncode = result.returncode
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace")
+                if isinstance(value, bytes)
+                else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
+            returncode = "timeout"
+
+        diagnostics = package_diagnostics(package)
+        diagnostic_text = diagnostics.lower()
+        transient = any(
+            error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS
+        ) or (
+            returncode == 224
+            and not output
+            and "adb state (exit 0): device" in diagnostic_text
+            and "boot completed (exit 0): 1" in diagnostic_text
+            and "user ce available (exit 0): true" in diagnostic_text
+            and "installed apk (exit 0): package:" in diagnostic_text
+        )
+        message = (
+            f"pm clear attempt {attempt + 1} failed for {package} "
+            f"(exit {returncode}): {output or '<no output>'}; {diagnostics}"
+        )
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message)
+        time.sleep(2)
+
+
+def verify_package_installed(package, attempts=3):
+    for attempt in range(attempts):
+        try:
+            result = run_adb("shell", "pm", "path", package, timeout=15)
+            output = f"{result.stdout}\n{result.stderr}".strip()
+            returncode = result.returncode
+            if returncode == 0 and result.stdout.strip().startswith("package:"):
+                return
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace")
+                if isinstance(value, bytes)
+                else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
+            returncode = "timeout"
+
+        diagnostics = package_diagnostics(package)
+        transient = any(
+            error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS
+        )
+        message = (
+            f"APK package {package} is not installed "
+            f"(verification attempt {attempt + 1}, exit {returncode}): "
+            f"{output or '<no output>'}; {diagnostics}"
+        )
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message)
+        time.sleep(2)
+
+
+def verify_installed_launcher(package, manifest_activity):
+    verify_package_installed(package)
+    return resolve_installed_launcher(package, manifest_activity)
+
+
+def install_apk(apk, package, attempts=6):
+    for attempt in range(attempts):
+        try:
+            # Alternate to the legacy installer when streamed installs hit
+            # a not-yet-ready storage/package service.
+            install_args = ("install", "-r") + (
+                ("--no-streaming",) if attempt % 2 else ()
+            )
+            result = run_adb(*install_args, str(apk), timeout=120)
+            output = f"{result.stdout}\n{result.stderr}".strip()
+            returncode = result.returncode
+            if returncode == 0 and "success" in result.stdout.lower():
+                return
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace")
+                if isinstance(value, bytes)
+                else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
+            returncode = "timeout"
+
+        diagnostics = package_diagnostics(package)
+        transient = any(
+            error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS
+        )
+        message = (
+            f"APK install attempt {attempt + 1} failed for {package} "
+            f"(exit {returncode}): {output or '<no output>'}; {diagnostics}"
+        )
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message)
+        time.sleep(5 * (attempt + 1))
+
+
+def resolve_installed_launcher(package, manifest_activity, attempts=5):
+    args = (
+        "shell",
+        "cmd",
+        "package",
+        "resolve-activity",
+        "--brief",
+        "-a",
+        "android.intent.action.MAIN",
+        "-c",
+        "android.intent.category.LAUNCHER",
+        "-p",
+        package,
+    )
+    for attempt in range(attempts):
+        try:
+            result = run_adb(*args, timeout=15)
+            output = f"{result.stdout}\n{result.stderr}".strip()
+            returncode = result.returncode
+            stdout = result.stdout
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace")
+                if isinstance(value, bytes)
+                else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
+            returncode = "timeout"
+
+        component = re.search(
+            rf"(?m)^\s*{re.escape(package)}/([^\s]+)\s*$",
+            stdout,
+        )
+        if returncode == 0 and component is not None:
+            activity = component.group(1)
+            if activity.startswith("."):
+                activity = f"{package}{activity}"
+            elif "." not in activity:
+                activity = f"{package}.{activity}"
+            if activity != manifest_activity:
+                raise AssertionError(
+                    f"Installed launcher for {package} is {activity}, "
+                    f"but the APK manifest declares {manifest_activity}; "
+                    f"{package_diagnostics(package)}"
+                )
+            return activity
+
+        diagnostics = package_diagnostics(package)
+        transient = (
+            any(error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS)
+            or "no activity found" in output.lower()
+            or (returncode == 0 and not output)
+        )
+        message = (
+            f"Installed launcher resolution attempt {attempt + 1} failed for {package} "
+            f"(exit {returncode}): {output or '<no output>'}; {diagnostics}"
+        )
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message)
+        time.sleep(2)
+
+
+def start_activity(package, main_activity, attempts=5, recover=None):
+    # am can fail transiently right after install/pm clear while the system settles.
+    for attempt in range(attempts):
+        try:
+            result = subprocess.run(
+                [ADB, "shell", "am", "start", "-W", "-n", f"{package}/{main_activity}"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            output = f"{result.stdout}\n{result.stderr}"
+            if (
+                result.returncode == 0
+                and "Error" not in output
+                and "Status: timeout" not in output
+            ):
+                print(f"Activity start succeeded for {package}/{main_activity}: {output.strip()}", flush=True)
+                return
+        except subprocess.TimeoutExpired as exc:
+            stdout, stderr = (
+                value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value or ""
+                for value in (exc.stdout, exc.stderr)
+            )
+            output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}"
+        print(f"am start attempt {attempt + 1} failed: {output.strip()}", flush=True)
+        if recover is not None and attempt + 1 < attempts and "does not exist" in output:
+            # A system_server restart can leave the package unloadable; reinstall it.
+            try:
+                recover()
+            except (AssertionError, subprocess.SubprocessError, OSError) as exc:
+                print(f"Recovery reinstall failed: {exc}", flush=True)
+        try:
+            adb("shell", "input", "keyevent", "KEYCODE_HOME")
+        except (subprocess.SubprocessError, OSError) as exc:
+            print(f"HOME keyevent failed: {exc}", flush=True)
+        time.sleep(3)
+    raise AssertionError(f"Could not start {package}/{main_activity}: {output.strip()}")
 
 
 class HttpsProbeServer:
@@ -72,9 +368,36 @@ class HttpsProbeServer:
         self.thread.join(timeout=2)
 
 
-def hierarchy():
-    adb("shell", "uiautomator", "dump", "/sdcard/window.xml", timeout=30)
-    return ET.fromstring(adb("exec-out", "cat", "/sdcard/window.xml"))
+def hierarchy(attempts=6):
+    for attempt in range(attempts):
+        try:
+            run_adb("shell", "rm", "-f", "/sdcard/window.xml", timeout=15)
+            adb("shell", "uiautomator", "dump", "/sdcard/window.xml", timeout=30)
+            return ET.fromstring(adb("exec-out", "cat", "/sdcard/window.xml"))
+        except subprocess.CalledProcessError as exc:
+            failure = exc
+            output = "\n".join(value for value in (exc.stdout, exc.stderr) if value)
+            transient = exc.returncode == 137 or any(
+                error in output.lower()
+                for error in (
+                    "deadobjectexception",
+                    "error while registering uitestautomationservice",
+                )
+            )
+            message = (
+                f"UI hierarchy attempt {attempt + 1} failed "
+                f"(exit {exc.returncode}): {output or exc}"
+            )
+        except ET.ParseError as exc:
+            failure = exc
+            transient = True
+            message = f"UI hierarchy attempt {attempt + 1} returned invalid XML: {exc}"
+
+        print(message, flush=True)
+        if not transient or attempt + 1 == attempts:
+            raise AssertionError(message) from failure
+        run_adb("shell", "killall", "uiautomator", timeout=15)
+        time.sleep(3)
 
 
 def screen_size():
@@ -164,8 +487,32 @@ def has_resumed_activity(activity_state, package):
     ) is not None
 
 
-def test_app(package, brand, main_activity, server):
-    adb("shell", "pm", "clear", package)
+def wait_for_resumed_activity(package, attempts=5):
+    for attempt in range(attempts):
+        result = run_adb("shell", "dumpsys", "activity", "activities", timeout=15)
+        if result.returncode == 0 and has_resumed_activity(result.stdout, package):
+            return
+        output = result.stdout.strip()
+        message = (
+            f"Activity readiness attempt {attempt + 1} failed for {package} "
+            f"(exit {result.returncode}): {output[:800] or result.stderr.strip() or '<no output>'}"
+        )
+        print(message, flush=True)
+        if attempt + 1 == attempts:
+            raise AssertionError(f"{message}; {package_diagnostics(package)}")
+        time.sleep(2)
+
+
+def test_app(apk, brand, server):
+    package, main_activity = resolve_apk_launch_target(apk)
+    print(
+        f"Testing {apk}: applicationId={package}, launcherActivity={main_activity}",
+        flush=True,
+    )
+    install_apk(apk, package)
+    main_activity = verify_installed_launcher(package, main_activity)
+    clear_app_data(package)
+    main_activity = verify_installed_launcher(package, main_activity)
     package_state = adb("shell", "dumpsys", "package", package)
     if re.search(
         r"(?m)^\s*android\.permission\.INTERNET:\s+granted=true(?:,|$)",
@@ -173,7 +520,8 @@ def test_app(package, brand, main_activity, server):
     ) is None:
         raise AssertionError(f"{package} INTERNET is not granted")
 
-    adb("shell", "am", "start", "-W", "-n", f"{package}/{main_activity}")
+    start_activity(package, main_activity, recover=lambda: install_apk(apk, package))
+    wait_for_resumed_activity(package)
     wait_for_text(brand)
 
     tap("assistant_button")
@@ -202,7 +550,7 @@ def test_app(package, brand, main_activity, server):
 
     adb("shell", "input", "keyevent", "KEYCODE_BACK")
     adb("shell", "am", "force-stop", package)
-    adb("shell", "am", "start", "-W", "-n", f"{package}/{main_activity}")
+    start_activity(package, main_activity)
     wait_for_text(brand)
     tap("learning_profile_button")
     wait_for_input_text("session_summary_input", "CIemulatorcheck")
@@ -251,16 +599,20 @@ def main():
         server = HttpsProbeServer(certificate, private_key)
         server.start()
         try:
-            test_app(
-                "com.niknolig.app",
-                "NIKNOLIG",
-                ".MainActivity",
-                server,
+            niknolig_apk = next(
+                Path("apps/niknolig/build/outputs/apk/debug").glob("*.apk")
             )
             test_app(
-                "com.niknolig.defense",
+                niknolig_apk,
+                "NIKNOLIG",
+                server,
+            )
+            defense_apk = next(
+                Path("apps/niknolig-defense/build/outputs/apk/debug").glob("*.apk")
+            )
+            test_app(
+                defense_apk,
                 "NIKNOLIG Defense",
-                ".MainActivity",
                 server,
             )
         finally:
