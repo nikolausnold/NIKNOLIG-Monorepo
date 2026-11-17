@@ -52,8 +52,22 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Upload shared mobile contract snapshot
+        id: upload_contracts
+        continue-on-error: true
         uses: actions/upload-artifact@v7.0.2
         with:
+          name: mobile-contracts-${{ github.sha }}
+          path: |
+            backend/openapi.yaml
+            backend/contracts/*.json
+            config/system-repositories.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Retry shared mobile contract snapshot upload
+        if: steps.upload_contracts.outcome == 'failure'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          overwrite: true
           name: mobile-contracts-${{ github.sha }}
           path: |
             backend/openapi.yaml
