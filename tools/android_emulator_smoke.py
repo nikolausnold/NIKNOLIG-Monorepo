@@ -222,12 +222,7 @@ def install_apk(apk, package, attempts=6):
 
 
 def resolve_installed_launcher(package, manifest_activity, attempts=5):
-    args = (
-        "shell",
-        "cmd",
-        "package",
-        "resolve-activity",
-        "--brief",
+    base = (
         "-a",
         "android.intent.action.MAIN",
         "-c",
@@ -235,7 +230,15 @@ def resolve_installed_launcher(package, manifest_activity, attempts=5):
         "-p",
         package,
     )
+    # resolve-activity can report "No activity found" on newer Android releases
+    # even when the launcher is registered, so rotate through query-activities and the package dump on retries.
+    variants = (
+        ("shell", "cmd", "package", "resolve-activity", "--brief", "--user", "0", *base),
+        ("shell", "cmd", "package", "query-activities", "--brief", "--user", "0", *base),
+        ("shell", "dumpsys", "package", package),
+    )
     for attempt in range(attempts):
+        args = variants[attempt % len(variants)]
         try:
             result = run_adb(*args, timeout=15)
             output = f"{result.stdout}\n{result.stderr}".strip()
@@ -250,9 +253,13 @@ def resolve_installed_launcher(package, manifest_activity, attempts=5):
             )
             output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
             returncode = "timeout"
-
         component = re.search(
             rf"(?m)^\s*{re.escape(package)}/([^\s]+)\s*$",
+            stdout,
+        ) or re.search(
+            rf"(?m)^\s*\w+ {re.escape(package)}/(\S+) filter \w+\s*\n"
+            r'\s*Action: "android\.intent\.action\.MAIN"\s*\n'
+            r'\s*Category: "android\.intent\.category\.LAUNCHER"',
             stdout,
         )
         if returncode == 0 and component is not None:
@@ -272,7 +279,7 @@ def resolve_installed_launcher(package, manifest_activity, attempts=5):
         diagnostics = package_diagnostics(package)
         transient = (
             any(error in output.lower() for error in PACKAGE_MANAGER_TRANSIENT_ERRORS)
-            or "no activity found" in output.lower()
+            or "no activit" in output.lower()
             or (returncode == 0 and not output)
         )
         message = (
