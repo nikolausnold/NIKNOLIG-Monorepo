@@ -184,9 +184,18 @@ class AutobuildTests(unittest.TestCase):
     def test_android_emulator_disables_keyguard_before_smoke_tests(self):
         workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
         emulator_setup = workflow.split("- name: Start Android 17 emulator", 1)[1].split(
-            "- name: Build smoke APKs", 1
+            "- name: Install both apps and exercise Android 17 flows", 1
         )[0]
         self.assertIn("adb shell locksettings set-disabled true", emulator_setup)
+
+    def test_android_smoke_apks_are_built_before_starting_the_emulator(self):
+        workflow = (ROOT / ".github/workflows/android-build.yml").read_text()
+        build = workflow.index("- name: Build smoke APKs")
+        emulator = workflow.index("- name: Start Android 17 emulator")
+        smoke = workflow.index("- name: Install both apps and exercise Android 17 flows")
+
+        self.assertLess(build, emulator)
+        self.assertLess(emulator, smoke)
 
     def test_manual_release_installs_backend_dependencies_before_regression_tests(self):
         workflow = (ROOT / ".github/workflows/android-release.yml").read_text()
