@@ -222,12 +222,7 @@ def install_apk(apk, package, attempts=6):
 
 
 def resolve_installed_launcher(package, manifest_activity, attempts=5):
-    args = (
-        "shell",
-        "cmd",
-        "package",
-        "resolve-activity",
-        "--brief",
+    base = (
         "-a",
         "android.intent.action.MAIN",
         "-c",
@@ -235,7 +230,15 @@ def resolve_installed_launcher(package, manifest_activity, attempts=5):
         "-p",
         package,
     )
+    # resolve-activity can report "No activity found" on newer Android releases
+    # even when the launcher is registered, so rotate through query-activities on retries.
+    variants = (
+        ("shell", "cmd", "package", "resolve-activity", "--brief", "--user", "0", *base),
+        ("shell", "cmd", "package", "query-activities", "--brief", "--user", "0", *base),
+        ("shell", "cmd", "package", "resolve-activity", "--brief", *base),
+    )
     for attempt in range(attempts):
+        args = variants[attempt % len(variants)]
         try:
             result = run_adb(*args, timeout=15)
             output = f"{result.stdout}\n{result.stderr}".strip()
@@ -250,7 +253,6 @@ def resolve_installed_launcher(package, manifest_activity, attempts=5):
             )
             output = f"timed out after {exc.timeout}s\n{stdout}\n{stderr}".strip()
             returncode = "timeout"
-
         component = re.search(
             rf"(?m)^\s*{re.escape(package)}/([^\s]+)\s*$",
             stdout,
